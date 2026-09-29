@@ -20,8 +20,12 @@ def admit(store, saved, plan, task, review, opener, *, run_id):
     else:
         snapshot = load_snapshot(store.root)
         packets = {p['packet_id']: p for p in chunk_snapshot(snapshot, review['chunk_bytes'])}
-        request = {'identity': identity, **build_prompt(task, load_catalog(), snapshot, packets,
-            store.results(), review['prompt_bytes'], plan['omitted'])}
+        from .catalog_retrieval import retrieve
+        catalog = load_catalog()
+        retrieval, graph_evidence = retrieve(store, saved, snapshot, task, catalog)
+        request = {'identity': identity, **build_prompt(task, catalog, snapshot, packets,
+            store.results(), review['prompt_bytes'], plan['omitted'],
+            retrieval=retrieval, graph_evidence=graph_evidence)}
         store.write(request_path, request)
     request_hash = fingerprint(request)
     # Existing reservations are retained, including unknown executions. Core's
@@ -75,10 +79,17 @@ def reconcile(store):
         # from the frozen owner snapshot, never sandbox ledger copies.
         saved = store.read('catalog/context.json')
         packets = {p['packet_id']: p for p in chunk_snapshot(snapshot, saved['request']['review']['chunk_bytes'])}
-        if candidate.get('expand_evidence'):
-            value = expand_evidence(value, request['evidence'])
-        value = validate_result({**task, 'input_task_ids': request['input_task_ids']}, value,
-            snapshot, packets, request['requirements'], list(request['evidence'].values()))
+        try:
+            if candidate.get('expand_evidence'):
+                value = expand_evidence(value, request['evidence'])
+            value = validate_result({**task, 'input_task_ids': request['input_task_ids']}, value,
+                snapshot, packets, request['requirements'], list(request['evidence'].values()))
+        except (ValueError, TypeError, KeyError, AttributeError) as exc:
+            # Verified transport does not make untrusted model claims valid.
+            # Preserve the failed task without admitting any of its claims.
+            value = {'task_id': task['task_id'], 'kind': task['kind'], 'status': 'blocked',
+                     'reason': f'{type(exc).__name__}: structured evidence validation failed.',
+                     'claims': [], 'observations': [], 'proposed_followups': []}
         value.update(identity=request['identity'], request_hash=frozen['request_hash'],
                      model=frozen['opencode']['model'], input_omissions=request['omissions'],
                      input_task_ids=request['input_task_ids'], artifact_commit=ref)

@@ -133,5 +133,12 @@
     "max_output_bytes": 1048576,
     "sandbox_root": "/sandbox/job",
     "spark_base_url": "http://10.0.4.32:8000/v1"
+  },
+  "file_memory": {
+    "enabled": true,
+    "max_results": 3,
+    "read_lines": 24,
+    "max_context_bytes": 4000,
+    "max_note_bytes": 6000
   }
 }

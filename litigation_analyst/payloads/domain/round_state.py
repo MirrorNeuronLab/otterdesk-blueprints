@@ -1,5 +1,6 @@
 """Immutable litigation round artifacts and the existing review projection."""
 import json
+import os
 import time
 from pathlib import Path
 
@@ -75,6 +76,8 @@ def initialize(context, *, llm_client=None):
     name = "case/rounds/context.json"
     if not (root / name).exists():
         save(root, name, {"config": context["config"], "payload": context["payload"],
+            "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
+                             "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
             "investigation_id": identifier, "indexes": receipt,
             "deadline": time.time() + context["config"]["investigation"]["max_investigation_seconds"],
             "source_review_flags": {d.source_id: "Potential privileged material; human handling review required."

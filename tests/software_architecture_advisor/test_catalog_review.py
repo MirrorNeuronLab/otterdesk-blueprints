@@ -463,3 +463,53 @@ def test_model_choices_provider_settings_and_frozen_run(run):
     ctx["config"]["opencode"]["model"] = "spark/muse-glimmer-30b"
     with pytest.raises(ValueError, match="Frozen configuration changed"):
         handle_task(ctx, {"context": ref, **node["input"]}, llm_client=fake)
+
+
+@pytest.mark.parametrize('response', ['not json', '[]', '{}', 'x' * 200001])
+def test_immutable_review_blocks_invalid_model_response_and_continues(run, response):
+    from domain.catalog_planning import planner
+    from domain.catalog_store import CatalogStore
+    from handoff_test_support import review_task
+    ctx, ref = run
+    decision = planner(ctx, {'context': ref, '_child': {'revision': 0}})
+    first, second = decision['child_plan']['steps'][:2]
+    assert first['label'].startswith('Scan source: ')
+    calls = []
+    def invalid(prompt):
+        calls.append(prompt)
+        return response
+    review_task(ctx, ref, {'id': first['id'], **first['input']}, invalid)
+    review_task(ctx, ref, {'id': first['id'], **first['input']}, invalid)
+    store = CatalogStore(ctx['run_dir'])
+    result = store.result(first['id'])
+    assert result['status'] == 'blocked'
+    assert result['claims'] == []
+    assert len(calls) == 1
+    review_task(ctx, ref, {'id': second['id'], **second['input']}, fake)
+    assert store.result(second['id'])['status'] == 'completed'
+
+
+def test_immutable_review_records_provider_failure_without_secret(run):
+    from domain.catalog_planning import planner
+    from domain.catalog_store import CatalogStore
+    from handoff_test_support import review_task
+    ctx, ref = run
+    node = planner(ctx, {'context': ref, '_child': {'revision': 0}})['child_plan']['steps'][0]
+    def unavailable(prompt):
+        raise RuntimeError('private-provider-credential')
+    review_task(ctx, ref, {'id': node['id'], **node['input']}, unavailable)
+    result = CatalogStore(ctx['run_dir']).result(node['id'])
+    assert result['status'] == 'blocked'
+    assert 'private-provider-credential' not in json.dumps(result)
+
+
+def test_immutable_review_input_integrity_failure_still_raises(run, monkeypatch):
+    from domain.catalog_planning import planner
+    from domain.sandbox_review import review_admitted
+    ctx, ref = run
+    node = planner(ctx, {'context': ref, '_child': {'revision': 0}})['child_plan']['steps'][0]
+    def corrupted(reference):
+        raise ValueError('artifact digest mismatch')
+    monkeypatch.setattr('domain.sandbox_review.resolve_input', corrupted)
+    with pytest.raises(ValueError, match='artifact digest mismatch'):
+        review_admitted(node['input']['review_input'], llm_client=fake)

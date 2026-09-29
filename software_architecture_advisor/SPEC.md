@@ -1,4 +1,4 @@
-# Architecture Advisor 3.0 specification
+# Architecture Advisor 3.1 specification
 
 ## Outcome
 
@@ -119,3 +119,44 @@ against the frozen owner snapshot, then publishes domain receipts idempotently.
 This migration retains serial dependencies and does not introduce parallel review.
 
 Owner publication exports the validated report, section documents, work packages, and JSON task audit to the declared output folder. SQLite reservation state is excluded from that export.
+
+Admitted review tasks carry descriptive source, aspect, or synthesis labels in the child-workflow monitor. Malformed JSON, provider errors, and invalid model evidence become durable blocked task results with no accepted claims; later tasks continue. Input integrity and committed-artifact identity failures still stop execution.
+
+## Filesystem runtime memory
+
+`file_memory.enabled=true` enables Membrane's `mn.context.files.v1` alongside the
+existing evidence and graph tools. Each new specialist request retrieves notes
+using its current task focus: one lexical search, at most three bounded reads,
+and at most 4000 serialized context bytes. Notes retain file versions, line
+ranges and incomplete flags. Source documents, findings and graph receipts
+remain authoritative artifacts; notes are historical navigation, never evidence
+or instructions. No model call or embedding is spent on memory retrieval.
+
+The runtime binds job/run identity. Scope is shared within that run, isolated
+from other cases/repositories, and not carried automatically into another run.
+Deterministic create-only Markdown notes under `tasks/runtime/` record bounded
+outcomes and links to their source artifacts. Human edits are preserved, and new
+requests see them immediately. An already admitted request replays its frozen
+memory context so a retry cannot change the evidence shown to that invocation.
+The optional settings `max_results`, `read_lines`, `max_context_bytes` and
+`max_note_bytes` have defaults 3, 24, 4000 and 6000 respectively.
+
+This version requires the matching SDK and Membrane `FileMemory` build. Set
+`MN_CONTEXT_FS_MEMORY_ROOT` on the service and mount a durable directory. The
+updated local deployment template maps `$MN_HOME/memory` to that resource.
+Workers use `MN_CONTEXT_ADDR` and the existing optional authentication token;
+agents never select the host root. An unavailable service fails explicitly.
+For an intentionally memory-free run set `file_memory.enabled=false`; explicit
+`offline=true` architecture runs do not call Membrane. Deployment is a separate
+operator step; editing this blueprint does not upgrade installed containers.
+
+The owner admission stage also queries the frozen architecture graph. It selects
+up to two relevant modules, retrieves dependencies and an aspect-focused view
+(calls, state, deployment or cycles), and supplies exact source witnesses where
+available. Query receipts are reused within the immutable snapshot and count
+against `investigation.max_queries` (default 60 distinct queries per run).
+Missing structural modules/layers or an exhausted budget remain explicit,
+never inferred from a memory note. The graph packet is bounded to 3500 bytes;
+source witnesses still pass the existing citation validation. OpenShell receives
+frozen notes, graph context and source spans, with no direct memory credentials
+or writable owner state. Only reconciled, validated results become runtime notes.

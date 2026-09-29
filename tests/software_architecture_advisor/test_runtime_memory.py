@@ -1,0 +1,76 @@
+import hashlib
+import json
+
+from test_catalog_review import run as run  # fixture with immutable admissions
+
+
+def test_admission_uses_filesystem_notes_and_explicit_graph_limits(run, file_memory_transport):
+    from domain.catalog_planning import planner
+    from domain.catalog_store import CatalogStore
+    ctx, ref = run
+    files = file_memory_transport.scopes.setdefault(('test-memory-job', 'test-runtime-run'), {})
+    files['lessons/review.md'] = 'source_scan architecture charge boundary: verify external effects'
+    result = planner(ctx, {'context': ref, '_child': {'revision': 0}})
+    store = CatalogStore(ctx['run_dir'])
+    task = result['child_plan']['steps'][0]['id']
+    request = store.read(f'catalog/requests/{task}.json')
+    prompt = json.loads(request['prompt'])
+    assert prompt['runtime_memory']['notes'][0]['content'].endswith('verify external effects')
+    assert prompt['architecture_graph']['status'] == 'unavailable'
+    assert 'cannot establish dependency' in prompt['architecture_graph']['limitation']
+    assert 'memory note cannot replace a graph query' in prompt['instructions']
+    # Admission replay is immutable even after a human changes a note.
+    files['lessons/review.md'] = 'changed manually'
+    assert planner(ctx, {'context': ref, '_child': {'revision': 0}}) == result
+    assert store.read(f'catalog/requests/{task}.json') == request
+
+
+def test_graph_queries_run_alongside_notes_and_keep_source_provenance(tmp_path, monkeypatch):
+    from domain.catalog_retrieval import graph_context
+    from domain.catalog_store import CatalogStore
+    source = 'import storage\n'
+    sha = hashlib.sha256(source.encode()).hexdigest()
+    snapshot = {'snapshot_id': 'abc123', 'manifest': {'modules': {'payments': {'path': 'payments.py'}}},
+                'sources': {'payments.py': {'text': source, 'sha256': sha}}}
+    calls = []
+
+    class Graph:
+        def __init__(self, *args):
+            self.evidence = {'E1': {'path': 'payments.py', 'sha256': sha,
+                                  'line_start': 1, 'line_end': 1, 'text': source}}
+        def query(self, tool, module):
+            calls.append((tool, module))
+            return {'tool': tool, 'params': {'module': module}, 'status': 'ok',
+                    'rows': [{'source': 'payments', 'target': 'storage', 'evidence_ids': ['E1']}],
+                    'result_sha256': 'query-hash', 'limit_note': 'bounded static graph'}
+        def evidence_ids(self, result):
+            return ['E1']
+
+    monkeypatch.setattr('domain.catalog_retrieval.QuerySession', Graph)
+    store = CatalogStore(tmp_path)
+    cfg = {'investigation': {'max_queries': 4}}
+    packet, spans = graph_context(store, snapshot, {'path': 'payments.py'}, 'function calls', cfg)
+    assert calls == [('dependencies', 'payments'), ('calls', 'payments')]
+    assert packet['queries'][0]['rows'][0]['target'] == 'storage'
+    assert spans[0]['excerpt'] == source and spans[0]['sha256'] == sha
+    assert spans[0]['id'].startswith('S-')
+    assert len(list((tmp_path / 'catalog/graph').glob('*.json'))) == 2
+    graph_context(store, snapshot, {'path': 'payments.py'}, 'function calls', cfg)
+    assert len(calls) == 2  # Reuse immutable graph receipts, not rescans or extra model calls.
+
+
+def test_validated_results_are_remembered_without_mutating_human_edits(run, file_memory_transport):
+    from domain.catalog_retrieval import publish_runtime_notes
+    from domain.catalog_store import CatalogStore
+    ctx, _ = run
+    store = CatalogStore(ctx['run_dir'])
+    store.finish('task-1', {'task_id': 'task-1', 'kind': 'aspect_analysis', 'status': 'completed',
+                          'conclusion': 'Inspect the payment dependency graph', 'claims': []})
+    saved = store.read('catalog/context.json')
+    publish_runtime_notes(store, saved)
+    files = file_memory_transport.scopes[('test-memory-job', 'test-runtime-run')]
+    path = next(iter(files))
+    assert 'Inspect the payment dependency graph' in files[path]
+    files[path] = 'Human correction'
+    publish_runtime_notes(store, saved)
+    assert files[path] == 'Human correction'

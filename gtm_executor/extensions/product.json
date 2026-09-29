@@ -1,0 +1,31 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Business Operations",
+  "overview": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
+  "product": {
+    "agent_role": "Bibblio marketing executor",
+    "business_goal": "Market Bibblio through relevant, human-approved email outreach.",
+    "collaboration_group": "bibblio-marketing",
+    "input": "Human instructions and approved marketing context.",
+    "output": "Reviewable campaigns and observed delivery results.",
+    "benefit": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
+    "collaboration": {
+      "topology": "pair",
+      "protocol": "bibblio-marketing.v1",
+      "goalId": "bibblio-marketing",
+      "accepts": [
+        "gtm_planner"
+      ],
+      "goalKey": "inputs.payload.goal_id",
+      "peerKey": "inputs.payload.peer_job_id",
+      "commonGoalKey": "inputs.payload.common_goal",
+      "sameRuntime": true,
+      "schema": "mn.collaboration.pair.v1"
+    }
+  },
+  "runtime_features": [
+    "Human-reviewed email",
+    "MCP collaboration",
+    "Durable campaign state"
+  ]
+}

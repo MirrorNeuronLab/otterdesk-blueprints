@@ -1,0 +1,26 @@
+{
+  "inputs": {
+    "payload": {
+      "website_url": "https://bibblio.app",
+      "goal_id": "bibblio-marketing",
+      "peer_job_id": "",
+      "instruction": "Market Bibblio through relevant, human-approved email outreach.",
+      "contacts_file": "",
+      "inbox_id": "",
+      "newsletter_eligible": false,
+      "common_goal": "Market Bibblio through relevant, human-approved email outreach."
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/gtm-executor"
+  },
+  "service": {
+    "poll_seconds": 60,
+    "max_cycles": null
+  },
+  "marketing": {
+    "website_refresh_seconds": 86400,
+    "max_campaign_recipients": 25,
+    "approval_hours": 48
+  }
+}

@@ -181,3 +181,7 @@ and worker requirements use `>=1.3.47`. Bundled demo distributions are versioned
 `1.3.47` and their declarations use the same minimum. Third-party libraries retain
 their own version families (for example `numpy>=2.3.5,<3.0`). Package identity
 versions and container image digests remain concrete artifact identities.
+
+## Bibblio marketing services
+
+[`gtm_planner`](gtm_planner/README.md) and [`gtm_executor`](gtm_executor/README.md) form a local MCP-connected marketing pair. Ideas and final emails require separate human approvals. Contacts and AgentMail credentials stay private to the executor. Hire and configure both, then explicitly start them when ready.

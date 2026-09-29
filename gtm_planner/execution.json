@@ -1,0 +1,148 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "service",
+  "mode": "compiled",
+  "job_name": "gtm-planner",
+  "service": {
+    "enabled": true,
+    "run_until": "manual_stop",
+    "manual_close": "Pause or stop this co-worker in OtterDesk."
+  },
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    }
+  },
+  "agents": {
+    "registry": {
+      "planner_operator": {
+        "handler": "agents.planner_operator",
+        "role": "Marketing planner"
+      }
+    },
+    "extra_nodes": [
+      {
+        "node_id": "marketing_exchange",
+        "type": "generic",
+        "agent_type": "executor",
+        "alias": "marketing_exchange",
+        "display_name": "Marketing collaboration",
+        "resources": {
+          "ports": [
+            {
+              "label": "mcp_collaboration",
+              "port": "auto",
+              "protocol": "http"
+            }
+          ]
+        },
+        "services": [
+          {
+            "name": "mn-job-collaboration",
+            "address": "127.0.0.1",
+            "port": "${env.MN_PORT_MCP_COLLABORATION}",
+            "origin": "internal",
+            "tags": [
+              "mcp",
+              "job-collaboration"
+            ],
+            "meta": {
+              "mcp_path": "/mcp",
+              "goal_id": "bibblio-marketing",
+              "blueprint_id": "gtm_planner"
+            },
+            "checks": [
+              {
+                "name": "marketing-mcp",
+                "type": "tcp",
+                "address": "127.0.0.1",
+                "port": "${env.MN_PORT_MCP_COLLABORATION}",
+                "interval_ms": 10000,
+                "timeout_ms": 1000,
+                "failures_before_critical": 3,
+                "required": true
+              }
+            ]
+          }
+        ],
+        "config": {
+          "command": [
+            "python3.11",
+            "marketing_exchange.py"
+          ],
+          "environment": {},
+          "from": "base",
+          "no_auto_providers": true,
+          "no_keep": true,
+          "output_message_type": null,
+          "pool": "default",
+          "pool_slots": 1,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "tty": false,
+          "upload_as": ".",
+          "upload_path": "services",
+          "workdir": "/sandbox/job"
+        }
+      }
+    ],
+    "auxiliary_entrypoints": [
+      "marketing_exchange"
+    ]
+  },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_host@1",
+      "with": {
+        "stereotype": [
+          "internal_write_worker"
+        ],
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "agents",
+            "target": "agents"
+          },
+          {
+            "source": "prompts",
+            "target": "prompts"
+          }
+        ],
+        "upload_path": "runtime",
+        "upload_as": "runtime",
+        "command": [
+          "python3.11",
+          "-m",
+          "mn_sdk.step_runtime"
+        ],
+        "workdir": "/sandbox/job/runtime"
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "run_marketing_planner"
+        ],
+        "uses": "mn-agents.worker.python_host@1",
+        "with": {
+          "stereotype": [
+            "internal_write_worker"
+          ],
+          "side_effect": "network_read",
+          "pass_env": [],
+          "timeout_seconds": 31536000
+        }
+      }
+    ]
+  }
+}

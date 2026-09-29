@@ -1,0 +1,17 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
+  "enabled": true,
+  "backend": "milvus_lite",
+  "knowledge_dir": "knowledge",
+  "index_on_startup": true,
+  "required": false,
+  "embedding_model": "rag-embedding",
+  "embedding_provider": "docker_model_runner",
+  "embedding_api_base": "auto",
+  "vector_dim": 1024,
+  "top_k": 4,
+  "chunk_size": 700,
+  "chunk_overlap": 70,
+  "max_context_chars": 4000,
+  "grounding_policy": "Use only the public role guide. Never index contacts, credentials, or incoming mail."
+}

@@ -38,5 +38,12 @@
   "dynamic_investigation": {
     "max_rounds": 3,
     "hypotheses_per_round": 2
+  },
+  "file_memory": {
+    "enabled": true,
+    "max_results": 3,
+    "read_lines": 24,
+    "max_context_bytes": 4000,
+    "max_note_bytes": 6000
   }
 }

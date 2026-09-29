@@ -23,17 +23,23 @@ def review_admitted(reference, *, llm_client=None):
             folder.mkdir(parents=True, exist_ok=True)
             provider = folder / 'provider-config.json'
             provider.write_text(json.dumps(provider_config(opener)))
-            response = run_opencode(OpenCodeRequest(folder=str(folder), mode='review',
+            invocation = OpenCodeRequest(folder=str(folder), mode='review',
                 prompt=request['prompt'], model=opener['model'], sandbox_root='/sandbox/job',
                 timeout_seconds=max(1, min(opener['timeout_seconds'], int(frozen['deadline']-time.time()))),
-                max_output_bytes=opener['max_output_bytes']), env={'OPENCODE_CONFIG': str(provider)})
-            raw = response.text
-        else:
-            raw = llm_client(request['prompt'])
-        if not isinstance(raw, str) or len(raw.encode()) > 200000:
-            raise ValueError('Response exceeds task quota')
-        value = json.loads(raw)
-        expanded = True
+                max_output_bytes=opener['max_output_bytes'])
+        try:
+            raw = (run_opencode(invocation, env={'OPENCODE_CONFIG': str(provider)}).text
+                   if llm_client is None else llm_client(request['prompt']))
+            if not isinstance(raw, str) or len(raw.encode()) > 200000:
+                raise ValueError('Response exceeds task quota')
+            value = json.loads(raw)
+            expanded = True
+        except Exception as exc:
+            # Model/provider failures are domain outcomes. Input resolution,
+            # sandbox setup and artifact publication still fail hard.
+            value = {'task_id': task['task_id'], 'kind': task['kind'],
+                     'status': 'blocked',
+                     'reason': f'{type(exc).__name__}: model review failed or returned invalid JSON.'}
     result = {'task_id': task['task_id'], 'request_hash': frozen['request_hash'],
               'value': value, 'expand_evidence': expanded}
     name = 'review.json'

@@ -1,0 +1,92 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "What is your mission?",
+    "What requires my approval?",
+    "How do you collaborate with your marketing co-worker?"
+  ],
+  "init_config_review": {
+    "required": true,
+    "fields": [
+      {
+        "path": "inputs.payload.website_url",
+        "label": "Website",
+        "type": "text",
+        "required": true,
+        "default": "https://bibblio.app"
+      },
+      {
+        "path": "inputs.payload.goal_id",
+        "label": "Shared goal",
+        "type": "text",
+        "required": true,
+        "default": "bibblio-marketing"
+      },
+      {
+        "path": "inputs.payload.peer_job_id",
+        "label": "Partner co-worker job",
+        "type": "text",
+        "required": true
+      },
+      {
+        "path": "inputs.payload.instruction",
+        "label": "Marketing instructions",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "path": "inputs.payload.common_goal",
+        "label": "Common goal",
+        "type": "textarea",
+        "required": false,
+        "default": "Market Bibblio through relevant, human-approved email outreach."
+      }
+    ]
+  },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Studies Bibblio and proposes evidence-backed email campaigns for your approval.",
+    "sample": {
+      "available": false
+    },
+    "real": {
+      "introduction": "Connect the partner co-worker and review your marketing settings.",
+      "values": {}
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.website_url",
+        "label": "Website",
+        "type": "text",
+        "required": true,
+        "default": "https://bibblio.app"
+      },
+      {
+        "path": "inputs.payload.goal_id",
+        "label": "Shared goal",
+        "type": "text",
+        "required": true,
+        "default": "bibblio-marketing"
+      },
+      {
+        "path": "inputs.payload.peer_job_id",
+        "label": "Partner co-worker job",
+        "type": "text",
+        "required": true
+      },
+      {
+        "path": "inputs.payload.instruction",
+        "label": "Marketing instructions",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "path": "inputs.payload.common_goal",
+        "label": "Common goal",
+        "type": "textarea",
+        "required": false,
+        "default": "Market Bibblio through relevant, human-approved email outreach."
+      }
+    ]
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
+  "inputs": {
+    "website_url": {
+      "type": "string",
+      "required": true
+    },
+    "goal_id": {
+      "type": "string",
+      "required": true
+    },
+    "peer_job_id": {
+      "type": "string",
+      "required": true
+    },
+    "instruction": {
+      "type": "string",
+      "required": false
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "example": "~/Downloads/gtm-executor"
+    },
+    "contacts_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": true
+    },
+    "inbox_id": {
+      "type": "string",
+      "required": true
+    },
+    "newsletter_eligible": {
+      "type": "boolean",
+      "required": false
+    },
+    "common_goal": {
+      "type": "string",
+      "required": false
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "marketing_status",
+      "path": "marketing_status.json",
+      "schema_version": "mn.gtm.status.v1",
+      "type": "service_result"
+    },
+    "artifacts": [
+      {
+        "artifact_id": "marketing_status",
+        "path": "marketing_status.json",
+        "schema_version": "mn.gtm.status.v1"
+      }
+    ]
+  },
+  "status": {
+    "event": "blueprint_status",
+    "heartbeat": true,
+    "phases": [
+      "run_marketing_executor"
+    ]
+  },
+  "privacy": {
+    "classification": "confidential"
+  }
+}

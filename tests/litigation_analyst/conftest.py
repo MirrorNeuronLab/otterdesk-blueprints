@@ -10,3 +10,8 @@ def litigation_import_paths(monkeypatch):
     for repo in ["mn-skills", "mn-agents"]:
         for source in (workspace / repo).glob("*/src"):
             monkeypatch.syspath_prepend(str(source))
+
+
+@pytest.fixture(autouse=True)
+def offline_file_memory(file_memory_transport):
+    return file_memory_transport

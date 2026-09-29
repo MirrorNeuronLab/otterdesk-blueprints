@@ -50,3 +50,13 @@ def isolated_payload_modules():
             sys.modules.pop(name, None)
     sys.modules.update(previous)
     sys.path[:] = previous_path
+
+
+@pytest.fixture
+def file_memory_transport(monkeypatch):
+    from file_memory_support import MemoryService
+    service = MemoryService()
+    monkeypatch.setenv("MN_JOB_ID", "test-memory-job")
+    monkeypatch.setenv("MN_RUN_ID", "test-memory-run")
+    monkeypatch.setattr("mn_sdk.file_memory.session.FileMemoryClient", service.client)
+    return service

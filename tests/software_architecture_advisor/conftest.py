@@ -11,3 +11,8 @@ def architecture_paths(monkeypatch):
     for repo in ['mn-skills', 'mn-agents']:
         for path in (workspace/repo).glob('*/src'):
             monkeypatch.syspath_prepend(str(path))
+
+
+@pytest.fixture(autouse=True)
+def offline_file_memory(file_memory_transport):
+    return file_memory_transport

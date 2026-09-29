@@ -1,6 +1,7 @@
 """Domain policy for hundreds of Core-managed bounded architecture tasks."""
 
 import math
+import os
 import time
 from mn_sdk.child_workflow import round_plan, stop_plan
 from mn_sdk.step_runtime import artifact_reference
@@ -76,6 +77,9 @@ def initializer(context, *, llm_client=None):
         "catalog": catalog["digest"],
         "snapshot": fingerprint(snapshot["manifest"]),
         "goal": context["payload"].get("goal", ""),
+        "retrieval_config": context["config"],
+        "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
+                         "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
     }
     if store.path("catalog/context.json").exists():
         saved = store.read("catalog/context.json")
@@ -181,12 +185,23 @@ def _followups(store, tasks, results, packets, limit):
     return accepted, rejected
 
 
+def task_label(task):
+    """Public, bounded task description carried by Core's child topology."""
+    action = {
+        'source_scan': 'Scan source', 'aspect_analysis': 'Analyze aspect',
+        'aspect_challenge': 'Challenge aspect', 'evidence_followup': 'Follow up evidence',
+        'section_synthesis': 'Synthesize section', 'executive_synthesis': 'Synthesize executive review',
+    }[task['kind']]
+    subject = task.get('path') or task.get('aspect_id') or task.get('section') or task.get('packet_id')
+    return (f'{action}: {subject}' if subject is not None else action)[:240]
+
+
 def planner(context, work, *, llm_client=None):
     store = CatalogStore(context["run_dir"])
     saved = store.load_ref(work["context"])
     plan = store.load_ref(saved["plan"])
     review, opener = catalog_settings(context["config"])
-    if saved["request"]["review"] != review or saved["request"]["opencode"] != opener:
+    if saved["request"]["review"] != review or saved["request"]["opencode"] != opener or saved["request"]["retrieval_config"] != context["config"]:
         raise ValueError("Review configuration changed after initialization")
     revision = work["_child"]["revision"]
     if type(revision) is not int or revision < 0:
@@ -196,6 +211,8 @@ def planner(context, work, *, llm_client=None):
         return store.read(cache)["plan"]
     from .review_admission import reconcile
     reconcile(store)
+    from .catalog_retrieval import publish_runtime_notes
+    publish_runtime_notes(store, saved)
     results = store.results()
     tasks = [store.load_ref(r) for r in plan["task_refs"].values()]
     admitted = set()
@@ -272,6 +289,7 @@ def planner(context, work, *, llm_client=None):
                 {
                     "id": task["task_id"],
                     "template": "review_architecture_packet",
+                    "label": task_label(task),
                     "needs": previous,
                     "input": {"task": ref, "review_input": admitted_input},
                 }

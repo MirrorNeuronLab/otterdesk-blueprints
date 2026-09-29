@@ -1,0 +1,18 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
+  "enabled": true,
+  "model": "default",
+  "default_config": "primary",
+  "configs": {
+    "primary": {
+      "provider": "openai_compatible",
+      "model": "default",
+      "api_base": "auto",
+      "temperature": 0,
+      "max_tokens": 2400
+    }
+  },
+  "responsibilities": [
+    "Studies Bibblio and proposes evidence-backed email campaigns for your approval."
+  ]
+}

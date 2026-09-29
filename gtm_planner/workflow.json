@@ -1,0 +1,30 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "gtm_planner_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "dynamic": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "run_marketing_planner",
+      "kind": "source",
+      "label": "Run marketing planner",
+      "goal": "Studies Bibblio and proposes evidence-backed email campaigns for your approval.",
+      "needs": [],
+      "run": {
+        "definition": "steps.run_marketing_planner"
+      },
+      "control": {
+        "timeout_seconds": 31536000,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}

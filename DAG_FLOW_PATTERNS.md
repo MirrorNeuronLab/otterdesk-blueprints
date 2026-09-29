@@ -51,3 +51,7 @@ mn-manifest-converter check manifest.json --against build/manifest.executable.js
 ## Litigation Analyst (`litigation_analyst`)
 
 `prepare_case_sources` → `build_case_indexes` → `investigate_case_evidence` → `write_review_draft`. The investigation parent owns bounded child rounds: plan, collect evidence, assess, independently review, summarize, then replan or stop. The autonomous explorer remains preserved but is not the default DAG.
+
+## Marketing services
+
+`gtm_planner` and `gtm_executor` each run one supervised service step until manual stop. Their read-only MCP exchanges carry reviewed briefs and aggregate results across Jobs; Core interactions remain the sole approval authority. No inter-co-worker communication is encoded as a workflow step edge.

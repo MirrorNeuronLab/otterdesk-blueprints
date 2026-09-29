@@ -1,0 +1,30 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "gtm_executor_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "dynamic": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "run_marketing_executor",
+      "kind": "source",
+      "label": "Run marketing executor",
+      "goal": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
+      "needs": [],
+      "run": {
+        "definition": "steps.run_marketing_executor"
+      },
+      "control": {
+        "timeout_seconds": 31536000,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}
