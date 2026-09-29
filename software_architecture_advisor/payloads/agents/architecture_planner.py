@@ -1,4 +1,4 @@
-from domain.adaptive_planning import plan_architecture
+from domain.catalog_planning import planner
 from ._binding import bind_child
 
-run = bind_child(plan_architecture)
+run = bind_child(planner)

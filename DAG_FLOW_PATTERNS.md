@@ -46,7 +46,7 @@ mn-manifest-converter check manifest.json --against build/manifest.executable.js
 
 ## Architecture Advisor (`software_architecture_advisor`)
 
-`capture_repository` → `investigate_architecture` → `publish_architecture_review` keeps three parent phases. `investigate_architecture` owns a Core-managed child workflow whose planner commits admitted graph-query, semantic-search, assessment and summary workers. Replanning happens only between completed rounds; the parent sink waits for the final child output.
+`capture_repository` → `analyze_dependency_structure` → `investigate_architecture` → `publish_architecture_review` keeps four parent phases. The investigation owns Core-managed child rounds: source packets, 150 aspect analyses, 150 independent challenges, evidence-driven follow-ups, 23 section syntheses and an executive synthesis. Each OpenShell worker executes one bounded OpenCode review task. Replanning happens only after completed rounds; the parent sink waits for the terminal catalog and publishes explicit coverage, including omissions and blocked tasks.
 
 ## Litigation Analyst (`litigation_analyst`)
 

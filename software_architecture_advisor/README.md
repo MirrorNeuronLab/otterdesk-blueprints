@@ -1,103 +1,143 @@
 # Architecture Advisor
 
-`software_architecture_advisor` converts the Spark software architecture investigation project into a Docker-worker blueprint. It freezes repository sources, builds architecture graph views on demand, replans a bounded child workflow between evidence rounds, and publishes independently reviewed, cited findings with an implementation roadmap.
+Architecture Advisor 3.0 reviews large repositories piece by piece with the
+OpenCode skill inside OpenShell. It evaluates the supplied report library's
+**150 aspects in 23 sections**, including an independent counterevidence review
+for each aspect, and produces explicit coverage even when evidence is missing.
 
-By default, a run reviews the public `https://github.com/homerquan/Archmind` repository. To review another source, select exactly one input:
-
-- `repository_url`: public HTTPS GitHub repository root, such as `https://github.com/pallets/itsdangerous` (optional `.git`). Credentials, non-GitHub hosts, branches in URLs, redirects, SSH URLs, query strings and fragments are rejected.
-- `input_folder`: local source directory. The platform stages it for the worker. Clone private repositories yourself and supply the local folder.
-
-In OtterDesk, **Try a sample** runs that public Archmind review. It leaves the optional graph export empty. **Setup** accepts another public GitHub URL or a local source folder, plus an optional graph export file.
-
-Setup asks for a decision to support. Its `goal` can name an important journey, change or failure scenario, and constraints; leaving it unchanged uses the default architecture goal. Optional `graph_export` supplies a version-1 or version-2 graph with exact source provenance. Python receives structural AST analysis; other supported source languages are retrievable text and require an export declaring modules for structural investigation. A repository without structural modules reports an explicit failure.
-
-## Prepare and run
-
-Run the checked-in blueprint with its published GAR dependencies:
+## Run
 
 ```bash
-cd /Users/homer/Projects/otterdesk-blueprints/software_architecture_advisor
-mn blueprint run ./ --detached
+mn blueprint run ./software_architecture_advisor \
+  --set inputs.payload.repository_url= \
+  --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
-For another public GitHub repository:
+The default URL is `https://github.com/homerquan/Archmind`. Supply exactly one
+source: a public HTTPS GitHub repository root or a local folder. The platform
+stages local input; reviewed source is never imported or executed. Public Git
+clones retain the existing bounded, credential-free acquisition policy.
+
+Default model: **Muse Spark 1.3 FreeOpenCode Zen**
+(`opencode/muse-spark-1.3-contributor-free`). Override with
+`--set opencode.model=provider/model`; update the OpenShell provider/network
+policy for a different provider. There is no automatic paid-model fallback.
+Bounded source excerpts are sent to the selected provider. OpenCode public
+sharing, edits, shell execution, delegation and web tools are disabled for review.
+
+The platform prepares `mirror-neuron/software-architecture-advisor:local` from
+`payloads/docker_worker/Dockerfile` using the standard Python 3.11 base with
+the declared SDK, agent and skill packages. This single-stage Dockerfile has no
+`USER` instruction, as required by the SDK skill-preparation hook contract. The OpenShell reviewer builds its own declared context at
+`payloads/openshell_worker/Dockerfile` before sandbox creation. It includes
+OpenCode 1.18.33, Python and `iproute2` for network isolation; the platform
+installs declared packages into that image. An existing Docker-worker image
+tag is not used for sandbox provisioning. The execution host needs Docker and a working OpenShell gateway.
+Do not launch the packet worker natively; live calls verify the OpenShell runtime.
+The sandbox policy permits OpenCode Zen and the configured Local Spark model endpoints. Model changes
+may require an explicit policy and credential-provider change.
+
+## Choose the model
+
+The blueprint setup form includes **OpenCode review model** with two choices:
+
+| Choice | `opencode.model` |
+| --- | --- |
+| Muse Spark 1.3 FreeOpenCode Zen (default) | `opencode/muse-spark-1.3-contributor-free` |
+| Muse Glimmer 30BLocal Spark | `spark/muse-glimmer-30b` |
+
+Change `opencode.model` in `config/default.json`, or override it per run:
 
 ```bash
-mn blueprint run ./ --set inputs.payload.repository_url=https://github.com/pallets/itsdangerous
+mn blueprint run ./software_architecture_advisor \
+  --set opencode.model=spark/muse-glimmer-30b \
+  --set inputs.payload.repository_url= \
+  --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
-For a local folder, clear the default URL:
+Both display labels are also accepted as configuration values. Local Spark uses
+`opencode.spark_base_url` (default `http://10.0.4.32:8000/v1`), matching this
+workstation's OpenCode provider configuration. The worker writes only the selected
+provider configuration inside the sandbox. Changing that endpoint also requires
+updating `payloads/openshell_worker/policy.yaml`; the sandbox must reach the local
+server. Model selection is frozen for the run; change it before starting a new run.
 
-```bash
-mn blueprint run ./ \
-  --set inputs.payload.repository_url=null \
-  --set 'inputs.payload.input_folder=/absolute/path/to/repository'
-```
+## Workflow
 
-The SDK automatically invokes the declared graph skill’s worker preparation hook using the selected node’s CPU architecture. No blueprint preparation script is needed. The skill copies `rgx` from the immutable multi-architecture public GAR image pinned by digest, retaining its license. It does not call gcloud, clone Git, compile source, or build a provider wheel. The SDK RAG component supplies the shared embedding adapter and the platform installs manifest-declared skills, agents, and components.
+1. Capture immutable UTF-8 source text, file hashes and available Git revision.
+2. Build the existing source-linked dependency baseline and bounded DSM.
+3. Initialize a durable task catalog and execute Core-managed child rounds:
+   source packets → 150 aspect analyses → 150 challenges → evidence-driven
+   follow-ups → 23 section syntheses → executive synthesis.
+4. Revalidate evidence and publish the final report and linked registers.
 
-The GAR skill dependency `mirrorneuron-graph-analysis-skill==1.3.24` contains this capability. The graph runtime image is public and needs no Docker or gcloud credentials for worker pulls.
+Each worker handles one task and returns a bounded artifact reference. Core owns
+execution, dependencies and round barriers; workers do not dispatch other
+workers. Serial dependencies within a round protect shared output synchronization.
+The planner admits new follow-ups only for known packet IDs with evidence from
+completed parent tasks; duplicates, unsupported references and depth beyond two
+are rejected. At most 64 dynamic follow-ups are admitted.
 
-Live mode uses the platform's configured chat and embedding model bindings, normally Docker Model Runner. `config/default.json` controls the investigation and ingestion budgets; the LLM extension controls platform model selection. `--set offline=true` explicitly selects deterministic hypothesis checks with hash embeddings and zero model requests. Offline conclusions remain inconclusive review candidates. Provider failures never switch a live run to offline output.
+The default ceiling is 1,024 tasks/calls, 20 rounds, 64 tasks per round and 24
+hours. A small repository still plans **324 catalog tasks plus source packets**.
+Each source packet is at most 24,000 UTF-8 bytes; each model prompt is at most
+60,000 bytes. Each call has a 600-second deadline and 1 MiB output ceiling.
+Large source inventories reserve capacity for report synthesis and record omitted
+packets explicitly. Lower call/time budgets produce partial reports, not positive
+health assessments. Full reviews can take hours; the defaults are ceilings.
+
+Configuration is in `catalog_review` and `opencode`. Existing capture limits are
+5,000 files, 500 KB/file and 20 MB aggregate; tune `ingest` for larger repositories.
+Unsupported extensions, symlinks, excluded directories and oversized/non-UTF-8
+files retain capture limitations. Polyglot text reviews do not require Python
+modules; automatic structural graph extraction remains primarily Python, with
+optional evidence-backed graph exports for other languages.
+
+`offline=true` is an explicit orchestration/coverage check. It makes no OpenCode
+calls and marks all tasks `not_analyzed`; it never substitutes synthetic findings
+for failed live analysis. Model failures or malformed citations become blocked
+task records. Attempt reservations prevent automatic re-execution after an
+interruption; use a new run for an explicitly chosen retry.
 
 ## Results
 
-The authoritative run directory includes `analysis/dependencies.json`, `investigation-plan.json`, immutable per-round plans and results under `investigation/`, `report.md`, `suggestive_prompts.md`, `report.json`, `knowledge.json`, `model-trace.json`, `events.log`, `snapshot.json`, `investigation.json`, and `review_index.json`. A dense `analysis/dependency-dsm.csv` is also written when the module count is at most `analysis.max_dsm_modules` (default 300). DSM rows import columns; a 1 denotes a direct static dependency. Above the limit, the JSON edge list stays complete and records why the dense matrix was omitted. The `evidence/` directory retains immutable source text, graph generations, exact source spans, hashes, graph inputs, and acquisition checkouts. Runtime messages contain bounded counts/status and artifact references, not source text or full reports.
+Authoritative artifacts remain in the SDK-provided shared run directory under
+`$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/`. The SDK
+handles the configured convenience copy to `~/Downloads/architecture-advisor`.
 
-When the report is published, Architecture Advisor adds a nonblocking choice to the OtterDesk conversation. The card summarizes review status, assessed findings and static dependency edges, and offers directions to prioritize a change, challenge a finding, investigate further or defer. A response is recorded in the run's `human.jsonl` ledger against the exact `report.json` digest. The choice does not start another run or change source code. Use Chat or Setup to refine the next goal before starting follow-up work.
+- `report.md`, `report.json`, `review_index.json`: overview and navigation.
+- `sections/`: 23 reports with per-aspect requirements, conclusions and challenges.
+- `coverage.json`: all 150 applicability/coverage decisions and source packet scope.
+- `evidence.json`, `claims.json`, `findings.json`: immutable locators and traceability.
+- `recommendations.json`, `assumptions.json`, `verification_tasks.json`:
+  proposed decisions and the evidence still needed.
+- `roadmap.json`, `work_packages.json`, `work_packages/`: proposed migration
+  sequences and self-contained, evidence-linked coding-agent briefs.
+- `catalog/`: immutable plans, requests, attempt budget, results, receipts and
+  terminal reason. This audit data is confidential.
+- `analysis/dependencies.json` and optional `analysis/dependency-dsm.csv`:
+  deterministic structural evidence.
 
-After completion, the SDK also copies a presentation bundle to `~/Downloads/architecture-advisor` on the submitting host. OtterDesk's output-folder link opens that same folder. It retains the current canonical files and provides familiar names from the earlier advisor: `architecture_report.md`, `architecture_assessment.json`, `improvement_prompts.md`, `improvement_prompts.json`, and one copy-ready task per finding under `prompts/`, with `prompts/README.md` as the index.
+Empty recommendation/work-package registers mean no supported proposal was
+produced. They do not mean the system is healthy. Runtime behavior, security,
+capacity, organizational ownership, history and business costs remain unknown
+unless supplied evidence supports a carefully scoped claim. Proposed work is
+never authorization to change source, production data or deployments.
 
-The four logical phases are `capture_repository`, `analyze_dependency_structure`, `investigate_architecture`, and `publish_architecture_review`. The investigation step contains a Core-managed child workflow. A planner commits a finite graph; graph-query, semantic-search, assessment and summary specialists execute it without replanning. The next planner invocation receives the completed evidence round. Their specialist workers use the shared stateful agent lifecycle. Only platform-generated step sinks complete logical steps. Docker runs Python 3.11 on Debian Bookworm with the published CPU RGX binary; it never builds Rust.
+The complete original specification library is bundled at `payloads/report_specs`
+with its manifest and hashes, so jobs do not depend on the author's host path.
 
-## Interpretation limits
+## Validation status
 
-Twenty architecture families plus an embedding index are built only when requested. Expensive control-flow, data-flow, security, and semantic views are module scoped. Python import edges are static dependencies, SQL literals do not prove physical database identity, test calls are not executed coverage, and commit co-change is not incident causality. Runtime workflows and incidents need supplied evidence. Missing evidence is explicit; top-k absence is never proof of absence.
+The orchestration, evidence validation and report publication checks pass. The
+2026-09-28 live OpenShell check reached OpenCode Zen but the default free model
+returned HTTP 403. That run produced an explicitly blocked/partial report; it
+was not a completed architecture assessment. No alternative model was selected.
+See [validation details](VALIDATION.md) for tested scope and remaining gates.
 
-Repository code, hooks, tests, package installers, submodules and LFS downloads are not executed. GitHub acquisition is shallow, bounded by time and commit depth, and retained separately per snapshot. Captured source text and model traces may contain confidential material. General knowledge cards guide review but cannot serve as project citations. Inconclusive advice generates characterization or verification tasks before a structural change.
-
-## Validation
-
-```bash
-python -m pytest tests/test_software_architecture_advisor.py -q
-python -m pytest tests/software_architecture_advisor -q
-```
-
-Run these from the catalog root. Domain tests are offline. Set `ADVISOR_RGX_BINARY` to the published Linux binary when running real graph integration tests in a Linux Docker worker. See `SPEC.md` for the product and evidence contract.
-
-## Dynamic investigation (v2)
-
-Version 2 requires the SDK compiler and Core child-workflow support from the companion workspace. Deploy those together before submitting this blueprint; no package release is published by these changes. Older runtimes cannot execute this declaration.
-
-Defaults are three rounds, three hypotheses per round, six distinct hypotheses, sixty graph/search operations, thirty chat-model calls (including repairs and lazy semantic graph inference), and a twenty-minute investigation budget. Six calls are reserved for independent final review. Embedding ingestion retains its separately bounded source limits. Candidate-module context is a goal-ranked page of up to 48 modules plus previous finding modules; the planner sees the omitted count.
-
-Planner decisions and committed parameters are immutable artifacts. Core retains the child phase, revisions, dependency graph and outcomes in its ledger. Completed workers and recorded model responses are reused. An interrupted request with no durable response fails explicitly instead of guessing its result. Corrupt evidence and live-provider failures fail the run. Budget exhaustion publishes an explicitly incomplete report containing verified results, with unreviewed changes excluded from the roadmap.
-
-The report prioritizes independently reviewed findings by evidence and goal relevance. Every roadmap item includes an action, acceptance check and rollback. Inconclusive advice proposes verification; its rollback preserves all pre-existing application changes.
-
-The opt-in Linux worker smoke uses actual SDK handlers and RGX:
-
-```bash
-PYTHONPATH=/blueprints/software_architecture_advisor/payloads python \
-  /blueprints/tests/software_architecture_advisor/linux_dynamic_smoke.py --output /output
-```
-
-Add `--live` to use the configured model gateway on the synthetic sample repository. The smoke uses hash retrieval to isolate chat planning/review from embedding-provider setup; normal live runs retain the configured neural embedding provider. Core's `tests/unit/child_workflow_test.exs` tests production scheduling, round barriers and parent completion separately.
-
-Local `inputs.payload.input_folder` directories are staged by the SDK before submission. Remote workers receive the staged repository path; the submitting host path is never used as a worker filesystem path.
-
-### Bounded context compatibility
-
-Version 2.1 requires the SDK `ContextSession` and Membrane `WorkingMemory` RPC from the companion workspace. Update SDK, Membrane and Core together before launching a new live run; existing run bundles retain their original behavior. Redis is required for durable recall. Context is an evictable cache over immutable evidence, with run-wide storage/call quotas and explicit incomplete coverage. The operator may increase the window within confirmed model and hardware capacity. No package publication is performed by this change.
-
-Planning pins a bounded current hypothesis/revision/citation registry; recalled historical findings cannot override it. Workers receive the exact hypothesis question and artifact-backed evidence. Assessment and independent review use the shared SDK schema-aware request budget before selecting their evidence packet. Verified next actions and acceptance checks retain project-specific model reasoning.
-
-Semantic retrieval binds explicitly to `docker.io/ai/embeddinggemma:latest` by default, independently of the chat model. Its default `litellm_proxy` provider prepares the Docker Model Runner model and queues embedding inference through the SDK's bounded FIFO lane. The SDK verifies embedding capability before requests. `embedding.provider` and `embedding.model` remain operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.
-
-For a two-node deployment, the authoritative report and evidence files stay in
-`$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/` on the
-Syncthing shared filesystem. The SDK supplies that run directory to workers;
-blueprints must not replace it with a node-local Downloads path. Syncthing
-replicates the shared tree to the other node. The configured
-`outputs.folder_path` provides an additional convenience copy on the submitting
-host after the publication bundle has arrived in shared storage.
+The review worker uses `mn.artifact_handoff/v1`. Planning freezes each prompt and
+reserves its task's model budget on the owner before dispatch. OpenShell receives
+only immutable admission inputs; it never receives the writable SQLite ledger.
+After Core commits a task's result, the owner verifies it against frozen evidence
+and writes the domain receipt. Missing or ambiguous results retain their budget
+reservation and block automatic task replay. Serial task ordering is preserved.

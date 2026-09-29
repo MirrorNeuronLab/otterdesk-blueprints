@@ -1,42 +1,37 @@
-# Dynamic child-workflow validation
+# Architecture Advisor 3.0 validation — 2026-09-28
 
-## Structural baseline update (2026-09-24)
+## Current checks
 
-Blueprint 2.2.0 adds `analyze_dependency_structure` between capture and investigation. The step reuses the existing frozen dependency layer and publishes a bounded DSM plus source-linked JSON measures. The planner sees only a compact summary; findings still require support and counter-evidence review. The analyzed repository is not executed.
+- Advisor regression suite: **59 passed, 34 skipped**. Skipped cases require the Linux RGX runtime.
+- Ten new catalog tests cover hundreds of tasks through actual SDK handlers, phase barriers, dynamic follow-ups, independent challenges, replay, interrupted attempts, budget exhaustion, exact Unicode source citations, tamper rejection, all 150 aspects/23 sections, and proposed work-package traceability. Model responses in these tests are controlled fixtures.
+- CLI workflow validator: **7 passed**, including child-template bindings and invalid-parent rejection.
+- OpenCode skill: **9 tests and 12 subtests passed**, including sanitized provider-denial errors without fallback.
+- Blueprint validation passed. New catalog modules pass Ruff undefined/unused-code checks; affected Git diffs pass whitespace checks.
+- Full blueprint catalog suite: **411 passed, 50 failed, 37 skipped**. Failures were outside the advisor suite, including missing GTM/Legal fixtures and other blueprint assertions. This is not a clean repository-wide gate. Local log: `/private/tmp/architecture-catalog-full-tests.log`.
 
-The setup guide now exposes the goal, and publication emits a report-digest-bound review choice into the standard human-event ledger. The desktop conversation renders reusable approval, judgment and missing-information cards with structured options and records the selected direction. This post-report choice does not branch the active workflow.
+Focused reproduction from the blueprint repository (using the installed local SDK environment):
 
-On this macOS checkout, using the local MirrorNeuron virtual environment on `PYTHONPATH` with Python 3.11:
+```bash
+PYTHONPATH=/private/tmp/mn-opencode-validation /Users/homer/.mn/venv/bin/python -m pytest tests/test_software_architecture_advisor.py tests/software_architecture_advisor -q --tb=short -p no:cacheprovider
+mn blueprint validate ./software_architecture_advisor
+```
 
-- `tests/test_manifest_contracts.py`: 5 passed.
-- `tests/test_software_architecture_advisor.py` and `tests/software_architecture_advisor`: 49 passed, 34 skipped. The skipped cases require the Linux RGX binary.
-- `git diff --check`: passed.
-- Desktop app: production build, TypeScript typecheck, lint and architecture checks passed; four affected component/unit files passed (146 tests).
-- MirrorNeuron API: human-ledger and canonical route suites passed (41 tests). Shared-run responses were verified against the mapped submission ledger.
-- The desktop full suite is not green: 976 passed and 90 failed across four files. A reproduced failure in `worker-blueprints.test.js` stops at the existing setup launch gate before reaching its human-response assertion; the focused conversation tests above pass.
-- Full `tests` catalog gate: 344 passed, 37 skipped, 44 failed, 55 errors. The errors include missing `pypdf`/`PyPDF2` for Litigation Analyst; remaining failures occur in other blueprints. The focused advisor tests pass. This is not a clean catalog gate.
+The temporary PYTHONPATH contains validation dependencies for this workstation; a prepared project environment should install the declared dependencies normally.
 
-This update does not add multi-repository snapshot selection, G0/G1 mid-run interactive gates, an executable G2 branch, or isolated target-code probes from the supplied DAG design. The blueprint remains a static/read-only investigation with proposed verification tasks; no probe outcome is represented as measured.
+## Actual OpenCode/OpenShell use
 
-Validated on 2026-09-07 against the companion SDK/Core source and the published ARM64 Linux RGX binary in Docker. No analyzed repository code was executed.
+The OpenCode skill ran OpenCode 1.18.33 inside OpenShell with the requested default `opencode/muse-spark-1.3-contributor-free` to generate the initial implementation. The coding invocation produced source files but ended with a failed-tool status. Generated code was subsequently reviewed and corrected, including SDK ownership, evidence propagation, citation validation, replay, publication and error handling.
 
-- SDK compiler, child declaration, static/dynamic workflow and public progress suites: **81 passed**.
-- Core child lifecycle, workflow ledger and existing dynamic workflow suites: **54 passed**. Includes round barriers, partial-execution recovery, stale/duplicate completion, cancellation, invalid plans, isolated state, parent completion and private progress projection.
-- Complete Architecture Advisor regression suite in Linux: **70 passed, 45 graph-query subtests passed**. Covers source acquisition, frozen hashes, all graph families, lazy materialization, citations, budget reserve, deadline exhaustion, model-response replay and actual SDK worker handlers.
-- Host advisor and manifest suites: **39 passed, 34 Linux-only tests skipped**; the Linux run covers these graph checks.
-- Scripted SDK-handler smoke with real RGX: two different committed rounds, eight operations, one independent review, durable replay without new model calls.
-- Configured live model through the local gateway on the synthetic payment fixture: **three rounds, 45 graph/search operations, 18 model calls, three independent reviews**. The report is explicitly partial at the round limit. All final findings are inconclusive and their roadmap entries require verification before implementation. The original project-specific model proposals are retained as deferred advice and in JSON.
-- The final live report was regenerated from its recorded responses with new model calls explicitly forbidden, revalidating citations and source hashes.
-- Touched Core files pass format checks; new Python modules pass lint; affected diffs pass whitespace checks.
+A separate live check used a derivative of the locally prepared worker image, with OpenCode 1.18.33 and the required OpenShell runtime tools. The worker verified that PID 1 was `openshell-sandbox`. Real model requests reached OpenCode Zen but returned **HTTP 403** with the provider message: “OpenCode's free tier can only be used from within OpenCode.” The request was issued by the OpenCode CLI; the cause of the provider restriction has not been established. No paid or alternate model was used.
 
-The live smoke uses deterministic hash retrieval to isolate graph/planning/review behavior from embedding-provider availability. It does not validate the default neural embedding service. Production Core/Redis orchestration is covered by deterministic ledger tests here, not a deployed cluster run.
+The live check reserved two actual calls, recorded their blocked results and published an explicitly partial report with all 150 aspect coverage entries and 23 section documents. These outputs demonstrate failure/budget handling, **not a successful architecture assessment**. Retained artifacts: `/private/tmp/architecture-review-validation-output`.
 
-## Remaining shared-environment gates
+## Remaining verification
 
-The last full catalog run reported 289 passed, 37 skipped and 70 failures. A stale advisor graph-package assertion was subsequently corrected and its binary preparation check passes. Remaining failures include missing local SDK source-version metadata (also affecting advisor source staging), retired `mn_blueprint_support` imports in other blueprints, and unrelated service/contract checks. Full catalog output is retained with the validation artifact. These failures are not presented as a clean catalog gate.
+The final production Dockerfile has not been rebuilt through the complete platform preparation lifecycle, and the new catalog has not completed a deployed Core/Redis job with successful live model responses. The Linux-only regression cases were not rerun for this version. Provider access must work before a live assessment can complete. No packages were published or production cluster upgraded.
 
-Core `mix compile --warnings-as-errors` remains blocked by existing redundant-clause type warnings in `persistence/redis_store.ex` and `runtime/runtime.ex`; the affected lifecycle tests compile and pass.
+The bundled specification library is checked against its original manifest hashes. Static source review does not establish runtime performance, security, business impact or migration success. Such evidence gaps remain explicit verification tasks; generated work packages are proposals.
 
-Deploy the matching SDK compiler and Core child-workflow implementation together before submitting blueprint v2. No packages were published and no running cluster was upgraded.
+## Model configuration update
 
-Live report and its supporting artifacts: `/Users/homer/Projects/mirror-neuron-set/artifacts/architecture-advisor-live-review/report.md`.
+The setup guide now exposes the default Zen model and Local Spark Muse Glimmer 30B. Configuration tests cover both display labels and IDs, the local provider endpoint, and rejecting a model change within an initialized run. The local OpenCode model inventory confirms `spark/muse-glimmer-30b`; this update did not run a live architecture assessment against Local Spark. OpenCode 1.18.33 bundles the OpenAI-compatible SDK, so this provider does not require a runtime package-registry exception.

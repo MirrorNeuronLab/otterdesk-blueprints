@@ -1,4 +1,4 @@
-from domain.reporting import publish_review
+from domain.catalog_publication import publish
 from ._binding import bind
 
-run = bind(publish_review)
+run = bind(publish)

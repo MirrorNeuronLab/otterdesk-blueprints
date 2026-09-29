@@ -24,21 +24,9 @@
         "handler": "agents.architecture_planner",
         "role": "Architecture Planner"
       },
-      "architecture_graph_analyst": {
-        "handler": "agents.architecture_graph_analyst",
-        "role": "Architecture Graph Analyst"
-      },
-      "architecture_evidence_retriever": {
-        "handler": "agents.architecture_evidence_retriever",
-        "role": "Architecture Evidence Retriever"
-      },
-      "architecture_hypothesis_assessor": {
-        "handler": "agents.architecture_hypothesis_assessor",
-        "role": "Architecture Hypothesis Assessor"
-      },
-      "architecture_round_reviewer": {
-        "handler": "agents.architecture_round_reviewer",
-        "role": "Architecture Round Reviewer"
+      "architecture_packet_reviewer": {
+        "handler": "agents.architecture_packet_reviewer",
+        "role": "Architecture Packet Reviewer"
       }
     }
   },
@@ -53,7 +41,7 @@
       "min_gb": 8
     },
     "network": {
-      "egress": "Public GitHub for URL inputs; configured model and embedding providers for live analysis"
+      "egress": "Public GitHub for URL acquisition; OpenCode Zen opencode.ai:443 or Local Spark 10.0.4.32:8000 for the selected review model."
     }
   },
   "workers": {
@@ -64,11 +52,7 @@
           "analyze_dependency_structure",
           "investigate_architecture",
           "publish_architecture_review",
-          "plan_architecture_round",
-          "query_architecture_graph",
-          "search_architecture_evidence",
-          "assess_architecture_hypothesis",
-          "summarize_architecture_round"
+          "plan_architecture_round"
         ],
         "uses": "mn-agents.worker.python_docker@1",
         "with": {
@@ -102,11 +86,78 @@
             {
               "source": "knowledge",
               "target": "knowledge"
+            },
+            {
+              "source": "report_specs",
+              "target": "report_specs"
             }
           ]
+        }
+      },
+      {
+        "steps": [
+          "review_architecture_packet"
+        ],
+        "uses": "mn-agents.worker.python_host@1",
+        "with": {
+          "command": [
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
+          ],
+          "upload_path": "runtime",
+          "upload_as": "runtime",
+          "workdir": "/sandbox/job",
+          "runner_module": "MirrorNeuron.Runner.OpenShell",
+          "from": "openshell_worker",
+          "policy": "openshell_worker/policy.yaml",
+          "sandbox_upload_path": "/sandbox/job",
+          "reuse_shared_sandbox": true,
+          "no_auto_providers": true,
+          "no_keep": true,
+          "timeout_seconds": 720,
+          "max_attempts": 1,
+          "safe_to_retry": false,
+          "idempotent": true,
+          "side_effect": "network_read",
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "steps",
+              "target": "steps"
+            },
+            {
+              "source": "runtime",
+              "target": "runtime"
+            },
+            {
+              "source": "report_specs",
+              "target": "report_specs"
+            }
+          ],
+          "environment": {
+            "PYTHONPATH": ".",
+            "OPENCODE_DISABLE_MODELS_FETCH": "true"
+          },
+          "stereotype": [
+            "blueprint_host_worker"
+          ],
+          "custom_openshell_image": "openshell_worker",
+          "artifact_handoff": {
+            "version": "mn.artifact_handoff/v1",
+            "max_files": 16,
+            "max_bytes": 8000000
+          }
         }
       }
     ]
   },
-  "required_context_engine": true
+  "required_context_engine": false
 }

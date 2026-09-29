@@ -29,6 +29,23 @@
     },
     "fields": [
       {
+        "path": "opencode.model",
+        "label": "OpenCode review model",
+        "type": "select",
+        "required": true,
+        "choices": [
+          {
+            "label": "Muse Spark 1.3 FreeOpenCode Zen",
+            "value": "opencode/muse-spark-1.3-contributor-free"
+          },
+          {
+            "label": "Muse Glimmer 30BLocal Spark",
+            "value": "spark/muse-glimmer-30b"
+          }
+        ],
+        "description": "Choose the model used for every review task in this run."
+      },
+      {
         "path": "inputs.payload.goal",
         "label": "Decision to support",
         "type": "textarea",
@@ -48,8 +65,15 @@
         "type": "local_path",
         "path_kind": "directory",
         "role": "input",
-        "requiredModes": ["real"],
-        "activeWhenAny": [{ "key": "inputs.payload.repository_url", "equals": "" }],
+        "requiredModes": [
+          "real"
+        ],
+        "activeWhenAny": [
+          {
+            "key": "inputs.payload.repository_url",
+            "equals": ""
+          }
+        ],
         "description": "Local source folder, staged for the worker."
       },
       {

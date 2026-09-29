@@ -15,7 +15,9 @@ from mn_sdk.integrations.rag import build_runtime_embedder
 from mn_sdk_rag import HashingEmbedder, RagConfig, SingleTextEmbedder
 
 
-EXTENSIONS = {".py", ".md", ".rst", ".txt", ".js", ".ts", ".tsx", ".java", ".go", ".rs", ".cs", ".sql"}
+EXTENSIONS = {".py", ".md", ".rst", ".txt", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".cs", ".sql",
+              ".vue", ".svelte", ".html", ".css", ".php", ".c", ".cpp", ".h", ".hpp", ".rb", ".swift",
+              ".kt", ".kts", ".ex", ".exs", ".erl", ".hrl", ".scala", ".proto", ".graphql", ".gql", ".tf", ".sh"}
 
 
 def digest(value: bytes) -> str:

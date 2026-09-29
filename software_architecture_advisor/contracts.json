@@ -81,16 +81,6 @@
         "required": false
       },
       {
-        "artifact_id": "investigation",
-        "path": "investigation.json",
-        "mime_type": "application/json",
-        "type": "investigation",
-        "producer": "workflow",
-        "schema_version": "mn.architecture.investigation.v2",
-        "privacy": "confidential",
-        "required": true
-      },
-      {
         "artifact_id": "report",
         "path": "report.md",
         "mime_type": "text/markdown",
@@ -101,42 +91,12 @@
         "required": true
       },
       {
-        "artifact_id": "suggestive_prompts",
-        "path": "suggestive_prompts.md",
-        "mime_type": "text/markdown",
-        "type": "suggestive_prompts",
-        "producer": "workflow",
-        "schema_version": "mn.architecture.suggestive_prompts.v1",
-        "privacy": "confidential",
-        "required": true
-      },
-      {
-        "artifact_id": "knowledge",
-        "path": "knowledge.json",
-        "mime_type": "application/json",
-        "type": "knowledge",
-        "producer": "workflow",
-        "schema_version": "mn.architecture.knowledge.v1",
-        "privacy": "confidential",
-        "required": true
-      },
-      {
         "artifact_id": "report_data",
         "path": "report.json",
         "mime_type": "application/json",
         "type": "report_data",
         "producer": "workflow",
-        "schema_version": "mn.architecture.report_data.v2",
-        "privacy": "confidential",
-        "required": true
-      },
-      {
-        "artifact_id": "model_trace",
-        "path": "model-trace.json",
-        "mime_type": "application/json",
-        "type": "model_trace",
-        "producer": "workflow",
-        "schema_version": "mn.architecture.model_trace.v2",
+        "schema_version": "mn.architecture.catalog_report.v1",
         "privacy": "confidential",
         "required": true
       },
@@ -161,40 +121,140 @@
         "required": true
       },
       {
-        "artifact_id": "human_events",
-        "path": "human.jsonl",
-        "mime_type": "application/x-jsonlines",
-        "type": "human_events",
-        "producer": "human_control",
-        "schema_version": "mn.blueprint.human_events.v1",
-        "privacy": "confidential",
-        "required": true
-      },
-      {
-        "artifact_id": "investigation_plan",
-        "path": "investigation-plan.json",
+        "artifact_id": "coverage",
+        "path": "coverage.json",
         "mime_type": "application/json",
-        "type": "investigation_plan",
+        "type": "coverage",
         "producer": "workflow",
-        "schema_version": "mn.architecture.plan.v1",
+        "schema_version": "mn.architecture.catalog.v1",
         "privacy": "confidential",
         "required": true
       },
       {
-        "artifact_id": "context_memory",
-        "path": "context-memory",
-        "mime_type": "application/octet-stream",
-        "type": "context_memory",
+        "artifact_id": "evidence",
+        "path": "evidence.json",
+        "mime_type": "application/json",
+        "type": "evidence",
         "producer": "workflow",
-        "schema_version": "mn.context.working.v1",
+        "schema_version": "mn.architecture.catalog.v1",
         "privacy": "confidential",
-        "required": false
+        "required": true
+      },
+      {
+        "artifact_id": "claims",
+        "path": "claims.json",
+        "mime_type": "application/json",
+        "type": "claims",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "findings",
+        "path": "findings.json",
+        "mime_type": "application/json",
+        "type": "findings",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "recommendations",
+        "path": "recommendations.json",
+        "mime_type": "application/json",
+        "type": "recommendations",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "assumptions",
+        "path": "assumptions.json",
+        "mime_type": "application/json",
+        "type": "assumptions",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "verification_tasks",
+        "path": "verification_tasks.json",
+        "mime_type": "application/json",
+        "type": "verification_tasks",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "roadmap",
+        "path": "roadmap.json",
+        "mime_type": "application/json",
+        "type": "roadmap",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "work_packages",
+        "path": "work_packages.json",
+        "mime_type": "application/json",
+        "type": "work_packages",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "catalog_plan",
+        "path": "catalog/plan.json",
+        "mime_type": "application/json",
+        "type": "catalog_plan",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "catalog_terminal",
+        "path": "catalog/terminal.json",
+        "mime_type": "application/json",
+        "type": "catalog_terminal",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "sections",
+        "path": "sections",
+        "mime_type": "application/octet-stream",
+        "type": "sections",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "work_package_documents",
+        "path": "work_packages",
+        "mime_type": "application/octet-stream",
+        "type": "work_package_documents",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
       }
     ]
   },
   "privacy": {
     "classification": "confidential",
     "external_sharing": "disabled",
-    "notes": "Frozen repository text, passages, graph receipts and model traces remain confidential run artifacts. Repository content is never executed."
+    "notes": "Frozen repository text and review artifacts are confidential. Bounded source excerpts are sent to the configured OpenCode model provider; public sharing is disabled. Source is never executed."
   }
 }

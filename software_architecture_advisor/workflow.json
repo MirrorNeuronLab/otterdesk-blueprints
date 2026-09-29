@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "workflow_id": "software_architecture_advisor_v2_2",
+  "workflow_id": "software_architecture_advisor_v3",
   "steps": [
     {
       "id": "capture_repository",
@@ -34,7 +34,7 @@
       "id": "investigate_architecture",
       "kind": "stage",
       "label": "Investigate Architecture",
-      "goal": "Test bounded hypotheses using graph and counter-evidence.",
+      "goal": "Review bounded source packets and all 150 report aspects, challenge conclusions, and admit evidence-driven follow-ups.",
       "needs": [
         "analyze_dependency_structure"
       ],
@@ -42,7 +42,7 @@
         "definition": "steps.investigate_architecture"
       },
       "control": {
-        "timeout_seconds": 3600
+        "timeout_seconds": 86400
       }
     },
     {
@@ -80,7 +80,7 @@
             "handler": "agents.architecture_planner"
           },
           "control": {
-            "timeout_seconds": 1200,
+            "timeout_seconds": 300,
             "retry": {
               "max_attempts": 1
             }
@@ -90,63 +90,12 @@
             "required": []
           }
         },
-        "query_architecture_graph": {
+        "review_architecture_packet": {
           "run": {
-            "handler": "agents.architecture_graph_analyst"
+            "handler": "agents.architecture_packet_reviewer"
           },
           "control": {
-            "timeout_seconds": 300,
-            "retry": {
-              "max_attempts": 1
-            }
-          },
-          "input_schema": {
-            "type": "object",
-            "required": [
-              "task"
-            ]
-          }
-        },
-        "search_architecture_evidence": {
-          "run": {
-            "handler": "agents.architecture_evidence_retriever"
-          },
-          "control": {
-            "timeout_seconds": 300,
-            "retry": {
-              "max_attempts": 1
-            }
-          },
-          "input_schema": {
-            "type": "object",
-            "required": [
-              "task"
-            ]
-          }
-        },
-        "assess_architecture_hypothesis": {
-          "run": {
-            "handler": "agents.architecture_hypothesis_assessor"
-          },
-          "control": {
-            "timeout_seconds": 300,
-            "retry": {
-              "max_attempts": 1
-            }
-          },
-          "input_schema": {
-            "type": "object",
-            "required": [
-              "task"
-            ]
-          }
-        },
-        "summarize_architecture_round": {
-          "run": {
-            "handler": "agents.architecture_round_reviewer"
-          },
-          "control": {
-            "timeout_seconds": 300,
+            "timeout_seconds": 720,
             "retry": {
               "max_attempts": 1
             }
@@ -169,8 +118,8 @@
       "outputs": {
         "result": []
       },
-      "max_rounds": 3,
-      "max_steps_per_round": 25
+      "max_rounds": 20,
+      "max_steps_per_round": 64
     }
   }
 }

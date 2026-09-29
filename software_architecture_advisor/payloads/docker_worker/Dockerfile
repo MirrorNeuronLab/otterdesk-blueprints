@@ -8,4 +8,5 @@ COPY agents/ /app/agents/
 COPY steps/ /app/steps/
 COPY runtime/ /app/runtime/
 COPY knowledge/ /app/knowledge/
+COPY report_specs/ /app/report_specs/
 CMD ["python3", "-m", "mn_sdk.step_runtime"]

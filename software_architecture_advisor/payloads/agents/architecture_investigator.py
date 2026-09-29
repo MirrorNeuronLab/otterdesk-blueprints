@@ -1,4 +1,4 @@
-from domain.adaptive_planning import initialize_investigation
+from domain.catalog_planning import initializer
 from ._binding import bind
 
-run = bind(initialize_investigation)
+run = bind(initializer)

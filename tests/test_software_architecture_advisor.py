@@ -41,7 +41,13 @@ def test_compiled_contract_and_docker_handlers(modules):
         assert name not in {s['id'] for s in source['workflow']['steps']}
         assert callable(importlib.import_module(record['handler']).run)
     groups = json.loads((BLUEPRINT/'execution.json').read_text())['workers']['groups']
-    assert all(g['uses'] == 'mn-agents.worker.python_docker@1' for g in groups)
+    assert groups[0]['uses'] == 'mn-agents.worker.python_docker@1'
+    review = next(g for g in groups if 'review_architecture_packet' in g['steps'])
+    assert review['with']['runner_module'] == 'MirrorNeuron.Runner.OpenShell'
+    assert review['with']['artifact_handoff']['version'] == 'mn.artifact_handoff/v1'
+    assert not review['with'].get('sync_shared_storage')
+    child = compiled['flow']['child_workflows']['investigate_architecture']
+    assert child['max_rounds'] == 20 and child['max_steps_per_round'] == 64
 
 
 def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
@@ -325,7 +331,7 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
                 result = handler(call)
                 assert handler(call).outputs == result.outputs
                 return result.outputs
-            for revision in range(cfg['investigation']['max_rounds']+1):
+            for revision in range(cfg['catalog_review']['max_rounds']+1):
                 work = {'context': ref, '_child': {'revision': revision}}
                 plan = child_call('plan_architecture_round', f'{step}:p{revision}', work)['child_plan']
                 if plan['decision'] == 'stop':
@@ -339,18 +345,12 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
                 pytest.fail('Child workflow did not stop within its admitted round limit')
     assert not marker.exists()
     report=json.loads((run/'report.json').read_text())
-    assert report['status']=='review_draft',report['errors']
-    assert report['metrics']['llm_calls']==0
+    assert report['status']=='partial'
+    assert report['terminal']['usage']['catalog_models']==0
     assert 'changed after capture' not in (run/'report.md').read_text()
-    assert (run/'suggestive_prompts.md').is_file()
-    for filename in ('report.md', 'suggestive_prompts.md', 'architecture_report.md',
-                     'architecture_assessment.json', 'improvement_prompts.md',
-                     'improvement_prompts.json', 'review_index.json'):
-        assert (output/filename).is_file(), filename
-    prompt_files=list((output/'prompts').glob('[0-9][0-9]-*.md'))
-    assert prompt_files
-    assert (output/'prompts/README.md').is_file()
-    assert 'Recorded review context' in prompt_files[0].read_text()
+    for filename in ('report.md','coverage.json','claims.json','verification_tasks.json','work_packages/README.md'):
+        assert (run/filename).is_file()
+    assert len(list((run/'sections').glob('*.md')))==23
     events=[json.loads(line) for line in (run/'events.log').read_text().splitlines()]
     assert [e['sequence'] for e in events]==list(range(1,len(events)+1))
     assert all(not e['event'].startswith('run.') for e in events)
@@ -358,7 +358,7 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     sources=run/'evidence/snapshots'/snapshot['id']/'sources.json'
     value=json.loads(sources.read_text());next(iter(value.values()))['text']='tampered';sources.write_text(json.dumps(value))
     with pytest.raises(ValueError,match='hash mismatch'):
-        modules['reporting'].verify_evidence(report,run)
+        __import__('domain.catalog_reporting',fromlist=['assemble']).assemble({'run_dir':run,'config':cfg})
 
 
 def test_https_input_retains_real_checkout_revision(modules,tmp_path,monkeypatch):

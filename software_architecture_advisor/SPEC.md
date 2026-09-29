@@ -1,59 +1,121 @@
-# Architecture Advisor contract
+# Architecture Advisor 3.0 specification
 
-Identity: `software_architecture_advisor`, version 2.2.1. This workflow adds a structural baseline before adaptive investigation; version 2.2.1 aligns the default output folder and OtterDesk link with the `architecture-advisor` job name. Existing runs retain their previous workflow version.
+## Outcome
 
-## Inputs and policy
+Turn a captured repository into a traceable architecture review covering the
+23 sections and 150 aspect contracts in `payloads/report_specs`. Every aspect
+gets an applicability decision independently of coverage. Missing evidence,
+failed tasks and capped source packets remain visible; they never imply health.
 
-Exactly one of `repository_url` or `input_folder` is required by domain validation. The default input is the public `https://github.com/homerquan/Archmind` repository. The manifest exposes the alternative fields as optional because either source can be selected; local-folder runs clear the default URL. The default goal asks for an actionable boundary/coupling concern and counter-evidence. `graph_export` is optional and must refer to indexed source paths with exact line spans. Versions 1 and 2 retain supplied-evidence labels. No source repository file can override the operator's knowledge library or runtime configuration.
+## Execution contract
 
-OtterDesk's sample profile uses the default public repository URL and no graph export. Setup accepts another public URL or a local source; the local source is required when the URL is empty. Empty optional source fields are treated as unselected.
+The fixed parent workflow captures source, analyzes dependencies, investigates
+architecture through Core-owned child rounds, then publishes the review.
+The deterministic planner commits bounded task references. One specialist
+invocation performs one OpenCode skill review in OpenShell. Each round is serial
+and replanning occurs only after its tasks have terminal durable results.
+The planner itself makes no model calls. No worker owns routing or completion.
 
-Defaults: 5,000 source files, 500 KB per file, 20 MB aggregate source bytes, 650-character windows, 200 non-merge Git commits; thirty chat-model calls (six reserved for final review), three rounds, three hypotheses per round, six distinct hypotheses, sixty graph/search operations, a twenty-minute investigation budget, twenty rows and top-three retrieval. Oversized/non-UTF8 files are reported as skipped; aggregate count/byte breaches fail capture. Symlinks, hidden/build folders and output artifacts are excluded. No source code is imported or executed. Public HTTPS GitHub acquisition disables hooks, templates, redirects, global Git configuration, credential prompting and submodules, with a 180-second timeout. Each acquisition retains its own checkout and captured HEAD.
+The planned content consists of source scans, 150 aspect analyses, 150 independent
+challenges, bounded dynamic evidence follow-ups, 23 section syntheses and a final
+executive synthesis. Defaults: 1,024 total tasks and model attempts, 20 rounds,
+64 tasks/round, 64 follow-ups of maximum depth two, and 86,400 seconds. Capacity
+is reserved for synthesis; remaining source omissions are recorded. Each call
+has a 600-second timeout, 1 MiB output ceiling and 60 KB UTF-8 prompt bound.
+Source packets have exact offsets and are at most 24 KB, including long Unicode
+lines. A run can stop earlier for budgets and still publish a partial report.
 
-## Workflow and boundaries
+## Model selection
 
-`capture_repository` → `analyze_dependency_structure` → `investigate_architecture` → `publish_architecture_review`.
+`opencode.model` is operator-configurable and exposed in the setup guide. Its
+default is `opencode/muse-spark-1.3-contributor-free` (Muse Spark 1.3 FreeOpenCode
+Zen). The alternate `spark/muse-glimmer-30b` (Muse Glimmer 30BLocal Spark) uses a
+sandbox-local OpenCode custom provider with the configured `opencode.spark_base_url`.
+Both display labels normalize to their provider/model IDs. The model and provider
+endpoint are pinned in the durable run context. The OpenShell policy admits the
+Zen API and the local Spark chat-completions endpoint; other endpoint changes
+require a corresponding policy change. No host OpenCode configuration is copied.
 
-The structural step materializes the frozen dependency graph, writes `analysis/dependencies.json` with direct edges, exact source locations, fan-in/fan-out, degree centrality, strongly connected cycles and articulation modules in the undirected projection, and writes a dense `analysis/dependency-dsm.csv` when the indexed module count is within `analysis.max_dsm_modules` (default 300). Rows import columns. Over the limit, the full edge list remains available and the dense DSM is explicitly omitted. These measures are investigation signals, not measured severity, runtime behavior or business impact. Archmind's DSM and coupling method informed this stage; its uncited severity scores and source-target execution model were not imported.
+## Evidence and content
 
-Steps contain only SDK contracts and `StepSpec` agent graphs. Specialist roles include repository examiner, child initializer, architecture planner, graph analyst, evidence retriever, hypothesis assessor, round reviewer and architecture review editor. Thin handlers use `mn-prototype-stateful-step-agent`; it owns invocation idempotency and durable output ordering. Workers return bounded summaries plus artifact references. Domain code owns source/architecture policy, lazy architecture projections, hypotheses, evidence validation and report semantics. Runtime only creates and persists SDK context. Core owns routing, retries, joins and logical completion.
+The bundled catalog validates every aspect file against its original SHA-256.
+The context pins catalog digest, source manifest, configuration and objective.
+Source inventory equality and hashes are verified on load and publication.
+Models select supplied evidence IDs; the worker resolves those to exact frozen
+file hashes, character offsets, line ranges and excerpts. Invented or out-of-scope
+citations and unresolved report IDs are rejected. Source is never executed.
 
-The reusable `mirrorneuron-graph-analysis-skill` owns RGX subprocess execution, read-only guards, timeout/output limits and pinned binary preparation. Its digest-pinned public GAR runtime image is used unchanged; `mn-graph-engine` source is read-only. SDK RAG owns embedding adapters and the shared document/evidence mechanics. SDK model access owns transport and provider binding. The blueprint's model adapter owns request schemas, budgets and audit contents; it never implements a generic network client.
+Aspect prompts contain the full applicable specification, shared conventions,
+and a requirement-by-requirement answer contract. Prior validated results and
+source spans are selected within a hard prompt bound; whole omitted records are
+counted. Challenges receive the corresponding analysis and other evidence.
+Section and executive synthesis use bounded prior results, with omissions
+reported. Inferred summaries retain their source task references.
 
-## Evidence graphs
+Claims distinguish observed, derived, inferred, assumed and proposed information.
+Confidence includes rationale and remains separate from priority, urgency,
+effort and impact. Recommendations and work packages are created only from
+model-proposed, validated, traceable records; missing recommendations are not
+replaced with automatic generic remediation. Unresolved challenges require
+verification before implementation. Runtime measurements and actual test runs
+are never inferred merely from source presence.
 
-Architecture families: symbols/references, dependencies, calls, types, control flow, data flow, state, schema, API, events, workflow, deployment, tests, Git, ownership, incidents, configuration, security, semantic responsibilities, and intent. An encoder-scoped embedding index is a separate retrieval layer. All twenty families are reachable through bounded investigation tools. Lazy generations use snapshot, collector, scope, dependency and model/encoder fingerprints. File locks prevent simultaneous duplicate graph publication; atomic pointers preserve the previous graph on failure.
+## Durability and failure semantics
 
-Sources retain exact UTF-8 text and SHA-256. Every edge retains source evidence IDs, provenance kind and collector identity. Missing spans/endpoints fail ingestion or publication. RGX query receipts preserve raw rows, parameter values, generation, result hash and the exact edge-manifest hash used to join provenance. Counts are scoped to the captured graph; sampled lists do not prove absence. Model-inferred semantic labels remain inferred. No untrained RFM predictions are presented as architecture facts.
+SDK committed artifacts protect plans/results from conflicting rewrites.
+Task request identities and SQLite attempt reservations make duplicate delivery
+safe; an interrupted attempt cannot automatically consume another model call.
+Core supplies the execution barrier and durable shared run directory. OpenShell
+synchronizes shared artifacts through Core's storage contract. No separate host
+copy or native execution fallback is implemented by the blueprint.
+Malformed/model failures are blocked task results, while corrupted committed
+artifacts fail validation. Offline mode explicitly means not analyzed. Partial
+reports state the terminal reason, task status and source omissions.
 
-## Review contract
+## Deliverables and acceptance
 
-Planning selects only indexed modules and allowed families. Each hypothesis obtains graph observations and separate support/counter searches. Citation enums constrain structured JSON requests; application validation rejects invented citations. One malformed-output repair is allowed within the global call cap. An independent final model review covers every recommendation promoted to the roadmap. Unreviewed findings remain exploratory. Unknown architecture rules and unavailable views force inconclusive conclusions. Inconclusive final advice is limited to validation actions. Original model responses and any normalized verification rollback remain in the audit JSON for inspection.
+Publish report Markdown/JSON; 23 section files; coverage for 150 aspects and
+all source packets; canonical evidence, claims and findings; recommendations,
+assumptions, verification tasks, roadmap and proposed implementation work
+packages. All material record references must resolve. All cited source spans
+must match captured bytes. Work packages contain baseline, actual files,
+evidence, constraints, non-goals, migration steps, tests, acceptance and stop
+conditions. Report generation does not authorize implementation.
 
-Final publication rechecks source hashes and exact evidence spans and validates assessment citations. Knowledge guidance is a bounded local library (normally at most two cards and 1,200 UTF-8 prompt bytes), never evidence of a project defect. Suggested coding tasks verify findings and current revision before recommending a reversible change. Failed investigations retain raw investigation, model and event audit files and fail the worker; they are not reported as successful completed reviews. Partial reviews identify failed findings explicitly.
+Tests must exercise more than 300 tasks using actual SDK child-plan contracts,
+round barriers, dynamic work, final executive ordering, replay, failure/budget
+handling, Unicode bounds, exact citation validation, all aspect/section outputs
+and report tampering. A small opt-in live OpenShell test verifies the default
+OpenCode provider without launching hundreds of external requests.
 
-The setup guide exposes the investigation goal so the human can steer the decision, scenario and constraints before launch. Publication emits one nonblocking `architecture_review_direction` human request per `report.json` SHA-256 digest. A changed report closes unanswered requests bound to older digests. A response records a review-wide next direction and optional human notes in the runtime human-event ledger. The request is idempotent across publication retries, remains separate from immutable evidence, and does not authorize or automatically execute follow-up work. This is a G2-style review annotation, not a mid-run DAG gate or an approval to run repository code.
+## Limits
 
-## Artifacts and execution
+Static source review is not runtime measurement, a security audit or a guarantee
+of architectural correctness. Language-specific structural extraction may be
+incomplete; the text reviewer can still assess supported polyglot source.
+Bounded relevance selection may miss cross-cutting interactions. Unknown or
+omitted evidence must remain explicit. OpenShell shared-storage transfers are
+serial and may dominate runtime for very large captured source inventories.
 
-Canonical artifact paths are authored in `contracts.json`. Confidential large artifacts are durably stored under the run directory before specialist output. The source snapshot identifies its evidence graph and immutable sources under `evidence/snapshots/<snapshot-id>/`; graph generations and query audit remain available for review. The standard `outputs.folder_path` contract stages the completed presentation bundle in shared storage and lets the SDK copy it to `~/Downloads/architecture-advisor` on the submitting host. That concrete path is also the OtterDesk output-folder link target. The bundle includes canonical report and prompt files, familiar `architecture_*` and `improvement_prompts.*` presentation names, a prompt index, and one copy-ready task per finding. No new REST server or standalone lifecycle is bundled.
+The packet reviewer uses an explicitly built OpenShell image context at
+`payloads/openshell_worker`, including `iproute2` for isolated networking.
+SDK image preparation installs declared dependencies before sandbox creation.
+The reviewer imports uploaded blueprint modules from its invocation workdir.
 
-All steps use `mn-agents.worker.python_docker@1`, sharing the run's durable data plane. The worker image includes the graph binary copied from the public digest-pinned GAR image; platform-declared agents, skills, and SDK components are installed by the platform. Blueprint launch does not require gcloud or Git credentials. An unmodified launch reviews Archmind; the synthetic fixture is only an explicit example/test input. Offline mode is opt-in and never a live-provider fallback.
+Parent-phase Docker workers use a single-stage Python 3.11 image without
+`USER` instructions, allowing SDK skill-preparation hooks to add native tools.
+OpenCode and sandbox system setup belong to the separate OpenShell image.
 
-## Child workflow contract
+### Immutable review handoff
 
-`workflow.child_workflows.investigate_architecture` declares a planner, pre-admitted single-handler templates, input/output path mappings, and round/node bounds. The generated parent sink hands completion to Core; the parent remains running until the child stops. The parent exit has no direct worker route; Core triggers it only with the final mapped child output.
+The owner planner persists stable tasks, bounded prompts, evidence selections,
+configuration, and SQLite reservations before dispatch. Pending reservations count
+toward `max_calls`; ambiguous execution is never automatically refunded. Frozen
+admission JSON is published with the runtime run ID through SDK artifact helpers.
+Reviewers use isolated attempt workspaces and publish task-specific result files.
+They have no writable budget database or owner catalog mirror. The next owner
+planning pass reconciles only Core-committed result receipts, verifies citations
+against the frozen owner snapshot, then publishes domain receipts idempotently.
+This migration retains serial dependencies and does not introduce parallel review.
 
-Each round alternates planning, atomic graph commitment, deterministic execution and a completion barrier. Only the planner can choose the next round, and no executing or completed graph is rewritten. Child identity, round and phase are public progress metadata; inputs, model text and evidence remain confidential artifacts. Workers never dispatch other workers or complete the parent.
-
-Plan nodes select allowlisted graph operations and independent support/counter searches. New evidence may revise a hypothesis's module, family, statement and selected queries while retaining its ID. Repeated completed work does not justify another round. Hypothesis revisions and previous evidence remain inspectable even when the final review uses the latest revision.
-
-Publication verifies exact frozen spans, hashes and citations for all final decisions. The report includes executive summary, observed architecture relationships, prioritized findings, alternatives, a three-phase roadmap, and explicit coverage limits. Knowledge cards are guidance, never project evidence. Priority is not measured severity or ROI. Runtime state is versioned and requires the matching SDK/Core deployment; static workflows retain their previous semantics.
-
-## Bounded working context
-
-Live model calls use the shared SDK `ContextSession` and Membrane `mn.context.working.v1` contract. Deploy the matching SDK and Rust context service together. Observations are recorded before selection; only a bounded working view enters each model request. Raw observations, packet manifests and response receipts remain under `context-memory/` (under `case/` for Litigation Analyst). Redis owns the durable paginated recall index; no complete job snapshot is restored into process memory.
-
-The SDK accounts for fixed instructions, schemas, output reserve and safety margin, and the gateway enforces its confirmed serving window. Current decision constraints and exact final-review evidence cannot be silently dropped; impossible required sets return an explicit partition requirement. Unselected evidence remains available by exact reference and query. A missing item in the working view never proves absence. Source hashes and citations are verified independently before publication. Cache loss cannot repeat a successfully journaled model response. Offline/scripted execution remains deterministic and does not call Membrane.
-
-Semantic retrieval binds explicitly to `docker.io/ai/embeddinggemma:latest` by default, independently of the chat model. The default `litellm_proxy` embedding provider prepares that Docker Model Runner model and sends inference through the SDK's bounded FIFO embedding lane so first-use and cross-job requests do not contend directly for the model. The SDK verifies embedding capability before requests. `embedding.provider` and `embedding.model` remain operator-tunable; `default` is the chat route and must not be used for embeddings. Graph views and text embeddings are built lazily when an admitted child task needs them. A failed embedding build cannot publish a completed generation or a successful review.
+Owner publication exports the validated report, section documents, work packages, and JSON task audit to the declared output folder. SQLite reservation state is excluded from that export.

@@ -1,0 +1,1446 @@
+{
+  "schema_version": "1.0",
+  "title": "Software architecture advice report \u2014 content specifications",
+  "created_date": "2026-09-16",
+  "source": "The 23-section report outline in the current conversation.",
+  "purpose": "Proposed report-content specifications; not a completed codebase analysis or independently validated customer research.",
+  "total_sections": 23,
+  "total_specifications": 150,
+  "naming": {
+    "section_folder": "lowercase-kebab-case",
+    "aspect_file": "<description_in_snake_case>_spec.md"
+  },
+  "shared_conventions": "REPORT_CONVENTIONS.md",
+  "sections": [
+    {
+      "number": 1,
+      "title": "Executive architecture brief",
+      "folder": "executive-architecture-brief",
+      "purpose": "Give decision-makers a concise, evidence-backed orientation and a short list of decisions that deserve attention.",
+      "specification_count": 5,
+      "readme": "executive-architecture-brief/README.md",
+      "specifications": [
+        {
+          "id": "AR-01-01",
+          "title": "What the system does",
+          "path": "executive-architecture-brief/what_the_system_does_spec.md",
+          "question": "What business work does this system perform, for whom, and where does its responsibility end?",
+          "word_count": 251,
+          "sha256": "c85af4ed9f9b41a0c46a30f3bbb68d0fa9d92c25ca70bf5681af86fe419b76bd"
+        },
+        {
+          "id": "AR-01-02",
+          "title": "Overall architecture shape",
+          "path": "executive-architecture-brief/overall_architecture_shape_spec.md",
+          "question": "How is the system organized, and which architectural choices define how it operates?",
+          "word_count": 241,
+          "sha256": "b038ed4a7e1362741ca81d44a8bb13ed72ca34bb16cf3180bd53ff5ea3e46b8c"
+        },
+        {
+          "id": "AR-01-03",
+          "title": "Major strengths and weaknesses",
+          "path": "executive-architecture-brief/major_strengths_and_weaknesses_spec.md",
+          "question": "What should we preserve, and what currently obstructs our goals?",
+          "word_count": 231,
+          "sha256": "db3615446a1c56e830fe704774c3623f336e9f3e8fafd470b2b5858a7114c4c3"
+        },
+        {
+          "id": "AR-01-04",
+          "title": "Top architectural risks",
+          "path": "executive-architecture-brief/top_architectural_risks_spec.md",
+          "question": "Which three to five architectural risks most deserve management attention?",
+          "word_count": 254,
+          "sha256": "6299c05adcd7300244c23c7716882f901dfca74d0038ffc4b97e4ff64dfaaec3"
+        },
+        {
+          "id": "AR-01-05",
+          "title": "Immediate versus later priorities",
+          "path": "executive-architecture-brief/immediate_vs_later_priorities_spec.md",
+          "question": "What should we address now, plan next, and deliberately leave alone?",
+          "word_count": 217,
+          "sha256": "6f7df512a9b0df8d57837cbfafae778672919fb36698be2fe3d49f055dccba48"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Inferred system architecture",
+      "folder": "inferred-system-architecture",
+      "purpose": "Reconstruct how the implementation actually works instead of mirroring the directory tree or repeating potentially stale diagrams.",
+      "specification_count": 6,
+      "readme": "inferred-system-architecture/README.md",
+      "specifications": [
+        {
+          "id": "AR-02-01",
+          "title": "Major subsystems and responsibilities",
+          "path": "inferred-system-architecture/major_subsystems_and_responsibilities_spec.md",
+          "question": "What are the main functional parts, and what work is each responsible for?",
+          "word_count": 223,
+          "sha256": "29c95bc1680f72975aeb4604a9414e0ba4c57af5c6d2ae09045a9d78a50be51e"
+        },
+        {
+          "id": "AR-02-02",
+          "title": "Service and module boundaries",
+          "path": "inferred-system-architecture/service_and_module_boundaries_spec.md",
+          "question": "Where are the actual separation points, and how strong are those boundaries?",
+          "word_count": 214,
+          "sha256": "dc111f118a12019abb3ef60b198729ff0074dc41004e0ed6cafb619dc4ccd9d9"
+        },
+        {
+          "id": "AR-02-03",
+          "title": "Runtime and deployment topology",
+          "path": "inferred-system-architecture/runtime_and_deployment_topology_spec.md",
+          "question": "What runs where, and how do deployment and operational boundaries differ from source structure?",
+          "word_count": 235,
+          "sha256": "603813f8870ab9dc12d935b59ae77107f4dfd722f7334312833fab9b015bbeb1"
+        },
+        {
+          "id": "AR-02-04",
+          "title": "External dependencies",
+          "path": "inferred-system-architecture/external_dependencies_spec.md",
+          "question": "Which third-party or out-of-scope systems does this architecture rely on?",
+          "word_count": 221,
+          "sha256": "fa11e9925c062267408ef3609e713fe582b29328bb2be8e3553f1d7fe1f2e523"
+        },
+        {
+          "id": "AR-02-05",
+          "title": "Critical request and data flows",
+          "path": "inferred-system-architecture/critical_request_and_data_flows_spec.md",
+          "question": "How do important requests and data travel across the system?",
+          "word_count": 233,
+          "sha256": "d97e5ef506c9478747dfacf53d59721622b89a6aec764747261afa7e0872c345"
+        },
+        {
+          "id": "AR-02-06",
+          "title": "How the system actually works",
+          "path": "inferred-system-architecture/how_the_system_actually_works_spec.md",
+          "question": "What operational story explains the implementation beyond its file layout?",
+          "word_count": 233,
+          "sha256": "3fcd1a11e5fc93bed011cb002af73c4809bfceef1d444e30474c96abfe76720a"
+        }
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Natural boundaries versus current boundaries",
+      "folder": "natural-boundaries-vs-current-boundaries",
+      "purpose": "Identify where responsibility, data, and change patterns suggest better boundaries while preserving explicit tradeoffs.",
+      "specification_count": 5,
+      "readme": "natural-boundaries-vs-current-boundaries/README.md",
+      "specifications": [
+        {
+          "id": "AR-03-01",
+          "title": "Recommended component boundaries",
+          "path": "natural-boundaries-vs-current-boundaries/recommended_component_boundaries_spec.md",
+          "question": "Where would boundaries better match responsibilities and independent change?",
+          "word_count": 231,
+          "sha256": "a767707afc1e1ee57894dbfb30ae02def97f3f1cd3f9f44e551a5d783858486a"
+        },
+        {
+          "id": "AR-03-02",
+          "title": "Mixed responsibilities",
+          "path": "natural-boundaries-vs-current-boundaries/mixed_responsibilities_spec.md",
+          "question": "Which components combine concerns that should change or be governed separately?",
+          "word_count": 233,
+          "sha256": "862942edabfde903e9bc0ba3840271f5f3d40ef8d60107207bccc24bcd65a606"
+        },
+        {
+          "id": "AR-03-03",
+          "title": "Merge candidates",
+          "path": "natural-boundaries-vs-current-boundaries/merge_candidates_spec.md",
+          "question": "Which separated components create overhead without meaningful independence?",
+          "word_count": 223,
+          "sha256": "ed0a9e74e38f49f80d941fd5edf2ff3eae0a16642872f155cc8f310140433bc1"
+        },
+        {
+          "id": "AR-03-04",
+          "title": "Extraction and decomposition candidates",
+          "path": "natural-boundaries-vs-current-boundaries/extraction_and_decomposition_candidates_spec.md",
+          "question": "What can be separated safely, and what prevents separation today?",
+          "word_count": 223,
+          "sha256": "95d00202ef9f62a3ca4ee1e05f65f7c1f096f647940e84b5cdcd93435a0b3c8a"
+        },
+        {
+          "id": "AR-03-05",
+          "title": "Domain boundary violations",
+          "path": "natural-boundaries-vs-current-boundaries/domain_boundary_violations_spec.md",
+          "question": "Where does one domain reach into another domain\u2019s rules or internal representation?",
+          "word_count": 231,
+          "sha256": "63799b618883b726b67c28f0dbdcddc37ada47cdf2f1f3162398151d1217e343"
+        }
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Hidden coupling",
+      "folder": "hidden-coupling",
+      "purpose": "Expose dependencies that make apparently local changes require broader coordination or produce unexpected behavior.",
+      "specification_count": 6,
+      "readme": "hidden-coupling/README.md",
+      "specifications": [
+        {
+          "id": "AR-04-01",
+          "title": "Unexpected dependencies",
+          "path": "hidden-coupling/unexpected_dependencies_spec.md",
+          "question": "Which components depend on one another in ways the architecture model does not explain?",
+          "word_count": 225,
+          "sha256": "f0c00cceb71c50a2b2417b8ddcdeb7d8e846c81bd9e4f47a43a9822d087830a1"
+        },
+        {
+          "id": "AR-04-02",
+          "title": "Circular dependencies",
+          "path": "hidden-coupling/circular_dependencies_spec.md",
+          "question": "Which components form dependency cycles, and how do those cycles constrain change?",
+          "word_count": 240,
+          "sha256": "28430176b6113fd9e09124fc44365cac5eb5f85bf07d489e69d193d6b5933a9e"
+        },
+        {
+          "id": "AR-04-03",
+          "title": "Temporal and co-change coupling",
+          "path": "hidden-coupling/temporal_and_cochange_coupling_spec.md",
+          "question": "Which components must be used in a particular order or repeatedly change together?",
+          "word_count": 236,
+          "sha256": "75f6bb09c1d4b74cc86914ed3c8472db977adbba298202bb215a518928f5ff2a"
+        },
+        {
+          "id": "AR-04-04",
+          "title": "Shared-state coupling",
+          "path": "hidden-coupling/shared_state_coupling_spec.md",
+          "question": "Which components influence one another through state rather than explicit interfaces?",
+          "word_count": 226,
+          "sha256": "02822df29088173bb1fe8d120926a503c865c3da20e894fb3b1460eb88317577"
+        },
+        {
+          "id": "AR-04-05",
+          "title": "Implicit contracts",
+          "path": "hidden-coupling/implicit_contracts_spec.md",
+          "question": "What unstated expectations must remain true for components to cooperate?",
+          "word_count": 226,
+          "sha256": "d1995c0b4db1a33c781d5bf294f05ff97299e592c265da9c078515de1a20b60d"
+        },
+        {
+          "id": "AR-04-06",
+          "title": "Cross-layer dependencies",
+          "path": "hidden-coupling/cross_layer_dependencies_spec.md",
+          "question": "Where does code cross or reverse an intended architectural layer boundary?",
+          "word_count": 239,
+          "sha256": "1e2e073a7a8be1b9a29904c9f01e0933b6de79414ea4545c50c6f9ac60ba3595"
+        }
+      ]
+    },
+    {
+      "number": 5,
+      "title": "Change blast-radius analysis",
+      "folder": "change-blast-radius-analysis",
+      "purpose": "For a specific proposed change, identify what may be affected, why, and how to validate the result.",
+      "specification_count": 8,
+      "readme": "change-blast-radius-analysis/README.md",
+      "specifications": [
+        {
+          "id": "AR-05-01",
+          "title": "Change scenario definition",
+          "path": "change-blast-radius-analysis/change_scenario_definition_spec.md",
+          "question": "Exactly what change are we evaluating, and what counts as an impact?",
+          "word_count": 228,
+          "sha256": "9ddb665c7f0b89273064b559663e88843db866c328fc26124ec5a4694039f957"
+        },
+        {
+          "id": "AR-05-02",
+          "title": "Direct dependents",
+          "path": "change-blast-radius-analysis/direct_dependents_spec.md",
+          "question": "Which immediate consumers need review for this change?",
+          "word_count": 212,
+          "sha256": "d58c1b9328a4580d3a457a97e7be981c4df40997331b9b1cc695ad692636c232"
+        },
+        {
+          "id": "AR-05-03",
+          "title": "Transitive dependents",
+          "path": "change-blast-radius-analysis/transitive_dependents_spec.md",
+          "question": "How could this change propagate beyond immediate consumers?",
+          "word_count": 228,
+          "sha256": "0840b7dd7502f905e2c83a1d16713f003e1c23e0ba244d6895f93a8e987aa24d"
+        },
+        {
+          "id": "AR-05-04",
+          "title": "Affected APIs and contracts",
+          "path": "change-blast-radius-analysis/affected_apis_and_contracts_spec.md",
+          "question": "Which public or internal contracts could change for consumers?",
+          "word_count": 209,
+          "sha256": "96a4aad4dfbf2212afd5681e33d5b9040814b7f9f7920f7ed305ca29a9e35265"
+        },
+        {
+          "id": "AR-05-05",
+          "title": "Data and schema dependencies",
+          "path": "change-blast-radius-analysis/data_and_schema_dependencies_spec.md",
+          "question": "Which data consumers, migrations, and invariants are affected?",
+          "word_count": 217,
+          "sha256": "75f76a672c2a8dff416dac26942eb45be668e7363a8fc33961cd48914a969fdc"
+        },
+        {
+          "id": "AR-05-06",
+          "title": "Tests to run",
+          "path": "change-blast-radius-analysis/tests_to_run_spec.md",
+          "question": "Which tests provide useful evidence that this change is safe?",
+          "word_count": 233,
+          "sha256": "c97b140a3715e3d9b24c1b4379d7825f9777268f63b52c97956ca0f16a6db33b"
+        },
+        {
+          "id": "AR-05-07",
+          "title": "Affected services and deployments",
+          "path": "change-blast-radius-analysis/affected_services_and_deployments_spec.md",
+          "question": "Which operational units must change, restart, or coordinate a release?",
+          "word_count": 211,
+          "sha256": "4e5cea58b539befce08eeb0140ecb33002fda0c9192bc7d05ef6fd3589e9bc85"
+        },
+        {
+          "id": "AR-05-08",
+          "title": "Historical co-change evidence",
+          "path": "change-blast-radius-analysis/historical_cochange_evidence_spec.md",
+          "question": "What past changes suggest additional review targets for this change?",
+          "word_count": 237,
+          "sha256": "410666c8b8ecdcf6f9cbfafec6f848f3ef6eb537235b7ec0db1ff2d83225d3bd"
+        }
+      ]
+    },
+    {
+      "number": 6,
+      "title": "Architecture hotspots",
+      "folder": "architecture-hotspots",
+      "purpose": "Identify components where structural difficulty, active change, operational importance, and weak validation combine to warrant attention.",
+      "specification_count": 7,
+      "readme": "architecture-hotspots/README.md",
+      "specifications": [
+        {
+          "id": "AR-06-01",
+          "title": "Code complexity",
+          "path": "architecture-hotspots/code_complexity_spec.md",
+          "question": "Where is implementation complexity concentrated at an architectural level?",
+          "word_count": 226,
+          "sha256": "7f3bc19150375b5ea769e4c9f0999e7680a7bf107eb634ea06cad8cadf76106b"
+        },
+        {
+          "id": "AR-06-02",
+          "title": "Git churn",
+          "path": "architecture-hotspots/git_churn_spec.md",
+          "question": "Which architectural areas absorb the most change?",
+          "word_count": 222,
+          "sha256": "105d9bc355d86cdec72c984c7d63b4f71540f8cc671919ff8c58f77dc589b32d"
+        },
+        {
+          "id": "AR-06-03",
+          "title": "Dependency centrality",
+          "path": "architecture-hotspots/dependency_centrality_spec.md",
+          "question": "Which components occupy influential positions in the dependency structure?",
+          "word_count": 229,
+          "sha256": "e8f98dcde0c8fe07b4f54ef17b8d0c05093739db4f660581c1adb5a6cd6b1be8"
+        },
+        {
+          "id": "AR-06-04",
+          "title": "Production criticality",
+          "path": "architecture-hotspots/production_criticality_spec.md",
+          "question": "Which components support the outcomes the customer can least afford to lose?",
+          "word_count": 219,
+          "sha256": "a68e719501ab55f86269fb26f5d9dbd0bc41943bdaae6be95938ad7db41e53e6"
+        },
+        {
+          "id": "AR-06-05",
+          "title": "Bug-fix concentration",
+          "path": "architecture-hotspots/bug_fix_concentration_spec.md",
+          "question": "Where does corrective work repeatedly accumulate?",
+          "word_count": 217,
+          "sha256": "03661049b0d07b3f8d4f3c2c2c5abdac5300bcbc83bd24797e2bceb6b84c3d3c"
+        },
+        {
+          "id": "AR-06-06",
+          "title": "Test coverage gaps",
+          "path": "architecture-hotspots/test_coverage_gaps_spec.md",
+          "question": "Where do important architectural behaviors lack credible verification?",
+          "word_count": 224,
+          "sha256": "7964ae0ce1640c41110eca8db662000b54e8d8a17c63c407c0171dfae1fe699a"
+        },
+        {
+          "id": "AR-06-07",
+          "title": "Prioritized hotspot map",
+          "path": "architecture-hotspots/prioritized_hotspot_map_spec.md",
+          "question": "Which components should receive architectural attention first, and why?",
+          "word_count": 239,
+          "sha256": "4f3e1d72d705459c86094a469c763848263351a8be718229c48dc3373277ef6a"
+        }
+      ]
+    },
+    {
+      "number": 7,
+      "title": "Architecture debt and smells",
+      "folder": "architecture-debt-and-smells",
+      "purpose": "Turn structural symptoms into evidenced architectural findings, accounting for intentional tradeoffs and the cost of remediation.",
+      "specification_count": 9,
+      "readme": "architecture-debt-and-smells/README.md",
+      "specifications": [
+        {
+          "id": "AR-07-01",
+          "title": "God components",
+          "path": "architecture-debt-and-smells/god_components_spec.md",
+          "question": "Which components accumulate excessive responsibilities or authority?",
+          "word_count": 208,
+          "sha256": "8c642bac3dbdbee26de6dca7452a66acb4bcceeffac72c1e26e25b32376d3739"
+        },
+        {
+          "id": "AR-07-02",
+          "title": "Dependency cycles as architectural debt",
+          "path": "architecture-debt-and-smells/dependency_cycles_spec.md",
+          "question": "Which dependency cycles create enough ongoing cost to justify intervention?",
+          "word_count": 229,
+          "sha256": "565ebda83d690c798f12f87f4a9ece37d49ac1c5c469eed6c80545f7888e2a69"
+        },
+        {
+          "id": "AR-07-03",
+          "title": "Layer violations as architectural debt",
+          "path": "architecture-debt-and-smells/layer_violations_spec.md",
+          "question": "Which layer-rule exceptions create a meaningful maintenance obligation?",
+          "word_count": 219,
+          "sha256": "8293d49fdd36b04aaaebfac52fabb5e602315f76c13a040d04bc82dddd7a1e3d"
+        },
+        {
+          "id": "AR-07-04",
+          "title": "Excessive centralization",
+          "path": "architecture-debt-and-smells/excessive_centralization_spec.md",
+          "question": "Where does centralized control or state impose an avoidable system-wide constraint?",
+          "word_count": 216,
+          "sha256": "19404e3536acb4b49544ca3ec9f1fb572883259e28e9e14a76b00dfc3f9b5608"
+        },
+        {
+          "id": "AR-07-05",
+          "title": "Leaky abstractions",
+          "path": "architecture-debt-and-smells/leaky_abstractions_spec.md",
+          "question": "Where must consumers understand details that an interface is meant to hide?",
+          "word_count": 227,
+          "sha256": "343ec7506ebf04e32616132f5c9a4ec66a45756147833180c275cf97c3039813"
+        },
+        {
+          "id": "AR-07-06",
+          "title": "Duplicate mechanisms",
+          "path": "architecture-debt-and-smells/duplicate_mechanisms_spec.md",
+          "question": "Where do multiple implementations solve the same architectural problem inconsistently?",
+          "word_count": 215,
+          "sha256": "d84f6f8c84a6221bca0583b1bdd83eab38208ba69dc9631a28dde46fab2428c2"
+        },
+        {
+          "id": "AR-07-07",
+          "title": "Ownership boundary mismatches",
+          "path": "architecture-debt-and-smells/ownership_boundary_mismatches_spec.md",
+          "question": "Where are architectural responsibilities assigned in ways that create unresolved control or coordination?",
+          "word_count": 223,
+          "sha256": "2cde0a7ecf0e139e2a0c23bad8f270d1ffa07d438243f46b2bc9a6510b9e101f"
+        },
+        {
+          "id": "AR-07-08",
+          "title": "Fan-in and fan-out",
+          "path": "architecture-debt-and-smells/fan_in_and_fan_out_spec.md",
+          "question": "Where do unusually broad dependency relationships create a practical design concern?",
+          "word_count": 218,
+          "sha256": "66dc176cf85d3bd8284a706350bc343562daa50a9435d00d25dc33f4ee2a47e2"
+        },
+        {
+          "id": "AR-07-09",
+          "title": "Architecture drift",
+          "path": "architecture-debt-and-smells/architecture_drift_spec.md",
+          "question": "Where has implementation moved away from an agreed or previously observed architecture?",
+          "word_count": 230,
+          "sha256": "4b0c009a7fb7b49e28b45d48d6e9d51a612d32e353c7229c4ca4c4bc14edca43"
+        }
+      ]
+    },
+    {
+      "number": 8,
+      "title": "Data and state ownership",
+      "folder": "data-and-state-ownership",
+      "purpose": "Make ownership, access, durability, consistency, and failure behavior explicit for important data and operational state.",
+      "specification_count": 9,
+      "readme": "data-and-state-ownership/README.md",
+      "specifications": [
+        {
+          "id": "AR-08-01",
+          "title": "Data ownership",
+          "path": "data-and-state-ownership/data_ownership_spec.md",
+          "question": "Who has authority over each important data entity and its rules?",
+          "word_count": 218,
+          "sha256": "49c814139df0b15f573a5d9243876d68f739d3b9f5b5ab103ffe8459d8ffbaa7"
+        },
+        {
+          "id": "AR-08-02",
+          "title": "Data writers",
+          "path": "data-and-state-ownership/data_writers_spec.md",
+          "question": "Which actors can create, update, or delete important state?",
+          "word_count": 209,
+          "sha256": "ffdca1fa7f046a27fa7f5a7454c49488ca28632069e40231f89b9e784126ecd5"
+        },
+        {
+          "id": "AR-08-03",
+          "title": "Data readers",
+          "path": "data-and-state-ownership/data_readers_spec.md",
+          "question": "Who depends on the meaning, shape, and freshness of this data?",
+          "word_count": 217,
+          "sha256": "23ea2df189dc8194198a0d1c9c7e205d93aa3c5820665ce4d5f15b9a0cc295d1"
+        },
+        {
+          "id": "AR-08-04",
+          "title": "Sources of truth",
+          "path": "data-and-state-ownership/sources_of_truth_spec.md",
+          "question": "Which representation is authoritative when copies disagree?",
+          "word_count": 215,
+          "sha256": "9da55e325f9e4c92382cde4be75e191f0e71b98eac11805a1dc2abcc35fd476b"
+        },
+        {
+          "id": "AR-08-05",
+          "title": "Cache topology and invalidation",
+          "path": "data-and-state-ownership/cache_topology_and_invalidation_spec.md",
+          "question": "Where is data cached, and what keeps cached behavior acceptably correct?",
+          "word_count": 221,
+          "sha256": "c8675ac15c9ec1707383a06b732b75aaeff842b1c7ce66d2b0e6deb037357342"
+        },
+        {
+          "id": "AR-08-06",
+          "title": "Durable versus ephemeral state",
+          "path": "data-and-state-ownership/durable_vs_ephemeral_state_spec.md",
+          "question": "What survives process loss, and what must be reconstructed?",
+          "word_count": 226,
+          "sha256": "0bb686b51806e7a186a63a54b411fb56016dc4f85ab16322b591e089bb294bf9"
+        },
+        {
+          "id": "AR-08-07",
+          "title": "Consistency and disagreement",
+          "path": "data-and-state-ownership/consistency_and_disagreement_spec.md",
+          "question": "Can components hold conflicting views, and how is disagreement resolved?",
+          "word_count": 212,
+          "sha256": "28b9befbff42193f6ce0e5eadadd906b87d7a28ecc7328c00b1ac94fd63a4e0c"
+        },
+        {
+          "id": "AR-08-08",
+          "title": "Partial-failure behavior of state",
+          "path": "data-and-state-ownership/partial_failure_behavior_spec.md",
+          "question": "What happens when only part of a multi-step state change succeeds?",
+          "word_count": 231,
+          "sha256": "e33324c4e577a65c57717b1dc6a561453366bed4c01a2d789ae1add88a7aef4e"
+        },
+        {
+          "id": "AR-08-09",
+          "title": "CRUD and ownership matrix",
+          "path": "data-and-state-ownership/crud_and_ownership_matrix_spec.md",
+          "question": "Can we see data authority and access patterns in one actionable view?",
+          "word_count": 229,
+          "sha256": "d5e499ef1ada90b59435c2b82b37614349e157914d4ebc6960fde815691596e8"
+        }
+      ]
+    },
+    {
+      "number": 9,
+      "title": "Critical workflow analysis",
+      "folder": "critical-workflow-analysis",
+      "purpose": "Explain important end-to-end behavior and the architectural constraints hidden within execution sequences.",
+      "specification_count": 7,
+      "readme": "critical-workflow-analysis/README.md",
+      "specifications": [
+        {
+          "id": "AR-09-01",
+          "title": "End-to-end workflow",
+          "path": "critical-workflow-analysis/end_to_end_workflow_spec.md",
+          "question": "How does an important customer or operational task complete?",
+          "word_count": 220,
+          "sha256": "325c5a5ed6eb1902bede5947115450bf5f9928d19433690497981e4890dcdd1c"
+        },
+        {
+          "id": "AR-09-02",
+          "title": "Critical workflow path",
+          "path": "critical-workflow-analysis/critical_path_spec.md",
+          "question": "Which dependent steps determine when this workflow can complete?",
+          "word_count": 221,
+          "sha256": "d28469bc5c60ab2fd57de48ed38740ad42055cddfd92e20687599666dfd5b4a7"
+        },
+        {
+          "id": "AR-09-03",
+          "title": "Workflow failure points",
+          "path": "critical-workflow-analysis/failure_points_spec.md",
+          "question": "Where can this workflow fail, and what does the customer observe?",
+          "word_count": 228,
+          "sha256": "6d06f91704bc3774e07b0d4f52b9d3c0d02e1cefaebea4c47934b86352afbe11"
+        },
+        {
+          "id": "AR-09-04",
+          "title": "Cross-boundary calls",
+          "path": "critical-workflow-analysis/cross_boundary_calls_spec.md",
+          "question": "Which workflow steps cross a boundary that adds coordination or operational obligations?",
+          "word_count": 211,
+          "sha256": "3dd542687c43ee5dd208ff94a0dc3311a6fcc1c426fcb1c187b76f17f3c5a8fe"
+        },
+        {
+          "id": "AR-09-05",
+          "title": "Workflow state transitions",
+          "path": "critical-workflow-analysis/state_transitions_spec.md",
+          "question": "What states can the work occupy, and which transitions are valid?",
+          "word_count": 205,
+          "sha256": "8d56ac778f43b15bfd87ac7ee4747518f2f407edaa6e4a112ac61cdd1cd9b992"
+        },
+        {
+          "id": "AR-09-06",
+          "title": "Retry and idempotency behavior",
+          "path": "critical-workflow-analysis/retry_and_idempotency_behavior_spec.md",
+          "question": "Can this workflow be retried without losing work or duplicating effects?",
+          "word_count": 236,
+          "sha256": "aa042cdebd9acb4804784d4c3e2f960481e3d1afe5f0790381d9bf87517efa09"
+        },
+        {
+          "id": "AR-09-07",
+          "title": "Hidden workflow dependencies",
+          "path": "critical-workflow-analysis/hidden_workflow_dependencies_spec.md",
+          "question": "What must be true outside the explicit workflow graph for it to succeed?",
+          "word_count": 221,
+          "sha256": "daa947c86c6d4e8d012c65c9030d69f4e059721351fd86c2e2e2be4a468ad06e"
+        }
+      ]
+    },
+    {
+      "number": 10,
+      "title": "Reliability and failure architecture",
+      "folder": "reliability-and-failure-architecture",
+      "purpose": "Assess how architectural boundaries, state, and recovery mechanisms behave under explicitly scoped failure scenarios.",
+      "specification_count": 6,
+      "readme": "reliability-and-failure-architecture/README.md",
+      "specifications": [
+        {
+          "id": "AR-10-01",
+          "title": "Single points of failure",
+          "path": "reliability-and-failure-architecture/single_points_of_failure_spec.md",
+          "question": "Which individual failures can prevent an important capability from operating?",
+          "word_count": 222,
+          "sha256": "6d757aeeab13e4e792072554c935e515d6fec17ec8516ffc083b9a3b22bddd64"
+        },
+        {
+          "id": "AR-10-02",
+          "title": "Failure cascades",
+          "path": "reliability-and-failure-architecture/failure_cascades_spec.md",
+          "question": "How can one local failure spread to otherwise healthy parts of the system?",
+          "word_count": 220,
+          "sha256": "13648327fd0b782445aea80f109b51a45c4b9d6d921fb8a5bb925d8490081361"
+        },
+        {
+          "id": "AR-10-03",
+          "title": "Dependency unavailability",
+          "path": "reliability-and-failure-architecture/dependency_unavailability_spec.md",
+          "question": "What happens when an important dependency is slow, unreachable, or returns errors?",
+          "word_count": 221,
+          "sha256": "48b9bbe9db953a28a16d1ac2fb255df6df1d703a7a716f8612a404ffc2709928"
+        },
+        {
+          "id": "AR-10-04",
+          "title": "State inconsistency risks",
+          "path": "reliability-and-failure-architecture/state_inconsistency_risks_spec.md",
+          "question": "Which failures can leave the system believing mutually incompatible things?",
+          "word_count": 224,
+          "sha256": "e8edd32772b3190fa217fa3f5df2b46e2ebb1f5957f3039de586676edc3c58ee"
+        },
+        {
+          "id": "AR-10-05",
+          "title": "Restart and retry behavior",
+          "path": "reliability-and-failure-architecture/restart_and_retry_behavior_spec.md",
+          "question": "Can interrupted work resume safely after a process or host restarts?",
+          "word_count": 218,
+          "sha256": "fb963196fcff96fa021bfc8fe6f88d813170eaae9cb4330b041d43b6a8a06840"
+        },
+        {
+          "id": "AR-10-06",
+          "title": "Recovery mechanism gaps",
+          "path": "reliability-and-failure-architecture/recovery_mechanism_gaps_spec.md",
+          "question": "Where does the architecture lack a workable path back to a correct operating state?",
+          "word_count": 232,
+          "sha256": "2233180924c750cca1e031280d0ac3ceffc56dd7ada39e8bda6205a8d4923b88"
+        }
+      ]
+    },
+    {
+      "number": 11,
+      "title": "Scalability ceilings",
+      "folder": "scalability-ceilings",
+      "purpose": "Identify plausible capacity limits under explicit workload assumptions and distinguish measured ceilings from unverified scaling hypotheses.",
+      "specification_count": 6,
+      "readme": "scalability-ceilings/README.md",
+      "specifications": [
+        {
+          "id": "AR-11-01",
+          "title": "First limiting component",
+          "path": "scalability-ceilings/first_limiting_component_spec.md",
+          "question": "Under a defined growth scenario, which component is likely to constrain useful throughput first?",
+          "word_count": 240,
+          "sha256": "881217a1c001509795d905e3ff09f41ff0712fe04ce6b892b28605c3085fb98d"
+        },
+        {
+          "id": "AR-11-02",
+          "title": "Bottleneck mechanisms",
+          "path": "scalability-ceilings/bottleneck_mechanisms_spec.md",
+          "question": "Why would a proposed bottleneck constrain the system?",
+          "word_count": 219,
+          "sha256": "382f78bb675130058b18acb5dc1892995576214fad6e185d6e5f82a54167a006"
+        },
+        {
+          "id": "AR-11-03",
+          "title": "Resource capacity constraints",
+          "path": "scalability-ceilings/resource_capacity_constraints_spec.md",
+          "question": "Which CPU, memory, network, storage, database, or quota limits matter to growth?",
+          "word_count": 230,
+          "sha256": "ee7f93a2280f73f7f5762f1d7d62e8000d01b0a67876feb8c9f18480a5ebb606"
+        },
+        {
+          "id": "AR-11-04",
+          "title": "Centralized bottlenecks",
+          "path": "scalability-ceilings/centralized_bottlenecks_spec.md",
+          "question": "Which centralized operations can cap throughput or prevent independent scaling?",
+          "word_count": 213,
+          "sha256": "bb4090b6dc455cb514f09ae8f86d9a2f561246c70e0aebf629b722e6453e4da8"
+        },
+        {
+          "id": "AR-11-05",
+          "title": "Shared resource contention",
+          "path": "scalability-ceilings/shared_resource_contention_spec.md",
+          "question": "Where do workloads interfere because they compete for the same resources?",
+          "word_count": 216,
+          "sha256": "a1645393baf55e3980e0138b546203d44a6085d23c5ad5d5c8a26c63be0d600b"
+        },
+        {
+          "id": "AR-11-06",
+          "title": "Tenfold and hundredfold growth scenarios",
+          "path": "scalability-ceilings/tenfold_and_hundredfold_growth_scenarios_spec.md",
+          "question": "What would have to change at 10\u00d7 or 100\u00d7 a clearly defined workload?",
+          "word_count": 239,
+          "sha256": "bc808e2c126877da1aa2258fd68f31ce82c7734f6eac82f6ee9a4fc58abc1023"
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "title": "Performance and latency architecture",
+      "folder": "performance-and-latency-architecture",
+      "purpose": "Focus on structural sources of delay and resource work rather than unprioritized line-level micro-optimization.",
+      "specification_count": 6,
+      "readme": "performance-and-latency-architecture/README.md",
+      "specifications": [
+        {
+          "id": "AR-12-01",
+          "title": "Critical latency paths",
+          "path": "performance-and-latency-architecture/critical_latency_paths_spec.md",
+          "question": "Which architectural stages account for delay in important user or job outcomes?",
+          "word_count": 228,
+          "sha256": "9c17813509bc9b23b1514a71961fc707149488b36851e5853a5865c79b926fa2"
+        },
+        {
+          "id": "AR-12-02",
+          "title": "Serial dependencies",
+          "path": "performance-and-latency-architecture/serial_dependencies_spec.md",
+          "question": "Which sequential steps are necessary, and which could be overlapped or removed?",
+          "word_count": 216,
+          "sha256": "499d8d2cd4b7f7cbb53453c664b950a48e8d5620f5da6c410b4225bf54670201"
+        },
+        {
+          "id": "AR-12-03",
+          "title": "Excessive remote calls",
+          "path": "performance-and-latency-architecture/excessive_remote_calls_spec.md",
+          "question": "Where does the architecture perform avoidable network interactions?",
+          "word_count": 212,
+          "sha256": "9e63207962f834cf9d917e3006ca6dea4500b757665e6c5a9b2ba3027dd2ae58"
+        },
+        {
+          "id": "AR-12-04",
+          "title": "Chatty service boundaries",
+          "path": "performance-and-latency-architecture/chatty_service_boundaries_spec.md",
+          "question": "Do service contracts force repeated back-and-forth to complete one coherent task?",
+          "word_count": 217,
+          "sha256": "e798c5c450267f0a6cd60f1f6d59786fcf03b36b80c8b347b0a2091c7f9c9e89"
+        },
+        {
+          "id": "AR-12-05",
+          "title": "Data movement",
+          "path": "performance-and-latency-architecture/data_movement_spec.md",
+          "question": "Where does transporting, copying, or transforming data dominate architectural work?",
+          "word_count": 219,
+          "sha256": "8809bd169586d85eaa08efd7ca9b496fdbb2d986c7b4425a98de77918ea5df4a"
+        },
+        {
+          "id": "AR-12-06",
+          "title": "Synchronization points",
+          "path": "performance-and-latency-architecture/synchronization_points_spec.md",
+          "question": "Where do locks, barriers, transactions, or coordination waits delay independent work?",
+          "word_count": 219,
+          "sha256": "1f44b2678587d95fd1c36e36c7aeb327a04d12c7c6ed6b5da1a432c1786fe675"
+        }
+      ]
+    },
+    {
+      "number": 13,
+      "title": "Security and trust boundaries",
+      "folder": "security-and-trust-boundaries",
+      "purpose": "Describe architectural security exposure and control boundaries without implying that an architecture review is a complete security audit.",
+      "specification_count": 6,
+      "readme": "security-and-trust-boundaries/README.md",
+      "specifications": [
+        {
+          "id": "AR-13-01",
+          "title": "Trust boundary map",
+          "path": "security-and-trust-boundaries/trust_boundary_map_spec.md",
+          "question": "Where does the system accept data or actions from an actor with a different trust level?",
+          "word_count": 226,
+          "sha256": "96d62a1591fe5a6dbd234b42ed8623f3b3fe053a2baf6c264d1863f6b783126b"
+        },
+        {
+          "id": "AR-13-02",
+          "title": "Privilege concentration",
+          "path": "security-and-trust-boundaries/privilege_concentration_spec.md",
+          "question": "Which identities or components hold authority far broader than their normal responsibilities?",
+          "word_count": 225,
+          "sha256": "5bc8f4d9e2370c0e96cbf3e9f32055ed74115820aa3e720f911e3a30383d36fb"
+        },
+        {
+          "id": "AR-13-03",
+          "title": "Sensitive-data flows",
+          "path": "security-and-trust-boundaries/sensitive_data_flows_spec.md",
+          "question": "Where does sensitive information enter, move, persist, and leave the architecture?",
+          "word_count": 226,
+          "sha256": "52ba6c2be055b90dfb645761f22327329f3667a1483196c6c710879eb34289e4"
+        },
+        {
+          "id": "AR-13-04",
+          "title": "Authentication and authorization boundaries",
+          "path": "security-and-trust-boundaries/authentication_and_authorization_boundaries_spec.md",
+          "question": "Where are identity and permission decisions made and enforced?",
+          "word_count": 219,
+          "sha256": "ad39a9c023e6e47fac1f5a5f9c45b7554f5bb8c7181b10e7e87a20d982f2da97"
+        },
+        {
+          "id": "AR-13-05",
+          "title": "Dependency and security exposure",
+          "path": "security-and-trust-boundaries/dependency_and_security_exposure_spec.md",
+          "question": "Which dependencies or architectural interfaces expand the security exposure under review?",
+          "word_count": 225,
+          "sha256": "a43e43bc91fdd68edaab2f5b83c5ef5afa9acad189834502cb3289e36710c1d3"
+        },
+        {
+          "id": "AR-13-06",
+          "title": "Security blast radius",
+          "path": "security-and-trust-boundaries/security_blast_radius_spec.md",
+          "question": "What could an attacker or unauthorized actor reach from a compromised architectural unit?",
+          "word_count": 233,
+          "sha256": "0f29318afc1fd705317bdcddf27d2311b50d055fce2f12103e18151de39a9e04"
+        }
+      ]
+    },
+    {
+      "number": 14,
+      "title": "Architecture evolution",
+      "folder": "architecture-evolution",
+      "purpose": "Compare meaningful architectural changes over time using compatible snapshots and clearly defined history windows.",
+      "specification_count": 6,
+      "readme": "architecture-evolution/README.md",
+      "specifications": [
+        {
+          "id": "AR-14-01",
+          "title": "Coupling trends",
+          "path": "architecture-evolution/coupling_trends_spec.md",
+          "question": "Are component dependencies becoming more or less constraining over time?",
+          "word_count": 219,
+          "sha256": "f86029ae1bc40f4bcc5af45a6b14040de730a6a91a98f473641cef62763503f3"
+        },
+        {
+          "id": "AR-14-02",
+          "title": "Hotspot growth",
+          "path": "architecture-evolution/hotspot_growth_spec.md",
+          "question": "Which architectural hotspots are emerging, worsening, or improving?",
+          "word_count": 223,
+          "sha256": "41b8c554dc3ef7d56b54cc37f4baae13482395683d2f40530dcc4f7f38cb35ff"
+        },
+        {
+          "id": "AR-14-03",
+          "title": "Boundary deterioration",
+          "path": "architecture-evolution/boundary_deterioration_spec.md",
+          "question": "Which previously useful boundaries are losing their intended separation?",
+          "word_count": 222,
+          "sha256": "376464517690ab270c6e002365e7619d178c8139f2d83cf641d0c0afb0130f3d"
+        },
+        {
+          "id": "AR-14-04",
+          "title": "Responsibility accumulation",
+          "path": "architecture-evolution/responsibility_accumulation_spec.md",
+          "question": "Which components are steadily acquiring unrelated roles?",
+          "word_count": 207,
+          "sha256": "7ca777e706b7d517e17eb767d0a247c0148d153419ebadba36733a1a4e244699"
+        },
+        {
+          "id": "AR-14-05",
+          "title": "Technical debt trends",
+          "path": "architecture-evolution/technical_debt_trends_spec.md",
+          "question": "Is the architecture\u2019s unresolved maintenance burden increasing, decreasing, or changing form?",
+          "word_count": 218,
+          "sha256": "998b4928ec2401b82a4b6062101ec866128c4adbe51e42f732f868315928349f"
+        },
+        {
+          "id": "AR-14-06",
+          "title": "Architecture diff between releases",
+          "path": "architecture-evolution/architecture_diff_between_releases_spec.md",
+          "question": "What changed architecturally between two specific releases?",
+          "word_count": 216,
+          "sha256": "9e39a9ada216f677ebc66b77658ac7d34b56ba77c250df78098c4ffdbce4bdf8"
+        }
+      ]
+    },
+    {
+      "number": 15,
+      "title": "Team and architecture alignment",
+      "folder": "team-and-architecture-alignment",
+      "purpose": "Identify where technical boundaries and actual accountability support or obstruct coordinated delivery without evaluating individual employees.",
+      "specification_count": 5,
+      "readme": "team-and-architecture-alignment/README.md",
+      "specifications": [
+        {
+          "id": "AR-15-01",
+          "title": "Code ownership",
+          "path": "team-and-architecture-alignment/code_ownership_spec.md",
+          "question": "Who maintains and reviews each important part of the implementation?",
+          "word_count": 221,
+          "sha256": "4e7215b6a32bfd995703f696285057879ac34303cb14a3efe6a865344c4eb814"
+        },
+        {
+          "id": "AR-15-02",
+          "title": "Team ownership",
+          "path": "team-and-architecture-alignment/team_ownership_spec.md",
+          "question": "Which team is accountable for each capability, service, and operational outcome?",
+          "word_count": 219,
+          "sha256": "dd678b02635cf489f27441ba1ca9401b1b065031bc8d06e7f0ad7faa12af2540"
+        },
+        {
+          "id": "AR-15-03",
+          "title": "Team-to-service boundary alignment",
+          "path": "team-and-architecture-alignment/team_to_service_boundary_alignment_spec.md",
+          "question": "Do technical units match the responsibilities teams can actually own independently?",
+          "word_count": 213,
+          "sha256": "3dc388c2fdb7052f767885f5ed1a816b9afbdacd969d26189e0fa56d158f4161"
+        },
+        {
+          "id": "AR-15-04",
+          "title": "Cross-team change patterns",
+          "path": "team-and-architecture-alignment/cross_team_change_patterns_spec.md",
+          "question": "Which kinds of changes repeatedly require coordination across teams?",
+          "word_count": 232,
+          "sha256": "ee5ab4426c60394939332fda0b337121dc248c92f9d6555f3950014de1ba74c2"
+        },
+        {
+          "id": "AR-15-05",
+          "title": "Shared subsystem coordination",
+          "path": "team-and-architecture-alignment/shared_subsystem_coordination_spec.md",
+          "question": "Where do several teams repeatedly contend for the same architectural decision or release?",
+          "word_count": 230,
+          "sha256": "5f200e5217a04fadc60359773e7b82ee49f3d0d857f61431090d39d5b00d37b8"
+        }
+      ]
+    },
+    {
+      "number": 16,
+      "title": "Decision and what-if analysis",
+      "folder": "decision-and-what-if-analysis",
+      "purpose": "Evaluate concrete architectural changes as bounded scenarios, with dependencies, tradeoffs, and uncertainty made explicit.",
+      "specification_count": 6,
+      "readme": "decision-and-what-if-analysis/README.md",
+      "specifications": [
+        {
+          "id": "AR-16-01",
+          "title": "Service split scenarios",
+          "path": "decision-and-what-if-analysis/service_split_scenarios_spec.md",
+          "question": "What would happen if this service were split along a proposed seam?",
+          "word_count": 221,
+          "sha256": "44ecafa95cde92eff54d545f7543a476b1c552969f2a9ff5483d678a875dcbe5"
+        },
+        {
+          "id": "AR-16-02",
+          "title": "Safe module extraction",
+          "path": "decision-and-what-if-analysis/safe_module_extraction_spec.md",
+          "question": "Can this module be extracted without breaking its consumers or hidden obligations?",
+          "word_count": 239,
+          "sha256": "d182a34a8a9ebc49fa273f3dad2e30d35fc8acb606edf1b70c7ebb7d08bdf7b5"
+        },
+        {
+          "id": "AR-16-03",
+          "title": "Technology replacement",
+          "path": "decision-and-what-if-analysis/technology_replacement_spec.md",
+          "question": "What would replacing a database, queue, framework, or other platform actually affect?",
+          "word_count": 238,
+          "sha256": "d34890e5186937162bdd67adb16c0eca2bc3f1ec4de4541ac13c624e0b49bad2"
+        },
+        {
+          "id": "AR-16-04",
+          "title": "Workload relocation",
+          "path": "decision-and-what-if-analysis/workload_relocation_spec.md",
+          "question": "What changes if this work moves to another service, process, host, or environment?",
+          "word_count": 227,
+          "sha256": "fbf9da57b5e14aa30c2d6bef2630445663e8f8fb1bf1885b546c21e75525f108"
+        },
+        {
+          "id": "AR-16-05",
+          "title": "Component elimination",
+          "path": "decision-and-what-if-analysis/component_elimination_spec.md",
+          "question": "What would break or need to move if we removed this component?",
+          "word_count": 228,
+          "sha256": "63f7e62d45551106cba2f40347a409badcdbfcca1304871d4e6e8342452b0cf1"
+        },
+        {
+          "id": "AR-16-06",
+          "title": "Microservice independence",
+          "path": "decision-and-what-if-analysis/microservice_independence_spec.md",
+          "question": "In what ways is this microservice actually independent, and in what ways is it not?",
+          "word_count": 230,
+          "sha256": "7bf3c4953f5c573bd53046e9142e5b5fb3a6807b41d8dffc26613daca1c18341"
+        }
+      ]
+    },
+    {
+      "number": 17,
+      "title": "Alternative target architectures",
+      "folder": "alternative-target-architectures",
+      "purpose": "Offer comparable intervention options rather than a single prescriptive redesign, including the consequences of retaining the current architecture.",
+      "specification_count": 4,
+      "readme": "alternative-target-architectures/README.md",
+      "specifications": [
+        {
+          "id": "AR-17-01",
+          "title": "Minimal intervention option",
+          "path": "alternative-target-architectures/minimal_intervention_option_spec.md",
+          "question": "What is the smallest change that reduces the immediate risk?",
+          "word_count": 219,
+          "sha256": "545f61756f65dd02524fece1b4fabcc09e079b98663ca8b585406973c5817d8d"
+        },
+        {
+          "id": "AR-17-02",
+          "title": "Boundary cleanup option",
+          "path": "alternative-target-architectures/boundary_cleanup_option_spec.md",
+          "question": "What targeted boundary work would improve maintainability without wholesale restructuring?",
+          "word_count": 215,
+          "sha256": "da520d13de5193cbc2deb4235a779257ef1035fcbf560c84d60296ee01c1c9ae"
+        },
+        {
+          "id": "AR-17-03",
+          "title": "Architectural restructuring option",
+          "path": "alternative-target-architectures/architectural_restructuring_option_spec.md",
+          "question": "What broader redesign could address long-term structural requirements?",
+          "word_count": 220,
+          "sha256": "6ade03831818c0fa65e26e9cf721b41d67f47a6645f3bf59ad49ce11e850c722"
+        },
+        {
+          "id": "AR-17-04",
+          "title": "Option tradeoffs and selection",
+          "path": "alternative-target-architectures/option_tradeoffs_and_selection_spec.md",
+          "question": "How do the options compare under the customer\u2019s actual priorities and constraints?",
+          "word_count": 239,
+          "sha256": "7f5c5707316b1ca584ced29c326867d0b06fd62222a47d4a56835fa9d67bcc2f"
+        }
+      ]
+    },
+    {
+      "number": 18,
+      "title": "Concrete prioritized recommendations",
+      "folder": "prioritized-recommendations",
+      "purpose": "Convert findings into a short, traceable set of actions with impact, effort, priority, and verifiable outcomes.",
+      "specification_count": 7,
+      "readme": "prioritized-recommendations/README.md",
+      "specifications": [
+        {
+          "id": "AR-18-01",
+          "title": "Finding statement",
+          "path": "prioritized-recommendations/finding_statement_spec.md",
+          "question": "What exactly is wrong or worth improving, and under what conditions?",
+          "word_count": 228,
+          "sha256": "e9dce74ba883ddd10f79fd8f82522fcbfdf8245ebcd1df6c33b59229d4a05f4e"
+        },
+        {
+          "id": "AR-18-02",
+          "title": "Supporting evidence for a recommendation",
+          "path": "prioritized-recommendations/supporting_evidence_spec.md",
+          "question": "What evidence supports this finding and the proposed response?",
+          "word_count": 227,
+          "sha256": "f2d0da243b780bdf07da644fb18cf0e11957c74b4aec1f38acab09155f5382ba"
+        },
+        {
+          "id": "AR-18-03",
+          "title": "Impact assessment",
+          "path": "prioritized-recommendations/impact_assessment_spec.md",
+          "question": "Why does this finding matter to the customer?",
+          "word_count": 218,
+          "sha256": "98cece2a555dd69a5949b712497b93c6cd2ca42bb2bcb51b67d9ce2529a648b3"
+        },
+        {
+          "id": "AR-18-04",
+          "title": "Recommended action",
+          "path": "prioritized-recommendations/recommended_action_spec.md",
+          "question": "What specific change or investigation should the customer undertake?",
+          "word_count": 226,
+          "sha256": "58628c6aaa3e8aee74eea19e6292bfb1a21080f794e20027b74279f8843a96d8"
+        },
+        {
+          "id": "AR-18-05",
+          "title": "Effort estimate",
+          "path": "prioritized-recommendations/effort_estimate_spec.md",
+          "question": "What work and uncertainty determine the likely implementation effort?",
+          "word_count": 228,
+          "sha256": "8f09ec547792dac9dc9295df600c4dc9c255e33e992c382b3e07ed36ae4d0aae"
+        },
+        {
+          "id": "AR-18-06",
+          "title": "Validation plan",
+          "path": "prioritized-recommendations/validation_plan_spec.md",
+          "question": "How will we know the recommendation produced the intended improvement?",
+          "word_count": 226,
+          "sha256": "1772dd8f2e1b2e1810763ff0e0dafa5a04fa4d3528f2d7d25a1e0a25869bc6f1"
+        },
+        {
+          "id": "AR-18-07",
+          "title": "Priority and ordering",
+          "path": "prioritized-recommendations/priority_and_ordering_spec.md",
+          "question": "Which recommendations should be undertaken first, and what must precede them?",
+          "word_count": 218,
+          "sha256": "57982dacba8ab0f9e537c33b8e05a3d56fe2fcf8a691e5d2d867ae5c15fd0e56"
+        }
+      ]
+    },
+    {
+      "number": 19,
+      "title": "Sequenced migration and refactoring roadmap",
+      "folder": "sequenced-migration-roadmap",
+      "purpose": "Turn selected recommendations into a safe sequence with explicit dependencies, compatibility windows, validation gates, and rollback constraints.",
+      "specification_count": 8,
+      "readme": "sequenced-migration-roadmap/README.md",
+      "specifications": [
+        {
+          "id": "AR-19-01",
+          "title": "Migration stages and milestones",
+          "path": "sequenced-migration-roadmap/migration_stages_and_milestones_spec.md",
+          "question": "How can the target architecture be reached through controlled intermediate states?",
+          "word_count": 220,
+          "sha256": "fec67440e1303b295569abc13e4d77e9b4b798e5f938dd790b67e44ec35a6636"
+        },
+        {
+          "id": "AR-19-02",
+          "title": "Contract establishment",
+          "path": "sequenced-migration-roadmap/contract_establishment_spec.md",
+          "question": "What explicit contracts must exist before moving responsibilities?",
+          "word_count": 216,
+          "sha256": "777bd1f7671d0ae5fbe0626c4458ae6baa3462a5d4cc3d07aacbf5442e2536e4"
+        },
+        {
+          "id": "AR-19-03",
+          "title": "State isolation",
+          "path": "sequenced-migration-roadmap/state_isolation_spec.md",
+          "question": "How will data and execution state be prepared for the new ownership boundary?",
+          "word_count": 228,
+          "sha256": "70d39daad5c2e39ca8d22c740977c9bcddd9639606228f4bbec2623bd43fa9b9"
+        },
+        {
+          "id": "AR-19-04",
+          "title": "Read-path migration",
+          "path": "sequenced-migration-roadmap/read_path_migration_spec.md",
+          "question": "How will readers move to the new interface or store without silent behavior changes?",
+          "word_count": 228,
+          "sha256": "24948248a8e6f30cd08d370ff455b7e810d46e17e99d9552138caf07b8638dc1"
+        },
+        {
+          "id": "AR-19-05",
+          "title": "Write-path migration",
+          "path": "sequenced-migration-roadmap/write_path_migration_spec.md",
+          "question": "How will authority for state changes move without losing or duplicating effects?",
+          "word_count": 218,
+          "sha256": "b5da469cfb2a775e9bc605122349d30451c6e39c06e80e2cad9df10c3dd1426d"
+        },
+        {
+          "id": "AR-19-06",
+          "title": "Service extraction and cutover",
+          "path": "sequenced-migration-roadmap/service_extraction_and_cutover_spec.md",
+          "question": "How will the prepared boundary become an independently operated unit?",
+          "word_count": 223,
+          "sha256": "6cd9f2ce0b17642e575894c710df19b64d5052174982ac5ecc6b4762eb244668"
+        },
+        {
+          "id": "AR-19-07",
+          "title": "Recommendation dependencies and safe order",
+          "path": "sequenced-migration-roadmap/recommendation_dependencies_and_safe_order_spec.md",
+          "question": "Which actions must precede others, and which can safely proceed in parallel?",
+          "word_count": 226,
+          "sha256": "04d81eb38e9a4c048126ac4292c83272d7956a1b42a2288ae030d4ffccac8e47"
+        },
+        {
+          "id": "AR-19-08",
+          "title": "Rollback and exit criteria",
+          "path": "sequenced-migration-roadmap/rollback_and_exit_criteria_spec.md",
+          "question": "When should the migration stop, reverse, or be considered complete?",
+          "word_count": 237,
+          "sha256": "2af097f94097bc662cbcf080fc63c881cf077fd3067eda551ed4286794057c70"
+        }
+      ]
+    },
+    {
+      "number": 20,
+      "title": "Business impact",
+      "folder": "business-impact",
+      "purpose": "Translate architectural mechanisms into decision-relevant outcomes, keeping measured results, estimates, and hypotheses separate.",
+      "specification_count": 8,
+      "readme": "business-impact/README.md",
+      "specifications": [
+        {
+          "id": "AR-20-01",
+          "title": "Change lead time",
+          "path": "business-impact/change_lead_time_spec.md",
+          "question": "How does the architecture influence the time needed to deliver a meaningful change?",
+          "word_count": 232,
+          "sha256": "b459cff740a7cb68303204a09edab6228452803cf899bef8931f101a8cf2b906"
+        },
+        {
+          "id": "AR-20-02",
+          "title": "Release risk",
+          "path": "business-impact/release_risk_spec.md",
+          "question": "How does the architecture affect the chance or consequence of a problematic release?",
+          "word_count": 224,
+          "sha256": "15d4dfd8f933305f4c08facd096957befc78cc414b7f3315b272946df281162f"
+        },
+        {
+          "id": "AR-20-03",
+          "title": "Incident likelihood",
+          "path": "business-impact/incident_likelihood_spec.md",
+          "question": "What does the available evidence say about architectural contributors to incident risk?",
+          "word_count": 230,
+          "sha256": "fa28aeed005ea3eb31b0b79ead65f580a8d124e6fe88d0659e53d7e554373f18"
+        },
+        {
+          "id": "AR-20-04",
+          "title": "Developer coordination cost",
+          "path": "business-impact/developer_coordination_cost_spec.md",
+          "question": "Which architectural dependencies create avoidable coordination work?",
+          "word_count": 222,
+          "sha256": "267de4baef2ee40db836be2f2658b952d26fa8758fc0736375eb1c81a1722486"
+        },
+        {
+          "id": "AR-20-05",
+          "title": "Infrastructure cost",
+          "path": "business-impact/infrastructure_cost_spec.md",
+          "question": "Which architectural choices drive recurring infrastructure cost, and what could change it?",
+          "word_count": 238,
+          "sha256": "6b575bbb2efc0f625a9756df7b4f04202e2a05617c70618ab79d7abbef214488"
+        },
+        {
+          "id": "AR-20-06",
+          "title": "Scaling capability",
+          "path": "business-impact/scaling_capability_spec.md",
+          "question": "What business growth can the architecture support, and what investment would unlock more?",
+          "word_count": 217,
+          "sha256": "7966bd942b2367832605342ebfe71244fb428fa08279720a24aa27a1707d4f53"
+        },
+        {
+          "id": "AR-20-07",
+          "title": "Hiring and onboarding complexity",
+          "path": "business-impact/hiring_and_onboarding_complexity_spec.md",
+          "question": "How does the architecture affect the effort required for a new contributor to become effective?",
+          "word_count": 227,
+          "sha256": "b8cc484421a7287f3dc3cf3c68bcfb7967eb74a4feea247e4e80f8e63a4014a3"
+        },
+        {
+          "id": "AR-20-08",
+          "title": "Independent deployment",
+          "path": "business-impact/independent_deployment_spec.md",
+          "question": "How much release autonomy do teams or services actually have?",
+          "word_count": 211,
+          "sha256": "0ce48f29003aad4222fefbfa384c529e51416fafc7948f69e8478149846d272e"
+        }
+      ]
+    },
+    {
+      "number": 21,
+      "title": "Evidence and confidence",
+      "folder": "evidence-and-confidence",
+      "purpose": "Make every material claim auditable, scoped, and explicit about what is observed, inferred, assumed, or not known.",
+      "specification_count": 8,
+      "readme": "evidence-and-confidence/README.md",
+      "specifications": [
+        {
+          "id": "AR-21-01",
+          "title": "Source-code evidence",
+          "path": "evidence-and-confidence/source_code_evidence_spec.md",
+          "question": "Can a reviewer locate the implementation that supports this claim?",
+          "word_count": 242,
+          "sha256": "c7d17f414ef87d8ee3ad2c8a263dac58298ee5a5d669522bf486c082535de95c"
+        },
+        {
+          "id": "AR-21-02",
+          "title": "Runtime trace evidence",
+          "path": "evidence-and-confidence/runtime_trace_evidence_spec.md",
+          "question": "What observed execution supports the architectural behavior or timing claim?",
+          "word_count": 225,
+          "sha256": "70431ea47ac9bb6770be4fc0c3c4fec8c54091b9a8e8d445245a1b70522e5bf7"
+        },
+        {
+          "id": "AR-21-03",
+          "title": "Dependency-edge evidence",
+          "path": "evidence-and-confidence/dependency_edge_evidence_spec.md",
+          "question": "What does each important edge mean, and where did it come from?",
+          "word_count": 222,
+          "sha256": "11f440f5bb50103dda4e4f0d0fbb71c520a0ae4d83fe410bdd26133bad9e2511"
+        },
+        {
+          "id": "AR-21-04",
+          "title": "Historical commit evidence",
+          "path": "evidence-and-confidence/historical_commit_evidence_spec.md",
+          "question": "Which actual changes support the report\u2019s evolutionary claims?",
+          "word_count": 217,
+          "sha256": "9cbd0a627c5e31bf34f6c71b468f2f2615cf03476733662df3de4f300da6ca5e"
+        },
+        {
+          "id": "AR-21-05",
+          "title": "Incident and test evidence",
+          "path": "evidence-and-confidence/incident_and_test_evidence_spec.md",
+          "question": "Which failures or checks demonstrate the claimed behavior?",
+          "word_count": 231,
+          "sha256": "ae6bccb8f10dabba721edb2f2a980a20e5f3cb0d3feb564d93e8381056110ed2"
+        },
+        {
+          "id": "AR-21-06",
+          "title": "Confidence assessment",
+          "path": "evidence-and-confidence/confidence_assessment_spec.md",
+          "question": "How strongly does the available evidence support each material claim?",
+          "word_count": 225,
+          "sha256": "1db0cbed86b9b7d4bbf86bfd6540e2a9c019dabac11d32a2e30d3ddfc03d468f"
+        },
+        {
+          "id": "AR-21-07",
+          "title": "Counterevidence and uncertainty",
+          "path": "evidence-and-confidence/counterevidence_and_uncertainty_spec.md",
+          "question": "What could make this finding or recommendation wrong?",
+          "word_count": 219,
+          "sha256": "79b00282554dded3a7e6f00d4535e95b511fbb523373e4c930635da1fd7718f0"
+        },
+        {
+          "id": "AR-21-08",
+          "title": "Claim-to-evidence traceability",
+          "path": "evidence-and-confidence/claim_to_evidence_traceability_spec.md",
+          "question": "Can every conclusion, recommendation, and work package be traced back to verifiable observations?",
+          "word_count": 240,
+          "sha256": "018ba87c1935e3af6e70f321cc78526247f40e78ec210aff7884fc01204bbc9e"
+        }
+      ]
+    },
+    {
+      "number": 22,
+      "title": "Unknowns and verification tasks",
+      "folder": "unknowns-and-verification-tasks",
+      "purpose": "Make analysis limits explicit and convert consequential uncertainty into concrete, bounded information-gathering work.",
+      "specification_count": 4,
+      "readme": "unknowns-and-verification-tasks/README.md",
+      "specifications": [
+        {
+          "id": "AR-22-01",
+          "title": "Undetermined findings",
+          "path": "unknowns-and-verification-tasks/undetermined_findings_spec.md",
+          "question": "Which important questions could not be answered from the available evidence?",
+          "word_count": 227,
+          "sha256": "555b7d6b36d11a40e75fed3e1896536318fa83537b769de65698b074b3a2d48d"
+        },
+        {
+          "id": "AR-22-02",
+          "title": "Missing runtime information",
+          "path": "unknowns-and-verification-tasks/missing_runtime_information_spec.md",
+          "question": "What operational evidence is needed to validate the static architecture model?",
+          "word_count": 226,
+          "sha256": "ff12880049c6ae77f6f5afab1d991af7f582e76c69553a8efa57973c956dbe94"
+        },
+        {
+          "id": "AR-22-03",
+          "title": "Assumptions register",
+          "path": "unknowns-and-verification-tasks/assumptions_register_spec.md",
+          "question": "Which unverified premises are influencing the report\u2019s conclusions?",
+          "word_count": 239,
+          "sha256": "53c042d3f6126794db823a681036b87fbcebf8458cab49111a4d565ae20ff549"
+        },
+        {
+          "id": "AR-22-04",
+          "title": "Next measurements and verification tasks",
+          "path": "unknowns-and-verification-tasks/next_measurements_and_verification_tasks_spec.md",
+          "question": "What should we check next to reduce the most consequential uncertainty?",
+          "word_count": 228,
+          "sha256": "c459f8c5c90c2619ab1dc6465f63c63a1b67a3b06a4cfcc90c473e44502a044d"
+        }
+      ]
+    },
+    {
+      "number": 23,
+      "title": "Implementation-ready work packages",
+      "folder": "implementation-ready-work-packages",
+      "purpose": "Express approved or proposed improvements as bounded tasks that a human engineer or coding agent can execute and verify under explicit authority.",
+      "specification_count": 8,
+      "readme": "implementation-ready-work-packages/README.md",
+      "specifications": [
+        {
+          "id": "AR-23-01",
+          "title": "Task goal",
+          "path": "implementation-ready-work-packages/task_goal_spec.md",
+          "question": "What single outcome should this work package deliver?",
+          "word_count": 233,
+          "sha256": "0dbf0a434264ec8161cba3b72032a04307118eb4a0fe66f6f47e3e2535311afe"
+        },
+        {
+          "id": "AR-23-02",
+          "title": "Relevant files and components",
+          "path": "implementation-ready-work-packages/relevant_files_and_components_spec.md",
+          "question": "Where should the implementer look, and which adjacent areas could be affected?",
+          "word_count": 238,
+          "sha256": "372943a4a5e9cd73f9b17f3580891fec71e4e081a611857a3a7f6dfe30ac4ded"
+        },
+        {
+          "id": "AR-23-03",
+          "title": "Architectural constraints",
+          "path": "implementation-ready-work-packages/architectural_constraints_spec.md",
+          "question": "What properties and boundaries must the implementation preserve?",
+          "word_count": 213,
+          "sha256": "8c29c4401a84c75838b593d00ad40cb56e84013ec8a3560a95f872fe448471d3"
+        },
+        {
+          "id": "AR-23-04",
+          "title": "Non-goals",
+          "path": "implementation-ready-work-packages/non_goals_spec.md",
+          "question": "What work should explicitly not be included in this task?",
+          "word_count": 225,
+          "sha256": "366b213c98fe5e44e86d382bd63ee56d527dbff7cc5f3cc1ec1567da883c996d"
+        },
+        {
+          "id": "AR-23-05",
+          "title": "Migration steps within a work package",
+          "path": "implementation-ready-work-packages/migration_steps_spec.md",
+          "question": "What sequence should the implementer follow to reach the task goal safely?",
+          "word_count": 230,
+          "sha256": "27def4bcb9c18f7d1077d2ee085402ad281543879ed508f52f63dcb7b5d6c810"
+        },
+        {
+          "id": "AR-23-06",
+          "title": "Required tests",
+          "path": "implementation-ready-work-packages/required_tests_spec.md",
+          "question": "What checks must accompany this work before it can be accepted?",
+          "word_count": 233,
+          "sha256": "a1dd05f5abf14a19e9faed74d6e5d645605c8c135fceef23b1a2606583994efd"
+        },
+        {
+          "id": "AR-23-07",
+          "title": "Acceptance criteria",
+          "path": "implementation-ready-work-packages/acceptance_criteria_spec.md",
+          "question": "What objective evidence allows this task to be accepted?",
+          "word_count": 217,
+          "sha256": "6883231ef8700c77a95826b627a2b2f54b3288e3c3e041ed39a2587995fcb3fa"
+        },
+        {
+          "id": "AR-23-08",
+          "title": "Coding-agent handoff",
+          "path": "implementation-ready-work-packages/coding_agent_handoff_spec.md",
+          "question": "Can a coding agent execute this bounded task without guessing the intent or its authority?",
+          "word_count": 251,
+          "sha256": "ee566284d00cf5ed17302bcb27fcb7d8bf8f209a1fd9a62f24765f34bc23bed8"
+        }
+      ]
+    }
+  ]
+}

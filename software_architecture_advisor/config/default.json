@@ -83,7 +83,7 @@
     "adapter": "json",
     "payload": {
       "repository_url": "https://github.com/homerquan/Archmind",
-      "goal": "Inspect the software architecture, identify an actionable boundary or coupling concern, and check counter-evidence before recommending a change."
+      "goal": "Review architecture across the 150 report aspects; identify evidence-backed findings, counterevidence, unknowns, prioritized recommendations, and bounded proposed implementation tasks."
     }
   },
   "outputs": {
@@ -114,7 +114,24 @@
     ]
   },
   "context_memory": {
-    "enabled": true,
+    "enabled": false,
     "contract": "mn.context.working.v1"
+  },
+  "catalog_review": {
+    "max_tasks": 1024,
+    "max_rounds": 20,
+    "tasks_per_round": 64,
+    "chunk_bytes": 24000,
+    "prompt_bytes": 60000,
+    "max_calls": 1024,
+    "walltime_seconds": 86400,
+    "max_followups": 64
+  },
+  "opencode": {
+    "model": "opencode/muse-spark-1.3-contributor-free",
+    "timeout_seconds": 600,
+    "max_output_bytes": 1048576,
+    "sandbox_root": "/sandbox/job",
+    "spark_base_url": "http://10.0.4.32:8000/v1"
   }
 }

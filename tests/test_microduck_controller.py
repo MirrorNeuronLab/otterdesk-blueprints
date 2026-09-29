@@ -858,6 +858,10 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         for node in expanded["agents"]["nodes"]
         if node["node_id"] == "run_microduck_service__microduck_service"
     )
+    for node in expanded["agents"]["nodes"]:
+        if node.get("config", {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker":
+            uploads = node["config"]["upload_paths"]
+            assert {"source": "prompts", "target": "prompts"} not in uploads
     assert "resources" not in service_worker["config"]
     registrar = next(
         node
