@@ -78,8 +78,10 @@ The planner admits new follow-ups only for known packet IDs with evidence from
 completed parent tasks; duplicates, unsupported references and depth beyond two
 are rejected. At most 64 dynamic follow-ups are admitted.
 
-The default ceiling is 1,024 tasks/calls, 20 rounds, 64 tasks per round and 24
-hours. A small repository still plans **324 catalog tasks plus source packets**.
+The default ceiling is 1,024 tasks/calls, 20 rounds, 64 tasks per round and seven
+days (604,800 seconds). The parent investigation deadline and planner walltime
+budget both allow one week. A small repository still plans **324 catalog tasks
+plus source packets**.
 Each source packet is at most 24,000 UTF-8 bytes; each model prompt is at most
 60,000 bytes. Each call has a 600-second deadline and 1 MiB output ceiling.
 Large source inventories reserve capacity for report synthesis and record omitted
@@ -182,3 +184,23 @@ never inferred from a memory note. The graph packet is bounded to 3500 bytes;
 source witnesses still pass the existing citation validation. OpenShell receives
 frozen notes, graph context and source spans, with no direct memory credentials
 or writable owner state. Only reconciled, validated results become runtime notes.
+
+## Retry failed investigations
+
+Use `mn run retry <run-id> --dry-run` to verify that the failed investigation still
+has a compatible checkpoint and retained evidence. Restore an unavailable resource
+and retry with the same settings, or explicitly increase a declared allowance:
+
+```bash
+mn run retry <run-id> --set catalog_review.walltime_seconds=3600
+```
+
+`extensions/domain.json` declares adjustable review/investigation wall-time,
+model-call and per-call timeout limits. The retry preserves consumed active time:
+20 minutes consumed under a revised 60-minute allowance leaves 40 minutes.
+Effective settings are layered over original configuration and frozen requests;
+source snapshots, evidence and completed model receipts are not rewritten.
+Committed source capture is verified and reused; uncertain model requests or
+OpenShell effects block replay unless a durable verified receipt permits it.
+Changed source inputs, topology or result-defining settings require a new run.
+Historical investigations without sufficient retained state cannot be retried.

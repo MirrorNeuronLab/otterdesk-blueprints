@@ -10,6 +10,7 @@ from .opencode_models import SPARK_BASE_URL, normalize_model, validate_spark_url
 from .catalog_store import CatalogStore, fingerprint
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot, build_full_task_list
+from .retry_budget import effective_config, effective_deadline
 
 DEFAULTS = {
     "max_tasks": 1024,
@@ -18,7 +19,7 @@ DEFAULTS = {
     "chunk_bytes": 24000,
     "prompt_bytes": 60000,
     "max_calls": 1024,
-    "walltime_seconds": 86400,
+    "walltime_seconds": 604800,
     "max_followups": 64,
 }
 OPEN_DEFAULTS = {
@@ -48,7 +49,7 @@ def catalog_settings(config):
         "chunk_bytes": (1024, 24000),
         "prompt_bytes": (24000, 100000),
         "max_calls": (1, 1024),
-        "walltime_seconds": (1, 86400),
+        "walltime_seconds": (1, 604800),
         "max_followups": (0, 64),
     }
     for key, (low, high) in limits.items():
@@ -203,6 +204,8 @@ def planner(context, work, *, llm_client=None):
     review, opener = catalog_settings(context["config"])
     if saved["request"]["review"] != review or saved["request"]["opencode"] != opener or saved["request"]["retrieval_config"] != context["config"]:
         raise ValueError("Review configuration changed after initialization")
+    review, opener = catalog_settings(effective_config(context["config"]))
+    deadline = effective_deadline(saved["deadline"], review["walltime_seconds"])
     revision = work["_child"]["revision"]
     if type(revision) is not int or revision < 0:
         raise ValueError("Invalid child revision")
@@ -244,7 +247,7 @@ def planner(context, work, *, llm_client=None):
     reason = None
     if not pending:
         reason = "All admitted tasks resolved"
-    elif time.time() >= saved["deadline"]:
+    elif time.time() >= deadline:
         reason = "Review walltime exhausted"
     elif revision >= review["max_rounds"]:
         reason = "Child round budget exhausted"

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/domain.schema.json",
+  "metadata": {
+    "run_retry": {
+      "configuration_fields": {
+        "catalog_review.walltime_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "catalog_review.max_calls": { "type": "integer", "minimum": 1, "maximum": 1024 },
+        "opencode.timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 600 },
+        "investigation.timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 604800 },
+        "llm.max_calls": { "type": "integer", "minimum": 1, "maximum": 10000 },
+        "llm.timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 3600 }
+      }
+    }
+  }
+}

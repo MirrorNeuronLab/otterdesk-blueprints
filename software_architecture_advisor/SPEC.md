@@ -19,7 +19,8 @@ The planner itself makes no model calls. No worker owns routing or completion.
 The planned content consists of source scans, 150 aspect analyses, 150 independent
 challenges, bounded dynamic evidence follow-ups, 23 section syntheses and a final
 executive synthesis. Defaults: 1,024 total tasks and model attempts, 20 rounds,
-64 tasks/round, 64 follow-ups of maximum depth two, and 86,400 seconds. Capacity
+64 tasks/round, 64 follow-ups of maximum depth two, and 604,800 seconds (one week)
+for both the parent investigation deadline and planner walltime budget. Capacity
 is reserved for synthesis; remaining source omissions are recorded. Each call
 has a 600-second timeout, 1 MiB output ceiling and 60 KB UTF-8 prompt bound.
 Source packets have exact offsets and are at most 24 KB, including long Unicode
@@ -160,3 +161,17 @@ never inferred from a memory note. The graph packet is bounded to 3500 bytes;
 source witnesses still pass the existing citation validation. OpenShell receives
 frozen notes, graph context and source spans, with no direct memory credentials
 or writable owner state. Only reconciled, validated results become runtime notes.
+
+## Retry budget and evidence contract
+
+Manual Core checkpoint retry preserves completed logical steps/child tasks and
+uses the original workflow and source inputs. Required domain metadata declares
+only bounded retry-adjustable budget/timeouts. Owner-local domain steps declare
+idempotent internal writes; OpenShell review execution requires verified handoff
+state before replay. Completed model requests use committed domain receipts;
+uncertain attempts remain blocked.
+
+Domain retry helpers apply explicit effective allowances and subtract durable
+run-wide consumption. Frozen source capture, investigation context and request
+artifacts remain immutable evidence. A replayed source-capture boundary verifies
+its committed request and snapshot instead of ingesting the source again.

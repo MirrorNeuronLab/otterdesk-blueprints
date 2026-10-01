@@ -5,17 +5,25 @@ from pathlib import Path
 from mn_sdk.artifact_handoff import output_directory, register_output, resolve_input
 from mn_opencode_skill import OpenCodeRequest, run_opencode
 from .opencode_models import provider_config
+from .retry_budget import effective_config, effective_deadline
+from mn_sdk.run_retry import retry_context
 
 
 def review_admitted(reference, *, llm_client=None):
     frozen = json.loads(resolve_input(reference).read_text())
     task, request, opener = frozen['task'], frozen['request'], frozen['opencode']
+    if retry_context() and 'walltime_seconds' not in frozen:
+        raise ValueError('This admitted request predates durable retry allowances. Start a new run.')
+    retry_config = effective_config({'opencode': opener, 'catalog_review': {'walltime_seconds': frozen.get('walltime_seconds', 0)}},
+        paths={'opencode.timeout_seconds', 'catalog_review.walltime_seconds'})
+    opener = retry_config['opencode']
+    deadline = effective_deadline(frozen['deadline'], retry_config['catalog_review']['walltime_seconds'])
     value = {'task_id': task['task_id'], 'kind': task['kind'], 'status': 'blocked',
              'reason': 'Review deadline reached before dispatch'}
     expanded = False
     if frozen['offline']:
         value.update(status='not_analyzed', reason='Explicit offline mode: no model call; no architecture conclusion.')
-    elif time.time() < frozen['deadline']:
+    elif time.time() < deadline:
         if llm_client is None:
             if b'openshell-sandbox' not in Path('/proc/1/cmdline').read_bytes():
                 raise RuntimeError('Live review requires OpenShell')
@@ -25,7 +33,7 @@ def review_admitted(reference, *, llm_client=None):
             provider.write_text(json.dumps(provider_config(opener)))
             invocation = OpenCodeRequest(folder=str(folder), mode='review',
                 prompt=request['prompt'], model=opener['model'], sandbox_root='/sandbox/job',
-                timeout_seconds=max(1, min(opener['timeout_seconds'], int(frozen['deadline']-time.time()))),
+                timeout_seconds=max(1, min(opener['timeout_seconds'], int(deadline-time.time()))),
                 max_output_bytes=opener['max_output_bytes'])
         try:
             raw = (run_opencode(invocation, env={'OPENCODE_CONFIG': str(provider)}).text

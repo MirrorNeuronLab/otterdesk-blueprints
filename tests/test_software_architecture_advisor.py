@@ -23,12 +23,19 @@ def test_compiled_contract_and_docker_handlers(modules):
     package = read_blueprint(BLUEPRINT)
     source = blueprint_definition(package)
     compiled = compile_blueprint(package, resolve_config(package)).manifest
+    fields = compiled['metadata']['run_retry']['configuration_fields']
+    assert fields['catalog_review.walltime_seconds'] == {'type': 'integer', 'minimum': 1, 'maximum': 604800}
+    assert fields['llm.max_calls']['maximum'] == 10000
+    assert 'inputs.payload.input_folder' not in fields
     from mn_sdk.submission_preparation import lower_manifest_topology_for_runtime_submission
     lower_manifest_topology_for_runtime_submission(compiled)
     assert 'investigate_architecture' in compiled['flow']['child_workflows']
     steps = {item['id']: item for item in source['workflow']['steps']}
     assert steps['analyze_dependency_structure']['needs'] == ['capture_repository']
     assert steps['investigate_architecture']['needs'] == ['analyze_dependency_structure']
+    assert steps['investigate_architecture']['control']['timeout_seconds'] == 604800
+    runtime_steps = {item['id']: item for item in compiled['flow']['steps']}
+    assert runtime_steps['investigate_architecture']['control']['timeout_seconds'] == 604800
     assert steps['publish_architecture_review']['needs'] == ['investigate_architecture']
     assert len(compiled['agents']['nodes']) >= 9
     assert source['response_service'] == {'enabled': True}

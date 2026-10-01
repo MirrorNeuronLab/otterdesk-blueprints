@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.committed_artifacts import CommittedJsonStore
+from .catalog_contract import load_snapshot
 from .config import validate_config, offline_config
 from .events import audit_scope
 from .inputs import ingest_source
@@ -20,9 +22,18 @@ def capture_input(context, *, llm_client=None):
     if context['payload'].get('input_folder') and (Path(source) == run_dir.resolve() or Path(source) in run_dir.resolve().parents):
         raise ValueError('Run output must be outside the analyzed input_folder')
     facts = context['payload'].get('graph_export')
+    CommittedJsonStore(run_dir).commit('capture-request.json', {
+        'version': 'architecture.capture_request/v1', 'source': str(source),
+        'graph_export': str(facts) if facts else None, 'config': config,
+    })
     with audit_scope(run_dir):
-        manifest = ingest_source(source, run_dir / 'evidence', config, Path(facts) if facts else None)
-        (run_dir / 'snapshot.json').write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+        if (run_dir / 'snapshot.json').exists():
+            manifest = load_snapshot(run_dir)['manifest']
+        else:
+            manifest = ingest_source(source, run_dir / 'evidence', config, Path(facts) if facts else None)
+            temporary = run_dir / 'snapshot.json.tmp'
+            temporary.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
+            temporary.replace(run_dir / 'snapshot.json')
     path = f"evidence/snapshots/{manifest['id']}"
     refs = [artifact_reference('snapshot', 'snapshot.json'),
             artifact_reference('source_snapshot', path+'/sources.json'),

@@ -124,7 +124,7 @@
     "chunk_bytes": 24000,
     "prompt_bytes": 60000,
     "max_calls": 1024,
-    "walltime_seconds": 86400,
+    "walltime_seconds": 604800,
     "max_followups": 64
   },
   "opencode": {

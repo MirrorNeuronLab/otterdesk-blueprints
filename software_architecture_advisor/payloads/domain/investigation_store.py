@@ -7,6 +7,7 @@ import time
 from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
+from .retry_budget import effective_config, effective_deadline
 
 from mn_sdk.committed_artifacts import (
     COMMITTED_JSON_VERSION,
@@ -37,7 +38,9 @@ class InvestigationStore:
     def __init__(self, run_dir):
         self.root = Path(run_dir)
         self.context = read_json(self.root / "investigation-context.json")
-        self.config = self.context["config"]
+        self.config = effective_config(self.context["config"])
+        # Effective runtime allowance never rewrites investigation-context.json.
+        self.context = {**self.context, "deadline": effective_deadline(self.context["deadline"], self.config['investigation']['timeout_seconds'])}
 
     def path(self, name):
         result = (self.root / name).resolve()

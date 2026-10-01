@@ -42,7 +42,7 @@
         "definition": "steps.investigate_architecture"
       },
       "control": {
-        "timeout_seconds": 86400
+        "timeout_seconds": 604800
       }
     },
     {

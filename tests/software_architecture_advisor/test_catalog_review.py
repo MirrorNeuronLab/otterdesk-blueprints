@@ -282,6 +282,21 @@ def test_deadline_and_budget_publish_honest_unknowns(run, monkeypatch):
     )
 
 
+def test_review_can_plan_after_24_hours_with_one_week_budget(run, monkeypatch):
+    from domain.catalog_planning import catalog_settings, planner
+    from domain.catalog_store import CatalogStore
+
+    ctx, ref = run
+    saved = CatalogStore(ctx["run_dir"]).load_ref(ref)
+    assert catalog_settings({})[0]["walltime_seconds"] == 604800
+    assert saved["deadline"] - saved["started"] == pytest.approx(604800)
+    monkeypatch.setattr(
+        "domain.catalog_planning.time.time", lambda: saved["started"] + 25 * 3600
+    )
+    decision = planner(ctx, {"context": ref, "_child": {"revision": 0}})
+    assert decision["child_plan"]["decision"] == "execute"
+
+
 def test_citation_wrong_offsets_rejected(run):
     from domain.catalog_contract import load_snapshot
     from domain.review_response import citation
@@ -339,6 +354,7 @@ def test_config_and_spec_hash_reject_mutation(run, tmp_path):
         ("max_tasks", 1025),
         ("tasks_per_round", 65),
         ("max_rounds", 21),
+        ("walltime_seconds", 604801),
     ]:
         cfg = json.loads(json.dumps(ctx["config"]))
         cfg["catalog_review"][key] = value

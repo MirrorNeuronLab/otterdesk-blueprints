@@ -11,6 +11,7 @@ from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot
 from .review_prompts import build_prompt, expand_evidence
 from .review_response import validate_result
+from .retry_budget import effective_config, effective_deadline
 
 
 def _blocked(task, reason, status="blocked"):
@@ -33,6 +34,8 @@ def handle_task(context, work, *, llm_client=None):
     task = store.load_ref(work["task"])
     if review != saved["request"]["review"] or opener != saved["request"]["opencode"]:
         raise ValueError("Frozen configuration changed")
+    review, opener = catalog_settings(effective_config(context["config"]))
+    deadline = effective_deadline(saved["deadline"], review["walltime_seconds"])
     catalog = load_catalog()
     snapshot = load_snapshot(context["run_dir"])
     if (
@@ -84,7 +87,7 @@ def handle_task(context, work, *, llm_client=None):
             "Explicit offline mode: no model call; no architecture conclusion.",
             "not_analyzed",
         )
-    elif time.time() >= saved["deadline"]:
+    elif time.time() >= deadline:
         value = _blocked(task, "Review deadline reached before dispatch")
     else:
         reservation = store.reserve(task_id, request_hash, review["max_calls"])
@@ -122,7 +125,7 @@ def handle_task(context, work, *, llm_client=None):
                                 1,
                                 min(
                                     opener["timeout_seconds"],
-                                    int(saved["deadline"] - time.time()),
+                                    int(deadline - time.time()),
                                 ),
                             ),
                             max_output_bytes=opener["max_output_bytes"],

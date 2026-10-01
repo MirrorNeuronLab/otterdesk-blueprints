@@ -28,12 +28,20 @@ def admit(store, saved, plan, task, review, opener, *, run_id):
             retrieval=retrieval, graph_evidence=graph_evidence)}
         store.write(request_path, request)
     request_hash = fingerprint(request)
+    admission_path = f'catalog/admissions/{task_id}.json'
+    if store.path(admission_path).exists():
+        admission = store.read(admission_path)
+        frozen = json.loads(resolve_committed(admission['input'], run_id=admission['runtime_run_id']).read_text())
+        if frozen['request_hash'] != request_hash:
+            raise ValueError('Inconsistent admission replay')
+        return admission['input']
     # Existing reservations are retained, including unknown executions. Core's
     # transaction guards dispatch replay; admission never refunds a reservation.
     if not review['offline'] and store.reserve(task_id, request_hash, review['max_calls']) == 'exhausted':
         return None
     frozen = {'task': task, 'request': request, 'request_hash': request_hash,
-              'opencode': opener, 'offline': review['offline'], 'deadline': saved['deadline']}
+              'opencode': saved['request']['opencode'], 'offline': review['offline'],
+              'deadline': saved['deadline'], 'walltime_seconds': saved['request']['review']['walltime_seconds']}
     ref = publish_input(frozen, run_id=run_id, kind='architecture_review_input')
     store.write(f'catalog/admissions/{task_id}.json', {'input': ref, 'runtime_run_id': run_id})
     return ref

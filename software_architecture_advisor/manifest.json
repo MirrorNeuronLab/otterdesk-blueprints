@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "description": "Reviews large codebases in bounded OpenCode tasks inside OpenShell, checks counterevidence, and publishes a traceable 23-section architecture report with explicit coverage and proposed work packages.",
   "workflow": "workflow.json",
   "execution": "execution.json",
@@ -12,6 +12,7 @@
   "license": "LICENSE.md",
   "terms": "TERM.md",
   "extensions": {
+    "mn.domain": { "file": "extensions/domain.json", "required": true },
     "mn.product": {
       "file": "extensions/product.json",
       "required": false
