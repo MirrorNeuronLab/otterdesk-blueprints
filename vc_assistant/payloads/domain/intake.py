@@ -119,6 +119,7 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[s
         return records_by_company
     pdf_paths = [path for path in paths if path.suffix.lower() == ".pdf"]
     ocr_records_by_path = _llm_ocr_records_for_pdfs(folder, pdf_paths, config)
+    complete_inputs = []
     for path in paths:
         suffix = path.suffix.lower()
         if suffix in PLAIN_TEXT_SUFFIXES:
@@ -159,7 +160,17 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[s
             "ocr_required": ocr_required,
             "warnings": warnings,
         }
+        complete_inputs.append({'source_ref': path.relative_to(folder).as_posix(), 'text': redacted,
+            'allow': ['vc-inputs', 'vc-company-analysis'],
+            'upstream': [{'sha256': digest, 'extraction_method': extraction_method}]})
         records_by_company.setdefault(company, []).append(record)
+    from mn_sdk.text_memory import runtime_text_memory, ingest_inputs
+    memory = runtime_text_memory(config or {}, principal='vc-inputs')
+    if memory is not None:
+        try:
+            ingest_inputs(memory, complete_inputs)
+        finally:
+            memory.close()
     return records_by_company
 
 def company_fingerprint(records: list[dict[str, Any]]) -> str:

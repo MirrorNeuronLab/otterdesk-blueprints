@@ -91,11 +91,6 @@ from mn_prototype_actor_review_agent import (
 def build_llm_call_limiter(config: dict[str, Any]) -> LlmCallLimiter:
     return build_shared_llm_call_limiter(config, fake_mode=fake_llm_mode_enabled(config))
 
-try:
-    from mn_context_engine_sdk import MemoryItem, WorkingMemory
-except Exception:  # pragma: no cover - optional runtime support
-    MemoryItem = None
-    WorkingMemory = None
 
 from mn_evidence_engine_skill import (
     ClaimRecord,

@@ -53,10 +53,10 @@ def isolated_payload_modules():
 
 
 @pytest.fixture
-def file_memory_transport(monkeypatch):
-    from file_memory_support import MemoryService
+def text_memory_transport(monkeypatch):
+    from text_memory_support import MemoryService
     service = MemoryService()
     monkeypatch.setenv("MN_JOB_ID", "test-memory-job")
     monkeypatch.setenv("MN_RUN_ID", "test-memory-run")
-    monkeypatch.setattr("mn_sdk.file_memory.session.FileMemoryClient", service.client)
+    monkeypatch.setattr("mn_sdk.context_session.session.runtime_client", service.client)
     return service

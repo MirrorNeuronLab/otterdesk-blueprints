@@ -82,14 +82,18 @@ def initializer(context, *, llm_client=None):
         "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
                          "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
     }
+    from .catalog_retrieval import publish_inputs
+
     if store.path("catalog/context.json").exists():
         saved = store.read("catalog/context.json")
         if saved["request_hash"] != fingerprint(request):
             raise ValueError("Initialization inputs changed")
+        publish_inputs(store, request, snapshot)
         ref = store.write("catalog/context.json", saved)
         return {"context": ref, "status": "planning"}, [
             artifact_reference("catalog_context", ref["path"])
         ]
+    publish_inputs(store, request, snapshot)
     packets = chunk_snapshot(snapshot, review["chunk_bytes"])
     # Reserve catalog/report tasks and up to two rounds of dynamic investigation.
     fixed = 2 * len(catalog["specs"]) + len(catalog["sections"]) + 1

@@ -2,7 +2,7 @@
 import json
 import re
 
-from mn_sdk.file_memory import runtime_file_memory
+from mn_sdk.text_memory import runtime_text_memory, ingest_inputs, compile_memory_context
 from .catalog_store import fingerprint
 from .graph import QuerySession
 from .catalog import LayerUnavailable
@@ -87,12 +87,14 @@ def graph_context(store, snapshot, task, focus, config):
 def retrieve(store, saved, snapshot, task, catalog):
     config = saved['request']['retrieval_config']
     focus = _focus(task, catalog, saved['request']['goal'])
-    memory = runtime_file_memory(config, principal='architecture', scope=saved['request']['memory_scope'])
-    notes = {'notes': [], 'incomplete': False, 'status': 'disabled'}
+    memory = runtime_text_memory(config, principal='architecture', scope=saved['request']['memory_scope'])
+    notes = {'bundles': [], 'incomplete': False, 'status': 'disabled'}
     if memory is not None:
         try:
-            memory.initialize()
-            notes = memory.retrieve(focus)
+            settings = config['text_memory']
+            notes, receipt = compile_memory_context(memory, focus,
+                max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'])
+            store.write(f"catalog/memory-context/{task['task_id']}.json", receipt)
         finally:
             memory.close()
     if config.get('offline'):
@@ -104,7 +106,7 @@ def retrieve(store, saved, snapshot, task, catalog):
 
 
 def publish_runtime_notes(store, saved):
-    memory = runtime_file_memory(saved['request']['retrieval_config'], principal='architecture',
+    memory = runtime_text_memory(saved['request']['retrieval_config'], principal='architecture',
                                  scope=saved['request']['memory_scope'])
     if memory is None:
         return
@@ -115,8 +117,25 @@ def publish_runtime_notes(store, saved):
                 continue
             content = {k: result[k] for k in ['task_id', 'kind', 'status', 'aspect_id', 'scope',
                        'conclusion', 'limitations', 'analysis_verdict', 'claims', 'observations'] if k in result}
-            ref = memory.remember(task_id, title=f"Architecture {result.get('aspect_id', task_id)} {result['kind']}",
-                                  content=content, source_ref=f'catalog/results/{task_id}.json')
-            store.write(marker, {'path': ref['path']})
+            ref = memory.observe(json.dumps(content, ensure_ascii=False), event_id=['result', task_id],
+                                 kind='decision', upstream=[{'source_ref': f'catalog/results/{task_id}.json'}])
+            store.write(marker, {'source_id': ref['source_id'], 'revision': ref['revision']})
+    finally:
+        memory.close()
+
+
+def publish_inputs(store, request, snapshot):
+    marker = 'catalog/memory-inputs.json'
+    if store.path(marker).exists():
+        return
+    memory = runtime_text_memory(request['retrieval_config'], principal='architecture', scope=request['memory_scope'])
+    if memory is None:
+        return
+    try:
+        receipts = ingest_inputs(memory, [
+            {'source_ref': path, 'text': record['text'], 'upstream': [{'snapshot_id': snapshot['snapshot_id'], 'sha256': record['sha256']}]}
+            for path, record in sorted(snapshot['sources'].items())
+        ])
+        store.write(marker, {'records': receipts})
     finally:
         memory.close()

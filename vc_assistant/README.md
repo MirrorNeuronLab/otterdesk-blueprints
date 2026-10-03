@@ -196,3 +196,11 @@ Milvus installation; the blueprint does not maintain a second dependency list.
 Local development (`MN_USE_LOCAL_SKILLS=1`) resolves declared SDK packages from
 `mn-python-sdk/packages` and skills/agents from their companion source projects,
 ignoring release pins. Binary installation uses the pinned GAR releases.
+
+The Markdown runtime profile (`text_memory.enabled=true`) commits complete
+preprocessed, redacted document text through Membrane. Private input bodies are
+restricted to input/company-analysis principals; actor-review retrieval sees only
+privacy-approved observations. Actor context assembly uses CompileEvidence v2 and
+saves full witnesses in workflow-state artifacts, outside model context. This
+replaces the retired in-process WorkingMemory helper; learned compression remains
+disabled. Source retrieval and final verified token admission remain distinct.

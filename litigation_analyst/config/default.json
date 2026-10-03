@@ -27,7 +27,7 @@
   },
   "context_memory": {
     "enabled": true,
-    "contract": "mn.context.working.v1",
+    "contract": "mn.context.text.v1",
     "policy": {
       "window_tokens": 16384,
       "output_tokens": 2048,
@@ -39,11 +39,21 @@
     "max_rounds": 3,
     "hypotheses_per_round": 2
   },
-  "file_memory": {
+  "text_memory": {
     "enabled": true,
     "max_results": 3,
-    "read_lines": 24,
-    "max_context_bytes": 4000,
-    "max_note_bytes": 6000
+    "max_context_bytes": 4000
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "mn_local_inputs/case",
+        "runtime_path": "mn_local_inputs/case",
+        "allowed_extensions": [
+          "*"
+        ]
+      }
+    ]
   }
 }

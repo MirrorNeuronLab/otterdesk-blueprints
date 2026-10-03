@@ -19,6 +19,7 @@ from .runtime_services import (
     prepare_runtime_knowledge_rag,
 )
 from .runtime_tools import append_event, llm_requires_live, observed_operation
+from .text_memory import actor_memory_context
 
 def step_agent_review_selected(ctx: dict[str, Any], agent_ids: list[str]) -> bool:
     selected = set(actor_review_config(ctx["config"]).get("llm_actor_ids") or [])
@@ -82,7 +83,7 @@ def _build_step_actor_review_context(
     prompt_rag_context["citation_count"] = len(prompt_rag_context.get("citations") or [])
     active_knowledge_prompt_ref = active_knowledge_reference(active_knowledge)
     active_knowledge_prompt_ref.pop("title", None)
-    return {
+    context = {
         "blueprint_id": BLUEPRINT_ID,
         "workflow_step_id": step_id,
         "agent_id": agent_id,
@@ -99,9 +100,10 @@ def _build_step_actor_review_context(
         },
         "memory_boundary": {
             "rag_knowledge": "persistent Redis-backed knowledge index",
-            "working_memory": "transient local prompt context; not written to Redis",
+            "working_memory": "authorized Markdown runtime memory; witnesses stay in run artifacts",
         },
     }
+    return actor_memory_context(ctx, context, step_id=step_id, agent_id=agent_id)
 
 def _run_step_actor_review_agent(
     *,

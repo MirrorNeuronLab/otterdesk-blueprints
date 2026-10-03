@@ -115,7 +115,7 @@
   },
   "context_memory": {
     "enabled": false,
-    "contract": "mn.context.working.v1"
+    "contract": "mn.context.text.v1"
   },
   "catalog_review": {
     "max_tasks": 1024,
@@ -134,11 +134,9 @@
     "sandbox_root": "/sandbox/job",
     "spark_base_url": "http://10.0.4.32:8000/v1"
   },
-  "file_memory": {
+  "text_memory": {
     "enabled": true,
     "max_results": 3,
-    "read_lines": 24,
-    "max_context_bytes": 4000,
-    "max_note_bytes": 6000
+    "max_context_bytes": 4000
   }
 }

@@ -3,7 +3,7 @@ import os
 
 from mn_sdk.blueprint_support import durable_json_decision, json_decision_capacity
 from mn_sdk.context_session import ContextPolicy
-from mn_sdk.file_memory import runtime_file_memory
+from mn_sdk.text_memory import runtime_text_memory
 from .app.guidance import InvestigationGuidance
 from .app.planning import validate
 
@@ -37,7 +37,7 @@ def evidence_room(frozen, stage, instruction, data, schema):
         policy=ContextPolicy(**frozen["config"]["context_memory"]["policy"]),
         schema_name="litigation_stage",
     )
-    reserve = frozen["config"].get("file_memory", {}).get("max_context_bytes", 4000) + 64 if frozen["config"].get("file_memory", {}).get("enabled") else 0
+    reserve = frozen["config"].get("text_memory", {}).get("max_context_bytes", 4000) + 64 if frozen["config"].get("text_memory", {}).get("enabled") else 0
     return max(0, capacity - reserve)
 
 
@@ -47,7 +47,7 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
         "job_id": os.environ.get("MN_JOB_ID"),
         "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID"),
     }
-    memory = runtime_file_memory(frozen["config"], principal="round-specialists", scope=scope)
+    memory = runtime_text_memory(frozen["config"], principal="round-specialists", scope=scope)
     focus = data.get("hypothesis", {}).get("question") or data.get("goal") or frozen["payload"]["goal"]
     try:
         return durable_json_decision(
@@ -57,7 +57,9 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
             context_scope=scope, principal="round-specialists", stage=stage,
             policy=ContextPolicy(**frozen["config"]["context_memory"]["policy"]),
             client=client, schema_name="litigation_stage",
-            file_memory=memory, memory_query=f"{focus} {stage}",
+            memory=memory, memory_query=f"{focus} {stage}",
+            memory_max_results=frozen['config'].get('text_memory', {}).get('max_results', 3),
+            memory_max_context_bytes=frozen['config'].get('text_memory', {}).get('max_context_bytes', 4000),
             memory_source_ref=f"case/rounds/models/{key}.json",
         )
     finally:

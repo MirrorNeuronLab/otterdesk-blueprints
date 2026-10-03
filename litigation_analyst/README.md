@@ -126,36 +126,12 @@ Their RGQL is authored and validated by the blueprint; the LLM cannot submit arb
 
 ## Filesystem runtime memory
 
-`file_memory.enabled=true` enables Membrane's `mn.context.files.v1` alongside the
-existing evidence and graph tools. Each new specialist request retrieves notes
-using its current task focus: one lexical search, at most three bounded reads,
-and at most 4000 serialized context bytes. Notes retain file versions, line
-ranges and incomplete flags. Source documents, findings and graph receipts
-remain authoritative artifacts; notes are historical navigation, never evidence
-or instructions. No model call or embedding is spent on memory retrieval.
-
-The runtime binds job/run identity. Scope is shared within that run, isolated
-from other cases/repositories, and not carried automatically into another run.
-Deterministic create-only Markdown notes under `tasks/runtime/` record bounded
-outcomes and links to their source artifacts. Human edits are preserved, and new
-requests see them immediately. An already admitted request replays its frozen
-memory context so a retry cannot change the evidence shown to that invocation.
-The optional settings `max_results`, `read_lines`, `max_context_bytes` and
-`max_note_bytes` have defaults 3, 24, 4000 and 6000 respectively.
-
-This version requires the matching SDK and Membrane `FileMemory` build. Set
-`MN_CONTEXT_FS_MEMORY_ROOT` on the service and mount a durable directory. The
-updated local deployment template maps `$MN_HOME/memory` to that resource.
-Workers use `MN_CONTEXT_ADDR` and the existing optional authentication token;
-agents never select the host root. An unavailable service fails explicitly.
-For an intentionally memory-free run set `file_memory.enabled=false`; explicit
-`offline=true` architecture runs do not call Membrane. Deployment is a separate
-operator step; editing this blueprint does not upgrade installed containers.
-
-The Core-managed round planner, hypothesis assessor and independent finding
-reviewer use task-focused recall before their structured decisions. Memory space
-is reserved alongside the existing token budget. Schema-validated decisions are
-recorded after the durable model receipt; exact frozen case citations and the
-independent finding-review gate remain mandatory. Notes cannot establish legal
-facts, identity, wrongdoing or absence of counter-evidence. Existing case graph
-queries remain available in enquiry plans and retain their provenance.
+`text_memory.enabled=true` uses authenticated Membrane TextMemory v1 and
+CompileEvidence v2. Complete frozen or preprocessed input text is committed to
+run-scoped Markdown with upstream source hashes. Decisions become immutable text
+observations. Retrieval preserves whole dependency bundles within
+`text_memory.max_context_bytes`; complete witnesses stay in run artifacts and are
+excluded from model prompts. Historical memory is navigation, not legal or source
+evidence. Required context still needs verified full-request token admission.
+Set `text_memory.enabled=false` for an explicit memory-free profile. No retired
+FileMemory adapter or automatic migration is provided.

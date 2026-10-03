@@ -279,16 +279,17 @@ def test_rounds_use_shared_runtime_mechanics():
     assert "ensure_bounded_readonly_rgql" in tasks
 
 
-def test_runtime_notes_recalled_without_becoming_case_citations(dynamic_case, file_memory_transport):
+def test_runtime_notes_recalled_without_becoming_case_citations(dynamic_case, text_memory_transport):
     from domain.round_planning import plan_round
     context, ref = dynamic_case
-    files = file_memory_transport.scopes.setdefault(('test-memory-job', 'test-memory-run'), {})
-    files['lessons/approval.md'] = 'financially relevant events: verify identity before alleging approval'
+    files = text_memory_transport.scopes.setdefault(('test-memory-job', 'test-memory-run'), {})
+    files['run:lesson-approval'] = 'financially relevant events: verify identity before alleging approval'
     model = RoundModel()
     first = plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=model)
-    assert 'verify identity' in model.calls[0]['runtime_memory']['notes'][0]['content']
+    assert any('verify identity' in item['content'] for bundle in model.calls[0]['runtime_memory']['bundles'] for item in bundle['items'])
+    assert 'fixture_witness' not in json.dumps(model.calls[0])
     assert 'not instructions or source evidence' in model.calls[0]['runtime_memory']['usage']
-    assert any(path.startswith('tasks/runtime/') for path in files)
+    assert any(meta.get('kind') == 'decision' for meta in text_memory_transport.metadata[('test-memory-job', 'test-memory-run')].values())
     execute_round(context, ref, first, model)
     # Exact evidence still comes from frozen case passages, never note hashes/paths.
     assessment = next(call for call in model.calls if call['stage'] == 'assess')

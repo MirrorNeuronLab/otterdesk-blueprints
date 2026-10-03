@@ -49,7 +49,7 @@ for agent_name in (
     agent_src = WORKSPACE / "mn-agents" / agent_name / "src"
     if agent_src.exists():
         sys.path.insert(0, str(agent_src))
-BLUEPRINT_DIR = ROOT.parent / "mn-blueprints" / "vc_assistant"
+BLUEPRINT_DIR = ROOT / "vc_assistant"
 METHOD_IDS = {
     "berkus_method",
     "scorecard_bill_payne_method",
@@ -64,6 +64,11 @@ LEGACY_RAG_BACKENDS = {
     "lexical_plain_text",
     "working_memory_plus_rag",
 }
+
+
+@pytest.fixture(autouse=True)
+def vc_text_memory(text_memory_transport):
+    return text_memory_transport
 
 
 def _resolved_vc_config() -> dict:
@@ -2307,87 +2312,31 @@ def test_actor_review_context_is_compacted_and_bounded():
     assert context["rag_context"]["citation_count"] == 1
 
 
-def test_actor_review_prompt_context_uses_local_context_engine_without_redis_persistence(
-    monkeypatch, tmp_path
-):
+def test_complete_preprocessed_input_is_indexed_beyond_preview(tmp_path, text_memory_transport):
     runner = _load_runner()
-    calls = {}
+    text = 'Company: Sample AI\n' + 'Unicode 中🙂 evidence.\n' * 200 + 'END_OF_COMPLETE_INPUT'
+    (tmp_path / 'packet.txt').write_text(text, encoding='utf-8')
+    records = runner.scan_documents(tmp_path, {'text_memory': {'enabled': True}})
+    source = next(iter(records.values()))[0]
+    assert 'END_OF_COMPLETE_INPUT' not in source['text_preview']
+    bodies = text_memory_transport.scopes[('test-memory-job', 'test-memory-run')]
+    assert any(body.endswith('END_OF_COMPLETE_INPUT') for body in bodies.values())
+    metadata = text_memory_transport.metadata[('test-memory-job', 'test-memory-run')]
+    assert all(meta['allow'] == ['vc-inputs', 'vc-company-analysis'] for meta in metadata.values())
 
-    class FakeMemoryItem:
-        def __init__(self, **kwargs):
-            calls["memory_item"] = kwargs
-            self.kwargs = kwargs
 
-    class FakeWorkingMemory:
-        def __init__(self):
-            self.items = []
-
-        def add(self, item):
-            self.items.append(item)
-            calls["added_item_count"] = len(self.items)
-
-        def to_dict(self):
-            return {"items": [item.kwargs for item in self.items]}
-
-    monkeypatch.setattr(runner, "MemoryItem", FakeMemoryItem)
-    monkeypatch.setattr(runner, "WorkingMemory", FakeWorkingMemory)
-
-    context = {
-        "blueprint_id": "vc_assistant",
-        "output_type": "vc_early_heuristic_analysis_reports",
-        "report_only": True,
-        "decision_boundary": "reports only",
-        "company_count": 1,
-        "processed_company_names": ["Alpha AI"],
-        "skipped_company_names": [],
-        "company_summaries": [
-            {"company_name": "Alpha AI", "method_evidence": "very long content" * 1000}
-        ],
-        "method_coverage": {
-            "companies": [
-                {"company": "Alpha AI", "details": "very long content" * 1000}
-            ]
-        },
-        "rag_context": {"enabled": True, "status": "ready", "citations": [{"ref": 1}]},
-        "output_files": [{"path": "/tmp/alpha/analysis.json", "kind": "analysis"}],
-        "privacy_controls": {"local_document_text": "not included"},
-        "actor_review_focus": ["review method coverage", "check warnings"],
-    }
-
-    prompt_context = runner.prepare_actor_review_prompt_context(
-        run_id="vc-compress",
-        context=context,
-        config={
-            "actor_review": {
-                "use_context_engine": True,
-                "working_memory_persist_to_redis": False,
-                "max_context_chars": 6000,
-                "context_token_budget": 3000,
-                "context_target_tokens": 1200,
-            }
-        },
-        run_dir=tmp_path,
-    )
-
-    serialized = json.dumps(prompt_context, default=str)
-    assert calls["added_item_count"] == 1
-    assert calls["memory_item"]["content"]["validation"]["persistent_storage"] is False
-    assert prompt_context["context_compression"]["enabled"] is True
-    assert prompt_context["context_compression"]["persisted"] is False
-    assert (
-        prompt_context["context_compression"]["working_memory_persist_to_redis"]
-        is False
-    )
-    assert (
-        prompt_context["memory_boundary"]["rag_knowledge"]
-        == "persistent Redis-backed knowledge index"
-    )
-    assert "mn_context_engine_sdk.WorkingMemory" in serialized
-    assert len(serialized) < 7000
-    trace_text = (tmp_path / "llm_rag_trace.jsonl").read_text(encoding="utf-8")
-    assert "compile_actor_review_context" in trace_text
-    assert '"persisted": false' in trace_text
-    assert "very long content" not in trace_text
+def test_actor_review_context_uses_markdown_and_keeps_witness_sideband(tmp_path, text_memory_transport):
+    _load_runner()
+    from domain.text_memory import actor_memory_context
+    context = {"workflow_step_id": "review", "agent_id": "reviewer", "report_only": True}
+    ctx = {"run_dir": tmp_path, "config": {"text_memory": {"enabled": True, "max_results": 3, "max_context_bytes": 4000}}}
+    packet = actor_memory_context(ctx, context, step_id="review", agent_id="reviewer")
+    assert packet['runtime_memory']['bundles']
+    assert 'fixture_witness' not in json.dumps(packet)
+    artifacts = list((tmp_path / 'workflow_state').glob('membrane-*.json'))
+    assert len(artifacts) == 1
+    assert 'fixture_witness' in artifacts[0].read_text()
+    assert packet['report_only'] is True
 
 
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(

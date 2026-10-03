@@ -14,5 +14,5 @@ def architecture_paths(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
-def offline_file_memory(file_memory_transport):
-    return file_memory_transport
+def offline_text_memory(text_memory_transport):
+    return text_memory_transport

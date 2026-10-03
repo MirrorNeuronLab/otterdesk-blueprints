@@ -4,23 +4,24 @@ import json
 from test_catalog_review import run as run  # fixture with immutable admissions
 
 
-def test_admission_uses_filesystem_notes_and_explicit_graph_limits(run, file_memory_transport):
+def test_admission_uses_filesystem_notes_and_explicit_graph_limits(run, text_memory_transport):
     from domain.catalog_planning import planner
     from domain.catalog_store import CatalogStore
     ctx, ref = run
-    files = file_memory_transport.scopes.setdefault(('test-memory-job', 'test-runtime-run'), {})
-    files['lessons/review.md'] = 'source_scan architecture charge boundary: verify external effects'
+    files = text_memory_transport.scopes.setdefault(('test-memory-job', 'test-runtime-run'), {})
+    files['run:lesson-review'] = 'source_scan architecture charge boundary: verify external effects'
     result = planner(ctx, {'context': ref, '_child': {'revision': 0}})
     store = CatalogStore(ctx['run_dir'])
     task = result['child_plan']['steps'][0]['id']
     request = store.read(f'catalog/requests/{task}.json')
     prompt = json.loads(request['prompt'])
-    assert prompt['runtime_memory']['notes'][0]['content'].endswith('verify external effects')
+    assert any(item['content'].endswith('verify external effects') for bundle in prompt['runtime_memory']['bundles'] for item in bundle['items'])
+    assert 'fixture_witness' not in request['prompt']
     assert prompt['architecture_graph']['status'] == 'unavailable'
     assert 'cannot establish dependency' in prompt['architecture_graph']['limitation']
     assert 'memory note cannot replace a graph query' in prompt['instructions']
     # Admission replay is immutable even after a human changes a note.
-    files['lessons/review.md'] = 'changed manually'
+    files['run:lesson-review'] = 'changed manually'
     assert planner(ctx, {'context': ref, '_child': {'revision': 0}}) == result
     assert store.read(f'catalog/requests/{task}.json') == request
 
@@ -59,7 +60,7 @@ def test_graph_queries_run_alongside_notes_and_keep_source_provenance(tmp_path, 
     assert len(calls) == 2  # Reuse immutable graph receipts, not rescans or extra model calls.
 
 
-def test_validated_results_are_remembered_without_mutating_human_edits(run, file_memory_transport):
+def test_validated_results_are_remembered_without_mutating_human_edits(run, text_memory_transport):
     from domain.catalog_retrieval import publish_runtime_notes
     from domain.catalog_store import CatalogStore
     ctx, _ = run
@@ -68,8 +69,8 @@ def test_validated_results_are_remembered_without_mutating_human_edits(run, file
                           'conclusion': 'Inspect the payment dependency graph', 'claims': []})
     saved = store.read('catalog/context.json')
     publish_runtime_notes(store, saved)
-    files = file_memory_transport.scopes[('test-memory-job', 'test-runtime-run')]
-    path = next(iter(files))
+    files = text_memory_transport.scopes[('test-memory-job', 'test-runtime-run')]
+    path = next(path for path, text in files.items() if 'Inspect the payment dependency graph' in text)
     assert 'Inspect the payment dependency graph' in files[path]
     files[path] = 'Human correction'
     publish_runtime_notes(store, saved)

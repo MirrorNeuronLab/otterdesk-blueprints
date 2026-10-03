@@ -30,7 +30,7 @@ def test_catalog_offers_downloadable_emc2_sample():
 
 
 @pytest.fixture
-def modules(monkeypatch, file_memory_transport):
+def modules(monkeypatch, text_memory_transport):
     monkeypatch.syspath_prepend(str(BLUEPRINT / "payloads"))
     for repo in ["mn-skills", "mn-agents"]:
         for path in (WORKSPACE / repo).glob("*/src"):
