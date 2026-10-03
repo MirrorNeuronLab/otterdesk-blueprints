@@ -25,7 +25,7 @@
       "path_kind": "file",
       "required": false,
       "privacy": "confidential",
-      "description": "Optional version-1 or version-2 evidence graph export; needed for non-Python structural modules."
+      "description": "Optional version-1 or version-2 evidence graph export citing captured code; supplies unsupported structural layers or explicit runtime evidence."
     },
     "output_folder": {
       "type": "local_path",

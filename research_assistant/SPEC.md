@@ -49,7 +49,7 @@ For medical, biological, safety-critical, or regulated topics, users must supply
 
 ## Persistent job data
 
-Persistent knowledge, Milvus Lite data, and durable state belong to the stable
+Persistent knowledge, DuckDB data, and durable state belong to the stable
 `job_id`. They survive run completion and cancellation; only explicit data
 reset or confirmed job deletion clears them.
 

@@ -234,7 +234,7 @@ def run_batch_index_writer(
         "observability": observation_summary,
         "memory_boundary": {
             "rag_knowledge": {
-                "storage": "milvus_lite",
+                "storage": "duckdb",
                 "purpose": "durable playbook and method knowledge used to do the VC job",
                 "namespace": (knowledge_rag.get("config") or {}).get("namespace")
                 if isinstance(knowledge_rag.get("config"), dict)

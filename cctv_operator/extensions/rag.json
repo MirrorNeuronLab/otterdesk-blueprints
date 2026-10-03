@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
-  "backend": "redis_vector_rag",
+  "backend": "duckdb",
   "chunk_overlap": 70,
   "chunk_size": 700,
   "enabled": true,
@@ -11,7 +11,6 @@
   "namespace": "",
   "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
   "purpose": "Retrieve approved CCTV policy for target detections, source provenance, cooldown behavior, and review-only alert boundaries.",
-  "redis_url": "",
   "required": false,
   "retrieval_targets": [
     "visual target evidence",

@@ -431,7 +431,7 @@
     "response_schema": "mn.blueprint.response.v1"
   },
   "knowledge_rag": {
-    "backend": "milvus_lite"
+    "backend": "duckdb"
   },
   "llm": {
     "configs": {

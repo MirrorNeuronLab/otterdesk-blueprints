@@ -117,10 +117,13 @@ def analyze_dependencies(snapshot, nodes, edges, evidence, *, max_dsm_modules):
     result = {
         "schema_version": "mn.architecture.structural_analysis.v1",
         "snapshot": snapshot["id"],
-        "method": "Frozen module DEPENDS_ON edges only; direction is importing module to imported module.",
+        "method": "Frozen module DEPENDS_ON edges only; direction is referring module to referenced module. Python imports and Elixir/Erlang syntax references are static candidates.",
         "coverage": {"indexed_modules": len(names), "dependency_edges": len(relations),
                      "source_files": snapshot["coverage"]["source_files"],
                      "python_module_candidates": sum(info["path"].endswith(".py") for info in modules.values()),
+                     "elixir_module_candidates": sum(info.get("language") == "elixir" for info in modules.values()),
+                     "erlang_module_candidates": sum(info.get("language") == "erlang" for info in modules.values()),
+                     "source_scope": snapshot["coverage"].get("source_scope", "legacy"),
                      "skipped": snapshot["coverage"].get("skipped", {}),
                      "unsupported_runtime_relationships": "not measured"},
         "modules": names,
@@ -138,7 +141,7 @@ def analyze_dependencies(snapshot, nodes, edges, evidence, *, max_dsm_modules):
         "dsm": {"status": "ready" if len(names) <= max_dsm_modules else "omitted_size_limit",
                 "path": "analysis/dependency-dsm.csv" if len(names) <= max_dsm_modules else None,
                 "max_modules": max_dsm_modules,
-                "orientation": "row imports column; 1 means a direct source or supplied dependency"},
+                "orientation": "row references column; 1 means a direct source or supplied dependency"},
         "limits": ["A dependency cycle is a static relationship, not a demonstrated runtime failure.",
                    "A bridge module connects the undirected source graph; it is not necessarily a runtime chokepoint.",
                    "Degree measures local graph connectivity, not severity, business value, or change impact.",
@@ -173,6 +176,8 @@ def analyze_snapshot(context, *, llm_client=None):
         max_dsm_modules=cfg["analysis"]["max_dsm_modules"],
     )
     details = generation["entries"]["dependencies:*"]["details"]
+    result["coverage"]["parsed_beam_files"] = details.get("parsed_beam_files", {})
+    result["limits"].extend(details.get("limitations", []))
     result["coverage"]["unresolved_imports"] = len(details.get("unresolved_imports", []))
     result["coverage"]["parse_warnings"] = details.get("warnings", [])[:20]
     result["coverage"]["omitted_parse_warnings"] = max(0, len(details.get("warnings", [])) - 20)

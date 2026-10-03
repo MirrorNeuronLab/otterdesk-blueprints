@@ -35,7 +35,7 @@ The discovery stage always executes one cycle, then returns for review and final
 
 ## Persistent job data
 
-Durable knowledge, Milvus Lite data, and service state belong to the stable job,
+Durable knowledge, DuckDB data, and service state belong to the stable job,
 not the blueprint ID or execution. Two jobs cannot observe each other's data.
 Run cancellation and retention do not remove those resources.
 

@@ -1,4 +1,4 @@
-# Architecture Advisor 3.1 specification
+# Architecture Advisor 3.3 specification
 
 ## Outcome
 
@@ -6,6 +6,30 @@ Turn a captured repository into a traceable architecture review covering the
 23 sections and 150 aspect contracts in `payloads/report_specs`. Every aspect
 gets an applicability decision independently of coverage. Missing evidence,
 failed tasks and capped source packets remain visible; they never imply health.
+
+## Source input
+
+The default source is the public repository
+`https://github.com/MirrorNeuronLab/MirrorNeuron`. Supply exactly one public
+HTTPS GitHub repository root URL or local source folder. Clear
+`inputs.payload.repository_url` when choosing `inputs.payload.input_folder`.
+Changing the source requires a new run.
+
+Capture includes code files only. Documents (including Markdown), JSON/YAML/TOML
+data and sample datasets do not enter frozen sources, retrieval, source packets
+or model review. Default exclusions include documentation, examples, samples,
+fixtures and generated/dependency directories, including Elixir `deps`/`_build`.
+Elixir `mix.exs`, code under `config/` and ordinary test code remain in scope.
+Explicit graph exports must cite captured code, not ignored documents.
+
+The declared BEAM source-analysis skill supplies pinned offline
+Tree-sitter parsers for literal Elixir/Erlang modules and syntax dependency
+candidates. Python imports retain their existing collector. Source hashes and
+exact line spans link each accepted internal edge to frozen code. Syntax-error
+files produce warnings and no extracted facts; missing parsers and violated
+budgets fail explicitly. Macros, generated modules, preprocessing, dynamic
+dispatch, process messaging and supervision topology remain unverified. Other
+automatic syntax layers remain Python-only and declare that limitation.
 
 ## Execution contract
 

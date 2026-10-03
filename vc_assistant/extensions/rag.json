@@ -8,5 +8,6 @@
   "max_context_chars": 6000,
   "namespace": "",
   "required": true,
-  "top_k": 5
+  "top_k": 5,
+  "backend": "duckdb"
 }

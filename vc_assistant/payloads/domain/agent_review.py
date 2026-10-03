@@ -99,7 +99,7 @@ def _build_step_actor_review_context(
             "local_document_text": "not included in actor-review context",
         },
         "memory_boundary": {
-            "rag_knowledge": "job-scoped Milvus Lite knowledge index",
+            "rag_knowledge": "job-scoped DuckDB knowledge index",
             "runtime_memory": "authorized Markdown runtime memory with DuckDB indexes; witnesses stay in run artifacts",
         },
     }

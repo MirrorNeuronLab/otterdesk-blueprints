@@ -9,12 +9,12 @@
     "introduction": "Try the public example repository or choose a local source folder.",
     "sample": {
       "available": true,
-      "title": "Archmind example",
-      "description": "Review the public Archmind repository with the default goal.",
+      "title": "MirrorNeuron example",
+      "description": "Review the public MirrorNeuron repository with the default goal.",
       "expected_output": "An architecture report and cited follow-up tasks.",
       "values": {
-        "inputs.payload.goal": "Review Archmind's module boundaries and coupling, check counter-evidence, and recommend the most useful next change.",
-        "inputs.payload.repository_url": "https://github.com/homerquan/Archmind",
+        "inputs.payload.goal": "Review MirrorNeuron's module boundaries and coupling, check counter-evidence, and recommend the most useful next change.",
+        "inputs.payload.repository_url": "https://github.com/MirrorNeuronLab/MirrorNeuron",
         "inputs.payload.input_folder": "",
         "inputs.payload.graph_export": ""
       }
@@ -56,7 +56,7 @@
         "path": "inputs.payload.repository_url",
         "label": "Repository URL",
         "type": "url",
-        "default": "https://github.com/homerquan/Archmind",
+        "default": "https://github.com/MirrorNeuronLab/MirrorNeuron",
         "description": "Public GitHub repository root. Leave empty when using a local folder."
       },
       {

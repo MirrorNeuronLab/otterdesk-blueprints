@@ -63,7 +63,7 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     config=json.loads((BLUEPRINT/'config/default.json').read_text())
     execution=json.loads((BLUEPRINT/'execution.json').read_text())
     assert 'output_folder' not in config
-    assert config['inputs']['payload']['repository_url']=='https://github.com/homerquan/Archmind'
+    assert config['inputs']['payload']['repository_url']=='https://github.com/MirrorNeuronLab/MirrorNeuron'
     assert execution['job_name']=='architecture-advisor'
     assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
     assert config['outputs']['write_run_store'] is True
@@ -138,7 +138,7 @@ def test_desktop_sample_selects_public_repository_without_graph_export(modules):
     assert modules['intake'].source_input({
         'repository_url': sample['inputs.payload.repository_url'],
         'input_folder': sample['inputs.payload.input_folder'],
-    })=='https://github.com/homerquan/Archmind.git'
+    })=='https://github.com/MirrorNeuronLab/MirrorNeuron.git'
     assert modules['intake'].source_input({
         'repository_url': '',
         'input_folder': str(BLUEPRINT/'examples/sample_repository'),

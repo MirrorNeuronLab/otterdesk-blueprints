@@ -104,7 +104,7 @@ Resources declare a logical name, validated relative job-data path,
 `read_only`/`read_write` access, and optional bundle-local `@/` directory seed.
 The stable `job_id`, not blueprint ID or `run_id`, is the storage isolation
 key. Seeds apply only on initialization and explicit data reset. Knowledge,
-Milvus Lite databases, and durable application state remain job-scoped; run
+DuckDB databases, and durable application state remain job-scoped; run
 inputs, outputs, logs, and ordinary artifacts remain run-scoped.
 
 Root `knowledge/` is the shared reference-document convention for every blueprint.
@@ -159,7 +159,7 @@ Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its ful
 Python distribution name, and the PEP 440 release range `>=1.3.47`. For example:
 
 ```json
-{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": ">=1.3.47", "extras": ["milvus"]}
+{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": ">=1.3.58.dev0,<2"}
 ```
 
 Local installation resolves SDK packages from `mn-python-sdk/packages` and skills

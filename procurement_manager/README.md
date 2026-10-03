@@ -101,7 +101,7 @@ warnings.
 
 ## Shared job data
 
-Bundled knowledge seeds the stable job once. Milvus Lite lives under
+Bundled knowledge seeds the stable job once. DuckDB lives under
 `databases/rag/`, and durable application state under `state/`. Repeated runs
 share those resources while purchase inputs, citations, recommendations, and
 outputs remain run-scoped.

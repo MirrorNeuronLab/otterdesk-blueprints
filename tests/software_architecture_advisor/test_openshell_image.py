@@ -34,6 +34,7 @@ def test_reviewer_builds_explicit_sandbox_context_before_provisioning(tmp_path, 
         openshell._prepare_openshell_custom_images(
             root, {"flow": {"nodes": [{"node_id": "review", "config": config}]}},
             shared_sandbox_job_id="test-job",
+            shared_sandbox_submission_id="test-submission",
         )
     assert order == ["build", "provision"]
 

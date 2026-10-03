@@ -70,12 +70,19 @@ def test_charge():
         self.write(".github/CODEOWNERS", '/src/ @platform\n/src/app.py @payments\n')
         self.write("config.json", '{"payment": {"retry": true}}\n')
         self.write("architecture-rules.json", json.dumps({"version": 1, "rules": [{"module": "worker", "relation": "SHOULD_NOT_WRITE", "target": "payments", "rationale": "Only the ledger owns payment writes"}]}))
-        self.write("observations.md", 'Fixture workflow and incident export, not production evidence.\n')
+        self.write("observations.py", '# Synthetic supplied workflow, incident, ownership, deployment and intent test evidence.\n')
         bundle = {"version": 2, "layers": {
             "workflow": {"nodes": [{"key": "workflow:checkout", "kind": "Workflow", "properties": {"name": "checkout"}}],
                          "edges": [self.edge("module:app", "workflow:checkout", "PARTICIPATES_IN")]},
             "incidents": {"nodes": [{"key": "incident:fixture", "kind": "Incident", "properties": {"name": "fixture"}}],
-                         "edges": [self.edge("module:app", "incident:fixture", "AFFECTED_BY")]}}}
+                         "edges": [self.edge("module:app", "incident:fixture", "AFFECTED_BY")]},
+            "ownership": {"nodes": [{"key": "owner:payments", "kind": "Owner", "properties": {"name": "@payments"}}],
+                          "edges": [self.edge("owner:payments", "module:app", "OWNS")]},
+            "deployment": {"nodes": [{"key": "service:api", "kind": "Service", "properties": {"name": "api", "module": "app"}},
+                                     {"key": "container:fixture", "kind": "Container", "properties": {"name": "payment:fixture"}}],
+                           "edges": [self.edge("service:api", "container:fixture", "RUNS_ON")]},
+            "intent": {"nodes": [{"key": "table:payments", "kind": "Table", "properties": {"name": "payments"}}],
+                       "edges": [self.edge("module:worker", "table:payments", "SHOULD_NOT_WRITE")]}}}
         self.facts = self.repo / "architecture-facts.json"
         self.facts.write_text(json.dumps(bundle))
         self.cfg = configuration()
@@ -99,7 +106,7 @@ def test_charge():
         return subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
 
     def edge(self, src, dst, kind):
-        return {"source": src, "target": dst, "type": kind, "source_path": "observations.md", "line": 1}
+        return {"source": src, "target": dst, "type": kind, "source_path": "observations.py", "line": 1}
 
     def snapshot(self):
         self.manifest = snapshot_repository(self.repo, self.workspace, self.cfg, self.facts)
@@ -156,7 +163,7 @@ def test_charge():
         self.assertEqual({session.evidence[e]["path"] for e in session.evidence_ids(call_state)}, {"src/app.py", "src/worker.py"})
         violated = session.query("intent_violations", "worker")
         self.assertEqual(violated["rows"][0]["table_name"], "payments")
-        self.assertEqual({session.evidence[e]["path"] for e in session.evidence_ids(violated)}, {"src/worker.py", "architecture-rules.json"})
+        self.assertEqual({session.evidence[e]["path"] for e in session.evidence_ids(violated)}, {"src/worker.py", "observations.py"})
         links = session.query("test_call_links", "worker")
         self.assertTrue(any(r["test"] == "test_app.test_charge" and r["caller"] == "app.charge" for r in links["rows"]))
         types = session.query("types", "app")["rows"]

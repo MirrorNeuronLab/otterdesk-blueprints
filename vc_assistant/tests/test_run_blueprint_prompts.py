@@ -58,7 +58,7 @@ def test_source_manifest_keeps_the_default_runtime_declarative():
     assert all(step["run"]["definition"] for step in manifest["workflow"]["steps"])
     assert set(default_config["llm"]) == {"configs", "require_live"}
     assert "agentic_research" not in default_config
-    assert default_config["knowledge_rag"] == {"backend": "milvus_lite"}
+    assert default_config["knowledge_rag"] == {"backend": "duckdb"}
     assert "resources" not in default_config
     assert "human_control" not in default_config
     assert "input_adapters" not in default_config["interfaces"]
@@ -598,7 +598,7 @@ def test_blank_knowledge_rag_db_root_uses_runtime_rag_env(monkeypatch):
 
     patched = rb.with_runtime_knowledge_rag_defaults(config)
 
-    assert patched["knowledge_rag"]["backend"] == "milvus_lite"
+    assert patched["knowledge_rag"]["backend"] == "duckdb"
     assert patched["knowledge_rag"]["db_root"] == db_root
     assert patched["knowledge_rag"]["namespace"] == "vc"
     assert "redis_url" not in patched["knowledge_rag"]
@@ -610,7 +610,7 @@ def test_explicit_knowledge_rag_db_path_is_preserved(monkeypatch):
     config = {
         "knowledge_rag": {
             "enabled": True,
-            "backend": "milvus_lite",
+            "backend": "duckdb",
             "db_root": "/explicit/root",
             "db_path": "/explicit/root/vc.db",
         }
@@ -650,10 +650,10 @@ def test_runtime_rag_uses_one_job_database_for_every_agent(monkeypatch, tmp_path
     )
 
     assert Path(funding_rag.db_path) == (
-        job_data_dir / "databases" / "rag" / "milvus.db"
+        job_data_dir / "databases" / "rag" / "knowledge.duckdb"
     )
     assert Path(market_rag.db_path) == (
-        job_data_dir / "databases" / "rag" / "milvus.db"
+        job_data_dir / "databases" / "rag" / "knowledge.duckdb"
     )
     assert funding_rag.db_path == market_rag.db_path
     assert funding_rag.collection_name == market_rag.collection_name

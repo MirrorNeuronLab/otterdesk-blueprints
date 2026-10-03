@@ -109,7 +109,7 @@ def test_published_business_blueprints_share_one_goal_contract():
         assert "mn-python-sdk-mcp" in dependency_names
         assert "auxiliary_entrypoints" not in manifest["agents"]
         assert "extra_nodes" not in manifest["agents"]
-        assert config["knowledge_rag"]["backend"] == "milvus_lite"
+        assert config["knowledge_rag"]["backend"] == "duckdb"
         assert "mcp_collaboration" not in config
         assert "peer_mcp_servers" not in config["inputs"]["payload"]
         assert config["inputs"]["payload"]["business_name"] == "Bibblio"

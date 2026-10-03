@@ -27,3 +27,5 @@ def decide_fraud(payment):
 
 def reconcile_ledger(db):
     return db.execute("SELECT * FROM ledger_entries")
+
+# Synthetic supplied fixture: checkout workflow and incident DEMO-001.

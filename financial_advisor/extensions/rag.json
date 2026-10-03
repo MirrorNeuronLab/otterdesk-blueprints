@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
-  "backend": "redis_vector_rag",
+  "backend": "duckdb",
   "chunk_overlap": 80,
   "chunk_size": 800,
   "embedding_api_base": "auto",
@@ -18,7 +18,6 @@
   "namespace": "",
   "privacy": "index local blueprint knowledge only; do not index private run documents unless a future runtime explicitly opts in",
   "purpose": "Retrieve local financial-advisor guidance for bank statement extraction, household cash-flow review, tax-form OCR capture, tax workpaper routing, portfolio risk interpretation, and review-only safety boundaries.",
-  "redis_url": "",
   "required": false,
   "retrieval_targets": [
     "bank statement extraction",

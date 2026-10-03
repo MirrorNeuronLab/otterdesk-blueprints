@@ -2,6 +2,7 @@
 import ast
 import re
 from pathlib import Path
+from mn_beam_analysis_skill import analyze_sources
 
 
 def body_nodes(body):
@@ -23,6 +24,7 @@ class Project:
     def __init__(self, sources, modules):
         self.sources, self.modules = sources, modules
         self.trees, self.defs, self.aliases, self.errors = {}, {}, {}, []
+        self.beam = analyze_sources({path: source["text"] for path, source in sources.items()})
         for module, info in modules.items():
             if not info["path"].endswith(".py"):
                 continue
@@ -133,7 +135,20 @@ def dependencies(records, project):
                     records.edge("module:" + module, "module:" + target, "DEPENDS_ON", eid)
                 elif target not in project.modules:
                     unresolved.append({"module": module, "import": imported, "line": item.lineno})
-    records.details.update(unresolved_imports=unresolved, warnings=project.errors)
+    for reference in project.beam["dependencies"]:
+        source, target = reference["source"], reference["target"]
+        if source not in project.modules or target not in project.modules:
+            continue
+        eid = records.cite(reference["path"], reference["line"], reference["end_line"],
+                           detail=f"{reference['kind']} syntax reference to {target}; static candidate")
+        records.edge("module:" + source, "module:" + target, "DEPENDS_ON", eid,
+                     detail="syntax dependency candidate; not runtime verification")
+    unresolved.extend(project.beam["unresolved"])
+    warnings = project.errors + [f"{item['path']}:{item['line']}: {item['reason']}" for item in project.beam["warnings"]]
+    records.details.update(unresolved_imports=unresolved, warnings=warnings,
+                           parsed_beam_files=project.beam["parsed_files"], beam_extractor=project.beam["extractor"])
+    if project.beam["modules"]:
+        records.details["limitations"].extend(project.beam["limitations"])
 
 
 def calls(records, project):

@@ -102,7 +102,7 @@ def retrieve_research_rag_context(query: str, rag_state: dict[str, Any], knowled
                 "context": retrieved.get("context") or lexical["context"],
                 "citations": list(dict.fromkeys([*citation_refs, *lexical["citations"]])),
                 "chunks": retrieved.get("chunks") or lexical["chunks"],
-                "backend": retrieved.get("backend") or "milvus_lite",
+                "backend": retrieved.get("backend") or "duckdb",
                 "embedding_model": retrieved.get("embedding_model"),
             }
         except Exception as exc:  # pragma: no cover - depends on embedding runtime

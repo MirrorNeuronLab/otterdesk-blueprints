@@ -474,7 +474,7 @@ knowledge.build_rag_context = lambda *_args, **_kwargs: {
         {"source_ref": "local:notes.md", "chunk_id": "chunk-2"},
     ],
     "chunks": [{"chunk_id": "chunk-1"}],
-    "backend": "milvus_lite",
+    "backend": "duckdb",
     "embedding_model": "test-embedding",
 }
 result = knowledge.retrieve_research_rag_context(
@@ -487,7 +487,7 @@ print(json.dumps(result))
 """,
     )
     assert result["citations"] == ["knowledge/methods.md", "local:notes.md"]
-    assert result["backend"] == "milvus_lite"
+    assert result["backend"] == "duckdb"
 
 
 def test_research_assistant_feeds_tool_observations_back_into_final_synthesis(tmp_path):

@@ -28,7 +28,7 @@ LEGACY_RAG_BACKENDS = {
 def _normalized_rag_snapshot(rag: dict) -> dict:
     normalized = dict(rag)
     if normalized.get("backend") in LEGACY_RAG_BACKENDS:
-        normalized["backend"] = "milvus_lite"
+        normalized["backend"] = "duckdb"
     normalized.pop("redis_url", None)
     if normalized.get("enabled") is True:
         normalized["index_on_startup"] = True

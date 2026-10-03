@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
-  "backend": "milvus_lite",
+  "backend": "duckdb",
   "chunk_overlap": 70,
   "chunk_size": 700,
   "embedding_api_base": "auto",

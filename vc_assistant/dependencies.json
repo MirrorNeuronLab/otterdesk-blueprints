@@ -23,7 +23,7 @@
       "name": "mirrorneuron-document-reading-skill",
       "source": "gar",
       "type": "pip",
-      "version": ">=1.3.47"
+      "version": ">=1.3.58.dev0,<2"
     },
     {
       "name": "mirrorneuron-public-research-orchestrator-skill",
@@ -41,7 +41,7 @@
       "name": "mirrorneuron-llm-ocr-skill",
       "source": "gar",
       "type": "pip",
-      "version": ">=1.3.47"
+      "version": ">=1.3.58.dev0,<2"
     },
     {
       "name": "mirrorneuron-web-browser-skill",
@@ -93,10 +93,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mn-python-sdk-rag",
-      "version": ">=1.3.47",
-      "extras": [
-        "milvus"
-      ]
+      "version": ">=1.3.58.dev0,<2"
     },
     {
       "type": "pip",

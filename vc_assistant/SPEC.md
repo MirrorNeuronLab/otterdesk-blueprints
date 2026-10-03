@@ -80,12 +80,12 @@ Internal artifacts include `company_work_queue.json`, company fact tables, resea
 
 ## Persistent job data
 
-The stable job owns cross-run knowledge, Milvus Lite RAG data, and explicitly
+The stable job owns cross-run knowledge, DuckDB RAG data, and explicitly
 durable state. Run inputs and reports remain execution-scoped. Seeds apply only
 on job initialization/reset; run cancellation, retention, or deletion does not
 remove shared data. All agents in a job use the same
-`databases/rag/milvus.db` and collection namespace. The reusable SDK RAG package owns
-a job-scoped Unix-socket service that retains the only Milvus Lite connection;
+`databases/rag/knowledge.duckdb` and collection namespace. The reusable SDK RAG package owns
+a job-scoped Unix-socket service that retains the only DuckDB connection;
 parallel agents submit indexing, state, and retrieval operations through that
 service instead of opening the file independently.
 
@@ -143,7 +143,7 @@ configuration are resolved by the SDK before launch.
 
 Release 1.1.0 migrates infrastructure from retired skill distributions to the
 current SDK component contract. `dependencies.json` declares pinned
-`mn-python-sdk-common`, `mn-python-sdk-rag[milvus]`,
+`mn-python-sdk-common`, `mn-python-sdk-rag`,
 `mn-python-sdk-job-response`, and `mn-python-sdk-mcp` under `packages`.
 Task capabilities remain under `skills`; reusable workers remain under `agents`.
 The skill and agent pins follow the migration releases used by the OtterDesk
@@ -152,8 +152,8 @@ catalog (1.3.23 and 1.3.10 respectively).
 Prompt/event helpers use `mn_sdk_common`; actor configuration and usage use the
 actor-review agent; foundational LLM access uses `mn_sdk.llm`. RAG owns indexing,
 retrieval, and the shared Job database, with the SDK runtime model adapter
-injected for embedding preparation and retrieval. The RAG `milvus` extra owns
-Milvus installation; the blueprint does not maintain a second dependency list.
+injected for embedding preparation and retrieval. The RAG base dependency owns
+DuckDB installation; the blueprint does not maintain a second dependency list.
 
 Local development (`MN_USE_LOCAL_SKILLS=1`) resolves declared SDK packages from
 `mn-python-sdk/packages` and skills/agents from their companion source projects,

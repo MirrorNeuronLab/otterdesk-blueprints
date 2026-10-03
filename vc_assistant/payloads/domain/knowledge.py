@@ -121,7 +121,7 @@ def with_runtime_knowledge_rag_defaults(config: dict[str, Any]) -> dict[str, Any
     raw = config.get("knowledge_rag") if isinstance(config.get("knowledge_rag"), dict) else {}
     updates: dict[str, Any] = {}
     if raw.get("enabled", True) and not str(raw.get("backend") or "").strip():
-        updates["backend"] = "milvus_lite"
+        updates["backend"] = "duckdb"
 
     runtime_db_root = (os.environ.get("MN_RAG_DB_ROOT") or "").strip()
     if runtime_db_root and not str(raw.get("db_root") or "").strip():
@@ -279,7 +279,7 @@ def prepare_knowledge_rag(
         warning = {
             "kind": "knowledge_rag",
             "status": "knowledge_rag_failed",
-            "message": "Knowledge RAG was enabled but Milvus Lite indexing could not complete; no static playbook fallback was injected.",
+            "message": "Knowledge RAG was enabled but DuckDB indexing could not complete; no static playbook fallback was injected.",
             "error": str(exc),
         }
         state = {
@@ -348,7 +348,7 @@ def active_knowledge_for_prompt(active_knowledge: dict[str, Any], knowledge_rag:
     if (knowledge_rag or {}).get("enabled"):
         ref = active_knowledge_reference(active_knowledge)
         ref["domain_guard"] = active_knowledge.get("domain_guard")
-        ref["content_retrieval"] = "redis_rag"
+        ref["content_retrieval"] = "duckdb_rag"
         return ref
     return active_knowledge
 

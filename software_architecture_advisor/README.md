@@ -1,11 +1,19 @@
 # Architecture Advisor
 
-Architecture Advisor 3.1 reviews large repositories piece by piece with the
+Architecture Advisor 3.3 reviews code repositories piece by piece with the
 OpenCode skill inside OpenShell. It evaluates the supplied report library's
 **150 aspects in 23 sections**, including an independent counterevidence review
 for each aspect, and produces explicit coverage even when evidence is missing.
 
 ## Run
+
+Run the default MirrorNeuron repository review:
+
+```bash
+mn blueprint run ./software_architecture_advisor
+```
+
+To review a local repository instead:
 
 ```bash
 mn blueprint run ./software_architecture_advisor \
@@ -13,9 +21,14 @@ mn blueprint run ./software_architecture_advisor \
   --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
-The default URL is `https://github.com/homerquan/Archmind`. Supply exactly one
+The default URL is `https://github.com/MirrorNeuronLab/MirrorNeuron`. Supply exactly one
 source: a public HTTPS GitHub repository root or a local folder. The platform
-stages local input; reviewed source is never imported or executed. Public Git
+stages local input; reviewed source is never imported or executed. Capture
+includes code only: Markdown, other documents, JSON/YAML/TOML data, and sample
+data files are ignored. Documentation, examples, samples, fixtures, dependencies
+and build directories are excluded by `ingest.exclude`; this includes Elixir
+`deps` and `_build`. `mix.exs`, `config/*.exs` and ordinary test code are included.
+Only captured code enters source packets, retrieval and model review. Public Git
 clones retain the existing bounded, credential-free acquisition policy.
 
 Default model: **Muse Spark 1.3 FreeOpenCode Zen**
@@ -91,9 +104,19 @@ health assessments. Full reviews can take hours; the defaults are ceilings.
 Configuration is in `catalog_review` and `opencode`. Existing capture limits are
 5,000 files, 500 KB/file and 20 MB aggregate; tune `ingest` for larger repositories.
 Unsupported extensions, symlinks, excluded directories and oversized/non-UTF-8
-files retain capture limitations. Polyglot text reviews do not require Python
-modules; automatic structural graph extraction remains primarily Python, with
-optional evidence-backed graph exports for other languages.
+files retain capture limitations. Polyglot code reviews do not require Python
+modules. The declared BEAM analysis skill installs pinned,
+offline syntax parsers for Elixir/Erlang module declarations and dependency
+candidates, alongside Python import extraction. Elixir lexical aliases, grouped
+aliases, import/require/use/behaviour and module references, plus Erlang
+behaviour/import/remote references, produce exact source-linked edges. Unresolved
+references and syntax failures remain visible. Other automatic syntax layers
+(function calls, types, state and control/data flow) remain Python-only and
+record that limitation for Elixir/Erlang. Macros, generated code, preprocessing,
+dynamic dispatch, process messaging and supervision topology are not verified.
+Optional graph exports must cite captured code; ignored documents cannot supply
+source evidence. Metadata-only deployment/ownership collectors need explicit
+code-linked exports when their source files are outside the code-only capture.
 
 `offline=true` is an explicit orchestration/coverage check. It makes no OpenCode
 calls and marks all tasks `not_analyzed`; it never substitutes synthetic findings

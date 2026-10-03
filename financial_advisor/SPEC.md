@@ -64,7 +64,7 @@ holdings actionable; it changes the evidence gap from “objectives missing” t
 
 ## Persistent job data
 
-Knowledge, Milvus Lite RAG storage, and explicitly durable advisor state are
+Knowledge, DuckDB RAG storage, and explicitly durable advisor state are
 isolated by stable `job_id` and survive multiple runs. Inputs and outputs are
 isolated by `run_id`; ordinary run cleanup never deletes job data.
 

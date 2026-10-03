@@ -80,7 +80,7 @@ def _normalized_rag_snapshot(rag: dict) -> dict:
     if normalized.get("backend") in LEGACY_RAG_BACKENDS or (
         "backend" not in normalized and normalized.get("enabled") is True
     ):
-        normalized["backend"] = "milvus_lite"
+        normalized["backend"] = "duckdb"
     normalized.pop("redis_url", None)
     if normalized.get("enabled") is True:
         normalized["index_on_startup"] = True
@@ -494,7 +494,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "rationale": "Protect local Docker Model Runner from concurrent VC agent calls.",
     }
     assert config["knowledge_rag"]["enabled"] is True
-    assert config["knowledge_rag"]["backend"] == "milvus_lite"
+    assert config["knowledge_rag"]["backend"] == "duckdb"
     assert "redis_url" not in config["knowledge_rag"]
     assert config["knowledge_rag"]["namespace"] == ""
     assert not any(
@@ -579,7 +579,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "local-requirements.txt" in dockerfile
     assert "mirrorneuron: skill-dependencies" in dockerfile
     assert "mn_context_engine_sdk" in dockerfile
-    assert "MilvusClient" in dockerfile
+    assert "duckdb" in dockerfile
     assert "playwright" not in dockerfile.lower()
     assert "chromium" not in dockerfile.lower()
     assert (
@@ -1055,7 +1055,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
-        "pymilvus[milvus-lite]>=2.4",
+        "# DuckDB is a base dependency of mn-python-sdk-rag in dependencies.json.",
     ]
 
 
@@ -2214,7 +2214,7 @@ def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     monkeypatch.setattr(
         runner,
         "skill_prepare_blueprint_knowledge_rag",
-        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("milvus unavailable")),
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("duckdb unavailable")),
     )
 
     state = runner.prepare_knowledge_rag(

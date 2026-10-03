@@ -74,8 +74,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-rag",
-            "extras": ["milvus"],
-            "version": ">=1.3.47",
+            "version": ">=1.3.58.dev0,<2",
         },
         {
             "type": "pip",

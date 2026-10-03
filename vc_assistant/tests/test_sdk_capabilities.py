@@ -17,7 +17,7 @@ def test_compiled_dependencies_enable_only_required_sdk_capabilities():
     expected = {
         "mn-python-sdk-common==0.1.0",
         "mn-python-sdk-models==0.1.0",
-        "mn-python-sdk-rag[milvus]==0.1.0",
+        "mn-python-sdk-rag==0.1.0",
         "mn-python-sdk-job-response==0.1.0",
         "mn-python-sdk-mcp==0.1.0",
     }
@@ -96,6 +96,6 @@ def test_rag_retrieval_injects_gateway_and_preserves_job_storage(monkeypatch, tm
     )
     embedder = captured["embedder"]
     assert isinstance(embedder.runtime, RuntimeModelClient)
-    assert Path(embedder.config.db_path) == tmp_path / "vc-sdk-test/databases/rag/milvus.db"
+    assert Path(embedder.config.db_path) == tmp_path / "vc-sdk-test/databases/rag/knowledge.duckdb"
     assert captured["query"] == "Funding evidence"
     assert result["citations"] == [{"ref": 1}]

@@ -155,7 +155,7 @@ Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its ful
 Python distribution name, and a pinned release version. For example:
 
 ```json
-{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": "0.1.0", "extras": ["milvus"]}
+{"type": "pip", "source": "gar", "name": "mn-python-sdk-rag", "version": "0.1.0"}
 ```
 
 Local installation resolves SDK packages from `mn-python-sdk/packages` and skills

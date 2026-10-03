@@ -48,7 +48,22 @@
       "target",
       "dist",
       "build",
-      ".advisor"
+      ".advisor",
+      "_build",
+      "deps",
+      "doc",
+      "docs",
+      "documentation",
+      "example",
+      "examples",
+      "sample",
+      "samples",
+      "sample_data",
+      "sample-data",
+      "fixtures",
+      "testdata",
+      "test_data",
+      "test-data"
     ],
     "layers": {
       "controller": [
@@ -82,7 +97,7 @@
   "inputs": {
     "adapter": "json",
     "payload": {
-      "repository_url": "https://github.com/homerquan/Archmind",
+      "repository_url": "https://github.com/MirrorNeuronLab/MirrorNeuron",
       "goal": "Review architecture across the 150 report aspects; identify evidence-backed findings, counterevidence, unknowns, prioritized recommendations, and bounded proposed implementation tasks."
     }
   },

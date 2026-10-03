@@ -337,7 +337,7 @@
     ]
   },
   "knowledge_rag": {
-    "backend": "milvus_lite",
+    "backend": "duckdb",
     "index_on_startup": true
   },
   "llm": {

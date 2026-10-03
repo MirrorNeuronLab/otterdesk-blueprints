@@ -101,7 +101,7 @@ python -m pytest tests/software_architecture_advisor/test_runtime_memory.py -q
 
 Architecture retains its frozen passage-retrieval packet if a graph provider fails and
 retries, including the complete sideband receipt and replay binding. VC reporting
-identifies Markdown/DuckDB runtime memory separately from Milvus product RAG.
+identifies Markdown/DuckDB runtime memory separately from DuckDB product RAG.
 Deployment gates use fake Docker/installer commands and temporary homes.
 No context benchmark or GPU/model workflow was run for this audit.
 

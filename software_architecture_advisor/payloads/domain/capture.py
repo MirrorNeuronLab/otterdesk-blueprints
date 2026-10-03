@@ -8,10 +8,8 @@ import time
 from uuid import uuid4
 
 from mn_graph_analysis_skill import GraphClient
+from mn_beam_analysis_skill import analyze_sources
 from .ingest import digest, logical_id, module_name, EXTENSIONS
-
-
-EXTRA = {".json", ".yaml", ".yml", ".toml", ".ini"}
 
 
 def capture(repository, workspace, config, facts_path=None, input_info=None):
@@ -22,14 +20,19 @@ def capture(repository, workspace, config, facts_path=None, input_info=None):
         raise ValueError("Repository must be a directory distinct from the output workspace")
     workspace.mkdir(parents=True, exist_ok=True)
     cfg = config["ingest"]
+    excluded = {name.casefold() for name in cfg["exclude"]}
     sources, modules, warnings, skipped = {}, {}, [], {}
     total = 0
     for base, dirs, files in os.walk(repository, followlinks=False):
-        dirs[:] = sorted(d for d in dirs if d not in cfg["exclude"] and (not d.startswith(".") or d == ".github")
+        skipped["excluded_directories"] = skipped.get("excluded_directories", 0) + sum(d.casefold() in excluded for d in dirs)
+        dirs[:] = sorted(d for d in dirs if d.casefold() not in excluded and (not d.startswith(".") or d == ".github")
                          and not (Path(base) / d).is_symlink() and not (workspace.is_relative_to(repository) and (Path(base) / d).resolve().is_relative_to(workspace)))
         for filename in sorted(files):
             path = Path(base) / filename
-            if path.is_symlink() or (path.suffix not in EXTENSIONS | EXTRA and filename not in {"CODEOWNERS", "Dockerfile"}):
+            if path.is_symlink():
+                continue
+            if path.suffix not in EXTENSIONS and filename != "Dockerfile":
+                skipped["non_code_files"] = skipped.get("non_code_files", 0) + 1
                 continue
             if path.stat().st_size > cfg["max_file_bytes"]:
                 skipped["oversized_files"] = skipped.get("oversized_files", 0) + 1
@@ -54,7 +57,17 @@ def capture(repository, workspace, config, facts_path=None, input_info=None):
                 layer = next((key for key, patterns in cfg["layers"].items() if any(fnmatch.fnmatch(rel, p) for p in patterns)), "unspecified")
                 modules[name] = {"name": name, "path": rel, "layer": layer, "layer_basis": "configured path pattern"}
     if not sources:
-        raise ValueError("No supported text sources found")
+        raise ValueError("No supported code sources found")
+    beam = analyze_sources({path: source["text"] for path, source in sources.items()},
+                               max_files=cfg["max_files"], max_file_bytes=cfg["max_file_bytes"],
+                               max_total_bytes=cfg["max_total_bytes"])
+    for item in beam["modules"]:
+        name, rel = item["name"], item["path"]
+        if name in modules:
+            raise ValueError(f"Ambiguous module {name}")
+        layer = next((key for key, patterns in cfg["layers"].items() if any(fnmatch.fnmatch(rel, p) for p in patterns)), "unspecified")
+        modules[name] = {**item, "layer": layer, "layer_basis": "configured path pattern"}
+    warnings.extend(f"{item['path']}:{item['line']}: {item['reason']}" for item in beam["warnings"])
     supplied = {"version": 2, "modules": [], "layers": {}}
     if facts_path:
         supplied = json.loads(Path(facts_path).read_bytes())
@@ -87,9 +100,10 @@ def capture(repository, workspace, config, facts_path=None, input_info=None):
     client.check()
     manifest = {"id": identifier, "format_version": 2, "repository": str(repository), "git_anchor": anchor,
                 "input": {**(input_info or {"kind": "folder", "location": str(repository)}), "revision": anchor},
-                "extractor": "source-capture/2", "sources": {p: s["sha256"] for p, s in sources.items()}, "modules": modules,
+                "extractor": "source-capture/3", "sources": {p: s["sha256"] for p, s in sources.items()}, "modules": modules,
                 "embedding_config": config["embedding"], "embedding_dimension": None, "ingest_config": cfg,
-                "coverage": {"source_files": len(sources), "parsed_python_modules": None, "skipped": skipped,
+                "coverage": {"source_files": len(sources), "source_scope": "code_only", "parsed_python_modules": None,
+                             "parsed_beam_files": beam["parsed_files"], "beam_limitations": beam["limitations"], "skipped": skipped,
                              "internal_dependency_pairs": None, "history": {"status": "not_materialized", "anchor": anchor},
                              "runtime_traces": "not_collected", "incidents": "not_materialized", "workflows": "not_materialized",
                              "semantic_retrieval": "not_materialized"}, "warnings": warnings,
