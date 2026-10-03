@@ -58,3 +58,7 @@ Run `python -m pytest tests/test_gtm_services.py -q` from the catalog repository
 with the declared sibling SDK, agents, and skills available. The suite uses
 synthetic data, mocked AgentMail/models, and an isolated real MCP stdio exchange.
 Live provider sending is not a setup or test prerequisite.
+
+## Context engine contract
+
+The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.

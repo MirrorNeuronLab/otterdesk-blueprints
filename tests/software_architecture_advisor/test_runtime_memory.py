@@ -75,3 +75,27 @@ def test_validated_results_are_remembered_without_mutating_human_edits(run, text
     files[path] = 'Human correction'
     publish_runtime_notes(store, saved)
     assert files[path] == 'Human correction'
+
+
+def test_graph_failure_reuses_frozen_memory_compilation_on_retry(run, text_memory_transport, monkeypatch):
+    import pytest
+    from domain import catalog_retrieval
+    from domain.catalog_store import CatalogStore
+    ctx, _ = run
+    store = CatalogStore(ctx['run_dir'])
+    saved = store.read('catalog/context.json')
+    snapshot = {'snapshot_id': 'retry-fixture', 'manifest': {'modules': {}}, 'sources': {}}
+    task = {'task_id': 'retry-task', 'kind': 'source_scan', 'path': 'payment.py'}
+    catalog = {'specs': {}}
+    monkeypatch.setattr(catalog_retrieval, 'graph_context', lambda *args: (_ for _ in ()).throw(RuntimeError('graph provider failed')))
+    before = sum(c[0] == 'compile' for c in text_memory_transport.calls)
+    with pytest.raises(RuntimeError, match='graph provider failed'):
+        catalog_retrieval.retrieve(store, saved, snapshot, task, catalog)
+    cached = store.read('catalog/memory-context/retry-task.json')
+    monkeypatch.setattr(catalog_retrieval, 'graph_context', lambda *args: ({'status': 'unavailable'}, []))
+    result, _ = catalog_retrieval.retrieve(store, saved, snapshot, task, catalog)
+    assert result['runtime_memory'] == cached['packet']
+    assert sum(c[0] == 'compile' for c in text_memory_transport.calls) == before + 1
+    changed = {**snapshot, 'snapshot_id': 'different'}
+    with pytest.raises(ValueError, match='replay context changed'):
+        catalog_retrieval.retrieve(store, saved, changed, task, catalog)

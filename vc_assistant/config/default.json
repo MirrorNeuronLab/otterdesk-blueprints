@@ -17,8 +17,7 @@
       "batch_index_writer"
     ],
     "max_context_chars": 9000,
-    "use_context_engine": true,
-    "working_memory_persist_to_redis": false
+    "use_context_engine": true
   },
   "agent_handoffs": {},
   "backpressure": {
@@ -213,8 +212,7 @@
       "skill": "web_browser_skill",
       "stop_on_blocked": true,
       "timeout_seconds": 20,
-      "total_timeout_seconds": 60,
-      "use_model_compression": true
+      "total_timeout_seconds": 60
     }
   },
   "inputs": {
@@ -396,7 +394,7 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "memory_layer",
+      "text_memory",
       "dataset_input",
       "document_automation",
       "agentic_research",
@@ -440,7 +438,7 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "memory_layer",
+      "text_memory",
       "dataset_input",
       "document_automation",
       "agentic_research",
@@ -575,7 +573,6 @@
     ],
     "timeout_seconds": 20,
     "total_timeout_seconds": 60,
-    "use_model_compression": true,
     "verification_domains": [
       "crunchbase.com",
       "linkedin.com/company",
@@ -703,30 +700,6 @@
     "resources_jsonl": true,
     "stderr_jsonl": true
   },
-  "memory_layer": {
-    "collection": "mn_memory",
-    "containers": "optional_sidecar",
-    "context_addr_env": "MN_CONTEXT_ADDR",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 2400,
-      "token_budget": 6000,
-      "use_model_compression": true
-    },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "default_context_addr": "localhost:50052",
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "vc_assistant_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
   "metadata": {
     "category": "Finance",
     "description": "A VC analysis co-worker for early startup screening reports. Put pitch decks, memos, financial snippets, company folders, or other startup documents in the input folder; it groups documents by company, performs privacy-safe public research, applies seven VC heuristic scoring methods, audits the math and evidence, and writes score-only per-company reports and batch indexes to the output folder."
@@ -774,9 +747,7 @@
     "extra_index_url": "https://pypi.org/simple",
     "index_url": "https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
     "installer": "pip",
-    "packages": [
-      "mirrorneuron-membrane-python-sdk[grpc]>=2.0,<3"
-    ],
+    "packages": [],
     "requirements": "requirements.txt"
   },
   "real_adapters": {

@@ -747,7 +747,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "1.1.1"
+    assert read_blueprint(blueprint).manifest["version"] == "1.2.0"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
     }
@@ -889,7 +889,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     assert registrar["services"][0]["checks"][0]["port"] == "${env.MN_PORT_MICRODUCK_MCP}"
     assert expanded["service"]["run_until"] == "manual_stop"
     dependencies = {item["name"] for item in source["packages"]}
-    assert dependencies == {"mn-python-sdk-web-ui"}
+    assert dependencies == {"mn-python-sdk-web-ui", "mirrorneuron-python-sdk"}
     assert source["llm"]["model"] == "default"
     assert source["llm"]["configs"]["primary"]["provider"] == "openai_compatible"
     assert source["llm"]["configs"]["primary"]["api_base"] == "auto"

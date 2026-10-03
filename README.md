@@ -3,11 +3,15 @@
 `otterdesk-blueprints` is a self-contained OtterDesk-facing worker blueprint catalog. Each blueprint folder includes
 its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 
-VC Assistant, Financial Advisor, Legal Assistant, and Research Assistant
+VC Assistant, Financial Advisor, Litigation Analyst, and Research Assistant
 use foundational `mn_sdk.llm` calls through blueprint support; they do not
 depend on the deprecated LiteLLM communication skill. Their RAG packages and OCR skills
 own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
+
+All 12 published blueprints declare the Markdown context profile. Architecture,
+Litigation and VC use Membrane v2; the other nine explicitly disable it. See
+[the catalog audit and runtime prerequisites](CONTEXT_ENGINE.md).
 
 ## Quick Start
 
@@ -62,7 +66,8 @@ helpers and render shared agent templates.
 
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
-| [`gtm_assistant`](gtm_assistant/README.md) | Business | Turns de-identified customer feedback into activation, retention, product, and lifecycle decisions. |
+| [`gtm_planner`](gtm_planner/README.md) | Business | Plans marketing work and publishes bounded collaboration packets. |
+| [`gtm_executor`](gtm_executor/README.md) | Business | Executes approved marketing work through declared tools and Job collaboration. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to `~/Downloads/drug-discovery-research-assistant`, and completes. |
 | [`research_assistant`](research_assistant/README.md) | Science | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, evidence and proposed work packages. |
@@ -70,7 +75,9 @@ helpers and render shared agent templates.
 | [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, a small condition check before detailed frame analysis, and snapshot-backed approval for uncertain findings. |
 | [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`litigation_analyst`](litigation_analyst/README.md) | Legal | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
-| [`legal_assistant`](legal_assistant/README.md) | Legal | A review-only legal document co-worker for invoice, bill, and contract review. Put invoices, bills, contracts, clause notes, labels, or supporting files in the input folder; it extracts payable fields, maps contract clauses, compares playbook expectations, flags review issues, and writes a source-grounded review packet to the output folder. |
+| [`financial_advisor`](financial_advisor/README.md) | Finance | Reviews financial documents and prepares a grounded advisory packet. |
+| [`vc_assistant`](vc_assistant/README.md) | Finance | Produces early diligence reports from startup document packets. |
+| [`ros_amr_controller`](ros_amr_controller/README.md) | Robotics | Operates the warehouse robot simulation through bounded MCP controls. |
 
 ## Folder Contract
 

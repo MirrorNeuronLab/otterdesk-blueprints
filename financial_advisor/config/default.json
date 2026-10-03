@@ -140,8 +140,7 @@
       "skill": "web_browser_skill",
       "stop_on_blocked": true,
       "timeout_seconds": 20,
-      "total_timeout_seconds": 60,
-      "use_model_compression": true
+      "total_timeout_seconds": 60
     }
   },
   "inputs": {
@@ -354,7 +353,7 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "memory_layer",
+      "text_memory",
       "dataset_input",
       "document_automation",
       "knowledge_rag",
@@ -385,7 +384,7 @@
       "web_ui",
       "interfaces",
       "execution_model",
-      "memory_layer",
+      "text_memory",
       "dataset_input",
       "document_automation",
       "knowledge_rag",

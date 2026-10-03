@@ -382,7 +382,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     )
     assert config["python_dependencies"]["extra_index_url"] == "https://pypi.org/simple"
     assert config["python_dependencies"]["packages"] == [
-        "mirrorneuron-membrane-python-sdk==1.2.31",
     ]
     assert config["local_inputs"] == {
         "folders": [
@@ -537,7 +536,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         ],
         "max_context_chars": 9000,
         "use_context_engine": True,
-        "working_memory_persist_to_redis": False,
         "context_token_budget": 5000,
         "context_target_tokens": 1800,
     }
@@ -1057,7 +1055,6 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     assert requirements == [
         "--index-url https://us-central1-python.pkg.dev/mirrorneuron-public-packages/agent-skills/simple/",
         "--extra-index-url https://pypi.org/simple",
-        "mirrorneuron-membrane-python-sdk==1.2.31",
         "pymilvus[milvus-lite]>=2.4",
     ]
 
@@ -2685,8 +2682,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
         is True
     )
     assert (
-        run_health["components"]["context_engine"]["working_memory_persist_to_redis"]
-        is False
+        run_health["components"]["context_engine"]["storage"] == "markdown"
     )
     assert run_health["components"]["public_tools"]["tool_operation_count"] >= 1
     assert run_health["components"]["knowledge_rag"]["status"] == "ready"
@@ -2766,7 +2762,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
     assert transport_artifact["company_reports"]
     assert transport_artifact["observability"]["trace_available"] is True
     assert (
-        run_artifact["memory_boundary"]["working_memory"]["persist_to_redis"] is False
+        run_artifact["memory_boundary"]["runtime_memory"]["index"] == "duckdb_per_job"
     )
     assert (tmp_path / "vc-unit" / "action_ledger.json").exists()
 

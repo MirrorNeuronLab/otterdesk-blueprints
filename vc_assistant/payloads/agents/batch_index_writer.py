@@ -234,16 +234,18 @@ def run_batch_index_writer(
         "observability": observation_summary,
         "memory_boundary": {
             "rag_knowledge": {
-                "storage": "redis_vector_index",
+                "storage": "milvus_lite",
                 "purpose": "durable playbook and method knowledge used to do the VC job",
                 "namespace": (knowledge_rag.get("config") or {}).get("namespace")
                 if isinstance(knowledge_rag.get("config"), dict)
                 else "",
             },
-            "working_memory": {
-                "storage": "local_artifacts_and_prompt_context",
-                "persist_to_redis": False,
-                "purpose": "transient browser/tool observations and actor-review context",
+            "runtime_memory": {
+                "storage": "markdown",
+                "index": "duckdb_per_job",
+                "device": "cpu",
+                "enabled": bool(ctx["config"].get("text_memory", {}).get("enabled")),
+                "purpose": "complete preprocessed inputs and privacy-approved actor observations",
             },
         },
         "monitor_state": {

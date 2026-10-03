@@ -61,6 +61,12 @@
       "extras": [
         "milvus"
       ]
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-python-sdk",
+      "version": ">=1.3.58.dev0,<2"
     }
   ]
 }

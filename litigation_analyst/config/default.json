@@ -26,8 +26,6 @@
     "folder_path": "~/Downloads/litigation-analyst"
   },
   "context_memory": {
-    "enabled": true,
-    "contract": "mn.context.text.v1",
     "policy": {
       "window_tokens": 16384,
       "output_tokens": 2048,

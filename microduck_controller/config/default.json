@@ -29,26 +29,6 @@
       "port": 62008
     }
   },
-  "memory_layer": {
-    "collection": "mn_memory",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 800,
-      "token_budget": 1200
-    },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "microduck_controller_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
   "metadata": {
     "description": "Give it the bundled input folder and a local browser session, and it runs a live Microduck MuJoCo web simulation with compact duck-and-ball state, a visual control room, bounded primitive controls, deterministic goal-directed ball navigation, and stoppable continuous free play."
   },

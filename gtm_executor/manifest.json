@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "gtm_executor",
   "name": "GTM executor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
   "workflow": "workflow.json",
   "execution": "execution.json",
@@ -34,6 +34,10 @@
     },
     "mn.llm": {
       "file": "extensions/llm.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
       "required": true
     }
   }

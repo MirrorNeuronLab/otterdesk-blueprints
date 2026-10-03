@@ -286,16 +286,13 @@ def agentic_research_config(config: dict[str, Any]) -> dict[str, Any]:
 
 def actor_review_config(config: dict[str, Any]) -> dict[str, Any]:
     raw = config.get("actor_review") if isinstance(config.get("actor_review"), dict) else {}
-    memory = config.get("memory_layer") if isinstance(config.get("memory_layer"), dict) else {}
-    conversation = memory.get("conversation") if isinstance(memory.get("conversation"), dict) else {}
     selected = raw.get("llm_actor_ids") if isinstance(raw.get("llm_actor_ids"), list) else DEFAULT_ACTOR_REVIEW_LLM_ACTOR_IDS
     return {
         "llm_actor_ids": [str(item) for item in selected],
         "max_context_chars": bounded_int(raw.get("max_context_chars"), default=6000, minimum=2000, maximum=50000),
-        "use_context_engine": bool(raw.get("use_context_engine", raw.get("use_model_compression", conversation.get("use_model_compression", True)))),
-        "working_memory_persist_to_redis": bool(raw.get("working_memory_persist_to_redis", False)),
-        "context_token_budget": bounded_int(raw.get("context_token_budget"), default=conversation.get("token_budget") or DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET, minimum=500, maximum=20000),
-        "context_target_tokens": bounded_int(raw.get("context_target_tokens"), default=conversation.get("target_tokens") or DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS, minimum=200, maximum=8000),
+        "use_context_engine": bool(raw.get("use_context_engine", True)) and bool(config.get("text_memory", {}).get("enabled", False)),
+        "context_token_budget": bounded_int(raw.get("context_token_budget"), default=DEFAULT_ACTOR_REVIEW_CONTEXT_TOKEN_BUDGET, minimum=500, maximum=20000),
+        "context_target_tokens": bounded_int(raw.get("context_target_tokens"), default=DEFAULT_ACTOR_REVIEW_CONTEXT_TARGET_TOKENS, minimum=200, maximum=8000),
     }
 
 def _research_agent_enabled(agentic: dict[str, Any], agent_id: str) -> bool:

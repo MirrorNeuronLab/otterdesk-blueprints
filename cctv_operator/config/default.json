@@ -516,30 +516,6 @@
       "stringify": true
     }
   ],
-  "memory_layer": {
-    "collection": "mn_memory",
-    "containers": "optional_sidecar",
-    "context_addr_env": "MN_CONTEXT_ADDR",
-    "conversation": {
-      "agent_role": "otterdesk_chat",
-      "include_human_events": true,
-      "include_runtime_events": true,
-      "include_runtime_logs": true,
-      "target_tokens": 2400,
-      "token_budget": 6000,
-      "use_model_compression": false
-    },
-    "conversation_enabled": true,
-    "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",
-    "default_context_addr": "localhost:50052",
-    "enabled": true,
-    "enabled_env": "MN_CONTEXT_MEMORY_ENABLED",
-    "namespace": "cctv_operator_context",
-    "project_path": "${MN_MEMBRANE_PROJECT_PATH}",
-    "python_sdk_path": "${MN_MEMBRANE_SDK_PATH}",
-    "sdk_distribution": "mirrorneuron-membrane-python-sdk",
-    "sdk_import_package": "mn_context_engine_sdk"
-  },
   "metadata": {
     "agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "blueprint_id": "cctv_operator",

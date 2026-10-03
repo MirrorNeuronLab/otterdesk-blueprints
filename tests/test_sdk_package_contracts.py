@@ -36,7 +36,7 @@ def test_catalog_dependencies_use_gar_packages_and_keep_domain_skills(blueprint_
             assert record["version"]
             assert not {"path", "format"} & record.keys()
             if group == "packages":
-                assert record["name"].startswith("mn-python-sdk-")
+                assert record["name"].startswith("mn-python-sdk-") or record["name"] == "mirrorneuron-python-sdk"
             else:
                 assert not record["name"].startswith("mn-python-sdk-")
     compiled = compile_blueprint(read_blueprint(root)).manifest
@@ -114,7 +114,21 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
         for key, value in payloads.items()
         if key.endswith("local-requirements.txt")
     )
-    assert requirements, blueprint_id
+    python_workers = [n for n in prepared.get('agents', {}).get('nodes', [])
+                      if n.get('config', {}).get('runner_module') in {'MirrorNeuron.Runner.DockerWorker', 'MirrorNeuron.Runner.HostLocal'}]
+    if not requirements:
+        # Compose-only and supervised services prepare their Python environment
+        # on the native host rather than through a Docker build context.
+        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor'}
+        assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
+        if local:
+            sources = prepared['metadata']['mn_local_skill_dependencies']['sources']
+            assert any(r['package'] == 'mirrorneuron-python-sdk' for r in sources)
+            assert all(any(r['package'] == component.distribution for r in sources)
+                       for component in component_requirements(prepared))
+        else:
+            assert not prepared.get('metadata', {}).get('mn_local_skill_dependencies')
+        return
     for component in component_requirements(prepared):
         if local:
             assert component.requirement not in requirements
@@ -123,6 +137,15 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
             assert component.requirement in requirements
     if not local:
         assert not local_requirements
+    if not local:
+        assert any('mirrorneuron-python-sdk' in line and '>=1.3.58.dev0,<2' in line for line in requirements.splitlines())
+    if blueprint_id in {'software_architecture_advisor', 'litigation_analyst', 'vc_assistant'}:
+        if local:
+            assert '/mn-context-engine-python-sdk[grpc]' in local_requirements
+            assert '/mn-python-sdk[context]' in local_requirements
+            assert any(key.endswith('/mn_context_engine_sdk/text_memory.py') for key in payloads)
+        else:
+            assert 'mirrorneuron-python-sdk[context]>=1.3.58.dev0,<2' in requirements
     if blueprint_id == "software_architecture_advisor":
         if local:
             assert "graph_analysis_skill" in local_requirements

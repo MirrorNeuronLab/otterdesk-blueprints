@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/context.schema.json",
   "text_memory": {
     "contract": "mn.context.text.v1",
-    "enabled": false,
+    "enabled": true,
     "max_results": 3,
     "max_context_bytes": 4000
   }

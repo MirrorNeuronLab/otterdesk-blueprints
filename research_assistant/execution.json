@@ -3,7 +3,6 @@
   "policies": {
     "recovery_mode": "local_restart"
   },
-  "required_context_engine": false,
   "agents": {
     "registry": {
       "research_goal_framer": {

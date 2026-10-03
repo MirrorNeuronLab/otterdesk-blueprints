@@ -113,10 +113,6 @@
       }
     ]
   },
-  "context_memory": {
-    "enabled": false,
-    "contract": "mn.context.text.v1"
-  },
   "catalog_review": {
     "max_tasks": 1024,
     "max_rounds": 20,

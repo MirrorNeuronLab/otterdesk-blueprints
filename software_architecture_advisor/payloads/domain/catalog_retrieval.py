@@ -91,10 +91,19 @@ def retrieve(store, saved, snapshot, task, catalog):
     notes = {'bundles': [], 'incomplete': False, 'status': 'disabled'}
     if memory is not None:
         try:
+            memory.check()
             settings = config['text_memory']
-            notes, receipt = compile_memory_context(memory, focus,
-                max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'])
-            store.write(f"catalog/memory-context/{task['task_id']}.json", receipt)
+            path = f"catalog/memory-context/{task['task_id']}.json"
+            binding = fingerprint([saved['request']['memory_scope'], snapshot['snapshot_id'], focus, settings])
+            if store.path(path).exists():
+                cached = store.read(path)
+                if cached['binding'] != binding:
+                    raise ValueError('Runtime memory replay context changed')
+                notes = cached['packet']
+            else:
+                notes, receipt = compile_memory_context(memory, focus,
+                    max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'])
+                store.write(path, {'binding': binding, 'packet': notes, 'receipt': receipt})
         finally:
             memory.close()
     if config.get('offline'):

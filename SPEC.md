@@ -10,7 +10,7 @@ terms, and deterministic tests into an installable co-worker/workflow bundle.
 This specification applies only to this repository. Reusable agents, skills,
 SDK compilation, and Core delivery are dependencies, not code owned here.
 
-VC Assistant, Financial Advisor, Legal Assistant, and Research Assistant
+VC Assistant, Financial Advisor, Litigation Analyst, and Research Assistant
 use foundational `mn_sdk.llm` access through blueprint support and do not
 declare `mirrorneuron-litellm-communicate-skill`. Their RAG packages and OCR skills own
 complete model specifications and pass them to the SDK's lazy runtime wrapper.
@@ -42,6 +42,17 @@ preparation. Python step modules load only during explicit compilation.
 The response service is not a workflow node, port, command, or run-scoped
 worker. Blueprint response context must exclude credentials, private source
 documents, unrestricted artifacts, and other confidential run data.
+
+## Markdown context profile
+
+Every published entry declares `mn.context.text.v1` through `mn.context`.
+Architecture, Litigation and VC enable it and declare the SDK `context` extra;
+the remaining nine have disabled profiles and no TextMemory consumer. Resolved
+config overrides take precedence. Complete preprocessing output is ingested into
+trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation
+witnesses stay in sidecars. Verified model dispatch requires a serving counter;
+missing counting remains an explicit failure. See [the catalog audit](CONTEXT_ENGINE.md)
+for the complete inventory, runtime prerequisites and verification limits.
 
 ## Blueprint Ownership
 

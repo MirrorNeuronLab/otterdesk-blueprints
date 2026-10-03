@@ -464,8 +464,10 @@ def build_run_health_report(
             },
             "context_engine": {
                 "actor_review_uses_context_engine": bool(actor_review_settings.get("use_context_engine")),
-                "working_memory_persist_to_redis": bool(actor_review_settings.get("working_memory_persist_to_redis")),
-                "boundary": "RAG knowledge may use Redis; working memory stays in local artifacts and compact prompt context.",
+                "storage": "markdown",
+                "index": "duckdb_per_job",
+                "device": "cpu",
+                "boundary": "Private inputs are scoped separately from privacy-approved actor observations; witnesses stay outside model context.",
             },
             "cache_policy": {
                 "force_reprocess": cache_policy_summary.get("force_reprocess"),

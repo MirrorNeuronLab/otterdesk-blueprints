@@ -4,7 +4,6 @@
     "recovery_mode": "cluster_recover",
     "stream_mode": "live"
   },
-  "required_context_engine": false,
   "type": "service",
   "agents": {
     "entrypoints": [
@@ -353,7 +352,11 @@
         "agent_type": "executor",
         "alias": "cctv_operator_mcp",
         "config": {
-          "command": ["sh", "-lc", "exec python3.11 cctv_operator_mcp.py"],
+          "command": [
+            "sh",
+            "-lc",
+            "exec python3.11 cctv_operator_mcp.py"
+          ],
           "environment": {},
           "from": "base",
           "no_auto_providers": true,
@@ -371,14 +374,21 @@
           {
             "attribute": "capabilities",
             "operator": "contains_all",
-            "value": ["nvidia", "cuda"]
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
           }
         ],
         "display_name": "CCTV Operator MCP",
         "node_id": "cctv_operator_mcp",
         "resources": {
           "ports": [
-            {"label": "cctv_operator_mcp", "port": "auto", "protocol": "http"}
+            {
+              "label": "cctv_operator_mcp",
+              "port": "auto",
+              "protocol": "http"
+            }
           ]
         },
         "services": [
@@ -387,8 +397,15 @@
             "address": "127.0.0.1",
             "port": "${env.MN_PORT_CCTV_OPERATOR_MCP}",
             "origin": "internal",
-            "tags": ["mcp", "video-analysis", "cctv-operator"],
-            "meta": {"path": "/mcp", "schema_version": "mn.cctv.operator_mcp.v1"},
+            "tags": [
+              "mcp",
+              "video-analysis",
+              "cctv-operator"
+            ],
+            "meta": {
+              "path": "/mcp",
+              "schema_version": "mn.cctv.operator_mcp.v1"
+            },
             "checks": [
               {
                 "name": "cctv-operator-mcp-http",
@@ -548,8 +565,7 @@
         "include_runtime_events": true,
         "include_runtime_logs": true,
         "target_tokens": 2400,
-        "token_budget": 6000,
-        "use_model_compression": false
+        "token_budget": 6000
       },
       "conversation_enabled": true,
       "conversation_enabled_env": "OTTERDESK_CONTEXT_MEMORY_ENABLED",

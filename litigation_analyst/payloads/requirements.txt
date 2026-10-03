@@ -1,1 +1,0 @@
-mirrorneuron-membrane-python-sdk[grpc]>=2.0,<3

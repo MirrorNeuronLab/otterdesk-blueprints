@@ -210,9 +210,9 @@ not themselves count as investigation progress.
 
 The graph binary is owned by the graph analysis skill. The SDK invokes its `mn.worker.prepare` hook before staging build contexts; neither this blueprint’s Dockerfile nor `prepare.py` prepares it. The optional `prepare.py` only acquires/selects EMC2 input and writes its input descriptor. Worker architecture comes from the selected runtime, not the host running that script.
 
-### Bounded context compatibility
+### Bounded Markdown context
 
-Version 1.1 requires the SDK `ContextSession` and Membrane `WorkingMemory` RPC from the companion workspace. Update SDK, Membrane and Core together before launching a new live run; existing run bundles retain their original behavior. Redis is required for durable recall. Context is an evictable cache over immutable evidence, with run-wide storage/call quotas and explicit incomplete coverage. The operator may increase the window within confirmed model and hardware capacity. No package publication is performed by this change.
+Live specialists use SDK `ContextSession` and authenticated Membrane v2 `TextMemory`/`CompileEvidence`. Install the declared `mirrorneuron-python-sdk[context]` dependency and a matching Membrane v2 engine. Complete preprocessed case text is ingested into the current run; Markdown revisions and durable receipts survive disposable DuckDB rebuilds. Membrane uses CPU and needs no Redis or compressor model. Model dispatch requires a `VerifiedCounter` validated against the serving provider; unavailable counting blocks admission. No migration or legacy API fallback is performed.
 
 The investigation adapter caps each model response at the context policy’s `output_tokens` (or a smaller provider limit). This keeps the reserved response space aligned with the working-memory budget; an inherited larger chat limit must not crowd out the first investigation request.
 

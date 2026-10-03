@@ -108,3 +108,7 @@ excluded from model prompts. Historical memory is navigation, not legal or sourc
 evidence. Required context still needs verified full-request token admission.
 Set `text_memory.enabled=false` for an explicit memory-free profile. No retired
 FileMemory adapter or automatic migration is provided.
+
+## Context engine contract
+
+This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation installs the Membrane v2 client (>=2.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.

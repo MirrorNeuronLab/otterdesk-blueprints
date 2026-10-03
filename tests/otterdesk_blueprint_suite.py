@@ -858,50 +858,18 @@ def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tm
     assert (runs_root / "runtime-run" / "final_artifact.json").is_file()
 
 
-def test_otterdesk_blueprints_declare_membrane_context_memory_layer():
+def test_otterdesk_blueprints_declare_markdown_context_profiles():
+    from mn_sdk.context_engine import blueprint_requires_context_engine
+    active = {'software_architecture_advisor', 'litigation_analyst', 'vc_assistant'}
     for manifest_path in _manifest_paths():
-        blueprint_dir = manifest_path.parent
-        manifest = blueprint_definition(read_blueprint(manifest_path))
-        if not _is_workflow_manifest(manifest):
-            continue
-        config = resolve_config(read_blueprint(blueprint_dir)).data
-        blueprint_id = manifest["metadata"]["blueprint_id"]
-        if blueprint_id == "gtm_ai_workflow":
-            continue
-        expected_namespace = f"{blueprint_id}_context"
-
-        config_layer = config.get("memory_layer")
-        manifest_layer = manifest["metadata"].get("memory_layer")
-        if not manifest_layer:
-            assert "mn.context" not in read_blueprint(manifest_path).manifest.get(
-                "extensions", {}
-            )
-            continue
-        assert config_layer == manifest_layer, blueprint_dir.name
-        assert config_layer["enabled"] is True
-        assert config_layer["enabled_env"] == "MN_CONTEXT_MEMORY_ENABLED"
-        assert config_layer["conversation_enabled"] is True
-        assert (
-            config_layer["conversation_enabled_env"]
-            == "OTTERDESK_CONTEXT_MEMORY_ENABLED"
-        )
-        assert config_layer["namespace"] == expected_namespace
-        assert config_layer["collection"] == "mn_memory"
-        assert config_layer["sdk_distribution"] == "mirrorneuron-membrane-python-sdk"
-        assert config_layer["sdk_import_package"] == "mn_context_engine_sdk"
-        assert config_layer["project_path"] == "${MN_MEMBRANE_PROJECT_PATH}"
-        assert config_layer["python_sdk_path"] == "${MN_MEMBRANE_SDK_PATH}"
-
-        conversation = config_layer["conversation"]
-        assert conversation["agent_role"] == "otterdesk_chat"
-        assert conversation["include_runtime_events"] is True
-        assert conversation["include_runtime_logs"] is True
-        assert conversation["include_human_events"] is True
-        assert conversation["token_budget"] > conversation["target_tokens"] > 0
-        assert (
-            "Membrane context memory optimization"
-            in manifest["metadata"]["runtime_features"]
-        )
+        package = read_blueprint(manifest_path)
+        definition = blueprint_definition(package)
+        config = resolve_config(package).data
+        assert 'memory_layer' not in config
+        profile = config['text_memory']
+        assert profile['contract'] == 'mn.context.text.v1'
+        assert profile['enabled'] == (package.manifest['id'] in active)
+        assert blueprint_requires_context_engine(definition, config, env={}) == profile['enabled']
 
 
 def test_otterdesk_blueprints_declare_product_experience_contracts():

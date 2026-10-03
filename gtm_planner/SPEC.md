@@ -43,3 +43,7 @@ handoffs. Malformed content and overlarge approval previews fail before sending.
 The response-service knowledge contains only role guidance. Contact lists and
 inbound mail are never indexed. Source facts are exact public quotations with
 URLs; planned metrics are not reported as observed performance.
+
+## Context engine contract
+
+The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
