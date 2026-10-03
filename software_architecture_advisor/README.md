@@ -181,3 +181,9 @@ Historical investigations without sufficient retained state cannot be retried.
 ## Context engine contract
 
 This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation installs the Membrane v2 client (>=2.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.
+
+Historical runtime recall uses native filesystem passages with exact supporting
+handles, bounded separately from the current task and source evidence. Structural
+graph queries continue through the source-backed allowlisted views; each query
+and canonical witness is retained in the catalog audit. Runtime notes cannot
+replace a graph query or establish source claims.

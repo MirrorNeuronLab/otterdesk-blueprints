@@ -6,7 +6,7 @@
   ],
   "text_memory": {
     "contract": "mn.context.text.v1",
-    "enabled": false,
+    "enabled": true,
     "max_results": 3,
     "max_context_bytes": 4000
   }

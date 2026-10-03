@@ -2327,13 +2327,41 @@ def test_actor_review_context_uses_markdown_and_keeps_witness_sideband(tmp_path,
     from domain.text_memory import actor_memory_context
     context = {"workflow_step_id": "review", "agent_id": "reviewer", "report_only": True}
     ctx = {"run_dir": tmp_path, "config": {"text_memory": {"enabled": True, "max_results": 3, "max_context_bytes": 4000}}}
+    evidence_dir = tmp_path / 'workflow_state' / 'company_evidence'
+    evidence_dir.mkdir(parents=True)
+    (evidence_dir / 'company.json').write_text(json.dumps({
+        'source_records': [{'source_id': 'S1', 'source_type': 'founder_provided_document', 'retrieved_at': '2026-10-03T01:00:00Z'}],
+        'evidence_items': [{'evidence_id': 'E1', 'source_id': 'S1', 'raw_excerpt': 'PRIVATE document body'}],
+        'claim_records': [{'claim_id': 'C1', 'canonical_claim': 'ARR claim 120000', 'evidence_ids': ['E1'],
+                           'verification_status': 'self_reported_unverified'}]}))
+    context['rag_context'] = {'context': 'EXTERNAL_KNOWLEDGE_CANARY', 'citations': [{'ref': 1}]}
     packet = actor_memory_context(ctx, context, step_id="review", agent_id="reviewer")
-    assert packet['runtime_memory']['bundles']
+    assert packet['runtime_memory']['evidence']
+    assert 'ARR claim 120000' in json.dumps(packet['runtime_memory'])
+    assert 'EXTERNAL_KNOWLEDGE_CANARY' not in str(text_memory_transport.scopes)
+    assert 'PRIVATE document body' not in str(text_memory_transport.scopes)
     assert 'fixture_witness' not in json.dumps(packet)
     artifacts = list((tmp_path / 'workflow_state').glob('membrane-*.json'))
     assert len(artifacts) == 1
     assert 'fixture_witness' in artifacts[0].read_text()
     assert packet['report_only'] is True
+
+
+def test_actor_metadata_compaction_preserves_memory_and_retrieved_rag_bodies():
+    _load_runner()
+    from domain.review import build_actor_review_prompt
+    memory = {'status': 'ready', 'evidence': [{'citation': 'm1', 'content': 'Unverified founder ARR 120000'}]}
+    rag = {'status': 'ready', 'context': 'Only independently confirmed revenue supports this method.',
+           'citations': [{'ref': 1}, {'ref': 2}, {'ref': 3}, {'ref': 4}]}
+    context = {'blueprint_id': 'vc_assistant', 'padding': 'metadata' * 1200,
+               'runtime_memory': memory, 'rag_context': rag, 'state_summary': {'companies': ['example']}}
+    _, prompt = build_actor_review_prompt(actor_id='research_planner', actor_spec={}, context=context,
+                                         knowledge_rag={'enabled': True, 'required': True})
+    final = prompt['context']
+    assert final['runtime_memory'] == memory and final['rag_context'] == rag
+    assert final['state_summary'] == context['state_summary']
+    assert prompt['available_rag_refs'] == final['rag_context']['citations']
+    assert 'padding' not in final
 
 
 def test_vc_early_heuristic_filtering_writes_score_only_company_reports(

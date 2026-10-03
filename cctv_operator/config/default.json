@@ -738,5 +738,10 @@
       "port": 0,
       "public_url": ""
     }
+  },
+  "text_memory": {
+    "enabled": true,
+    "max_results": 3,
+    "max_context_bytes": 4000
   }
 }

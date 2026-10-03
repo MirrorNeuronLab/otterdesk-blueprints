@@ -2,7 +2,7 @@
 import json
 import re
 
-from mn_sdk.text_memory import runtime_text_memory, ingest_inputs, compile_memory_context
+from mn_sdk.text_memory import runtime_text_memory, ingest_inputs, retrieve_memory_context
 from .catalog_store import fingerprint
 from .graph import QuerySession
 from .catalog import LayerUnavailable
@@ -88,20 +88,21 @@ def retrieve(store, saved, snapshot, task, catalog):
     config = saved['request']['retrieval_config']
     focus = _focus(task, catalog, saved['request']['goal'])
     memory = runtime_text_memory(config, principal='architecture', scope=saved['request']['memory_scope'])
-    notes = {'bundles': [], 'incomplete': False, 'status': 'disabled'}
+    notes = {'evidence': [], 'incomplete': False, 'status': 'disabled'}
     if memory is not None:
         try:
             memory.check()
             settings = config['text_memory']
             path = f"catalog/memory-context/{task['task_id']}.json"
-            binding = fingerprint([saved['request']['memory_scope'], snapshot['snapshot_id'], focus, settings])
+            stages = [{'mode': 'raw', 'match_mode': 'any'}]
+            binding = fingerprint([saved['request']['memory_scope'], snapshot['snapshot_id'], focus, settings, stages])
             if store.path(path).exists():
                 cached = store.read(path)
                 if cached['binding'] != binding:
                     raise ValueError('Runtime memory replay context changed')
                 notes = cached['packet']
             else:
-                notes, receipt = compile_memory_context(memory, focus,
+                notes, receipt = retrieve_memory_context(memory, focus, stages=stages,
                     max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'])
                 store.write(path, {'binding': binding, 'packet': notes, 'receipt': receipt})
         finally:

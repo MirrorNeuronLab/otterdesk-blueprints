@@ -17,6 +17,7 @@ from .knowledge import (
 )
 from .research_core import actor_review_config
 from .runtime_tools import append_event, observed_operation, stable_text_hash
+from mn_context_engine_sdk.context_packet import compose_context
 
 def build_actor_review_context(
     *,
@@ -187,6 +188,8 @@ def build_actor_review_prompt(
         mission=prompt_spec["mission"],
     )
     prompt_context = _compact_actor_model_context(context)
+    prompt_context = compose_context(prompt_context, runtime_memory=context.get("runtime_memory"),
+                                     knowledge=context.get("rag_context"))
     return system_prompt, {
         "task": prompt_spec["mission"],
         "actor_id": actor_id,
@@ -219,16 +222,6 @@ def _compact_actor_model_context(context: dict[str, Any], max_chars: int = 2400)
     if len(json.dumps(context, default=str, ensure_ascii=False)) <= max_chars:
         return context
     rag_context = context.get("rag_context") if isinstance(context.get("rag_context"), dict) else {}
-    citations = []
-    for item in (rag_context.get("citations") or [])[:3]:
-        if isinstance(item, dict):
-            citations.append(
-                {
-                    key: item.get(key)
-                    for key in ("ref", "title", "source", "score")
-                    if item.get(key) not in (None, "")
-                }
-            )
     summaries = []
     for item in (context.get("company_summaries") or [])[:3]:
         if not isinstance(item, dict):
@@ -260,12 +253,18 @@ def _compact_actor_model_context(context: dict[str, Any], max_chars: int = 2400)
         "rag_context": {
             "status": rag_context.get("status"),
             "citation_count": len(rag_context.get("citations") or []),
-            "citations": citations,
+            "citations": rag_context.get("citations") or [],
+            "context": rag_context.get("context") or "",
         },
         "output_files": list(context.get("output_files") or [])[:5],
         "actor_review_focus": list(context.get("actor_review_focus") or [])[:1],
         "context_truncated_for_model": True,
     }
+    # max_chars is a soft metadata target, never an evidence truncation budget.
+    # The runtime model gateway admits the complete rendered request in tokens.
+    for key in ("runtime_memory", "state_summary", "privacy_controls", "memory_boundary"):
+        if key in context:
+            compact[key] = context[key]
     if len(json.dumps(compact, default=str, ensure_ascii=False)) > max_chars:
         compact["company_summaries"] = [
             {
@@ -276,6 +275,7 @@ def _compact_actor_model_context(context: dict[str, Any], max_chars: int = 2400)
             for item in summaries
         ]
         compact["output_files"] = compact["output_files"][:2]
+    compact["context_target_exceeded"] = len(json.dumps(compact, default=str, ensure_ascii=False)) > max_chars
     return compact
 
 def default_actor_rag_refs(context: dict[str, Any]) -> list[Any]:

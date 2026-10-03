@@ -60,6 +60,7 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
             memory=memory, memory_query=f"{focus} {stage}",
             memory_max_results=frozen['config'].get('text_memory', {}).get('max_results', 3),
             memory_max_context_bytes=frozen['config'].get('text_memory', {}).get('max_context_bytes', 4000),
+            memory_retrieval_stages=[{"mode": "raw", "match_mode": "any"}],
             memory_source_ref=f"case/rounds/models/{key}.json",
         )
     finally:

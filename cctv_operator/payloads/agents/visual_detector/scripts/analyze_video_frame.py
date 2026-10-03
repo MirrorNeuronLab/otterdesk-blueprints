@@ -55,6 +55,7 @@ from domain.detection_policy import (
 )
 from domain.screening import GATE_SCHEMA, approved, branch, normalize_gate, review_request
 from domain.conversation_snapshot import publish_snapshot
+from domain.runtime_memory import CameraMemory, with_history
 
 
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=3)
@@ -1119,6 +1120,7 @@ def main() -> None:
     stream = message.get("stream") or {}
     source: dict[str, Any] | None = None
     batch: dict[str, Any] | None = None
+    camera_memory = None
 
     try:
         attention_event = apply_attention_request(state, payload, message, camera_id)
@@ -1141,6 +1143,9 @@ def main() -> None:
         }
         source_uri = str(source["uri"])
         safe_source_uri = redact_source_uri(source_uri)
+        camera_memory = CameraMemory(config, configured_run_dir(), camera_id,
+                                     hashlib.sha256(safe_source_uri.encode()).hexdigest())
+        history = camera_memory.recall(frame_seq)
         position = float(source["position_seconds"])
         goal = active_visual_goal(attention_instruction, visual_targets)
         screening_config = config.get("condition_screening") if isinstance(config.get("condition_screening"), dict) else {}
@@ -1150,7 +1155,7 @@ def main() -> None:
         gate = (
             {"condition_met": mock_detection(frame_seq)["detected_target"], "confidence": 0.95}
             if mock_mode else call_ollama(
-                batch_frames, condition_prompt(camera_id, goal), response_schema=GATE_SCHEMA,
+                batch_frames, with_history(condition_prompt(camera_id, goal), history), response_schema=GATE_SCHEMA,
             )
         )
         gate_latency_ms = max(0, int((time.monotonic() - gate_started) * 1000))
@@ -1190,7 +1195,7 @@ def main() -> None:
             deep_started = time.monotonic()
             detection = mock_detection(frame_seq) if mock_mode else call_ollama(
                 batch_frames,
-                detection_prompt(camera_id, attention_instruction, visual_targets),
+                with_history(detection_prompt(camera_id, attention_instruction, visual_targets), history),
             )
             model_latency_ms += max(0, int((time.monotonic() - deep_started) * 1000))
             events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
@@ -1246,6 +1251,7 @@ def main() -> None:
         detection_payload["alert_decision"] = alert_decision
         previous_observation = state.get("last_observation") if isinstance(state.get("last_observation"), dict) else {}
         observation = update_conversation_context(state, detection_payload)
+        camera_memory.remember(detection_payload)
         conversation_context = state.get("conversation_context") if isinstance(state.get("conversation_context"), dict) else {}
         conversation_summary = conversation_context.get("what_happened", "")
         primary_events = [frame_observed_event(observation, conversation_summary)]
@@ -1352,6 +1358,9 @@ def main() -> None:
             }
         )
 
+    finally:
+        if camera_memory is not None:
+            camera_memory.close()
     print(json.dumps({"next_state": state, "events": events}))
 
 

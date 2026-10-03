@@ -15,7 +15,7 @@ from mn_sdk.context_engine import blueprint_requires_context_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = json.loads((ROOT / "index.json").read_text())
-ACTIVE = {"software_architecture_advisor", "litigation_analyst", "vc_assistant"}
+ACTIVE = {"cctv_operator", "software_architecture_advisor", "litigation_analyst", "vc_assistant"}
 
 
 @pytest.mark.parametrize("name", CATALOG)

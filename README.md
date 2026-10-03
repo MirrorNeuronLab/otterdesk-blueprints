@@ -10,7 +10,7 @@ own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
 
 All 12 published blueprints declare the Markdown context profile. Architecture,
-Litigation and VC use Membrane v2; the other nine explicitly disable it. See
+CCTV, Architecture, Litigation and VC use Membrane v2; the other eight explicitly disable it. See
 [the catalog audit and runtime prerequisites](CONTEXT_ENGINE.md).
 
 ## Quick Start

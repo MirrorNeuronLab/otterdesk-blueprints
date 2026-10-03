@@ -15,7 +15,7 @@ def test_admission_uses_filesystem_notes_and_explicit_graph_limits(run, text_mem
     task = result['child_plan']['steps'][0]['id']
     request = store.read(f'catalog/requests/{task}.json')
     prompt = json.loads(request['prompt'])
-    assert any(item['content'].endswith('verify external effects') for bundle in prompt['runtime_memory']['bundles'] for item in bundle['items'])
+    assert any(item['content'].endswith('verify external effects') for item in prompt['runtime_memory']['evidence'])
     assert 'fixture_witness' not in request['prompt']
     assert prompt['architecture_graph']['status'] == 'unavailable'
     assert 'cannot establish dependency' in prompt['architecture_graph']['limitation']
@@ -88,14 +88,14 @@ def test_graph_failure_reuses_frozen_memory_compilation_on_retry(run, text_memor
     task = {'task_id': 'retry-task', 'kind': 'source_scan', 'path': 'payment.py'}
     catalog = {'specs': {}}
     monkeypatch.setattr(catalog_retrieval, 'graph_context', lambda *args: (_ for _ in ()).throw(RuntimeError('graph provider failed')))
-    before = sum(c[0] == 'compile' for c in text_memory_transport.calls)
+    before = sum(c[0] == 'retrieve' for c in text_memory_transport.calls)
     with pytest.raises(RuntimeError, match='graph provider failed'):
         catalog_retrieval.retrieve(store, saved, snapshot, task, catalog)
     cached = store.read('catalog/memory-context/retry-task.json')
     monkeypatch.setattr(catalog_retrieval, 'graph_context', lambda *args: ({'status': 'unavailable'}, []))
     result, _ = catalog_retrieval.retrieve(store, saved, snapshot, task, catalog)
     assert result['runtime_memory'] == cached['packet']
-    assert sum(c[0] == 'compile' for c in text_memory_transport.calls) == before + 1
+    assert sum(c[0] == 'retrieve' for c in text_memory_transport.calls) == before + 1
     changed = {**snapshot, 'snapshot_id': 'different'}
     with pytest.raises(ValueError, match='replay context changed'):
         catalog_retrieval.retrieve(store, saved, changed, task, catalog)

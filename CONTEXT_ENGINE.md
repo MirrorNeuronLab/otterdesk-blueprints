@@ -6,11 +6,11 @@ worker code actually ingests or retrieves runtime memory.
 
 | Published blueprint | Markdown memory | Current boundary |
 | --- | --- | --- |
-| cctv_operator | Disabled | Bounded visual observations and MCP; no TextMemory calls |
+| cctv_operator | Enabled | Camera/source-scoped sampled history before vision; job-scoped observations with run provenance |
 | drug_discovery_research_assistant | Disabled | Discovery artifacts and knowledge; no TextMemory calls |
 | software_architecture_advisor | Enabled | Complete frozen source text, runtime decisions and canonical memory recall |
 | litigation_analyst | Enabled | Complete normalized case corpus, specialist observations and durable context turns |
-| vc_assistant | Enabled | Complete redacted inputs, restricted input principals and approved actor observations |
+| vc_assistant | Enabled | Complete redacted inputs, restricted input principals and normalized runtime claims, source qualification and method observations |
 | financial_advisor | Disabled | Domain evidence/reporting and product knowledge; no TextMemory calls |
 | research_assistant | Disabled | Investigation artifacts and product knowledge; no TextMemory calls |
 | procurement_manager (`purchasing_manager`) | Disabled | Procurement evidence/decisions; no TextMemory calls |
@@ -33,9 +33,10 @@ Complete upstream text / approved observations
                     |
          one derived DuckDB per job
                     |
-        canonical CompileEvidence spans
+      explicit passage / table / graph queries
                     |
-          bounded worker model context
+          whole canonical spans / typed results
+          + small external RAG response
           + witnesses in sidecar artifacts
                     |
           verified request admission
@@ -98,11 +99,27 @@ python -m pytest tests/test_membrane_catalog.py tests/test_sdk_package_contracts
 python -m pytest tests/software_architecture_advisor/test_runtime_memory.py -q
 ```
 
-Architecture retains its frozen memory compilation if a graph provider fails and
+Architecture retains its frozen passage-retrieval packet if a graph provider fails and
 retries, including the complete sideband receipt and replay binding. VC reporting
 identifies Markdown/DuckDB runtime memory separately from Milvus product RAG.
 Deployment gates use fake Docker/installer commands and temporary homes.
 No context benchmark or GPU/model workflow was run for this audit.
+
+The subsequent VC/CCTV context work preserves the distinction between external
+knowledge and runtime observations: the knowledge provider retrieves a small
+response, Membrane composes it with query-selected runtime evidence, and the
+model boundary admits the complete request. Retrieved knowledge bodies are not
+ingested as runtime memory. VC uses typed role/observation queries; CCTV queries
+recent sampled camera history before each current-image call. Litigation and
+architecture use bounded filesystem passages instead of whole recall bundles.
+
+Membrane graph/table operations run in DuckDB. The source-backed structural
+graph tools used by Litigation/Architecture remain a separate RGX skill; these
+changes do not migrate their graph collectors or query language. Native Membrane
+needle receipts prove its SQL execution and canonical source re-reads, while
+injected answer recorders prove actual consumer composition only. Optional live
+diagnostics measure pinned answering models separately. Neither source edits nor
+component diagnostics certify a deployed full workflow.
 
 Audit validation: 76 context/catalog packaging checks, the supplementary catalog
 profile check, 221 SDK checks, 172 CLI checks and 40 deployment/dependency contract

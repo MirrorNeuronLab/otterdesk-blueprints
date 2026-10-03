@@ -46,8 +46,8 @@ documents, unrestricted artifacts, and other confidential run data.
 ## Markdown context profile
 
 Every published entry declares `mn.context.text.v1` through `mn.context`.
-Architecture, Litigation and VC enable it and declare the SDK `context` extra;
-the remaining nine have disabled profiles and no TextMemory consumer. Resolved
+CCTV, Architecture, Litigation and VC enable it and declare the SDK `context` extra;
+the remaining eight have disabled profiles and no TextMemory consumer. Resolved
 config overrides take precedence. Complete preprocessing output is ingested into
 trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation
 witnesses stay in sidecars. Verified model dispatch requires a serving counter;

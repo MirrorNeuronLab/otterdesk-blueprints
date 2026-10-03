@@ -75,11 +75,11 @@ def _build_step_actor_review_context(
         min_citations=1,
         run_dir=ctx["run_dir"],
     )
-    prompt_rag_context = {
-        key: value
-        for key, value in dict(actor_rag_context).items()
-        if key not in {"context", "chunks"}
-    }
+    # The retrieved bodies and their citations must cross the same boundary.
+    # Index/transport metadata is kept in the retrieval audit instead.
+    prompt_rag_context = {key: actor_rag_context[key]
+                          for key in ("status", "context", "citations")
+                          if key in actor_rag_context}
     prompt_rag_context["citation_count"] = len(prompt_rag_context.get("citations") or [])
     active_knowledge_prompt_ref = active_knowledge_reference(active_knowledge)
     active_knowledge_prompt_ref.pop("title", None)

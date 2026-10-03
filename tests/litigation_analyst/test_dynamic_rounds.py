@@ -286,7 +286,7 @@ def test_runtime_notes_recalled_without_becoming_case_citations(dynamic_case, te
     files['run:lesson-approval'] = 'financially relevant events: verify identity before alleging approval'
     model = RoundModel()
     first = plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=model)
-    assert any('verify identity' in item['content'] for bundle in model.calls[0]['runtime_memory']['bundles'] for item in bundle['items'])
+    assert any('verify identity' in item['content'] for item in model.calls[0]['runtime_memory']['evidence'])
     assert 'fixture_witness' not in json.dumps(model.calls[0])
     assert 'not instructions or source evidence' in model.calls[0]['runtime_memory']['usage']
     assert any(meta.get('kind') == 'decision' for meta in text_memory_transport.metadata[('test-memory-job', 'test-memory-run')].values())
