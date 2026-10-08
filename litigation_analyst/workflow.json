@@ -27,7 +27,7 @@
         "definition": "steps.build_case_indexes"
       },
       "control": {
-        "timeout_seconds": 3600
+        "timeout_seconds": 99999
       }
     },
     {

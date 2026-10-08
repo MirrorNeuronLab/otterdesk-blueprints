@@ -108,6 +108,13 @@ methodology, never evidence or an assumption of applicable jurisdiction.
 
 ## Artifacts and compatibility
 
+Version 2.7.1 corrects the index phase deadline for bounded sequential model
+extraction: `build_case_indexes` and `investigate_case_evidence` allow 99,999
+seconds. The 256-request default extraction budget, per-unit bounds and provider
+deadlines still apply. This is an operationally compatible patch with unchanged
+inputs, artifacts and evidence policy. Previously accepted runs retain their
+frozen controls; Core checkpoint retry reuses validated run-local decisions.
+
 Version 2.0.2 sets the default host export to
 `~/Downloads/litigation-analyst`, matching the declared job name. Previously
 submitted jobs retain their configured destination.

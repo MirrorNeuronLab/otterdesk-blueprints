@@ -106,6 +106,15 @@ Local development requires the companion SDK, agents and skills repositories,
 Docker; graph preparation needs no gcloud or Git credentials. Use
 `MN_USE_LOCAL_SKILLS=1` with source installations. Preparation does not publish packages.
 
+## Indexing time budget
+
+Version 2.7.1 gives index building the same 99,999-second step deadline as
+investigation. Hybrid indexing can make 256 sequential model requests, which
+can exceed one hour on a busy model owner. The configured extraction-call, unit
+and provider-request bounds remain the limits on individual work. Core checkpoint
+retry retains validated run-local decisions after an interruption. Existing frozen
+runs keep their accepted deadline.
+
 ## Investigation rounds
 
 The four parent phases remain source preparation → index building → investigation

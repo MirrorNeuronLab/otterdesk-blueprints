@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "litigation_analyst",
   "name": "Litigation Analyst",
-  "version": "2.7.0",
+  "version": "2.7.1",
   "description": "Builds a local interactive investigation with source-linked findings, counterevidence, temporal relationship paths, snapshot changes and reviewable work product. Every model finding remains a human-review draft.",
   "workflow": "workflow.json",
   "execution": "execution.json",
