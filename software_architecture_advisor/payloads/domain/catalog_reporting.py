@@ -66,6 +66,12 @@ def assemble(context, *, llm_client=None):
                     "snapshot": snapshot["snapshot_id"],
                     "revision": snapshot["manifest"].get("git_anchor"),
                 }
+            counter_ids = []
+            for citation in c['counterevidence_citations']:
+                eid = 'E-' + fingerprint(citation)[:16]
+                counter_ids.append(eid)
+                evidence[eid] = {'id':eid, **citation, 'snapshot':snapshot['snapshot_id'],
+                                'revision':snapshot['manifest'].get('git_anchor')}
             canonical = {
                 k: c[k]
                 for k in [
@@ -74,9 +80,11 @@ def assemble(context, *, llm_client=None):
                     "confidence",
                     "rationale",
                     "counterevidence",
+                    "counterevidence_status",
                 ]
             }
             canonical["evidence_ids"] = eids
+            canonical['counterevidence_ids'] = counter_ids
             cid = "C-" + fingerprint(canonical)[:16]
             claim_map[(ident, c["claim_id"])] = cid
             record = claims.setdefault(
@@ -90,6 +98,8 @@ def assemble(context, *, llm_client=None):
                         {
                             "statement": c["statement"].strip().lower(),
                             "evidence": sorted(eids),
+                            "counterevidence": sorted(counter_ids),
+                            "counterevidence_status": c["counterevidence_status"],
                         }
                     )[:16]
                 )
@@ -102,6 +112,8 @@ def assemble(context, *, llm_client=None):
                         "aspect_ids": [],
                         "evidence_ids": eids,
                         "counterevidence": c["counterevidence"],
+                        "counterevidence_status": c['counterevidence_status'],
+                        "counterevidence_ids": counter_ids,
                         "confidence": c["confidence"],
                         "confidence_rationale": c["rationale"],
                     },
@@ -260,7 +272,8 @@ def assemble(context, *, llm_client=None):
                         "revision": snapshot["manifest"].get("git_anchor"),
                     },
                     "evidence_ids": sorted(
-                        {eid for c in cids for eid in claims[c]["evidence_ids"]}
+                        {eid for c in cids for key in ("evidence_ids", "counterevidence_ids")
+                         for eid in claims[c][key]}
                     ),
                     "status": "proposed",
                     "approval_status": "not_authorized_by_report",
@@ -407,6 +420,7 @@ def _validate_links(files):
             for field, target in [
                 ("claim_ids", "claims"),
                 ("evidence_ids", "evidence"),
+                ("counterevidence_ids", "evidence"),
                 ("finding_ids", "findings"),
                 ("recommendation_ids", "recommendations"),
             ]:

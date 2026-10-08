@@ -20,12 +20,6 @@
       "version": ">=1.3.47"
     },
     {
-      "name": "mirrorneuron-document-reading-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": ">=1.3.58.dev0,<2"
-    },
-    {
       "name": "mirrorneuron-public-research-orchestrator-skill",
       "source": "gar",
       "type": "pip",
@@ -38,16 +32,16 @@
       "version": ">=1.3.47"
     },
     {
-      "name": "mirrorneuron-llm-ocr-skill",
-      "source": "gar",
-      "type": "pip",
-      "version": ">=1.3.58.dev0,<2"
-    },
-    {
       "name": "mirrorneuron-web-browser-skill",
       "source": "gar",
       "type": "pip",
       "version": ">=1.3.47"
+    },
+    {
+      "name": "mirrorneuron-docs-to-markdown-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": ">=1.3.58.dev0,<2"
     }
   ],
   "agents": [

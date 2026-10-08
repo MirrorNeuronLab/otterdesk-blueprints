@@ -12,6 +12,13 @@ def validate_config(value):
     if not isinstance(config.get("offline"), bool):
         raise ValueError("offline must be a boolean")
     config["llm"].setdefault("model", "default")
+    for key, default, maximum in (('seed_limit',12,128), ('max_hops',4,8),
+                                  ('max_nodes',128,4096), ('max_edges',128,4096)):
+        value = config['graph'].setdefault(key, default)
+        if type(value) is not int or not 1 <= value <= maximum:
+            raise ValueError(f'graph.{key} must be in 1..{maximum}')
+    if config.get('source_search', {}).get('mode', 'lexical') not in {'lexical', 'hybrid'}:
+        raise ValueError('source_search.mode must be lexical or hybrid')
     for section, keys in {
         "analysis": ["max_dsm_modules"],
         "source": ["clone_timeout_seconds"],

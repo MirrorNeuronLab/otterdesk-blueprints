@@ -8,14 +8,15 @@ owns one stable Job, Job storage, and one long-lived execution until stopped.
 
 Role documents own identity, dependencies, service bindings, setup, input, output,
 and response-service contracts. The main input values are website_url, goal_id,
-peer_job_id, and instruction. Executor additionally owns contacts_file,
+collaboration_group_id, collaboration_peers, common_goal, and instruction.
+peer_job_id is retained only for existing scalar-peer pairs. Executor additionally owns contacts_file,
 inbox_id, and newsletter_eligible. Credentials are process-only environment.
 
 Domain modules own research/planning or contacts/drafting/inbox/delivery policy.
 Step modules contain only StepSpec contracts. Agent modules bind the specialist.
 The existing supervised-service package handles termination and cycle timing.
 Runtime context and MCP startup do not perform marketing work. HostLocal workers
-keep the MCP pair on the local runtime with loopback-only endpoints.
+keep the MCP group on the local runtime with loopback-only endpoints.
 
 ## Review state
 
@@ -47,3 +48,17 @@ URLs; planned metrics are not reported as observed performance.
 ## Context engine contract
 
 The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
+
+## Shared capability ownership
+
+Core-authoritative nonblocking approvals and verified peer discovery/cursors use shared SDK helpers. Marketing approval triggers, allowed marketing roles and work-packet content remain blueprint-owned.
+
+The product declares `mn.collaboration.group.v1`, capacity five, mutual planner/
+executor compatibility, and structured peers (`jobId`, `blueprintId`). Every
+published group packet carries a group ID and the complete sorted stable-Job
+membership. The SDK verifies Core identity, blueprint role, goal, group, and
+membership before returning packets. Independent execution/revision cursors
+are stored under the group ID; restarting a peer does not reset other peers.
+Only approved-brief packets initiate executor drafting, with idempotency scoped
+to publisher and packet ID. Final email approval remains mandatory. Existing
+pairs read the legacy scalar peer until an explicit board change upgrades them.

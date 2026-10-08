@@ -5,6 +5,7 @@ from typing import Any
 from mn_sdk.blueprint_support import write_workflow_state
 from domain.intake import update_watch_state
 from domain.outputs import write_company_outputs
+from domain.artifact_sources import index_output_artifacts
 from domain.research_core import normalized_research_ledger
 from domain.runtime_tools import append_event
 
@@ -39,6 +40,7 @@ def run_company_report_writer(
         research_ledgers,
         company_work_queue,
     )
+    output_files = index_output_artifacts(ctx, output_files)
     watch_state = update_watch_state(
         ctx["output_folder"], ctx["run_dir"], company_work_queue, run_id=ctx["run_id"]
     )

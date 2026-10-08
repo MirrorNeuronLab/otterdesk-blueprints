@@ -12,9 +12,14 @@ readonly STREAM_URI="rtsp://127.0.0.1:8554/cctv-demo"
 pid_is_running() {
   local pid_file="$1"
   local pid=""
+  local state=""
   [[ -r "${pid_file}" ]] || return 1
   read -r pid <"${pid_file}" || return 1
-  [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null
+  [[ "${pid}" =~ ^[0-9]+$ ]] && kill -0 "${pid}" 2>/dev/null || return 1
+  [[ -r "/proc/${pid}/stat" ]] || return 1
+  state="$(<"/proc/${pid}/stat")"
+  state="${state##*) }"
+  [[ "${state%% *}" != "Z" && "${state%% *}" != "X" ]]
 }
 
 stop_recorded_process() {
@@ -46,8 +51,10 @@ wait_for_server() {
 }
 
 wait_for_stream() {
-  for _ in {1..40}; do
-    if ffprobe \
+  local require_publisher="${1:-false}"
+  local deadline=$((SECONDS + 30))
+  while (( SECONDS < deadline )); do
+    if timeout 3 ffprobe \
       -v error \
       -rtsp_transport tcp \
       -show_entries stream=codec_name,width,height \
@@ -55,11 +62,30 @@ wait_for_stream() {
       "${STREAM_URI}" >/dev/null 2>&1; then
       return 0
     fi
-    pid_is_running "${PUBLISHER_PID_FILE}" || return 1
+    if [[ "${require_publisher}" == "true" ]]; then
+      pid_is_running "${PUBLISHER_PID_FILE}" || return 1
+    fi
     sleep 0.5
   done
   return 1
 }
+
+command -v ffprobe >/dev/null 2>&1 || {
+  echo "cctv demo source requires FFprobe in the DockerWorker image" >&2
+  exit 2
+}
+command -v timeout >/dev/null 2>&1 || {
+  echo "cctv demo source requires timeout in the DockerWorker image" >&2
+  exit 2
+}
+if [[ "${1:-}" == "--wait" ]]; then
+  wait_for_stream || {
+    echo "bundled CCTV demo stream did not become ready" >&2
+    exit 1
+  }
+  exit 0
+fi
+readonly DEMO_FILE="${1:?Pass the SDK-staged demo MP4 path}"
 
 command -v mediamtx >/dev/null 2>&1 || {
   echo "cctv demo source requires MediaMTX in the DockerWorker image" >&2
@@ -69,12 +95,8 @@ command -v ffmpeg >/dev/null 2>&1 || {
   echo "cctv demo source requires FFmpeg in the DockerWorker image" >&2
   exit 2
 }
-command -v ffprobe >/dev/null 2>&1 || {
-  echo "cctv demo source requires FFprobe in the DockerWorker image" >&2
-  exit 2
-}
-[[ -s "${DEMO_ROOT}/sample.mp4" ]] || {
-  echo "cctv demo source fixture is missing from the DockerWorker image" >&2
+[[ -s "${DEMO_FILE}" ]] || {
+  echo "cctv demo video is missing; stage video_source.demo_file before launch" >&2
   exit 2
 }
 
@@ -104,7 +126,7 @@ nohup ffmpeg \
   -nostdin \
   -re \
   -stream_loop -1 \
-  -i "${DEMO_ROOT}/sample.mp4" \
+  -i "${DEMO_FILE}" \
   -an \
   -vf scale=-2:720,fps=15 \
   -c:v libx264 \
@@ -119,7 +141,7 @@ nohup ffmpeg \
   "${STREAM_URI}" </dev/null >"${PUBLISHER_LOG}" 2>&1 &
 printf '%s\n' "$!" >"${PUBLISHER_PID_FILE}"
 
-if ! wait_for_stream; then
+if ! wait_for_stream true; then
   echo "bundled CCTV demo publisher did not produce a probeable RTSP stream" >&2
   tail -n 30 "${PUBLISHER_LOG}" >&2 || true
   cleanup_failed_start

@@ -272,7 +272,8 @@ class LayerManager:
 
     def _publish(self, entries):
         nodes = {n["id"]: n for n in json.loads((self.directory / "nodes.json").read_text())}
-        edges, evidence = {}, {}
+        edges = {e["id"]: e for e in json.loads((self.directory / "edges.json").read_text())}
+        evidence = {}
         for name, entry in sorted(entries.items()):
             raw = (self.root / entry["records"]).read_bytes()
             if digest(raw) != entry["record_sha256"]:

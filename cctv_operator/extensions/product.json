@@ -3,10 +3,11 @@
   "features": [
     "Optional local reference documents",
     "Guided analysis tools",
-    "Condition screening with human approval for uncertain frames"
+    "Goal-event alerts with times and evidence frames",
+    "Past-video questions and summaries"
   ],
   "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-  "output": "Live video preview, analyzed frames, activity observations, alerts, and reports for review.",
+  "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
   "search_terms": [
     "Camera monitoring",
     "Video review",
@@ -18,19 +19,19 @@
   ],
   "problem_solved": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
   "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-  "simulation_type": "Live camera review with extra analysis when the scene changes.",
+  "simulation_type": "Person presence alerts and independent sampled-video captions.",
   "runtime_features": [
     "Live camera review",
-    "Condition screening and operator approval",
+    "Person presence alerts",
     "Monitoring instructions in Chat",
-    "Scene change analysis",
+    "Independent video captions",
     "Video preview",
     "NVIDIA GPU video processing",
     "Visual observations",
-    "30-second conversation updates",
+    "Goal-event messages with times and frames",
     "Repeat alert limits",
     "Optional Slack alerts",
-    "Activity history",
+    "Past-video questions and summaries",
     "Saved reports"
   ],
   "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
@@ -48,8 +49,10 @@
         "human_input_timeout",
         "human_decision_applied"
       ],
-      "mode": "approval_required",
-      "blocked_actions": ["deep_analysis_after_uncertain_screening"],
+      "mode": "review_only",
+      "blocked_actions": [
+        "physical_security_actions"
+      ],
       "default_action": "reject",
       "decision_event": "human_decision_applied",
       "request_event": "human_input_requested",
@@ -57,7 +60,7 @@
       "timeout_event": "human_input_timeout",
       "timeout_seconds": 180,
       "notice_event": "human_notice",
-      "reason": "An uncertain frame requires operator approval before detailed analysis; notable confirmed findings still surface as notices.",
+      "reason": "Observations and predictions require human review before safety or security action.",
       "requires_ack": false
     },
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
@@ -65,33 +68,33 @@
   "capabilities": [
     "Try the included demo or connect one approved RTSP/RTMP camera stream.",
     "Keeps camera credentials out of logs and public reports.",
-    "Flags notable visual changes for review without taking physical security action.",
+    "Reports sampled monitoring-goal events with frame times and evidence you can review.",
     "Leaves safety, security, access, and disciplinary decisions to you.",
-    "Shows live activity and accepts monitoring instructions through Chat."
+    "Accepts monitoring goals and answers video questions through Chat."
   ],
   "product": {
     "agent_role": "Co-worker for reviewing live camera activity and preparing alerts.",
-    "benefit": "Focus your attention on notable changes in a live camera feed, with frames and observations you can review.",
+    "benefit": "Focus your attention on the events you want to watch for, with times and frames you can review.",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "how_it_works": "Checks the stream at regular intervals and takes a closer look when the scene changes. You can change what it watches for or request an analysis through Chat.",
+    "how_it_works": "RF-DETR detects person presence for direct notices. Cosmos independently captions sampled video into MN memory for questions and summaries. Per-stage benchmarks expose timing, failures and skipped coverage.",
     "input": "The included demo stream or one approved RTSP/RTMP camera stream, plus what to watch for and your alert settings.",
-    "output": "Live video preview, analyzed frames, activity observations, alerts, and reports for review.",
+    "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
     "problem": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
     "runtime_features": [
       "Live camera review",
-      "Condition screening and operator approval",
+      "Person presence alerts",
       "Monitoring instructions in Chat",
-      "Scene change analysis",
+      "Independent video captions",
       "Video preview",
       "NVIDIA GPU video processing",
       "Visual observations",
       "Repeat alert limits",
       "Optional Slack alerts",
-      "Activity history",
+      "Past-video questions and summaries",
       "Saved reports"
     ],
-    "simulation_type": "Live camera review with extra analysis when the scene changes.",
+    "simulation_type": "Person presence alerts and independent sampled-video captions.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
-  "overview": "Reviews a live camera stream, highlights notable activity, and prepares observations for your review. Start with the included demo or connect an approved camera stream. Requires an NVIDIA GPU."
+  "overview": "Watches your monitoring goal and reports verified events with times and frames. Ask questions about retained sampled footage or request a video summary. Start with the warehouse demo or connect an approved camera stream. Requires an NVIDIA GPU."
 }

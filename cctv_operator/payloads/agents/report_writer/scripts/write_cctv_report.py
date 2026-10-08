@@ -216,6 +216,17 @@ def markdown_report(report: dict[str, Any]) -> str:
             f"{item.get('observed_at') or 'time unavailable'}: "
             f"{item.get('summary') or 'No summary.'}"
         )
+    lines.extend(["", "## Predicted risks", "", "Forecasts are possible future outcomes, not observed incidents."])
+    forecasts = [(item, prediction) for item in observations for prediction in item.get("risk_predictions") or []]
+    if not forecasts:
+        lines.append("- No supported forecast was recorded in these sampled observations. This does not certify safety.")
+    for observation, prediction in forecasts:
+        lines.append(
+            f"- {observation.get('observed_at')} · frame {observation.get('frame_seq')} · "
+            f"{prediction['risk']} ({prediction['severity']}, confidence {prediction['confidence']:.0%}). "
+            f"Horizon: {prediction['time_horizon']}. Evidence: {prediction['visible_evidence']}. "
+            f"Review: {prediction['recommended_review']}. Batch: {observation.get('frame_batch_ref')}."
+        )
     lines.extend(["", "## Analysis errors"])
     if not report["errors"]:
         lines.append("- No analysis errors have been recorded.")

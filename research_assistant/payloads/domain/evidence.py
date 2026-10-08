@@ -3,17 +3,16 @@
 from __future__ import annotations
 
 import csv
-import inspect
 import io
 import os
 import re
 from pathlib import Path
 from typing import Any
 
-from mn_public_research_orchestrator_skill import source_records_from_browser_result
+from mn_public_research_orchestrator_skill import BrowserResearch, load_browser as _load_web_browser_skill
 
-from .common import DEFAULT_OUTPUT_FOLDER, _now, _sha256, runtime_asset_root
-from .inputs import _call_optional, expand_runtime_path, load_input_documents, resolve_input_folder
+from .common import DEFAULT_OUTPUT_FOLDER, runtime_asset_root
+from .inputs import expand_runtime_path, load_input_documents, resolve_input_folder
 from .knowledge import load_research_knowledge, prepare_research_rag, retrieve_research_rag_context
 from .state import _inputs, _save, _state
 
@@ -96,114 +95,17 @@ def sanitize_public_text(value: Any) -> str:
     return re.sub(r"[^\w\s.,:/-]", "", text)[:180]
 
 
-def _load_web_browser_skill() -> tuple[Any, Any, Any]:
-    try:
-        from mn_web_browser_skill import WebBrowserConfig, browse, research_topic
-        return WebBrowserConfig, browse, research_topic
-    except Exception:
-        return None, None, None
-
-
-def _source_record(*, url: str, title: str, snippet: str, status: str, skill: str, query: str, warning: str = "") -> dict[str, Any]:
-    lowered = f"{title} {snippet} {warning}".lower()
-    if any(marker in lowered for marker in ("captcha", "login required", "robots.txt", "access denied", "blocked")):
-        status = "blocked"
-    elif status == "ok":
-        status = "observed"
-    return {
-        "source_ref": f"web:{_sha256(url or query)[:12]}",
-        "url": url,
-        "title": title or url or skill,
-        "snippet": snippet[:1800],
-        "status": status,
-        "skill": skill,
-        "query": query,
-        "retrieved_at": _now(),
-        "warning": warning,
-    }
-
-
-def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[str, Any]]:
-    normalized = source_records_from_browser_result(
-        result,
-        entity="research",
-        query=query,
-        skill=skill,
-        verification_target="research_source",
-        snippet_limit=1800,
-    )
-    return [
-        _source_record(
-            url=str(item.get("url") or ""),
-            title=str(item.get("title") or ""),
-            snippet=str(item.get("snippet") or ""),
-            status=str(item.get("status") or "observed"),
-            skill=skill,
-            query=query,
-            warning=str(item.get("warning") or ""),
-        )
-        for item in normalized
-    ]
-
-
-def research_public_sources(queries: list[str], config: dict[str, Any], *, quick_test: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def research_public_sources(queries, config, *, quick_test=False):
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if not internet.get("enabled", True):
         return [], [{"status": "disabled", "message": "Public research is disabled by configuration."}]
     if quick_test:
         return [], [{"status": "skipped_quick_test", "message": "Public research is skipped in fake/quick-test mode."}]
-    sources: list[dict[str, Any]] = []
-    warnings: list[dict[str, Any]] = []
-    max_queries = int(internet.get("max_queries", 6))
-    browser_config_cls, _browse, research_topic = _load_web_browser_skill()
-    browser_config = _instantiate(
-        browser_config_cls,
-        {
-            "timeout_seconds": internet.get("timeout_seconds", 20),
-            "total_timeout_seconds": internet.get("total_timeout_seconds", 60),
-            "max_chars": internet.get("max_chars", 12000),
-            "output_format": "plain_text",
-            "respect_robots": internet.get("respect_robots", True),
-            "per_host_delay_seconds": internet.get("per_host_delay_seconds", 1),
-        },
-    )
-    for query in queries[:max_queries]:
-        if research_topic is None:
-            warnings.append({"status": "skill_unavailable", "skill": "web_browser_skill", "message": "Install mirrorneuron-web-browser-skill for public research."})
-            break
-        try:
-            result = _call_optional(
-                research_topic,
-                query=query,
-                config=browser_config,
-                depth="standard",
-                max_sources=int(internet.get("max_sources", 8)),
-                output_format="plain_text",
-            )
-            sources.extend(_normalize_browser_result(result, query, "web_browser_skill"))
-            if isinstance(result, dict):
-                for warning in result.get("warnings") or []:
-                    warnings.append(
-                        {
-                            "status": "warning",
-                            "skill": "web_browser_skill",
-                            "query": query,
-                            "message": str(warning),
-                        }
-                    )
-        except Exception as exc:
-            warnings.append({"status": "failed", "skill": "web_browser_skill", "query": query, "message": str(exc)})
-    return sources, warnings
-
-
-def _instantiate(cls: Any, values: dict[str, Any]) -> Any:
-    if cls is None:
-        return values
-    try:
-        params = inspect.signature(cls).parameters
-        return cls(**{key: value for key, value in values.items() if key in params})
-    except (TypeError, ValueError):
-        return cls()
+    browser = BrowserResearch(internet, entity="research", verification_target="research_source",
+                              browser_loader=_load_web_browser_skill)
+    browser.research_queries(queries[:int(internet.get("max_queries", 6))],
+                             max_sources=int(internet.get("max_sources", 8)))
+    return browser.sources, browser.warnings
 
 
 def _status_counts(records: list[dict[str, Any]]) -> dict[str, int]:
@@ -363,10 +265,7 @@ def prepare_evidence(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
 
 
 __all__ = [
-    "_instantiate",
     "_load_web_browser_skill",
-    "_normalize_browser_result",
-    "_source_record",
     "_status_counts",
     "build_public_queries",
     "deterministic_research_posture",

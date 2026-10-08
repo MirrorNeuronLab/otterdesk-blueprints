@@ -44,6 +44,8 @@ def modules(monkeypatch, text_memory_transport):
 def make_context(tmp_path, folder=None):
     config = resolve_config(read_blueprint(BLUEPRINT)).data
     config["investigation"].update(top_k=1, max_model_decisions=30)
+    # Ordinary deterministic tests do not exercise the optional live extractor.
+    config['source_relationships']['mode'] = 'structural'
     payload = dict(config["inputs"]["payload"])
     if folder is not None:
         payload["input_folder"] = str(folder)
@@ -89,12 +91,12 @@ class ScriptedModel:
             for p in r.get("result", {}).get("passages", [])
         ]
         if not history:
-            action = ("read_skill", {"skill": "mirrorneuron.document.reading"})
+            action = ("read_skill", {"skill": "otterdesk.litigation.evidence"})
         elif history[-1]["action"]["name"] == "read_skill":
             action = (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.document.reading",
+                    "skill": "otterdesk.litigation.evidence",
                     "operation": "search",
                     "arguments": {"query": "approval", "top_k": 1},
                 },
@@ -134,7 +136,12 @@ class ScriptedModel:
 @pytest.fixture(autouse=True)
 def graph_engine_stub(monkeypatch, modules):
     # Unit tests exercise ingestion ordering without pretending to execute the Linux engine.
-    def project(self, documents):
+    def project(self, documents, *, repository_id=None, file_identities=None, relationship_index=None):
+        from domain.graph_projection import build_records
+        build_records(documents, repository_id=repository_id, file_identities=file_identities)
+        if relationship_index is not None:
+            from domain.graph_projection.legal import records
+            records(relationship_index)
         self.graph_path.write_bytes(b"test graph fixture")
 
     monkeypatch.setattr(modules["indexing"].CaseGraphProjector, "project", project)

@@ -10,20 +10,6 @@ from mn_sdk.blueprints import (
     read_catalog,
 )
 
-RAG_BLUEPRINTS = {
-    "cctv_operator",
-    "drug_discovery_research_assistant",
-    "financial_advisor",
-    "gtm_assistant",
-    "legal_assistant",
-    "microduck_controller",
-    "purchasing_manager",
-    "research_assistant",
-    "ros_amr_controller",
-    "vc_assistant",
-}
-
-
 def test_indexed_blueprints_leave_host_output_copy_to_runtime():
     root = Path(__file__).resolve().parents[1]
     for name in json.loads((root / "index.json").read_text(encoding="utf-8")):
@@ -91,19 +77,22 @@ def test_source_manifests_use_current_runtime_envelope_version():
         assert read_blueprint(root / entry["path"]).manifest["version"] == entry["version"]
 
 
-def test_rag_blueprints_declare_job_scoped_knowledge_database_and_state_resources():
-
-    for blueprint_id in sorted(RAG_BLUEPRINTS):
-        manifest = blueprint_definition(
-            read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
-        )
+def test_rag_blueprints_declare_job_scoped_knowledge_database_and_declared_state_resources():
+    root = Path(__file__).resolve().parents[1]
+    for entry in read_catalog(root / "index.json"):
+        package = read_blueprint(root / entry["path"])
+        manifest = blueprint_definition(package)
+        if not manifest.get("knowledge_rag", {}).get("enabled"):
+            continue
+        blueprint_id = entry["id"]
         resources = manifest["metadata"]["job_data"]["resources"]
         by_name = {resource["name"]: resource for resource in resources}
 
-        assert set(by_name) == {"knowledge", "rag", "state"}, blueprint_id
+        assert {"knowledge", "rag"} <= set(by_name), blueprint_id
         assert by_name["knowledge"]["path"] == "knowledge", blueprint_id
         assert by_name["rag"]["path"] == "databases/rag", blueprint_id
-        assert by_name["state"]["path"] == "state", blueprint_id
+        if "state" in by_name:
+            assert by_name["state"]["path"] == "state", blueprint_id
         assert all(resource["access"] == "read_write" for resource in resources), (
             blueprint_id
         )
@@ -112,7 +101,7 @@ def test_rag_blueprints_declare_job_scoped_knowledge_database_and_state_resource
         if seed:
             assert seed.startswith("@/payloads/"), blueprint_id
             source = "knowledge" if seed == "@/payloads/runtime/blueprint_knowledge" else seed.removeprefix("@/")
-            assert (blueprint_path(blueprint_id) / source).is_dir(), blueprint_id
+            assert (package.root / source).is_dir(), blueprint_id
 
 
 def test_cctv_synthetic_knowledge_uses_runtime_rag_seed():

@@ -1,5 +1,6 @@
 """Capture immutable inputs; do not construct derived layers or call models."""
 import fnmatch
+import fcntl
 import json
 import os
 from pathlib import Path
@@ -7,12 +8,24 @@ import subprocess
 import time
 from uuid import uuid4
 
-from mn_graph_analysis_skill import GraphClient
+from mn_graph_analysis_skill import (GraphClient, FileIdentityRegistry, file_logical_id,
+    get_repository_identity, git_rename_hints)
 from mn_beam_analysis_skill import analyze_sources
 from .ingest import digest, logical_id, module_name, EXTENSIONS
 
 
 def capture(repository, workspace, config, facts_path=None, input_info=None):
+    repository, workspace = Path(repository).resolve(strict=True), Path(workspace).resolve()
+    if not repository.is_dir() or repository == workspace:
+        raise ValueError("Repository must be a directory distinct from the output workspace")
+    workspace.mkdir(parents=True, exist_ok=True)
+    # Identity reconciliation and CURRENT publication must share one baseline.
+    with (workspace / "capture.lock").open("a") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        return _capture(repository, workspace, config, facts_path, input_info)
+
+
+def _capture(repository, workspace, config, facts_path=None, input_info=None):
     began = time.perf_counter()
     repository = Path(repository).resolve(strict=True)
     workspace = Path(workspace).resolve()
@@ -88,26 +101,58 @@ def capture(repository, workspace, config, facts_path=None, input_info=None):
                                     capture_output=True, text=True, check=True, timeout=10).stdout.strip()
         except (OSError, subprocess.SubprocessError):
             warnings.append("Git HEAD could not be captured; history queries will report unavailable")
+    previous, prior_manifest = None, {}
+    if (workspace / "CURRENT").exists():
+        prior_id = (workspace / "CURRENT").read_text().strip()
+        if not prior_id.isalnum():
+            raise ValueError("Invalid snapshot pointer")
+        prior = workspace / "snapshots" / prior_id
+        prior_manifest = json.loads((prior / "manifest.json").read_text())
+        if (prior / "file-identities.json").exists():
+            previous = json.loads((prior / "file-identities.json").read_text())
+    repository_id = get_repository_identity(repository,
+        repository_id=cfg.get("repository_id") or (input_info or {}).get("repository_id"),
+        previous_id=previous["repository_id"] if previous else None)
+    if previous and previous["repository_id"] != repository_id:
+        previous, prior_manifest = None, {}
+    registry = FileIdentityRegistry(repository_id, previous)
+    identities = registry.reconcile({p: s["sha256"] for p, s in sources.items()},
+        renames=git_rename_hints(repository, prior_manifest.get("git_anchor")))
     identifier = uuid4().hex
     directory = workspace / "snapshots" / identifier
     directory.mkdir(parents=True)
     nodes = [{"id": logical_id("module:" + name), "kind": "Module", "labels": ["Module"],
-              "properties": {"key": "module:" + name, **module, "sha256": sources[module["path"]]["sha256"]}} for name, module in modules.items()]
-    for filename, value in (("nodes.json", nodes), ("edges.json", []), ("sources.json", sources), ("evidence.json", {}), ("graph-inputs.json", supplied)):
+              "properties": {"key": "module:" + name, **module, "file_node_id": identities[module["path"]]["node_id"],
+                             "sha256": sources[module["path"]]["sha256"]}} for name, module in modules.items()]
+    for path, identity in identities.items():
+        nodes.append({"id": file_logical_id(identity["node_id"]), "kind": "File", "labels": ["File"],
+            "properties": {**identity, "key": "file:" + identity["node_id"], "path": path,
+                           "language": Path(path).suffix.lstrip(".") or "dockerfile"}})
+    if len({n["id"] for n in nodes}) != len(nodes):
+        raise ValueError("File/module logical-ID collision")
+    # Existing parser-owned module/symbol IDs remain compatible. This explicit
+    # link anchors them to the independently persistent file entity.
+    edges = [{"id": logical_id("declared-in:" + name + ":" + identities[module["path"]]["node_id"]),
+        "src": logical_id("module:" + name), "dst": file_logical_id(identities[module["path"]]["node_id"]),
+        "rel_type": "DECLARED_IN", "properties": {"evidence_ids": []}} for name, module in modules.items()]
+    for filename, value in (("nodes.json", nodes), ("edges.json", edges), ("sources.json", sources),
+                            ("file-identities.json", registry.export()), ("evidence.json", {}), ("graph-inputs.json", supplied)):
         (directory / filename).write_text(json.dumps(value))
     client = GraphClient(directory / "graph.rgx", config["graph"]["binary"], config["graph"]["timeout_seconds"])
     client.import_json(directory / "nodes.json", directory / "edges.json")
     client.check()
     manifest = {"id": identifier, "format_version": 2, "repository": str(repository), "git_anchor": anchor,
                 "input": {**(input_info or {"kind": "folder", "location": str(repository)}), "revision": anchor},
-                "extractor": "source-capture/3", "sources": {p: s["sha256"] for p, s in sources.items()}, "modules": modules,
+                "extractor": "source-capture/4", "repository_id": repository_id,
+                "file_identity_version": registry.export()["version"],
+                "sources": {p: s["sha256"] for p, s in sources.items()}, "modules": modules,
                 "embedding_config": config["embedding"], "embedding_dimension": None, "ingest_config": cfg,
                 "coverage": {"source_files": len(sources), "source_scope": "code_only", "parsed_python_modules": None,
                              "parsed_beam_files": beam["parsed_files"], "beam_limitations": beam["limitations"], "skipped": skipped,
                              "internal_dependency_pairs": None, "history": {"status": "not_materialized", "anchor": anchor},
                              "runtime_traces": "not_collected", "incidents": "not_materialized", "workflows": "not_materialized",
                              "semantic_retrieval": "not_materialized"}, "warnings": warnings,
-                "metrics": {"nodes": len(nodes), "edges": 0, "embedding_requests": 0, "embedding_cache_hits": 0,
+                "metrics": {"nodes": len(nodes), "edges": len(edges), "embedding_requests": 0, "embedding_cache_hits": 0,
                             "ingestion_ms": round((time.perf_counter() - began) * 1000, 2)}}
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2))
     pointer = workspace / ("current-" + identifier + ".tmp")

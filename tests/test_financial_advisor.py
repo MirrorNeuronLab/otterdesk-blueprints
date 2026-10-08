@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+import importlib
 import json
 
 from blueprint_modernization_support import (
@@ -22,6 +24,31 @@ EXPECTED_STEPS = [
     "reconcile_advisor_evidence",
     "publish_financial_review_packet",
 ]
+
+
+def test_financial_intake_uses_current_document_package(monkeypatch, tmp_path):
+    original_import = builtins.__import__
+    retired = {"mn_document_reading_skill", "mn_llm_ocr_skill", "mn_pdf_extract_skill"}
+
+    def current_packages_only(name, *args, **kwargs):
+        if name.split(".", 1)[0] in retired:
+            raise ModuleNotFoundError(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", current_packages_only)
+    monkeypatch.syspath_prepend(str(blueprint_path("financial_advisor") / "payloads"))
+    intake = importlib.import_module("domain.source_ingestion")
+    documents = importlib.import_module("mn_docs_to_markdown_skill")
+    assert intake.configure_ocr_runtime is documents.configure_ocr_runtime
+    assert intake.extract_document is documents.extract_document
+    assert intake.docker_ocr_client_factory_from_config is documents.docker_ocr_client_factory_from_config
+
+    source = tmp_path / "statement.txt"
+    source.write_text("Bank statement\nOpening balance: $100.00\n")
+    assert intake.iter_input_files(tmp_path) == [source]
+    record = intake.read_document(source)
+    assert record["kind"] == "bank_statement"
+    assert record["fingerprint"]["sha256"] == documents.file_sha256(source)
 
 
 def test_financial_manifest_compiles_ordered_regulated_state_pipeline():

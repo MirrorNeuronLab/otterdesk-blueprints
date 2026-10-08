@@ -8,6 +8,7 @@ from typing import Any, Mapping
 DEFAULT_VISUAL_TARGETS = (
     "person",
 )
+DEFAULT_MONITORING_GOAL = "A person is visible in the video."
 DEFAULT_ALERT_POLICY = {
     "mode": "human_notice_only",
     "min_confidence": 0.55,
@@ -72,6 +73,13 @@ def configured_alert_policy(
         "cooldown_seconds": cooldown,
         "notify_on": notify_on,
     }
+
+
+def configured_monitoring_goal(config: Mapping[str, Any] | None) -> str:
+    goal = _payload_config(config).get("monitoring_goal", DEFAULT_MONITORING_GOAL)
+    if not isinstance(goal, str) or not goal.strip() or len(goal) > 500:
+        raise ValueError("monitoring_goal must be a nonempty string of at most 500 characters")
+    return " ".join(goal.split())
 
 
 def target_prompt_text(targets: list[str]) -> str:
@@ -145,7 +153,7 @@ def evaluate_alert(
     # A live instruction replaces the configured visual targets. The model's
     # detected_target result is already scoped to that instruction.
     goal = " ".join(active_goal.split())[:500]
-    matched = [goal] if goal and detected else matched_notification_targets(detection, notify_on)
+    matched = ([goal] if detected else []) if goal else matched_notification_targets(detection, notify_on)
     elapsed = evaluated_at - float(state.get("last_alert_wall_ts", 0.0) or 0.0)
 
     if not detected:
@@ -154,6 +162,8 @@ def evaluate_alert(
         reason = "below_confidence_threshold"
     elif not matched:
         reason = "target_not_in_notification_policy"
+    elif goal and state.get("notified_goal") == goal:
+        reason = "goal_already_reported"
     elif elapsed < cooldown:
         reason = "cooldown_active"
     else:
@@ -183,6 +193,7 @@ def configured_target_notice(
         or detection.get("summary")
         or "A configured target was observed."
     )[:700]
+    qualification = " Recorded demo playback." if detection.get("source_profile") == "bundled_demo" else ""
     return {
         "type": "human_notice",
         "channel": "human",
@@ -194,8 +205,8 @@ def configured_target_notice(
                 if str(detection.get("risk_level") or "").lower() == "high"
                 else "attention"
             ),
-            "title": f"Review {target_text}",
-            "message": detail,
+            "title": "Monitoring goal detected",
+            "message": f"{detail} Observed at {detection.get('observed_at')} (capture time).{qualification}"[:900],
             "detail": detail,
             "camera_id": camera_id,
             "frame_seq": frame_seq,
@@ -204,6 +215,9 @@ def configured_target_notice(
             "matched_targets": matches,
             "observed_at": detection.get("observed_at"),
             "frame_batch_ref": detection.get("frame_batch_ref"),
+            "monitoring_goal": target_text,
+            "goal_event": detection.get("goal_event"),
+            "image": detection.get("event_image"),
             "chat_delivery": "otterdesk_worker_chat",
             "requires_ack": True,
         },

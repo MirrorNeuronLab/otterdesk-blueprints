@@ -5,6 +5,7 @@ from pathlib import Path
 
 from mn_sdk.blueprint_support import WorkflowStateStore
 from mn_sdk.context_session.contracts import digest
+from .runtime_knowledge import authored_record, event_timestamp, latest_source_timestamp, publication_clock
 
 
 def runtime_observations(ctx):
@@ -26,15 +27,23 @@ def runtime_observations(ctx):
                       "evidence_ids": claim.get("evidence_ids", []),
                       "source_ids": [s["source_id"] for s in sources],
                       "source_types": [s.get("source_type") for s in sources],
-                      "timestamp": max((s.get("retrieved_at") or "" for s in sources), default="")}
+                      "source_qualifications": [{key: s.get(key) for key in
+                          ("source_id", "source_type", "status", "retrieval_status", "source_quality_label", "retrieved_at")}
+                          for s in sources],
+                      "timestamp": latest_source_timestamp(sources)}
             record["relations"] = [{"source": company, "relation": "HAS_CLAIM", "target": claim["claim_id"]}]
             record["relations"] += [{"source": claim["claim_id"], "relation": "SUPPORTED_BY", "target": id}
                                     for id in record["source_ids"]]
+            record["relations"] += [{"source": claim["claim_id"], "relation": "EVIDENCED_BY", "target": e["evidence_id"]}
+                                    for e in supports]
+            record["relations"] += [{"source": e["evidence_id"], "relation": "FROM_SOURCE", "target": e["source_id"]}
+                                    for e in supports if e.get("source_id") in source_map]
             yield record
         for source in source_map.values():
             yield {"company": company, "kind": "source", "observation_id": source["source_id"],
                    "title": source.get("title"), "source_type": source.get("source_type"),
-                   "status": source.get("retrieval_status"), "quality": source.get("source_quality_score"),
+                   "status": source.get("status"), "retrieval_status": source.get("retrieval_status"),
+                   "quality": source.get("source_quality_score"),
                    "qualification": source.get("source_quality_label", "unverified"),
                    "timestamp": source.get("retrieved_at") or ""}
     for company, analysis in store.list_entity_objects("analyses").items():
@@ -69,11 +78,20 @@ def ingest_runtime_observations(memory, ctx):
     receipts = []
     records = list(runtime_observations(ctx))
     snapshot_id = digest(records)
+    if not records:
+        return receipts, snapshot_id
+    published_at = publication_clock(memory, snapshot_id)
+    authored = []
     for record in records:
         record.update(memory_family="vc_runtime", snapshot_id=snapshot_id)
-        text = json.dumps(record, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        receipt = memory.observe(text, event_id=["vc-runtime-fact", digest(record)],
+        knowledge = authored_record(record, published_at)
+        knowledge.markdown()  # Validate the full authored batch before publication.
+        authored.append((record, knowledge))
+    for record, knowledge in authored:
+        receipt = memory.record(knowledge, event_id=["vc-runtime-fact", digest(record)],
             allow=["vc-actor-review"], upstream=[{"artifact": "workflow_state", "company": record["company"],
                                                 "observation_id": record["observation_id"]}])
-        receipts.append({**receipt, "runtime_kind": record["kind"]})
+        receipts.append({**receipt, "runtime_kind": record["kind"],
+                         "agent_id": record.get("agent_id"), "claim_family": record.get("claim_family"),
+                         "event_time_status": "known" if event_timestamp(record.get("timestamp")) else "unknown"})
     return receipts, snapshot_id

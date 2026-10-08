@@ -24,9 +24,9 @@
       },
       {
         "path": "inputs.payload.peer_job_id",
-        "label": "Partner co-worker job",
+        "label": "Previous pair peer",
         "type": "text",
-        "required": true
+        "required": false
       },
       {
         "path": "inputs.payload.instruction",
@@ -69,6 +69,20 @@
         "type": "textarea",
         "required": false,
         "default": "Market Bibblio through relevant, human-approved email outreach."
+      },
+      {
+        "path": "inputs.payload.collaboration_group_id",
+        "label": "Collaboration group",
+        "type": "text",
+        "required": false
+      },
+      {
+        "path": "inputs.payload.collaboration_peers",
+        "label": "Group members",
+        "type": "textarea",
+        "value_type": "array",
+        "required": false,
+        "default": []
       }
     ]
   },
@@ -79,7 +93,7 @@
       "available": false
     },
     "real": {
-      "introduction": "Connect the partner co-worker and review your marketing settings.",
+      "introduction": "Review your marketing settings and connect co-workers in Collaboration.",
       "values": {}
     },
     "fields": [
@@ -99,9 +113,9 @@
       },
       {
         "path": "inputs.payload.peer_job_id",
-        "label": "Partner co-worker job",
+        "label": "Previous pair peer",
         "type": "text",
-        "required": true
+        "required": false
       },
       {
         "path": "inputs.payload.instruction",
@@ -144,6 +158,20 @@
         "type": "textarea",
         "required": false,
         "default": "Market Bibblio through relevant, human-approved email outreach."
+      },
+      {
+        "path": "inputs.payload.collaboration_group_id",
+        "label": "Collaboration group",
+        "type": "text",
+        "required": false
+      },
+      {
+        "path": "inputs.payload.collaboration_peers",
+        "label": "Group members",
+        "type": "textarea",
+        "value_type": "array",
+        "required": false,
+        "default": []
       }
     ]
   }

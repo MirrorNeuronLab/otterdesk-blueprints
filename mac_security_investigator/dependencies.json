@@ -1,0 +1,54 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
+  "skills": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-graph-analysis-skill",
+      "version": ">=1.3.47"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-temporal-graph-skill",
+      "version": ">=1.3.47"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-macos-logs-skill",
+      "version": ">=1.3.47"
+    }
+  ],
+  "agents": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-prototype-stateful-step-agent",
+      "version": ">=1.3.47"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-worker-python-host-agent",
+      "version": ">=1.3.47"
+    }
+  ],
+  "packages": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-python-sdk",
+      "version": ">=1.3.58.dev46,<2",
+      "extras": [
+        "context"
+      ]
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mn-python-sdk-common",
+      "version": ">=1.3.47"
+    }
+  ]
+}

@@ -71,6 +71,11 @@ def main() -> int:
         )
 
     if profile == BUNDLED_DEMO_PROFILE:
+        demo_file = str(video_source.get("demo_file") or "").strip()
+        if not demo_file or not Path(demo_file).expanduser().is_file():
+            return fail("config.demo_file_missing", "The warehouse demo video is unavailable.",
+                        "Mount the video volume or select video_source.demo_file on the submitting computer.",
+                        path="video_source.demo_file", status=2)
         if uri != BUNDLED_DEMO_URI:
             return fail(
                 "config.invalid_demo_uri",

@@ -34,7 +34,7 @@
               "type": "string"
             }
           },
-          "description": "Answer a question about what the latest analyzed frame shows. Pass the operator's exact question in question; this tool answers from current visual findings without RAG. A question such as 'do you see any person?' is a read, not a monitoring change. This read does not change the monitoring goal."
+          "description": "Read separate person-detector and caption health, the latest sampled finding and its timestamp. Person presence uses resident RF-DETR; complex goals use Cosmos captions. Quiet scenes are captioned periodically. A question does not change monitoring."
         },
         "get_operator_activity": {
           "effect": "read",
@@ -55,7 +55,7 @@
               "type": "string"
             }
           },
-          "description": "Wait for the next operator notice or 30-second monitoring update without changing the monitoring goal. Updates continue when no target is found or no new frame is analyzed, and do not require review. Use an empty after_event_id for the newest available update or the previously returned event ID; wait_seconds is a numeric string from \"0\" to \"25\"."
+          "description": "Wait for the next confirmed monitoring-goal event without changing the goal. Quiet and unrelated activity produce no chat messages. Use an empty after_event_id for the newest event or the returned ID, and a wait_seconds string from 0 to 25."
         },
         "set_monitoring_instruction": {
           "effect": "monitoring",
@@ -81,7 +81,7 @@
               ]
             }
           },
-          "description": "Change the active run's vision-model prompt and what it looks for. Direct requests such as \"change the goal to watch the corridor for obstructions\" and requests to focus on, find, look for, watch, or detect a visible condition are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. The operator also receives a monitoring update every 30 seconds, even when no target is found. To restore configured targets use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
+          "description": "Change the active run's vision-model prompt and what it looks for. Direct requests such as \"change the goal to watch the corridor for obstructions\" and requests to focus on, find, look for, watch, or detect a visible condition are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore the saved monitoring goal use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
         },
         "acknowledge_operator_notice": {
           "effect": "acknowledgement",
@@ -94,10 +94,67 @@
             }
           },
           "description": "Mark a specific notice reviewed only when the operator requests acknowledgement. This does not change monitoring focus."
+        },
+        "get_video_history": {
+          "effect": "read",
+          "arguments": {
+            "after": {
+              "type": "string"
+            },
+            "before": {
+              "type": "string"
+            }
+          },
+          "description": "Read up to twelve latest matching authored Markdown camera accounts from job-scoped context memory, including previous runs. Use for what happened and predicted-risk history. after and before are optional ISO 8601 times with timezone, or empty strings. Preserve citations, camera, capture times, source_profile and prediction qualifications; the result is bounded, not exhaustive."
+        },
+        "get_video_summary": {
+          "effect": "read",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "before": {
+              "type": "string"
+            }
+          },
+          "description": "Summarize this run\u2019s saved Markdown observations in context memory using the text model only. Never retrieve images or invoke Cosmos. This is an asynchronous read; report completion after get_video_answer returns completed. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve citations, sampled coverage, recording qualifications and omitted history. Does not change monitoring."
+        },
+        "answer_video_question": {
+          "effect": "read",
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            },
+            "question": {
+              "type": "string"
+            },
+            "after": {
+              "type": "string"
+            },
+            "before": {
+              "type": "string"
+            }
+          },
+          "description": "Answer the actual question from this run\u2019s saved Markdown observations in context memory using the text model only. Never retrieve images or invoke Cosmos. This is an asynchronous read; poll get_video_answer for completion. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve evidence times and sampling limits. Missing history does not mean zero people; repeated observations cannot establish unique people or a cumulative total. Use get_video_history for accounts across runs. Does not change monitoring."
+        },
+        "get_pipeline_benchmarks": {
+          "effect": "read",
+          "arguments": {},
+          "description": "Read retained per-stage timing, p50/p95, errors and skipped coverage for RF-DETR person events, Cosmos captioning, MN memory and historical Q&A. Cold starts and hardware/model cohorts are separate. Notice latency ends at SDK/MCP publication, not desktop receipt."
         }
       },
       "internal": {
         "get_command_status": {
+          "arguments": {
+            "command_id": {
+              "type": "string"
+            }
+          }
+        },
+        "get_video_answer": {
           "arguments": {
             "command_id": {
               "type": "string"
@@ -120,6 +177,20 @@
         "poll_argument": "command_id",
         "poll_interval_ms": 500,
         "timeout_seconds": 10
+      },
+      "get_video_summary": {
+        "id_field": "command_id",
+        "poll_tool": "get_video_answer",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 90
+      },
+      "answer_video_question": {
+        "id_field": "command_id",
+        "poll_tool": "get_video_answer",
+        "poll_argument": "command_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 90
       }
     },
     "memory": {

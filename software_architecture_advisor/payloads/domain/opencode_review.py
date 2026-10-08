@@ -77,6 +77,7 @@ def handle_task(context, work, *, llm_client=None):
             store.results(),
             review["prompt_bytes"],
             plan["omitted"],
+            quality_config=saved['request'].get('retrieval_config', {}),
         )
         request = {"identity": identity, **prepared}
         store.write(request_path, request)
@@ -87,6 +88,9 @@ def handle_task(context, work, *, llm_client=None):
             "Explicit offline mode: no model call; no architecture conclusion.",
             "not_analyzed",
         )
+    elif request.get('context_quality',{}).get('action')=='insufficient_evidence':
+        value = _blocked(task, 'Required source evidence is unavailable: ' +
+                         ', '.join(request['context_quality']['reasons']))
     elif time.time() >= deadline:
         value = _blocked(task, "Review deadline reached before dispatch")
     else:

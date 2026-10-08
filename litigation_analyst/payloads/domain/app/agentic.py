@@ -62,7 +62,11 @@ def _run_investigation(
             graph_path=case / "evidence.rgx",
         )
     )
-    runtime = bind_skills(case, corpus, store, investigation_id, declared)
+    runtime = bind_skills(case, corpus, store, investigation_id, declared,
+        config=context["config"], scope={
+            "job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
+            "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID"),
+        })
     manuals = {
         skill["id"]: runtime.read_skill(skill["id"])["sha256"]
         for skill in runtime.list_skills()

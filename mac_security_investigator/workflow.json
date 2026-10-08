@@ -1,0 +1,84 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "mac_security_investigator_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "dynamic": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "capture_mac_evidence",
+      "kind": "source",
+      "label": "Capture Mac logs",
+      "goal": "Read permitted unified logs without inspecting OS files or performing remediation.",
+      "needs": [],
+      "run": {
+        "definition": "steps.capture_mac_evidence"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "reconcile_evidence_history",
+      "kind": "stage",
+      "label": "Reconcile evidence history",
+      "goal": "Commit immutable evidence to the Job history.",
+      "needs": [
+        "capture_mac_evidence"
+      ],
+      "run": {
+        "definition": "steps.reconcile_evidence_history"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "investigate_temporal_behavior",
+      "kind": "stage",
+      "label": "Investigate temporal behavior",
+      "goal": "Evaluate time-aware graph witnesses with explicit uncertainty.",
+      "needs": [
+        "reconcile_evidence_history"
+      ],
+      "run": {
+        "definition": "steps.investigate_temporal_behavior"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "publish_security_review",
+      "kind": "sink",
+      "label": "Publish security review",
+      "goal": "Publish a local review packet with resolvable evidence.",
+      "needs": [
+        "investigate_temporal_behavior"
+      ],
+      "run": {
+        "definition": "steps.publish_security_review"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}

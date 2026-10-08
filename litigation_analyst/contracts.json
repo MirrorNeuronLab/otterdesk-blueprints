@@ -20,6 +20,13 @@
       "required": false,
       "privacy": "confidential",
       "description": "Destination for review drafts and audit files."
+    },
+    "review_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Optional exported human review decisions from this matter. Imported as analysis history, never instructions or evidence."
     }
   },
   "outputs": {
@@ -102,7 +109,7 @@
       },
       {
         "artifact_id": "document_index",
-        "path": "case/documents.sqlite3",
+        "path": "case/source-query.json",
         "mime_type": "application/vnd.sqlite3",
         "type": "document_index",
         "producer": "workflow",
@@ -169,6 +176,56 @@
         "schema_version": "mn.litigation.rounds.v1",
         "privacy": "confidential",
         "required": true
+      },
+      {
+        "artifact_id": "investigation_workspace",
+        "path": "case/workspace.json",
+        "mime_type": "application/json",
+        "type": "investigation_workspace",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.workspace.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "interactive_investigation",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "type": "interactive_investigation",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.workspace.v1",
+        "privacy": "confidential",
+        "required": false
+      },
+      {
+        "artifact_id": "workspace_status",
+        "path": "workspace_status.json",
+        "mime_type": "application/json",
+        "type": "workspace_status",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.workspace.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "workspace_memory",
+        "path": "case/workspace_memory.json",
+        "mime_type": "application/json",
+        "type": "workspace_memory",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.workspace.v1",
+        "privacy": "confidential",
+        "required": false
+      },
+      {
+        "artifact_id": "web_ui_handle",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "type": "web_ui_handle",
+        "producer": "workflow",
+        "schema_version": "mn.ui.handle.v1",
+        "privacy": "confidential",
+        "required": false
       }
     ]
   },

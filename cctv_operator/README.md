@@ -13,22 +13,27 @@ executors, report writer, and Web UI inside DockerWorkers, so
 the default demo needs no camera URL or host-side media tools. Its read-only
 operations console serves a CUDA-assisted MJPEG preview and server-sent operator
 events without exposing the camera URI to the browser. Visual analysis
-uses the cataloged `nemotron3:q4_K_M` Docker Model Runner artifact through the
-node-local LiteLLM proxy.
+uses Cosmos3 for sequence understanding and risk forecasts, with Markdown context
+memory for chat. Nemotron 3.5 Lightning handles text chat.
 
 The default host output folder is `~/Downloads/cctv-operator`. New runs copy
 their review artifacts there and OtterDesk opens that same folder.
 
 ## Source contract
 
-The default `video_source.profile=bundled_demo` starts MediaMTX and a looping
+The default `video_source.profile=bundled_demo` stages `video_source.demo_file`
+(`/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4`) from the submitter, then starts MediaMTX and a looping
 sample publisher inside the DockerWorker, then monitors
 `rtsp://127.0.0.1:8554/cctv-demo`. Launch validation recognizes this explicit
 profile and leaves its reachability check to the worker that owns it.
 
+The long-running Web UI service starts and owns the demo publisher. Sampling
+ticks wait for the stream; they never start it. Runtime cancellation stops the
+publisher with the service, while completing a sampling tick leaves it running.
+
 For a real camera, set `video_source.profile=external` and set
 `video_source.uri` to one reachable `rtsp://`, `rtsps://`, `rtmp://`, or
-`rtmps://` URI. File and folder sources are rejected. The Web UI relays this
+`rtmps://` URI. External file and folder sources are rejected; the demo file is explicitly staged for stream playback. The Web UI relays this
 server-side source as MJPEG, so browsers never receive the RTSP/RTMP URI or its
 credentials.
 
@@ -41,37 +46,75 @@ used for local testing supports `-H 0.0.0.0`; verify the resulting LAN URL
 from the NVIDIA node before starting CCTV Operator. Mac-side launch validation
 rejects local-only external stream addresses before a workflow is submitted.
 
-## Adaptive monitoring
+## Independent detection and captioning
 
-The source can remain at its native frame rate for operator preview, but the model never receives that full stream. The default policy:
+Version 2.0 uses one resident camera relay and three independent lanes:
 
-- keeps one run-scoped FFmpeg camera connection instead of reconnecting for
-  each sample;
-- inspects a 320-pixel proxy at 1 FPS;
-- sends a baseline frame every 20 seconds;
-- requires two consecutive proxy changes above the configured threshold;
-- collects three seconds of pre-roll and five seconds of post-roll at 5 candidate FPS;
-- selects at most ten non-duplicate, temporally diverse frames for one model request; and
-- permits one active frame analysis at a time. Each batch uses one small
-  condition check and, only when warranted, one detailed model call.
+```mermaid
+flowchart LR
+  Camera[CUDA camera relay] --> Person[RF-DETR Small: person events]
+  Person --> Evidence[Durable frame evidence]
+  Evidence --> Notice[SDK notices and MCP Chat delivery]
+  Camera --> Windows[Independent video windows]
+  Windows --> Cosmos[Cosmos: captions and complex conditions]
+  Cosmos --> Memory[MN / Membrane caption memory]
+  Memory --> QA[Historical Q&A and summaries]
+  Cosmos --> Evidence
+```
 
-## Condition check and operator approval
+RF-DETR Small runs in the long-running video service at a requested 5 FPS. Two
+consecutive confident person samples start a scene-presence episode. Two seconds
+of sampled absence rearm it; missing frames cannot prove exit. The default
+presence goal publishes a notice directly from this detector, without waiting
+for Cosmos, memory or a workflow tick. Confidence and the 120-second notice
+cooldown still apply. This is scene presence, not person identity or tracking.
+Complex instructions such as a falling person or a blocked corridor use Cosmos.
 
-For each selected batch, the vision model first answers only
-`condition_met` and `confidence` under a strict JSON schema. The current chat
-monitoring instruction replaces the default target for this check. With the
-default `condition_screening.min_confidence=0.8`, a confident absence ends the
-batch without detailed analysis. A confident match starts a second call that
-describes visible evidence and writes the ordinary detection and report.
+Caption sampling runs in a separate thread at 4 candidate FPS, with a rolling
+four-second window and a ten-second baseline cadence, including quiet scenes.
+Each admitted window selects at most twelve non-duplicate chronological frames.
+Core delivers durable batch references to the existing caption worker. There is
+one batch in flight and one latest pending window; replaced windows are counted.
+An on-demand instruction keeps its revision while waiting. Caption completion
+is durable, errors release admission, and missing completion is shown as stalled
+rather than starting overlapping requests. At most six admissions per minute
+and the existing single Cosmos slot bound model load.
 
-When the first answer is less confident, the detector saves a bounded snapshot
-and requests approval in Chat. **Approve** runs the detailed analysis of that
-same batch; **Reject** or a 180-second timeout skips it and keeps monitoring.
-The request, response, and applied decision are recorded in `human.jsonl`.
-The request includes the selected frame in the reusable conversation image
-widget when the local run artifact is available. A confirmed finding can still
-create a reviewable notice under the separate alert policy. No branch makes a
-physical security decision.
+Slow or failed captioning leaves person detection running. A failed detector is
+reported separately and leaves caption sampling running. Person goals never
+produce a second notice from Cosmos; superseded complex-goal captions remain
+history but cannot notify under the new instruction. Playback does not wait for
+model readiness. `get_operator_status` exposes both lane states.
+
+## Sampled understanding and risk memory
+
+Every scheduled caption sequence is analyzed, including quiet scenes and batches
+with no configured-target match. A condition check or approval does not block the
+scene account. Cosmos records observed activity separately from `risk_predictions`.
+Each prediction includes visible evidence, a qualitative time horizon, confidence,
+severity and recommended human review. Predictions are hypotheses, not observed
+incidents or a guarantee of safety. Consequential actions remain human decisions.
+
+The detector reads three complete previous Markdown accounts for the same camera
+and source, then publishes its new typed Facts/Relations/account through Membrane.
+Capture start/end times, instruction revision, batch reference and uncertainty
+survive across runs in Job-scoped memory. No raw images, source credentials or
+private model reasoning enter that memory. Default admission is 49,152 bytes;
+insufficient capacity is explicit and complete records are never silently cut.
+
+Chat uses `get_operator_status` for current understanding and predicted risks,
+and `get_video_history` for up to twelve complete historical accounts, optionally
+bounded by timezone-qualified `after` and `before` times. Use an earlier `before`
+for another page. Answers retain times and evidence references and disclose the
+bounded result. Prepared hourly Markdown (split into additional files at 4 MiB) under Job output
+`context_sources/outputs/` supports cited answers when the monitor is stopped.
+Runtime receipts stay in `runtime_memory/`. The prepared source connection has
+explicit SDK inventory/corpus limits (512 files, 4 MiB per file, 32 MiB total);
+a capacity error must be reported rather than claiming exhaustive history.
+
+The design follows Spark VSS's short-sequence temporal analysis, while composing
+it with MirrorNeuron's existing sampler, memory and chat rather than deploying
+VSS's complete service stack. See the [NVIDIA Cosmos API](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
 
 Monitoring steering persists only for the current run. The external OtterDesk
 chat AI sends the declared `steer_monitoring` live input over the blueprint MCP;
@@ -102,20 +145,32 @@ host-network DockerWorker. The generic Web UI skill binds an OS-selected free
 port, and the browser reaches it through the standard job-scoped Web UI proxy without a
 host-side UI process or a second transfer of the bundled video. In bundled demo
 mode, the shared media container starts the pinned
-MediaMTX server and loops the bundled sample with FFmpeg before sampling begins.
+MediaMTX server and loops the staged warehouse recording with FFmpeg before sampling begins.
 Reusable capture, scene
 scoring, selection, and batch persistence mechanics come from
 `mirrorneuron-live-video-analysis-skill`; the blueprint retains CCTV steering,
-detection, alert, and report policy. The default Nemotron 3 multimodal model
-requires the declared 48 GiB (49,152 MB) memory floor. The blueprint declares
-the cataloged `nemotron3:q4_K_M` artifact with the Docker Model Runner provider.
-Submission defers its installation, then the first detector call prepares it on
-the selected node with `docker model pull nemotron3:q4_K_M`, registers the
-model, and refreshes the node's LiteLLM route. The detector then calls that
-LiteLLM route; it never calls Docker Model Runner directly or installs a model
-on the submit host. Inference disables reasoning for this bounded structured-
-detection call; invalid or reasoning-only responses surface as analysis failures
-instead of false “no detection” records.
+detection, alert, and report policy. The vision model is the blueprint-owned `cosmos3-nano-reasoner:1.7` Docker/NVIDIA NIM
+backend (`source: docker`), served through the selected node's managed LiteLLM
+route. Its full `model_spec` is declared in `execution.json` and transferred
+through the SDK custom-model contract. Catalog absence and compatibility
+findings warn without blocking installation; malformed definitions and actual
+installation failures remain errors. The runtime owns install/start/stop/unload; the blueprint does not run NIM
+installation commands. First installation requires `NGC_API_KEY` (or
+`NGC_CLI_API_KEY`) in the owning runtime's environment. Keep it out of blueprint
+config and chat. The existing `nemotron-3.5-lightning:latest` DMR model remains
+the text chat model and is reused when installed. Cosmos uses temporal
+`video_frames`, reasoning and a 4,096-token output budget; private reasoning is
+excluded from memory. Missing, malformed or truncated final answers are explicit
+analysis failures, never fabricated clear-scene observations.
+
+Deploy the matching SDK and video-skill packages before launching this revision.
+The SDK, models and RAG component minima are `1.3.58.dev45`; the video skill
+minimum is `1.3.58.dev12`. These versions provide blueprint-owned model recipes,
+generic embeddings, and the temporal-frame contract.
+The MCP and Job response components require `1.3.58.dev43` or later for event
+images, newest-record cursors and complete bounded read summaries. These source
+changes must be included in the deployed SDK packages; older workers must be
+restarted with the updated blueprint and dependencies.
 
 ## Web UI
 
@@ -128,10 +183,11 @@ writes the durable iframe-proxy handle. It shows:
 - `latest_analyzed_frame.jpg`, refreshed when a new analysis completes.
 
 The embedded page contains only these two media panels. The conversation receives
-an informational observation update every 30 seconds, including when no target
-is found or no new frame was analyzed. It also receives reviewable operator
-notices when the active goal is detected and meets the configured confidence and
-cooldown policy. Changing the active goal resets the prior goal's notice cooldown, so
+reviewable notices only when the monitoring goal matches and passes the configured
+confidence and cooldown policy. Each notice gives the observed capture time and
+attaches the model-selected evidence frame. Quiet scenes and unrelated activity
+produce no Chat messages. Evidence previews are bounded JPEGs (75 KiB), stored
+immutably per event and carried through SDK MCP activity delivery. Changing the active goal resets the prior goal's notice cooldown, so
 the first qualifying finding for the new goal can appear promptly in chat. The
 web UI link is published after its preview has produced a video frame.
 SSE updates the snapshot without duplicating the activity feed in the page.
@@ -182,9 +238,8 @@ installation on Spark:
 ssh spark 'docker model ls'
 ```
 
-The DMR inventory will include `nemotron3:q4_K_M`, and the node's LiteLLM
-inventory will expose that same short model name. A text-only model such as
-`nemotron-3.5-lightning:latest` does not satisfy this blueprint.
+The runtime catalog registers Cosmos3 as a managed Docker/NIM vision model and
+Nemotron 3.5 Lightning as the separate DMR chat model.
 
 For a Mac-primary + Spark deployment, each federated Core must have its own
 writable Redis coordination store. Start an independent runtime on Spark, then
@@ -237,9 +292,12 @@ From this folder:
 mn blueprint run . --web-ui
 ```
 
-This builds the worker image with the deterministic fixture and stream server,
-starts the stream on first sampler use, and stops it when the runtime cleans up
-the shared worker container. No host FFmpeg, MediaMTX container, helper script,
+This stages `/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4` from the
+submitting Mac and builds the worker image with the stream server. The source
+volume must be mounted. Set `--set video_source.demo_file=/path/to/Camera.mp4`
+to select another recording. The 126 MiB movie is not copied into Git or baked
+into the Docker image. It loops at playback speed on the NVIDIA worker and stops
+with the shared worker container. A missing file fails explicitly. No host FFmpeg, MediaMTX container, helper script,
 or external CCTV URL is required. The bundled RTSP endpoint remains private to
 the DockerWorker while the job-scoped Web UI proxy exposes only the sanitized
 MJPEG and SSE routes. `latest_analyzed_frame.jpg` separately shows the exact
@@ -327,6 +385,9 @@ revision is available.
 ## Repository validation
 
 ```bash
+bash -n payloads/services/run_cctv_web_ui.sh \
+  payloads/agents/adaptive_frame_sampler/scripts/run_sampler_on_nvidia.sh \
+  payloads/docker_worker/demo/start_demo_stream.sh
 python3 -m py_compile \
   payloads/services/cctv_operator_mcp.py \
   payloads/services/cctv_web_ui.py \
@@ -360,9 +421,26 @@ only when launching the external source.
 
 ## Conversation knowledge
 
-The bundled demo starts with one broad visual target, `person`, so a visible
-person can produce a prompt review notice. Ask “Do you see any person?” to get a
-direct answer from the latest analyzed frame; this does not change the watch.
+The saved `inputs.payload.monitoring_goal` defaults to
+`A person is visible in the video.` RF-DETR confirms sampled person presence
+for direct notices. Cosmos independently describes observed activity and writes
+the sampled activity account to Markdown context memory. A person alone meets
+the goal; standing together is not required. Questions use the saved history
+and do not change the watch.
+
+Ask “Summarize the video” through `get_video_summary`, or ask a video question
+through `answer_video_question`. Both read complete authored Markdown accounts
+from context memory and answer with the configured primary text model. Cosmos
+understands independently sampled image sequences and creates those observations;
+questions never retrieve images or initiate additional Cosmos calls. The
+correlated `get_video_answer` result updates the original turn when complete.
+Calls accept optional timezone-qualified capture-time bounds and never change
+the monitoring goal. Summary and question reads are scoped to this run;
+`get_video_history` reads up to twelve matching accounts across runs. Preserve
+citations, recording qualifications, omitted records and sampling gaps. Missing
+history never means zero people. Repeated observations cannot establish unique
+people or a cumulative count. One question is pending at a time, with a
+90-second completion deadline and a text-model request bounded to 60 seconds.
 “Tell me if the corridor is blocked” changes the watch goal to visible
 obstructions in the corridor or walkway and requests a fresh analysis. The
 result reports visible obstruction and uncertainty, not a safety clearance.
@@ -386,4 +464,61 @@ MCP port. A missing allocation fails before the sidecar starts.
 
 ## Context engine contract
 
-The `mn.context` descriptor enables Membrane runtime memory and declares `mirrorneuron-python-sdk[context]`. The detector queries the most recent three sampled observations for the same camera and source before screening or detailed vision analysis, then stores the new observation after analysis. Observations are job-scoped so history survives runs; each retains its run, timestamp, instruction revision, confidence, qualification and durable frame-batch reference. Camera credentials, source URLs, image bytes and external RAG passages are excluded from text memory. Screening without detailed analysis stores an unknown detection count. Historical text never establishes continuous coverage, identity, intent or an unobserved first appearance. The Markdown/DuckDB service runs on CPU; the configured vision route and CUDA media path retain their contracts. Query receipts and source handles stay in `runtime_memory/` sidecars; only whole bounded results reach the model. Missing history and insufficient capacity are explicit. Set `text_memory.enabled=false` to disable the consumer.
+The authored Markdown foundation from version 1.4.1 publishes camera observations as authored Markdown Facts, Relations
+and complete sampled-account detail. Membrane is the Context Intelligent System;
+runtime memory is its history component. Native DuckDB selects the recent three
+by the actual observation timestamp, then verifies and hydrates each complete
+qualified record. The schema declaration has its own persisted publication clock
+and never counts as a sampled observation. Job scope preserves history across
+runs. Missing observation timestamps fail explicitly; they are never invented.
+Deploy the matching shared SDK and Membrane SDK with this blueprint. Existing
+legacy JSON observations require reviewed republication to adopt the new format.
+
+The `mn.context` descriptor enables Membrane runtime memory and declares `mirrorneuron-python-sdk[context]`. The detector queries the most recent three sampled observations for the same camera and source before candidate verification, then stores the new observation after analysis. Observations are job-scoped so history survives runs; each retains its run, timestamp, instruction revision, confidence, qualification and durable frame-batch reference. Camera credentials, source URLs, image bytes and external RAG passages are excluded from text memory. Historical screening-only records retain an unknown detection count. Historical text never establishes continuous coverage, identity, intent or an unobserved first appearance. The Markdown/DuckDB service runs on CPU; the configured vision route and CUDA media path retain their contracts. Query receipts and source handles stay in `runtime_memory/` sidecars; only whole bounded results reach the model. Missing history and insufficient capacity are explicit. Set `text_memory.enabled=false` to disable the consumer.
+
+A continuing person-presence episode is reported once. Sustained sampled absence rearms it; coverage gaps do not. Complex goals use confident Cosmos absence to rearm. Instruction changes rearm the goal, while cooldown still limits distinct repeated events.
+
+## Prepared person detector
+
+The worker pins `rfdetr==1.11.2` and prepares the official Apache-2.0 RF-DETR
+Small (512 input) and Medium (576 input) checkpoints at image build. Both have
+fixed SHA-256 hashes in `payloads/domain/person_detector.py`. Runtime verifies
+the checkpoint, constructs the architecture without its automatic downloader,
+and strictly loads its COCO weights. Missing or incompatible weights fail
+explicitly. The NVIDIA image's CUDA PyTorch/torchvision pair is retained. The
+adapter runs PyTorch FP16, preserves the whole camera view and extracts the
+`person` class by the model's class name. It does not use TensorRT.
+
+Set `person_detector.model=medium` to compare Medium, or tune `fps`,
+`confidence_threshold`, `consecutive_hits`, `absence_seconds` and
+`max_gap_seconds`. Actual throughput depends on the worker and concurrent
+Cosmos load. MobileCLIP is no longer in the production admission path and its
+similarity cannot suppress captions or person alerts. Earlier adapter sources
+remain for historical experiments; the worker does not prepare their weights.
+
+## Stage benchmarks
+
+See [BENCHMARKS.md](BENCHMARKS.md) for metric definitions, labeled replay and
+comparison procedure. Every run retains a bounded stage ledger at
+`benchmarks/stages.sqlite3`, with separate cold/warm timings, model/checkpoint,
+hardware, configuration cohort, errors and skipped coverage. Read it through
+`get_pipeline_benchmarks`, or export it with:
+
+```bash
+python3 payloads/services/benchmark_cctv.py summary \
+  --run-dir /absolute/path/to/run --output /absolute/path/to/stages.json
+```
+
+Set `benchmarks.cohort` to your experiment name and `max_samples` to its retained
+window (default 10,000). Measurements include RF-DETR person events, temporal
+policy, evidence persistence, notice publication, caption queue/dispatch/Cosmos
+time, MN memory retrieval/publication, and historical Q&A retrieval/generation.
+Frame-to-notice latency ends at SDK/MCP publication. It excludes desktop receipt
+and notification display. Frame timestamps are worker availability times,
+not sensor timestamps or the original recording date. No camera URLs, images,
+captions, prompts or credentials enter the benchmark ledger.
+
+No accuracy or Spark throughput result is implied by the defaults. Compare
+Small and Medium on the same approved, labeled footage and keep missed events,
+false alerts and confirmation delay beside p50/p95 timing. Test under concurrent
+caption load before setting the production cadence.

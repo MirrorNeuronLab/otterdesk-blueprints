@@ -193,6 +193,8 @@ def _run_handler_workflow(
                 "monitoring": {"max_cycles": 1},
             },
             {
+                "source_context": {"enabled": False},
+                "text_memory": {"enabled": False},
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
                 "agentic_research": {"enabled": False},

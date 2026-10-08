@@ -5,19 +5,19 @@
       "name": "mirrorneuron-graph-analysis-skill",
       "source": "gar",
       "type": "pip",
-      "version": ">=1.3.47"
+      "version": ">=1.3.58.dev0,<2"
     },
     {
-      "name": "mirrorneuron-document-reading-skill",
+      "name": "mirrorneuron-docs-to-markdown-skill",
       "source": "gar",
       "type": "pip",
-      "version": ">=1.3.47"
+      "version": ">=1.3.58.dev0,<2"
     },
     {
-      "name": "mirrorneuron-pdf-extract-skill",
-      "source": "gar",
       "type": "pip",
-      "version": ">=1.3.47"
+      "source": "gar",
+      "name": "mirrorneuron-temporal-graph-skill",
+      "version": ">=1.3.58.dev0,<2"
     }
   ],
   "agents": [

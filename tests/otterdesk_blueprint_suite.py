@@ -179,14 +179,13 @@ SKILL_DEPENDENCY_VERSION_OVERRIDES = {
 }
 IMPORT_MARKER_PACKAGES = {
     "mn_sdk.blueprint_support": "mn-python-sdk-common",
-    "mn_llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
     "mn_web_browser_skill": "mirrorneuron-web-browser-skill",
     "mn_sdk_rag": "mn-python-sdk-rag",
     "mn_sdk_common.streams": "mn-python-sdk-common",
     "mn_evidence_engine_skill": "mirrorneuron-evidence-engine-skill",
     "mn_actor_review_skill": "mirrorneuron-actor-review-skill",
     "mn_client_report_skill": "mirrorneuron-client-report-skill",
-    "mn_document_reading_skill": "mirrorneuron-document-reading-skill",
+    "mn_docs_to_markdown_skill": "mirrorneuron-docs-to-markdown-skill",
     "mn_public_research_orchestrator_skill": "mirrorneuron-public-research-orchestrator-skill",
     "mn_scoring_framework_skill": "mirrorneuron-scoring-framework-skill",
     "mn_autonomous_research_skill": "mirrorneuron-autonomous-research-skill",
@@ -200,7 +199,7 @@ IMPORT_MARKER_PACKAGES = {
     "mn_sdk_collaboration": "mn-python-sdk-collaboration",
 }
 SKILL_NAME_PACKAGES = {
-    "llm_ocr_skill": "mirrorneuron-llm-ocr-skill",
+    "docs_to_markdown_skill": "mirrorneuron-docs-to-markdown-skill",
     "rag_skill": "mn-python-sdk-rag",
     "web_browser_skill": "mirrorneuron-web-browser-skill",
     "websocket_stream": "mn-python-sdk-common",

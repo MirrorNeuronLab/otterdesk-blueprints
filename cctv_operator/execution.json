@@ -58,6 +58,8 @@
             "agents/validation/start_video_monitor.py"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "from": "base",
           "gpus": "all",
@@ -114,6 +116,8 @@
             "scripts/run_sampler_on_nvidia.sh"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "from": "base",
           "gpus": "all",
@@ -188,19 +192,23 @@
             "scripts/run_detector_on_nvidia.sh"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {
             "MN_LLM_API_BASE": "auto",
             "MN_LLM_BACKEND": "llama.cpp",
-            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_MODEL": "nemotron-3.5-lightning:latest",
             "MN_LLM_PROVIDER": "docker_model_runner",
             "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
             "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
             "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
             "MN_RUNTIME_MODEL_MANAGED": "1",
             "MN_VLM_API_BASE": "auto",
-            "MN_VLM_BACKEND": "llama.cpp",
-            "MN_VLM_MODEL": "nemotron3:q4_K_M",
-            "MN_VLM_PROVIDER": "docker_model_runner"
+            "MN_VLM_BACKEND": "nim",
+            "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
+            "MN_VLM_PROVIDER": "docker_model_runner",
+            "MN_VLM_MAX_TOKENS": "4096",
+            "MN_VLM_TIMEOUT_SECONDS": "120"
           },
           "from": "base",
           "gpus": "all",
@@ -259,6 +267,8 @@
             "agents/report_writer/scripts/write_cctv_report.py"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "from": "base",
           "gpus": "all",
@@ -304,10 +314,12 @@
         "alias": "cctv_web_ui",
         "config": {
           "command": [
-            "python3",
-            "services/cctv_web_ui.py"
+            "bash",
+            "services/run_cctv_web_ui.sh"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "from": "base",
           "gpus": "all",
@@ -468,7 +480,7 @@
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
             "id": "visual_target_detector",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -477,7 +489,7 @@
             "alias": "quality_controller",
             "display_name": "Quality Controller",
             "id": "quality_controller",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -494,7 +506,7 @@
             "alias": "adaptive_frame_sampler",
             "display_name": "Adaptive Frame Sampler",
             "id": "adaptive_frame_sampler",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Select sparse and event-triggered frame batches",
             "tokens": 14000,
             "tools": 4
@@ -521,7 +533,7 @@
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
             "id": "video_source_validator",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -530,7 +542,7 @@
             "alias": "video_monitor",
             "display_name": "Video Monitor",
             "id": "video_monitor",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -547,7 +559,7 @@
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
             "id": "report_writer",
-            "model": "nemotron3:q4_K_M",
+            "model": "cosmos3-nano-reasoner:1.7",
             "role": "Write cumulative CCTV reports",
             "tokens": 14000,
             "tools": 4
@@ -580,13 +592,106 @@
     },
     "models": {
       "primary": {
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "provider": "docker_model_runner",
+        "required": true,
+        "type": "llm",
+        "required_capabilities": [
+          "structured_output"
+        ]
+      },
+      "vision": {
+        "model": "cosmos3-nano-reasoner:1.7",
+        "provider": "docker_model_runner",
+        "backend": "nim",
         "required": true,
         "type": "vlm",
         "required_capabilities": [
-          "image_input",
-          "structured_output"
+          "image_input"
+        ],
+        "customize_mode": true,
+        "model_spec": {
+          "id": "cosmos3-nano-reasoner:1.7",
+          "name": "Cosmos3 Nano Reasoner",
+          "description": "NVIDIA NIM vision-language reasoning model delivered by an NVIDIA GPU Docker container.",
+          "source": "docker",
+          "provider": "docker_model_runner",
+          "model": "cosmos3-nano-reasoner:1.7",
+          "api_model": "nvidia/cosmos3-nano-reasoner",
+          "aliases": [
+            "cosmos3",
+            "cosmos3-nano-reasoner",
+            "nvidia/cosmos3-nano-reasoner"
+          ],
+          "route_aliases": [
+            "cosmos3-nano-reasoner:1.7",
+            "cosmos3",
+            "nvidia/cosmos3-nano-reasoner"
+          ],
+          "backend": "nim",
+          "backends": [
+            "nim"
+          ],
+          "model_type": "multimodal",
+          "input_modalities": [
+            "text",
+            "image",
+            "video"
+          ],
+          "context_size": 32768,
+          "requirements": {
+            "min_vram_gb": 48,
+            "required_capabilities": [
+              "cuda"
+            ]
+          },
+          "docker": {
+            "image": "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7",
+            "port": 30082,
+            "container_port": 8000,
+            "gpus": "all",
+            "shm_size": "32g",
+            "api_path": "/v1",
+            "ready_path": "/v1/health/ready",
+            "ready_timeout": 1200,
+            "cache_path": "/opt/nim/.cache",
+            "registry": {
+              "host": "nvcr.io",
+              "username": "$oauthtoken",
+              "password_env": [
+                "NGC_API_KEY",
+                "NGC_CLI_API_KEY"
+              ]
+            },
+            "secret_environment": {
+              "NGC_API_KEY": [
+                "NGC_API_KEY",
+                "NGC_CLI_API_KEY"
+              ]
+            },
+            "environment": {
+              "NIM_MODEL_SIZE": "nano",
+              "NIM_GPU_MEMORY_UTILIZATION": "0.7",
+              "NIM_MAX_MODEL_LEN": "32768",
+              "NIM_MAX_NUM_SEQS": "4",
+              "NIM_DISABLE_CUDA_GRAPH": "1",
+              "NIM_DISABLE_MM_PREPROCESSOR_CACHE": "1",
+              "NIM_DELETE_LAST_FRAMES": "1",
+              "NIM_MODEL_PROFILE": "e55fdb44f41441032f546360d0dcf61caa8b39fa2852d31124c03953d01e1cb3"
+            }
+          }
+        }
+      },
+      "person_detector": {
+        "model": "RF-DETR Small",
+        "type": "vision",
+        "provider": "worker_local",
+        "install_mode": "cluster_provided",
+        "required": true,
+        "preparation": "domain.person_detector",
+        "revision": "d81979a9213a2109345158ce9232668df4c1ae52e9b8db3f2ec0a8cbad959b33",
+        "required_capabilities": [
+          "image_input"
         ]
       }
     },
@@ -663,10 +768,12 @@
     },
     "worker_defaults": {
       "docker_worker_image": "docker_worker",
+      "build_context": ".",
+      "dockerfile": "docker_worker/Dockerfile",
       "gpus": "all",
       "image": "mirror-neuron/cctv-operator:local",
       "network_mode": "host",
-      "model": "nemotron3:q4_K_M",
+      "model": "cosmos3-nano-reasoner:1.7",
       "pool": "default",
       "pool_slots": 1,
       "reuse_shared_container": true,
@@ -759,6 +866,8 @@
             "agents/validation/start_video_monitor.py"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
@@ -788,6 +897,8 @@
             "scripts/run_sampler_on_nvidia.sh"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
@@ -822,19 +933,23 @@
             "scripts/run_detector_on_nvidia.sh"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {
             "MN_LLM_API_BASE": "auto",
             "MN_LLM_BACKEND": "llama.cpp",
-            "MN_LLM_MODEL": "nemotron3:q4_K_M",
+            "MN_LLM_MODEL": "nemotron-3.5-lightning:latest",
             "MN_LLM_PROVIDER": "docker_model_runner",
             "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
             "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
             "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
             "MN_RUNTIME_MODEL_MANAGED": "1",
             "MN_VLM_API_BASE": "auto",
-            "MN_VLM_BACKEND": "llama.cpp",
-            "MN_VLM_MODEL": "nemotron3:q4_K_M",
-            "MN_VLM_PROVIDER": "docker_model_runner"
+            "MN_VLM_BACKEND": "nim",
+            "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
+            "MN_VLM_PROVIDER": "docker_model_runner",
+            "MN_VLM_MAX_TOKENS": "4096",
+            "MN_VLM_TIMEOUT_SECONDS": "120"
           },
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
@@ -872,6 +987,8 @@
             "agents/report_writer/scripts/write_cctv_report.py"
           ],
           "docker_worker_image": "docker_worker",
+          "build_context": ".",
+          "dockerfile": "docker_worker/Dockerfile",
           "environment": {},
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",

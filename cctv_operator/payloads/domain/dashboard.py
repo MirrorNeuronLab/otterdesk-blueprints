@@ -5,6 +5,8 @@ import math
 import time
 from typing import Any, Mapping
 
+from .detection_policy import DEFAULT_MONITORING_GOAL
+
 
 def _mapping(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
@@ -36,24 +38,6 @@ def _epoch(value: Any) -> float | None:
         return None
 
 
-def routine_update_message(metrics: Mapping[str, Any], *, new_analysis: bool) -> str:
-    target = str(metrics.get("watch target") or "the configured targets")[:300]
-    observed_at = str(metrics.get("last analyzed") or "waiting")[:80]
-    finding = str(metrics.get("latest finding") or "")[:300]
-    active_revision = int(metrics.get("instruction revision") or 0)
-    analyzed_revision = int(metrics.get("latest analyzed revision") or 0)
-    if active_revision > analyzed_revision:
-        return f"Monitoring {target}. Waiting for the first analyzed frame under this goal."
-    if observed_at == "waiting":
-        return f"Monitoring {target}. No analyzed frame is available yet."
-    if not new_analysis:
-        return (
-            f"Monitoring {target}. No new analyzed frame in the last 30 seconds. "
-            f"Latest finding from {observed_at}: {finding}"
-        )
-    return f"Monitoring {target}. Latest analyzed frame at {observed_at}: {finding}"
-
-
 def _event(
     event_type: str,
     summary: str,
@@ -83,6 +67,13 @@ def observation_details(value: Mapping[str, Any]) -> list[dict[str, str]]:
     risk = value.get("risk_level")
     if risk in ("low", "medium", "high"):
         details.append({"label": "Risk", "value": risk})
+    for prediction in _items(value.get("risk_predictions")):
+        details.append({"label": "Predicted risk", "value": (
+            f"{prediction.get('risk')} · {prediction.get('severity')} · "
+            f"{prediction.get('time_horizon')} · confidence {float(prediction.get('confidence') or 0):.0%}. "
+            f"Evidence: {prediction.get('visible_evidence')}. Review: {prediction.get('recommended_review')}. "
+            "Prediction, not an observed event."
+        )})
     for key, label in (
         ("model_latency_ms", "Analysis time"),
         ("selected_count", "Frames"),
@@ -170,14 +161,8 @@ def operator_state(
     latest_detection = detections[-1] if detections else {}
     latest_batch = _mapping(report.get("latest_batch"))
     payload = _mapping(_mapping(config.get("inputs")).get("payload"))
-    configured_targets = payload.get("visual_targets")
-    configured_targets = (
-        [str(item) for item in configured_targets if str(item).strip()]
-        if isinstance(configured_targets, list)
-        else []
-    )
     watch_target = str(monitoring.get("instruction") or "").strip()
-    watch_target = watch_target or ", ".join(configured_targets) or "Default visual targets"
+    watch_target = watch_target or str(payload.get("monitoring_goal") or DEFAULT_MONITORING_GOAL)
 
     last_seen = (
         latest.get("observed_at")
@@ -186,6 +171,10 @@ def operator_state(
         or latest_frame.get("created_at")
     )
     last_seen_epoch = _epoch(last_seen)
+    gate_events = [event for event in supplemental_events
+                   if event.get("type") == "cctv_operator_candidate_gate_checked"]
+    last_sample = _mapping(gate_events[-1].get("payload")).get("sampled_at") if gate_events else None
+    last_sample_epoch = _epoch(last_sample)
     baseline = _mapping(config.get("sampling")).get(
         "baseline_interval_seconds", 20
     )
@@ -195,8 +184,8 @@ def operator_state(
         stale_after = 60.0
     current_time = float(time.time() if now is None else now)
     stale = (
-        last_seen_epoch is not None
-        and current_time - last_seen_epoch > stale_after
+        (last_sample_epoch if last_sample_epoch is not None else last_seen_epoch) is not None
+        and current_time - (last_sample_epoch if last_sample_epoch is not None else last_seen_epoch) > stale_after
     )
 
     review_alerts = [
@@ -217,7 +206,7 @@ def operator_state(
     elif review_alerts:
         status = "Review needed"
         warning = f"{len(review_alerts)} operator notice(s) need review."
-    elif observations:
+    elif observations or last_sample_epoch is not None:
         status = "Monitoring"
         warning = preview_warning
     else:
@@ -244,7 +233,7 @@ def operator_state(
         )
     for alert in alerts[-20:]:
         recent_events.append(
-            _event(
+            {**_event(
                 "Operator notice",
                 str(
                     alert.get("message")
@@ -254,7 +243,7 @@ def operator_state(
                 ),
                 timestamp=alert.get("observed_at"),
                 observation=alert,
-            )
+            ), "image": alert.get("image"), "notice_id": alert.get("notice_id")}
         )
     for detection in detections[-20:]:
         recent_events.append(
@@ -272,7 +261,7 @@ def operator_state(
     for event in supplemental_events[-20:]:
         payload_value = _mapping(event.get("payload"))
         event_type = str(event.get("type") or "runtime_event")
-        if event_type == "cctv_operator_sample_due":
+        if event_type in {"cctv_operator_sample_due", "cctv_operator_candidate_gate_checked"}:
             continue
         recent_events.append(
             _event(
@@ -306,7 +295,7 @@ def operator_state(
     finding = (
         current_finding.get("detection_report")
         or current_finding.get("summary")
-        or "Waiting for the first analyzed frame."
+        or ("No goal event has been verified yet." if last_sample_epoch is not None else "Waiting for the first analyzed frame.")
     )
     confidence = current_finding.get("confidence")
     confidence_text = (
@@ -327,6 +316,7 @@ def operator_state(
             "target detections": int(report.get("detection_count") or len(detections)),
             "alerts to review": len(review_alerts),
             "last analyzed": _display_time(last_seen),
+            "last sampled": _display_time(last_sample),
             "model latency": (
                 f"{int(sampling_metrics.get('latest_model_latency_ms') or 0)} ms"
                 if observations
@@ -346,6 +336,9 @@ def operator_state(
             "latest analyzed revision": int(latest.get("instruction_revision") or 0),
         },
         "finding_details": observation_details(current_finding),
+        "understanding": {key: current_finding.get(key) for key in (
+            "scene_understanding", "risk_predictions", "uncertainties", "observed_at",
+            "camera_id", "frame_batch_ref", "capture_started_at", "capture_ended_at", "source_profile")},
         "warning": warning,
         "events": recent_events,
     }

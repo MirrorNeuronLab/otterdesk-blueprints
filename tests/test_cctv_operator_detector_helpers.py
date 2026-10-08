@@ -228,6 +228,7 @@ def test_gate_call_uses_only_the_strict_boolean_confidence_schema(monkeypatch):
     detector = _load_detector()
     captured = {}
     monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3:q4_K_M")
     monkeypatch.setenv("MN_VLM_API_BASE", "auto")
     monkeypatch.setattr(detector, "runtime_model_json_request", lambda *_args, **kwargs: (
         captured.update({"payload": _args[3], **kwargs}),
@@ -339,6 +340,7 @@ def test_dmr_vlm_rejects_reasoning_only_response(monkeypatch):
             ).encode()
 
     monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
+    monkeypatch.setenv("MN_VLM_MODEL", "nemotron3:q4_K_M")
     monkeypatch.setattr(detector.urllib.request, "urlopen", lambda *_args, **_kwargs: FakeResponse())
 
     with pytest.raises(

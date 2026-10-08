@@ -3,7 +3,12 @@
 from .common import *
 from .review_services import fake_llm_requested
 
-from mn_document_reading_skill import document_paths, file_sha256
+from mn_docs_to_markdown_skill import (
+    configure_ocr_runtime,
+    document_paths,
+    file_sha256,
+    normalize_extraction_result,
+)
 
 def fingerprint_file(path: Path) -> dict[str, Any]:
     try:
@@ -25,9 +30,6 @@ def iter_input_files(document_folder: Path) -> list[Path]:
         return []
     return document_paths(document_folder, supported_suffixes=SUPPORTED_SUFFIXES)
 
-def _ocr_skill_config(config: dict[str, Any]) -> dict[str, Any]:
-    input_skills = config.get("input_skills") if isinstance(config.get("input_skills"), dict) else {}
-    return {"input_skills": input_skills}
 
 def _ocr_disabled_for_fake_run(ctx: dict[str, Any]) -> bool:
     llm = ctx.get("llm")
@@ -39,59 +41,15 @@ def _ocr_disabled_for_fake_run(ctx: dict[str, Any]) -> bool:
     )
 
 def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
-    section = (ctx["config"].get("input_skills") or {}).get("llm_ocr")
-    section = section if isinstance(section, dict) else {}
-    install_policy = str(section.get("install_policy") or "on_first_required_document")
-    runtime_managed = install_policy.strip().lower().replace("-", "_") in {
-        "runtime",
-        "runtime_managed",
-        "preinstalled",
-        "pre_installed",
-    }
-    status: dict[str, Any] = {
-        "enabled": section.get("enabled", True) is not False,
-        "skill_available": extract_document is not None and docker_ocr_client_factory_from_config is not None,
-        "configured": False,
-        "status": "not_needed",
-        "install_policy": install_policy,
-        "trigger": "PDF/image with less than 40 embedded characters",
-        "source_model": "lightonai/LightOnOCR-2-1B",
-        "warnings": [],
-    }
-    if not status["enabled"]:
-        status["status"] = "disabled"
-        status["warnings"].append("llm_ocr_disabled_in_config")
-        return None, status
-    if _ocr_disabled_for_fake_run(ctx):
-        status["status"] = "disabled_for_fake_or_quick_test"
-        status["warnings"].append("llm_ocr_skipped_for_explicit_fake_or_quick_test")
-        return None, status
-    if not status["skill_available"]:
-        status["status"] = "skill_unavailable"
-        status["warnings"].append("mirrorneuron_llm_ocr_skill_unavailable")
-        return None, status
-    try:
-        factory = docker_ocr_client_factory_from_config(_ocr_skill_config(ctx["config"]))
-        if factory is None:
-            status["status"] = "disabled_by_skill_config"
-            status["warnings"].append("llm_ocr_factory_disabled")
-            return None, status
-        client = factory()
-        model_config = getattr(client, "config", None)
-        status.update(
-            {
-                "configured": True,
-                "status": "ready_for_runtime_managed_first_use" if runtime_managed else "ready_for_lazy_first_use",
-                "runtime_model": getattr(model_config, "model", None),
-                "backend": getattr(model_config, "backend", None),
-                "expected_accelerator": getattr(model_config, "expected_accelerator", None),
-            }
-        )
-        return client, status
-    except Exception as exc:  # pragma: no cover - depends on local OCR runtime
-        status["status"] = "configuration_failed"
-        status["warnings"].append(f"llm_ocr_configuration_failed:{exc}")
-        return None, status
+    skip = _ocr_disabled_for_fake_run(ctx)
+    return configure_ocr_runtime(
+        ctx["config"],
+        min_text_chars=OCR_MIN_TEXT_CHARS,
+        skip_status="disabled_for_fake_or_quick_test" if skip else None,
+        skip_warning="llm_ocr_skipped_for_explicit_fake_or_quick_test" if skip else None,
+        extraction_available=extract_document is not None,
+        factory_builder=docker_ocr_client_factory_from_config,
+    )
 
 def _read_ocr_document(path: Path, ocr_client: Any | None) -> dict[str, Any]:
     record = extract_document(
@@ -100,7 +58,7 @@ def _read_ocr_document(path: Path, ocr_client: Any | None) -> dict[str, Any]:
         llm_ocr_client=ocr_client,
         min_text_chars=OCR_MIN_TEXT_CHARS,
     )
-    payload = record.to_dict() if hasattr(record, "to_dict") else dict(record)
+    payload = normalize_extraction_result(record)
     text = str(payload.get("text") or "")
     return {
         "source_ref": path.name,
@@ -147,7 +105,7 @@ def read_document(path: Path, *, ocr_client: Any | None = None) -> dict[str, Any
             warnings.append(f"read_error:{exc}")
     else:
         warnings.append("binary_or_scanned_document_requires_ocr_for_text")
-        warnings.append("mirrorneuron_llm_ocr_skill_unavailable")
+        warnings.append("mirrorneuron_docs_to_markdown_skill_unavailable")
     if suffix == ".json" and text:
         try:
             data = json.loads(text)

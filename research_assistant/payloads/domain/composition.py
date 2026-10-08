@@ -10,6 +10,7 @@ from typing import Any
 from .autonomous import autonomous_research
 from .evidence import prepare_evidence
 from .intake import frame_goal
+from .preflight import assess_evidence_coverage, assess_experiment_readiness
 from .reporting import publish_packet
 from .runtime_services import runtime_context_for_step
 from .verification import audit_packet
@@ -18,6 +19,8 @@ from .verification import audit_packet
 LOCAL_OPERATIONS = (
     frame_goal,
     prepare_evidence,
+    assess_evidence_coverage,
+    assess_experiment_readiness,
     autonomous_research,
     audit_packet,
     publish_packet,

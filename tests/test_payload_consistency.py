@@ -56,21 +56,21 @@ def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
         assert "mirrorneuron-litellm-communicate-skill" not in packages
 
     vc_manifest = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(ROOT / "vc_assistant" / "manifest.json")
     )
     vc_packages = {
         str(item.get("name") or "")
         for item in vc_manifest.get("skill_dependencies") or []
         if isinstance(item, dict)
     }
-    assert {"mirrorneuron-rag-skill", "mirrorneuron-llm-ocr-skill"} <= vc_packages
+    assert {"mirrorneuron-docs-to-markdown-skill"} <= vc_packages
 
 
 def test_vc_assistant_leaves_rag_and_ocr_model_specs_in_their_skills():
     forbidden_model_text = ("lightonocr", "jina-embeddings", "rag-embedding")
-    manifest_path = ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+    manifest_path = ROOT / "vc_assistant" / "manifest.json"
     config_path = (
-        ROOT.parent / "mn-blueprints" / "vc_assistant" / "config" / "default.json"
+        ROOT / "vc_assistant" / "config" / "default.json"
     )
     manifest = blueprint_definition(read_blueprint(manifest_path))
     serialized = json.dumps(

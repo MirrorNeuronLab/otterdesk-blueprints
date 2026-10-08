@@ -1,13 +1,17 @@
 # Catalog context engine contract
 
-All 12 published entries in `index.json` declare the `mn.context` extension with
-`text_memory.contract = mn.context.text.v1`. The profile is enabled only where
-worker code actually ingests or retrieves runtime memory.
+All 13 published entries in `index.json` declare the `mn.context` extension with
+`text_memory.contract = mn.context.text.v1`. The runtime recall profile is enabled only where
+worker code actually ingests or retrieves runtime memory. Drug Discovery separately
+enables `source_context` for the stable Job responder and declares the SDK context
+extra. Its workers publish complete prepared Markdown; the runtime owns Membrane
+ingestion and citation-backed input/output/procedure queries.
 
 | Published blueprint | Markdown memory | Current boundary |
 | --- | --- | --- |
+| mac_security_investigator | Enabled | Loopback-only authored assertion graphs with source locators, pinned scope/knowledge revision, local temporal witnesses; deterministic disable profile is explicit |
 | cctv_operator | Enabled | Camera/source-scoped sampled history before vision; job-scoped observations with run provenance |
-| drug_discovery_research_assistant | Disabled | Discovery artifacts and knowledge; no TextMemory calls |
+| drug_discovery_research_assistant | Source intelligence | Approved input Markdown, configured procedure and saved scientific results for stable Job Chat; runtime TextMemory recall disabled |
 | software_architecture_advisor | Enabled | Complete frozen source text, runtime decisions and canonical memory recall |
 | litigation_analyst | Enabled | Complete normalized case corpus, specialist observations and durable context turns |
 | vc_assistant | Enabled | Complete redacted inputs, restricted input principals and normalized runtime claims, source qualification and method observations |
@@ -43,7 +47,7 @@ Complete upstream text / approved observations
 ```
 
 All entries declare SDK >=1.3.58.dev0,<2 in `dependencies.json` for these
-profile/staging contracts. Active consumers additionally select the `context` extra. That extra requires Membrane SDK >=2.0,<3. Local development
+profile/staging contracts. Active consumers additionally select the `context` extra. That extra requires Membrane SDK >=2.1,<3. Local development
 stages the SDK and the matching Membrane source with `[grpc]` in one worker pip
 transaction. Source/version validation fails before manifest mutation. Wheel and
 Git preparation retain `[context]`; an installed optional package does not enable
@@ -63,6 +67,12 @@ installers can build the checked-out engine explicitly with
 `mn-deploy/install.sh --mode local --build-membrane`; binary/GitHub installs need a
 coordinated published release containing Membrane SDK 2 and its matching engine.
 No old memory is migrated and no retired memory API is used by this catalog.
+The RPC namespace is `mirrorneuron.context.v2`; `mn.context.text.v1` is the
+Markdown record/response format implemented by that service. Keep the two
+version labels distinct. Shared preparation verifies authenticated v2
+`CompilePrompt` before reporting readiness, including for an already-running
+container. It uses a deterministic probe with no stored-memory or model access
+and rejects unsupported protocols before worker dispatch.
 
 The trusted runtime supplies `MN_CONTEXT_ADDR`, `MN_CONTEXT_AUTH_TOKEN`, `MN_JOB_ID`
 and `MN_WORKFLOW_RUN_ID`/`MN_RUN_ID`. The installer and CLI create/reuse a private
@@ -91,7 +101,7 @@ live model flows or semantic answer quality.
 
 ## Verification
 
-The catalog gates compile all 12 entries, resolve enabled/disabled overrides,
+The catalog gates compile all 13 entries, resolve enabled/disabled overrides,
 check imports and retired settings, and stage both source and binary dependencies:
 
 ```bash

@@ -12,7 +12,7 @@
     },
     "peer_job_id": {
       "type": "string",
-      "required": true
+      "required": false
     },
     "instruction": {
       "type": "string",
@@ -26,6 +26,31 @@
     },
     "common_goal": {
       "type": "string",
+      "required": false
+    },
+    "collaboration_group_id": {
+      "type": "string",
+      "required": false
+    },
+    "collaboration_peers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "jobId",
+          "blueprintId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "jobId": {
+            "type": "string"
+          },
+          "blueprintId": {
+            "type": "string"
+          }
+        }
+      },
+      "maxItems": 4,
       "required": false
     }
   },

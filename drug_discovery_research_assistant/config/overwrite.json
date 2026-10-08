@@ -3,7 +3,8 @@
   "inputs": {
     "payload": {
       "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
-      "input_folder": "@/examples/sample_inputs"
+      "input_folder": "@/examples/sample_inputs",
+      "disease": "Alzheimer disease"
     }
   },
   "budgets": {

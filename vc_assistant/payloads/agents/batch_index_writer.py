@@ -23,6 +23,7 @@ from domain.agent_review import (
     write_actor_review_warnings_state,
 )
 from domain.analysis import build_company_evidence_summaries
+from domain.artifact_sources import index_output_artifacts
 from domain.common import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
@@ -240,12 +241,18 @@ def run_batch_index_writer(
                 if isinstance(knowledge_rag.get("config"), dict)
                 else "",
             },
+            "artifact_sources": {
+                "storage": "shared Markdown files",
+                "synchronization": "syncthing",
+                "index": "Membrane SourceCorpus",
+                "catalogs": "context_sources/inputs.json and context_sources/outputs.json",
+            },
             "runtime_memory": {
                 "storage": "markdown",
                 "index": "duckdb_per_job",
                 "device": "cpu",
                 "enabled": bool(ctx["config"].get("text_memory", {}).get("enabled")),
-                "purpose": "complete preprocessed inputs and privacy-approved actor observations",
+                "purpose": "privacy-approved execution observations, claims and method outcomes",
             },
         },
         "monitor_state": {
@@ -349,6 +356,7 @@ def run_batch_index_writer(
         append_event(
             ctx["run_dir"], "artifact_written", {"path": "llm_rag_trace.jsonl"}
         )
+    index_output_artifacts(ctx, final_artifact["output_files"])
     final_ref = durable_artifact("final_artifact", "final_artifact.json")
     quality_ref = durable_artifact("artifact_quality", "artifact_quality.json")
     health_ref = durable_artifact("run_health", "run_health.json")

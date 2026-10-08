@@ -25,7 +25,7 @@ for skill_name in (
     "evidence_engine_skill",
     "actor_review_skill",
     "client_report_skill",
-    "document_reading_skill",
+    "docs_to_markdown_skill",
     "public_research_orchestrator_skill",
     "scoring_framework_skill",
 ):

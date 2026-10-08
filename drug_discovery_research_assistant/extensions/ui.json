@@ -56,9 +56,27 @@
     "fields": [
       {
         "default": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
-        "description": "Confirm the disease, phenotype, or target family to investigate.",
-        "label": "Disease or target",
+        "description": "Therapeutic intent used for molecular screening; this is not a disease search query.",
+        "label": "Research profile",
         "path": "inputs.payload.disease_or_target_profile"
+      },
+      {
+        "path": "inputs.payload.targets",
+        "label": "Protein targets",
+        "value_type": "array",
+        "description": "UniProt targets to screen. Clear this list to discover targets for the disease name.",
+        "default": [
+          {
+            "protein_id": "P56817",
+            "gene": "BACE1"
+          }
+        ]
+      },
+      {
+        "path": "inputs.payload.disease",
+        "label": "Disease name",
+        "description": "Used for Open Targets discovery when no protein targets are provided.",
+        "default": "Alzheimer disease"
       },
       {
         "default": 600,

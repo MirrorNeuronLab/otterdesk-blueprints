@@ -11,7 +11,7 @@
       "available": true,
       "title": "EMC-2 investigation sample",
       "description": "Download the pinned public EMC-2 repository from GitHub and analyze its synthetic documents.",
-      "expected_output": "A cited investigation draft and evidence audit for human review.",
+      "expected_output": "A local interactive investigation with cited findings, counterevidence, relationship paths and a human-review audit.",
       "values": {
         "inputs.payload.input_folder": ""
       }
@@ -37,12 +37,31 @@
         "description": "An additional copy of the review draft and audit files is saved here.",
         "type": "local_path",
         "path_kind": "directory"
+      },
+      {
+        "path": "inputs.payload.review_file",
+        "label": "Previous review decisions",
+        "description": "Optional review-decisions.json exported from a prior investigation of this matter.",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input"
       }
     ]
   },
   "starter_questions": [
-    "What inputs can you analyze?",
-    "Where are my draft and audit records?",
-    "What does a graph relationship establish?"
-  ]
+    "Where is my interactive investigation?",
+    "Which evidence challenges the current findings?",
+    "What temporal paths are supported, uncertain or rejected?"
+  ],
+  "web_ui": {
+    "enabled": true,
+    "kind": "output",
+    "adapter": "static_html",
+    "description": "Optional offline source-linked investigation, published after citation verification.",
+    "registration": {
+      "artifact": "web/index.html",
+      "scope": "run",
+      "writes": "static-html web_ui.json handle in the run output"
+    }
+  }
 }

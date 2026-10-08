@@ -8,7 +8,7 @@ from workspace_paths import companion_workspace
 WORKSPACE = companion_workspace(Path(__file__).resolve().parents[1])
 SIBLING_SOURCES = (
     Path(__file__).resolve().parents[1],
-    Path(__file__).resolve().parents[2] / "mn-blueprints",
+    WORKSPACE / "mn-blueprints",
     WORKSPACE / "mn-python-sdk",
 
     WORKSPACE / "mn-skills" / "live_video_analysis_skill" / "src",
@@ -59,4 +59,5 @@ def text_memory_transport(monkeypatch):
     monkeypatch.setenv("MN_JOB_ID", "test-memory-job")
     monkeypatch.setenv("MN_RUN_ID", "test-memory-run")
     monkeypatch.setattr("mn_sdk.context_session.session.runtime_client", service.client)
+    monkeypatch.setattr("mn_sdk.source_query.runtime_client", service.client)
     return service

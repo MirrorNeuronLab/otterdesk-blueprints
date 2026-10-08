@@ -48,58 +48,31 @@ def test_cctv_operator_leaves_embedding_policy_to_the_rag_adapter():
         assert rag_config["chunk_overlap"] == 70
 
 
-def test_cctv_operator_uses_the_cataloged_lazy_special_vlm_route():
+def test_cctv_operator_uses_the_blueprint_owned_lazy_special_vlm_route():
     blueprint = ROOT / "cctv_operator"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data
 
     primary = manifest["runtime"]["models"]["primary"]
-    llm = config["llm"]
-    llm_primary = llm["configs"]["primary"]
-
-    assert primary == {
-        "model": "nemotron3:q4_K_M",
-        "provider": "docker_model_runner",
-        "required": True,
-        "type": "vlm",
-        "required_capabilities": ["image_input", "structured_output"],
-    }
-    assert llm["model"] == "nemotron3:q4_K_M"
-    assert llm["provider"] == "docker_model_runner"
-    assert "runtime_model" not in llm
-    assert llm_primary["model"] == "nemotron3:q4_K_M"
-    assert llm_primary["provider"] == "docker_model_runner"
-    assert llm_primary["api_base"] == "auto"
-    assert "runtime_model" not in llm_primary
-    visual_detector = next(
-        node
-        for node in manifest["agents"]["extra_nodes"]
-        if node.get("node_id") == "visual_detector"
-    )
-    assert visual_detector["config"]["beacon_timeout_ms"] == 45_000
-    environment = visual_detector["config"]["environment"]
-    assert environment["MN_RUNTIME_MODEL_MANAGED"] == "1"
-    assert environment["MN_LLM_PROVIDER"] == "docker_model_runner"
-    assert environment["MN_LLM_API_BASE"] == "auto"
-    assert environment["MN_RUNTIME_MODEL_CONTROL_TARGET"] == "127.0.0.1:55051"
-    assert environment["MN_RUNTIME_MODEL_GATEWAY_HOST"] == "127.0.0.1"
-    assert environment["MN_RUNTIME_MODEL_NATIVE_TARGET"] == "127.0.0.1:55052"
-    assert environment["MN_VLM_PROVIDER"] == "docker_model_runner"
-    assert environment["MN_VLM_API_BASE"] == "auto"
-    assert environment["MN_VLM_MODEL"] == "nemotron3:q4_K_M"
-    detect_step = next(
-        step
-        for step in manifest["workflow"]["steps"]
-        if step.get("id") == "detect_visual_targets"
-    )
-    assert detect_step["control"]["timeout_seconds"] == 600
-
-    deferred = build_deferred_runtime_model_plan(
-        required_blueprint_models(manifest, config)
-    )
+    vision = manifest["runtime"]["models"]["vision"]
+    assert primary["model"] == "nemotron-3.5-lightning:latest"
+    assert primary["type"] == "llm"
+    assert vision["model"] == "cosmos3-nano-reasoner:1.7"
+    assert vision["customize_mode"] is True
+    assert vision["model_spec"]["source"] == "docker"
+    assert vision["model_spec"]["docker"]["image"] == "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7"
+    assert config["llm"]["configs"]["primary"]["model"] == primary["model"]
+    assert config["llm"]["configs"]["vision"]["model"] == vision["model"]
+    visual_detector = next(node for node in manifest["agents"]["extra_nodes"] if node["node_id"] == "visual_detector")
+    env = visual_detector["config"]["environment"]
+    assert env["MN_VLM_MODEL"] == vision["model"]
+    assert env["MN_VLM_BACKEND"] == "nim"
+    assert env["MN_VLM_API_BASE"] == "auto"
+    assert env["MN_RUNTIME_MODEL_MANAGED"] == "1"
+    assert env["MN_VLM_MAX_TOKENS"] == "4096"
+    deferred = build_deferred_runtime_model_plan(required_blueprint_models(manifest, config))
     assert deferred["errors"] == []
-    assert deferred["models"][0]["status"] == "deferred_runtime_install"
-    assert deferred["models"][0]["runtime_model"] == "nemotron3:q4_K_M"
+    assert {row["runtime_model"] for row in deferred["models"]} == {primary["model"], vision["model"]}
     validation_manifest, validation_config = (
         model_validation_inputs_with_prepared_models(
             manifest,
@@ -121,6 +94,10 @@ def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
     blueprint = ROOT / "cctv_operator"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data
+
+    demo = tmp_path / "Camera.mp4"
+    demo.write_bytes(b"fixture-video")
+    config["video_source"]["demo_file"] = str(demo)
 
     report = run_input_validation(
         blueprint,
@@ -222,7 +199,7 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
             "python3",
             "agents/report_writer/scripts/write_cctv_report.py",
         ],
-        "cctv_web_ui": ["python3", "services/cctv_web_ui.py"],
+        "cctv_web_ui": ["bash", "services/run_cctv_web_ui.sh"],
     }
     assert set(nodes) == set(expected_uploads)
     for node_id, node in nodes.items():

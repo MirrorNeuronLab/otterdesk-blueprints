@@ -1,0 +1,98 @@
+{
+  "host_epoch_id": "synthetic-northstar-epoch-1",
+  "scan_id": "R-04",
+  "acquisition": {
+    "earliest": "2026-10-07T10:00:00Z",
+    "latest": "2026-10-07T10:00:00Z"
+  },
+  "synthetic": true,
+  "sources": [
+    {
+      "source_id": "startup:user-demo",
+      "scope": "user:demo",
+      "capabilities": [
+        "startup_state"
+      ],
+      "availability": "available",
+      "enumeration": "complete",
+      "parser_version": "synthetic-v1",
+      "consistency": "atomic_fixture",
+      "records": [
+        {
+          "kind": "state",
+          "entity": "slot-northstar",
+          "capability": "startup_state",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-10-07T10:00:00Z",
+            "latest": "2026-10-07T10:00:00Z"
+          },
+          "fields": {
+            "target": "/Library/Northstar/V2"
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "update-history",
+      "scope": "user:demo",
+      "capabilities": [
+        "corroborated_expected_update"
+      ],
+      "availability": "available",
+      "enumeration": "partial",
+      "parser_version": "synthetic-v1",
+      "records": [
+        {
+          "kind": "counterevidence",
+          "entity": "slot-northstar",
+          "capability": "corroborated_expected_update",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-10-01T11:00:00Z",
+            "latest": "2026-10-01T11:00:00Z"
+          },
+          "fields": {
+            "prior_target": "/Applications/Northstar.app/V1",
+            "target": "/Library/Northstar/V2",
+            "corroboration_refs": [
+              {
+                "scan_id": "R-04",
+                "source_id": "installer-receipt",
+                "locator": 0
+              }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "installer-receipt",
+      "scope": "user:demo",
+      "capabilities": [
+        "installation"
+      ],
+      "availability": "available",
+      "enumeration": "partial",
+      "parser_version": "synthetic-v1",
+      "records": [
+        {
+          "kind": "event",
+          "entity": "slot-northstar",
+          "capability": "installation",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-10-01T11:00:00Z",
+            "latest": "2026-10-01T11:00:00Z"
+          },
+          "fields": {
+            "prior_target": "/Applications/Northstar.app/V1",
+            "target": "/Library/Northstar/V2",
+            "expected_update": true
+          },
+          "occurrence_key": "installer:update-1"
+        }
+      ]
+    }
+  ]
+}

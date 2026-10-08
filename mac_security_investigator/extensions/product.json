@@ -1,0 +1,38 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Security",
+  "intent": {
+    "problem": "Separate scans miss changes and recurrence across time.",
+    "target_users": "Mac owners and local security reviewers.",
+    "safety": {
+      "enabled": true,
+      "mode": "review_only",
+      "reason": "Read existing evidence, preserve uncertainty, and never remediate the machine.",
+      "blocked_actions": [
+        "source_execution",
+        "remediation",
+        "credential_extraction",
+        "external_evidence_transfer",
+        "continuous_monitoring"
+      ]
+    }
+  },
+  "product": {
+    "agent_role": "Local Mac security co-worker",
+    "benefit": "Connect evidence over time and inspect what supports each concern.",
+    "problem": "Repeated scans can confuse observations with actual activity.",
+    "how_it_works": "Queries recent local security logs, retains diagnostic metadata across runs, and publishes source receipts and coverage without inspecting OS files.",
+    "input": "Output folder. Recent Mac unified logs are queried automatically.",
+    "output": "Diagnostic log metadata, source receipts, coverage, and saved reports.",
+    "runtime_features": [
+      "Logs-only collection",
+      "Explicit coverage and attribution limits",
+      "Persistent diagnostic history",
+      "Historical replay",
+      "Local graph context"
+    ],
+    "target_users": "Mac owners and local security reviewers.",
+    "simulation_type": "Synthetic evidence is used only in tests; runs inspect the local Mac.",
+    "customizable_for": "Local read-only retrospective investigations."
+  }
+}

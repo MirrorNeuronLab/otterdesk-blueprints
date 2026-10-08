@@ -23,7 +23,7 @@ domain agent—owns source collection, routing, joins, and logical completion.
 
 ## OCR
 
-PDFs and document images use `mirrorneuron-llm-ocr-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents are sent to the shared LightOnOCR-2-1B Docker Model Runner service. The runtime prepares the catalogued OCR model before worker execution; the worker uses the shared endpoint without a Docker CLI. The workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
+PDFs and document images use `mirrorneuron-docs-to-markdown-skill`. Embedded PDF text is preferred when it is substantial; image-only or low-text documents are sent to the shared LightOnOCR-2-1B Docker Model Runner service. The runtime prepares the catalogued OCR model before worker execution; the worker uses the shared endpoint without a Docker CLI. The workflow preserves OCR-required status, extraction method, model metadata, page metadata, and warnings for human review.
 
 ## Model selection
 
@@ -94,3 +94,7 @@ configuration are resolved by the SDK before launch.
 ## Context engine contract
 
 The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
+
+## Shared capability ownership
+
+Document intake, OCR record normalization, lazy client configuration, and model diagnostics belong to the shared docs-to-markdown skill. Version 1.1.1 replaces the retired document-reading and LLM OCR distributions with this package; local source preparation stages it from `mn-skills/docs_to_markdown_skill`. Financial classification, review-only policy and report composition remain blueprint-owned.

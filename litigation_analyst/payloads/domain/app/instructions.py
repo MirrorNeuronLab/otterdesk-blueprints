@@ -1,6 +1,12 @@
 """Case-specific investigation instructions; evidence is never instruction authority."""
 
 GRAPH_SCHEMA = "Node labels and properties:\n- Email: logical_id, subject, date, sender, recipients, source_id, content_sha256,\n  relative_path, media_type, size_bytes, access_scope, text.\n- Document: logical_id, title, filename, doc_type, source_id, content_sha256,\n  relative_path, media_type, size_bytes, access_scope, text.\n- Correspondent: logical_id, identity, email, display_name, aliases, access_scope,\n  provenance_kind, extractor_version, source_ids, content_sha256s.\n- Mailbox: logical_id, source_id, access_scope.\n\nDirected relationships:\n- (Correspondent)-[:SENT]->(Email)\n- (Email)-[:TO]->(Correspondent)\n- (Email)-[:CC]->(Correspondent)\n- (Email)-[:CONTAINED_IN]->(Mailbox)\n\nSupported query surface:\n- MATCH patterns, WHERE with =, comparisons, AND, OR, and IN.\n- RETURN projections, count(), DISTINCT, ORDER BY, SKIP, and LIMIT. count() is the\n  only supported aggregate; COUNT(DISTINCT expression) is not supported. Never use\n  collect(), avg(), sum(), min(), or max().\n- CALL algo.pagerank({max_iterations: 50, tolerance: 1e-6, damping: 0.85})\n  YIELD node, score RETURN node, score ORDER BY score DESC LIMIT 20.\n- CALL algo.bfs(integer_logical_id) YIELD node, depth RETURN node, depth LIMIT 50.\nDo not use CONTAINS, regular expressions, id(), EXISTS subqueries, UNION, APOC, or mutations."
+GRAPH_SCHEMA += """\nPhysical documents, EML files and Mailbox nodes also carry node_id (persistent UUID),
+repository_id, current_path, content_hash (raw-file version) and previous_paths.
+Treat UUIDs and integer logical_id handles as opaque. Use readable properties for
+paths and names. content_sha256 remains the separate normalized citation version.
+Embedded mailbox-message nodes retain their existing message identity contract.
+"""
 SYSTEM = """You are a bounded evidence investigator preparing a draft for human review.
 The source snapshot and observed graph have already been ingested and verified.
 Autonomously identify relevant observations, create testable hypotheses, select skills,

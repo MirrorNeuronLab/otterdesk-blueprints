@@ -10,5 +10,6 @@
   "microduck_controller",
   "ros_amr_controller",
   "gtm_planner",
-  "gtm_executor"
+  "gtm_executor",
+  "mac_security_investigator"
 ]

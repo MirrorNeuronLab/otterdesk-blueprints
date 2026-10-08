@@ -25,6 +25,45 @@ EXPECTED_STEPS = [
 ]
 
 
+def test_procurement_preserves_ocr_text_and_structured_rag_citations(tmp_path):
+    result = run_payload_script(
+        "purchasing_manager",
+        f"""
+import json
+from pathlib import Path
+from domain import inputs, knowledge
+
+folder = Path({str(tmp_path)!r})
+(folder / 'supplier.pdf').write_bytes(b'synthetic extraction input')
+class Record:
+    def to_dict(self):
+        return {{'text': 'Supplier warranty covers three years.',
+                 'extraction_method': 'llm_ocr', 'warnings': ['review numbers']}}
+inputs.extract_document = lambda path: Record()
+documents, warnings = inputs.load_input_documents(folder, {{}})
+knowledge.build_rag_context = lambda *args, **kwargs: {{
+    'context': 'Warranty evidence', 'backend': 'duckdb',
+    'citations': [{{'source_ref': 'local:supplier.pdf'}}],
+}}
+context = knowledge.retrieve_purchase_rag_context(
+    'warranty', {{'status': 'ready', '_rag_config': object()}},
+    {{'content': ''}}, documents,
+)
+print(json.dumps({{'text': documents[0]['text'],
+                  'method': documents[0]['extraction_method'],
+                  'warnings': documents[0]['warnings'],
+                  'citations': context['citations'], 'backend': context['backend']}}))
+""",
+    )
+    assert result == {
+        "text": "Supplier warranty covers three years.",
+        "method": "llm_ocr",
+        "warnings": ["review numbers"],
+        "citations": ["local:supplier.pdf"],
+        "backend": "duckdb",
+    }
+
+
 def test_purchasing_manager_manifest_compiles_logical_steps_and_specialist_graphs():
     source = source_manifest("purchasing_manager")
     expanded = expanded_manifest("purchasing_manager")

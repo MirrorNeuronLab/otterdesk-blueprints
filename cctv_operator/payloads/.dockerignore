@@ -1,0 +1,11 @@
+**
+!docker_worker/
+!docker_worker/Dockerfile
+!docker_worker/demo/
+!docker_worker/demo/**
+!domain/
+!domain/mobileclip.py
+!requirements.txt
+!local-requirements.txt
+!__mn_skill_dependencies/
+!__mn_skill_dependencies/**

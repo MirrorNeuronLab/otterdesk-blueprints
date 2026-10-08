@@ -1,4 +1,4 @@
-# Architecture Advisor 3.3 specification
+# Architecture Advisor 3.5 specification
 
 ## Outcome
 
@@ -175,10 +175,136 @@ its committed request and snapshot instead of ingesting the source again.
 
 ## Context engine contract
 
-This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation installs the Membrane v2 client (>=2.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.
+This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation requires the Membrane v2 client (>=2.1.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.
 
 Historical runtime recall uses native filesystem passages with exact supporting
 handles, bounded separately from the current task and source evidence. Structural
 graph queries continue through the source-backed allowlisted views; each query
 and canonical witness is retained in the catalog audit. Runtime notes cannot
 replace a graph query or establish source claims.
+
+Version 3.5 selects relevant existing graph views alongside typed path
+queries. Retry/idempotency questions request call-to-state, test-to-call and
+control-flow views. Model-facing rows carry exact supplied source-witness IDs;
+rows whose complete witnesses are omitted cannot survive prompt assembly.
+Full source-backed receipts remain in the catalog. This is bounded static
+discovery and does not establish runtime correctness or exhaustive coverage.
+
+Claims explicitly classify counterevidence as supplied, not found in the searched
+scope, or unknown. Supplied counterexamples require exact visible source
+citations, validated and retained through the final claim/finding registers and
+Markdown publication. An unexamined counterexample remains unknown.
+
+### Version 3.4.1 source and runtime separation
+
+Publish byte-exact frozen input originals in the separate source corpus with
+source SHA-256, snapshot provenance and explicit source-query authorization.
+Trusted Python AST locators produce complete static definitions/imports.
+Syntax-unavailable inputs remain queryable as native text with an explicit
+limitation; no fabricated structural facts are permitted. Persist original
+publication/query bindings separately from runtime records, and revalidate
+authorized current revisions before reusing cached source spans. Model-visible
+source evidence retains exact physical span-derived S- citation identities.
+
+Publish validated review outcomes as authored runtime Markdown. Scalar Facts
+enable typed DuckDB recent queries; Notes retain complete nested claims and
+qualifications. Original excerpt bodies are excluded from runtime notes while
+their source locators remain intact. Bind publication clocks before writes and
+filter recall by review family, source snapshot and relevant aspect. Original
+witnesses and complete prior claims precede optional historical navigation in
+prompt admission. Omit whole records with explicit counts/status; never truncate
+source definitions to meet a byte bound. Retain paired 8,192/32,768-byte checks.
+The existing full prompt byte limit is separate from verified model tokens.
+Declare the authored review query schema before first recall. A schema record is
+a constraint with a distinct family, never an observation or supporting finding;
+the review-family filter must exclude it from empty and populated histories.
+Use actual remaining full-prompt byte capacity for whole source witnesses rather
+than a fixed fraction. Preserve frozen retrieval packets during admission; source
+omissions and graph rows whose supporting spans do not fit remain explicit.
+
+### Atomic support admission
+
+Use the Membrane SDK support-group helper in the active catalog assembler.
+Graph rows and prior claims carry all exact source and counterevidence witnesses
+as one component; shared witness identities join components transitively.
+Admission tests complete rendered groups in query priority order. Never retain
+an exclusive partial witness of an omitted group. Unrelated complete source
+candidates are optional. Exclude witnesses of graph rows removed before caller
+admission. Retain complete prior results or omit them whole, with capacity counts.
+Unresolved graph support cannot create a visible relationship. Duplicate immutable
+source identities must have identical bodies or fail. Frozen requests preserve
+detailed group receipts; model-visible status distinguishes complete, incomplete
+and insufficient-capacity support. UTF-8 byte accounting does not replace verified
+serving-token admission and does not establish answer correctness.
+
+## Persistent file identity and selective memory
+
+File identity belongs to the shared graph-analysis skill. Initial entity UUIDv5
+uses repository identity and normalized relative path; SHA-256 tracks raw content
+versions independently. Snapshot capture serializes identity reconciliation and
+publishes its registry only through a successfully checked snapshot's CURRENT
+pointer. File nodes and DECLARED_IN links survive lazy graph publication. Trusted
+Git rename hints precede unique disappeared/new exact-content matches; copies,
+ambiguous candidates and unresolved moves never merge automatically. Current and
+historical paths preserve repository case. Existing parser-owned module/symbol
+IDs and revision-qualified evidence IDs remain unchanged. Existing snapshots
+remain readable and need a new capture to adopt file identities; preserve the
+identity registry to retain rename history across rebuilds.
+
+Optional runtime recall is admitted only for aspect_analysis/aspect_challenge.
+Source scans, evidence_followup, section_synthesis and executive_synthesis carry
+self-contained current packets and do not open the memory service for recall.
+# Query-derived local static support
+
+Use the optional Python adapter >=0.1.3 with Membrane SDK >=2.1.0. Named source
+queries protect complete local helper/binding/guard/enclosing-section dependencies
+under the same pinned original revision. Preserve all static rebinding alternatives;
+never fill absent imported implementations or configuration values. The v3 source
+publication identity fences earlier cached selections. Required local support still
+passes whole-context admission and may report insufficient capacity. Runtime
+history recall remains limited to aspect analysis and challenge tasks.
+
+## Whole-unit discovery and typed paths
+
+Use exact structural bindings first and native whole-unit lexical/hybrid search
+otherwise. The default hybrid encoder covers every byte using pooled pieces;
+source SHA-256, revision and embedding configuration bind publication. Preserve
+the complete selected root and transitive local support atomically, including
+ranked roots. Return explicit missing/capacity coverage instead of a signature or
+partial body. Non-Python and syntax-unavailable files use structural text units.
+
+Bind graph seeds to exact module/file identities and retrieved original spans.
+Use the shared graph skill's typed bounded traversal with a native RGX adjacency
+callback. The blueprint owns relation selection, authorized scope, source joins
+and static-coverage qualifications. Retain ordered edges and complete endpoint
+declarations. No automatic cycle view or fixed two-module/three-view shortlist is
+allowed. Default bounds are 12 seeds, four hops, 128 nodes and 128 edges; the
+existing query allowance also applies. Unknown entity bindings remain unresolved.
+
+Hydrate all path witnesses to original structural units and their dependencies
+before final support admission. Remove the independent graph byte cap; apply the
+actual final prompt allowance to complete support groups. Detailed native
+receipts stay in the catalog. Omitted or partially indexed paths cannot establish
+absence, and static edges cannot establish runtime execution. Existing catalogs
+require a fresh source publication; file identity reconciliation is unchanged.
+
+
+Final context verification is experimental and defaults to
+`text_memory.quality_verification=false`. For manual validation in a new run, set
+`--set text_memory.quality_verification=true`. Required original-source packets
+then receive explicit binding/support checks and at most one bounded retrieval
+repair within their authorized scope. Missing required support produces an
+explicit inconclusive/blocked result before model dispatch; optional runtime
+notes may be omitted. Full witnesses stay in run artifacts. A passing witness
+does not prove semantic sufficiency, exhaustive discovery or the truth of a
+model answer. Initial Laya problem classification remains independent.
+
+The October 5 paired source trial improved legal excerpt retention but did not
+reduce strict unsupported/nonconforming answers; it therefore failed the
+reliability-first default-rollout rule. The switch remains off pending improved
+source selection and a successful prospective evaluation. This change does not
+deploy or reset a runtime.
+
+## Shared capability ownership
+
+Exact citation hash, offset, excerpt and line checks use the SDK RAG verifier. Architecture claim policy, allowed-source scope and report composition remain blueprint-owned.

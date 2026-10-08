@@ -11,6 +11,7 @@
       "simulation_state_updated",
       "run_completed",
       "cctv_operator_sample_due",
+      "cctv_operator_candidate_gate_checked",
       "cctv_operator_scene_change_detected",
       "cctv_operator_burst_started",
       "cctv_operator_burst_completed",
@@ -20,6 +21,7 @@
       "cctv_operator_frame_observed",
       "cctv_operator_attention_updated",
       "cctv_operator_detection",
+      "cctv_operator_person_event",
       "cctv_operator_condition_screened",
       "cctv_operator_deep_analysis_completed",
       "human_notice",
@@ -169,6 +171,21 @@
         "person",
         "configured target activity"
       ],
+      "type": "domain_value",
+      "required": false,
+      "privacy": "internal"
+    },
+    "demo_file": {
+      "description": "Local warehouse demo MP4 staged from the submitting computer, used only in bundled_demo profile.",
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "internal",
+      "example": "/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4"
+    },
+    "monitoring_goal": {
+      "description": "Visible event condition that triggers a chat report with capture time and a frame.",
+      "example": "A person is visible in the video.",
       "type": "domain_value",
       "required": true,
       "privacy": "internal"
@@ -362,6 +379,47 @@
           "final_artifact.json"
         ],
         "type": "dashboard"
+      },
+      {
+        "artifact_id": "camera_context_markdown",
+        "mime_type": "text/markdown",
+        "path": "context_sources/outputs",
+        "producer": "visual_detector",
+        "schema_version": "otterdesk.cctv.video_understanding.v1",
+        "source_refs": [
+          "frame_batches"
+        ],
+        "type": "artifact_collection"
+      },
+      {
+        "artifact_id": "person_events",
+        "path": "person_events",
+        "mime_type": "application/json",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.person_event.v1",
+        "type": "artifact_collection",
+        "required": false,
+        "source_refs": []
+      },
+      {
+        "artifact_id": "caption_schedule",
+        "path": "caption_schedule.json",
+        "mime_type": "application/json",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.caption_schedule.v1",
+        "type": "domain_state",
+        "required": false,
+        "source_refs": []
+      },
+      {
+        "artifact_id": "stage_benchmarks",
+        "path": "benchmarks/stages.sqlite3",
+        "mime_type": "application/vnd.sqlite3",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.benchmarks.v1",
+        "type": "benchmark",
+        "required": false,
+        "source_refs": []
       }
     ],
     "primary": {
@@ -472,7 +530,7 @@
     "event": "blueprint_status",
     "heartbeat": true
   },
-  "summary": "Monitor the bundled Docker demo stream or one approved external RTSP/RTMP stream on a qualifying NVIDIA node with sparse adaptive sampling and durable review reports.",
+  "summary": "Resident RF-DETR person alerts, independent Cosmos video captioning, and historical Q&A from MN caption memory, measured stage by stage.",
   "users": [
     "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   ],
@@ -655,6 +713,47 @@
           "final_artifact.json"
         ],
         "type": "dashboard"
+      },
+      {
+        "artifact_id": "camera_context_markdown",
+        "mime_type": "text/markdown",
+        "path": "context_sources/outputs",
+        "producer": "visual_detector",
+        "schema_version": "otterdesk.cctv.video_understanding.v1",
+        "source_refs": [
+          "frame_batches"
+        ],
+        "type": "artifact_collection"
+      },
+      {
+        "artifact_id": "person_events",
+        "path": "person_events",
+        "mime_type": "application/json",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.person_event.v1",
+        "type": "artifact_collection",
+        "required": false,
+        "source_refs": []
+      },
+      {
+        "artifact_id": "caption_schedule",
+        "path": "caption_schedule.json",
+        "mime_type": "application/json",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.caption_schedule.v1",
+        "type": "domain_state",
+        "required": false,
+        "source_refs": []
+      },
+      {
+        "artifact_id": "stage_benchmarks",
+        "path": "benchmarks/stages.sqlite3",
+        "mime_type": "application/vnd.sqlite3",
+        "producer": "cctv_web_ui",
+        "schema_version": "otterdesk.cctv.benchmarks.v1",
+        "type": "benchmark",
+        "required": false,
+        "source_refs": []
       }
     ],
     "events": "typed event objects with payload",

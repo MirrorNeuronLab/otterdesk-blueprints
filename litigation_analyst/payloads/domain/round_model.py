@@ -1,5 +1,6 @@
 """Litigation policy and prompt composition for shared SDK JSON decisions."""
 import os
+import json
 
 from mn_sdk.blueprint_support import durable_json_decision, json_decision_capacity
 from mn_sdk.context_session import ContextPolicy
@@ -37,7 +38,9 @@ def evidence_room(frozen, stage, instruction, data, schema):
         policy=ContextPolicy(**frozen["config"]["context_memory"]["policy"]),
         schema_name="litigation_stage",
     )
-    reserve = frozen["config"].get("text_memory", {}).get("max_context_bytes", 4000) + 64 if frozen["config"].get("text_memory", {}).get("enabled") else 0
+    # Required original evidence has priority. Reserve a bounded status envelope,
+    # then use actual remaining capacity for optional historical navigation.
+    reserve = 512 if stage == 'plan' and frozen['config'].get('text_memory', {}).get('enabled') else 0
     return max(0, capacity - reserve)
 
 
@@ -47,8 +50,15 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
         "job_id": os.environ.get("MN_JOB_ID"),
         "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID"),
     }
+    focus = (data.get("hypothesis", {}).get("question") or data.get("enquiry", {}).get("question")
+             or data.get("goal") or frozen["payload"]["goal"])
+    remaining = json_decision_capacity(system, request, schema,
+        policy=ContextPolicy(**frozen['config']['context_memory']['policy']),
+        schema_name='litigation_stage')
+    evidence_bytes = len(json.dumps(data.get('evidence', []),ensure_ascii=False).encode())
+    context_bytes = frozen['config'].get('text_memory', {}).get('max_context_bytes',32768)
     memory = runtime_text_memory(frozen["config"], principal="round-specialists", scope=scope)
-    focus = data.get("hypothesis", {}).get("question") or data.get("goal") or frozen["payload"]["goal"]
+    from mn_sdk.memory_quality import context_requirements
     try:
         return durable_json_decision(
             root / f"case/rounds/models/{key}.json",
@@ -57,11 +67,16 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
             context_scope=scope, principal="round-specialists", stage=stage,
             policy=ContextPolicy(**frozen["config"]["context_memory"]["policy"]),
             client=client, schema_name="litigation_stage",
-            memory=memory, memory_query=f"{focus} {stage}",
+            memory=memory, memory_recall=stage == 'plan', memory_query=f"{focus} {stage}",
+            memory_requirements=context_requirements(frozen['config'],'optional'),
             memory_max_results=frozen['config'].get('text_memory', {}).get('max_results', 3),
-            memory_max_context_bytes=frozen['config'].get('text_memory', {}).get('max_context_bytes', 4000),
-            memory_retrieval_stages=[{"mode": "raw", "match_mode": "any"}],
+            memory_max_context_bytes=min(max(512,context_bytes-evidence_bytes), max(512,remaining)),
+            memory_retrieval_stages=[{"mode": "raw", "match_mode": "any"},
+                {"mode":"graph", "consume":"documents", "graph":{"max_hops":2,"document_seed_limit":1,
+                    "relations":["SUPPORTED_BY", "OPPOSED_BY", "CITES"]}},
+                {"mode":"raw", "consume":"documents", "query":""}],
             memory_source_ref=f"case/rounds/models/{key}.json",
+            memory_hydrate_runtime_records=True,
         )
     finally:
         if memory is not None:

@@ -6,6 +6,7 @@ from .common import *
 from .bayesian_policy import build_vc_bayesian_claim_explanations
 from .intake import slugify
 from .research_core import infer_source_quality_label
+from .source_evidence import local_source_text
 
 def is_substantive_public_source(source: dict[str, Any]) -> bool:
     status = str(source.get("status") or "").lower()
@@ -374,7 +375,7 @@ def build_evidence_items(company: str, records: list[dict[str, Any]], sources: l
         if source_id in source_records_by_id:
             source_texts.append({
                 "source_id": source_id,
-                "text": str(record.get("text_preview") or ""),
+                "text": local_source_text(record, sorted({term for spec in CLAIM_EXTRACTION_SPECS for term in spec["terms"]})),
                 "filename": str(record.get("filename") or ""),
                 "source_url": None,
                 "retrieved_at": utc_now_iso(),
@@ -395,7 +396,7 @@ def build_evidence_items(company: str, records: list[dict[str, Any]], sources: l
                 "recency_score": 50,
             })
 
-    return build_evidence_items_from_texts(
+    items = build_evidence_items_from_texts(
         entity_id=company_slug,
         source_texts=source_texts,
         source_records_by_id=source_records_by_id,
@@ -406,6 +407,12 @@ def build_evidence_items(company: str, records: list[dict[str, Any]], sources: l
         penalties_resolver=evidence_penalties_for_claim,
         verification_status_resolver=verification_status_for_evidence,
     )
+    # Search snippets are navigation; their specificity cannot establish primary
+    # support. This ceiling is VC policy, outside the reusable scoring formula.
+    for item in items:
+        if item.get('source_type') == 'search_result_page':
+            item['confidence_score'] = min(item['confidence_score'], 15)
+    return items
 
 def required_next_evidence_for_claim(claim_type: str) -> list[str]:
     for spec in CLAIM_EXTRACTION_SPECS:
@@ -687,7 +694,9 @@ def build_company_evidence_layer(
                 "claim_type_prefix": "traction.",
                 "penalty": "self_reported",
                 "max_confidence": 60,
-            }
+            },
+            *[{'claim_type_prefix': spec['claim_type'], 'penalty': 'search_result_only',
+               'max_confidence': 15} for spec in CLAIM_EXTRACTION_SPECS],
         ],
     )
     dimension_scores = {

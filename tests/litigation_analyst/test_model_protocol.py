@@ -98,7 +98,7 @@ def test_skill_discovery_survives_working_memory_selection(modules, monkeypatch,
         assert selected['latest_observations'] == []
         assert selected['approved_operations'] == {}
         assert selected['read_manual_hashes'] == {}
-        assert any(s['id'] == 'mirrorneuron.document.reading' for s in selected['skills'])
+        assert any(s['id'] == 'otterdesk.litigation.evidence' for s in selected['skills'])
         raise RuntimeError('selection verified')
 
     monkeypatch.setattr(local_llm.SDKInvestigationModel, 'complete_json', select_current)

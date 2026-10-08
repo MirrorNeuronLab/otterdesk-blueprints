@@ -1,0 +1,64 @@
+{
+  "host_epoch_id": "synthetic-northstar-epoch-1",
+  "scan_id": "R-02",
+  "acquisition": {
+    "earliest": "2026-10-01T13:00:00Z",
+    "latest": "2026-10-01T13:00:00Z"
+  },
+  "synthetic": true,
+  "sources": [
+    {
+      "source_id": "startup:user-demo",
+      "scope": "user:demo",
+      "capabilities": [
+        "startup_state"
+      ],
+      "availability": "available",
+      "enumeration": "complete",
+      "parser_version": "synthetic-v1",
+      "consistency": "atomic_fixture",
+      "records": [
+        {
+          "kind": "state",
+          "entity": "slot-northstar",
+          "capability": "startup_state",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-10-01T13:00:00Z",
+            "latest": "2026-10-01T13:00:00Z"
+          },
+          "fields": {
+            "target": "/Library/Northstar/V2"
+          }
+        }
+      ]
+    },
+    {
+      "source_id": "execution-history",
+      "scope": "user:demo",
+      "capabilities": [
+        "attributed_execution"
+      ],
+      "availability": "available",
+      "enumeration": "partial",
+      "parser_version": "synthetic-v1",
+      "records": [
+        {
+          "kind": "event",
+          "entity": "slot-northstar",
+          "capability": "attributed_execution",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-10-01T11:40:00Z",
+            "latest": "2026-10-01T11:40:00Z"
+          },
+          "fields": {
+            "target": "/Library/Northstar/V2",
+            "slot_attribution": "explicit"
+          },
+          "occurrence_key": "northstar:boot-A:E1"
+        }
+      ]
+    }
+  ]
+}

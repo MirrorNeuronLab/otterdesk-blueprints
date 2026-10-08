@@ -1,23 +1,16 @@
 """Narrow adapters over the SDK exchange and authenticated runtime discovery."""
-import json
-from pathlib import Path
-from mn_sdk import Client
 from mn_sdk_collaboration.work_packets import build_goal_work_packet, publish_goal_work_packet
-from mn_sdk_mcp import discover_mcp_job_servers, get_mcp_job_updates
+from mn_sdk.integrations.job_peers import read_group_work_packets, read_peer_work_packets, resolve_stable_job_id
 
 
 def stable_identity(context):
-    client = Client(timeout=15)
-    try:
-        run = json.loads(client.get_run(context["job_id"]))
-    finally:
-        client.channel.close()
-    if run.get("run_id") != context["job_id"] or not run.get("job_id"):
-        raise ValueError("Runtime execution identity mismatch")
-    return run["job_id"]
+    return resolve_stable_job_id(context["job_id"])
 
 
 def publish(context, packet_id, stage, analysis, summary):
+    peers = context["payload"].get("collaboration_peers", [])
+    group_id = context["payload"].get("collaboration_group_id")
+    group = {"group_id": group_id, "group_members": [context["stable_job_id"], *(peer["jobId"] for peer in peers)]} if group_id and peers else {}
     packet = build_goal_work_packet(goal_id=context["payload"]["goal_id"],
         business_goal=context["payload"].get("common_goal") or "Market Bibblio through relevant, human-approved email outreach.",
         worker_id=context["stable_job_id"], worker_role=context["blueprint_id"], stage=stage,
@@ -25,7 +18,7 @@ def publish(context, packet_id, stage, analysis, summary):
         assumptions=[], analysis=analysis, recommendation=summary, confidence="medium",
         risks=["Human approval is required before any email is sent."], requested_approval=[],
         outputs=[], next_check="Next service cycle", publication_state="final", packet_id=packet_id,
-        created_at=context["started_at"])
+        created_at=context["started_at"], **group)
     result = publish_goal_work_packet(run_dir=context["run_dir"], packet=packet,
         job_id=context["stable_job_id"], blueprint_id=context["blueprint_id"], run_id=context["run_id"])
     if result["status"] != "published":
@@ -33,42 +26,22 @@ def publish(context, packet_id, stage, analysis, summary):
 
 
 def peer_updates(context, cursor):
-    peer = context["payload"].get("peer_job_id")
-    goal = context["payload"]["goal_id"]
-    if not peer or peer == context["stable_job_id"]:
-        raise ValueError("Configure the other co-worker's stable Job identity")
-    client = Client(timeout=15)
-    try:
-        found = discover_mcp_job_servers(runtime_client=client, goal_id=goal, timeout_seconds=15)
-        if found["status"] != "ok":
-            raise RuntimeError("Marketing partner discovery unavailable")
-        candidates = []
-        for server in found["servers"]:
-            # Registry job_id is execution-scoped. Resolve it through Core before contacting MCP.
-            run = json.loads(client.get_run(server["job_id"]))
-            if run.get("job_id") == peer:
-                candidates.append(server)
-    finally:
-        client.channel.close()
-    if not candidates:
-        return [], cursor, "waiting_for_peer"
-    if len(candidates) != 1:
-        raise ValueError("More than one active marketing partner service")
-    server = candidates[0]
-    execution = server["job_id"]
-    after = cursor.get("revision", 0) if cursor.get("execution") == execution else 0
-    response = get_mcp_job_updates(server["config"], after_revision=after, kinds=["result"], include_staged=False, limit=100)
-    if response.get("status") != "ok":
-        raise RuntimeError("Marketing partner could not be read")
-    data = response["updates"]
+    payload = context["payload"]
+    group_id, peers = payload.get("collaboration_group_id"), payload.get("collaboration_peers", [])
+    if group_id:
+        if not isinstance(peers, list) or len(peers) > 4 or any(not isinstance(peer, dict) or peer.get("blueprintId") not in {"gtm_planner", "gtm_executor"} for peer in peers):
+            raise ValueError("Unexpected marketing group role")
+        if not peers:
+            return [], {}, "waiting_for_peers"
+        packets, updated, status = read_group_work_packets(peers=peers, own_job_id=context["stable_job_id"], group_id=group_id,
+            goal_id=payload["goal_id"], cursors=cursor.get(group_id, {}))
+        return packets, {group_id: updated}, status
+    # Previously configured pairs retain their verified scalar-peer contract until edited.
+    if not payload.get("peer_job_id"):
+        return [], {}, "waiting_for_peer"
     expected = "gtm_executor" if context["blueprint_id"] == "gtm_planner" else "gtm_planner"
-    identity = data.get("identity", {})
-    if identity.get("job_id") != peer or identity.get("goal_id") != goal or identity.get("blueprint_id") != expected:
-        raise ValueError("Marketing partner identity mismatch")
-    packets = []
-    for record in data.get("updates", []):
-        packet = record.get("payload", {})
-        if packet.get("goal_id") != goal or packet.get("worker") != peer or packet.get("worker_role") != expected:
-            raise ValueError("Marketing packet identity mismatch")
-        packets.append(packet)
-    return packets, {"execution":execution, "revision":data["next_revision"]}, "connected"
+    return read_peer_work_packets(
+        peer_job_id=context["payload"].get("peer_job_id"),
+        own_job_id=context["stable_job_id"], goal_id=context["payload"]["goal_id"],
+        expected_blueprint_id=expected, cursor=cursor,
+    )

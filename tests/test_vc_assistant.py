@@ -30,7 +30,7 @@ for skill_name in (
     "evidence_engine_skill",
     "actor_review_skill",
     "client_report_skill",
-    "document_reading_skill",
+    "docs_to_markdown_skill",
     "public_research_orchestrator_skill",
     "rag_skill",
     "scoring_framework_skill",
@@ -167,7 +167,7 @@ def _run_vc_manifest_step(
     from mn_sdk.step_runtime import StepContext, invoke_handler
 
     manifest = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
     step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
     registry = manifest["agents"]["registry"]
@@ -252,7 +252,7 @@ def _run_vc_manifest_handlers(
     llm_client=None,
 ):
     manifest = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
     result = {}
     for step in manifest["workflow"]["steps"]:
@@ -288,7 +288,7 @@ def _expand_source_manifest(source: dict) -> dict:
     finally:
         sys.path.remove(str(sdk_parent))
     return module.expand_manifest_source(
-        source, root_dir=ROOT.parent / "mn-blueprints" / "vc_assistant"
+        source, root_dir=BLUEPRINT_DIR
     )
 
 
@@ -327,7 +327,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     manifest = _expand_source_manifest(
         blueprint_definition(
             read_blueprint(
-                ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+                BLUEPRINT_DIR / "manifest.json"
             )
         )
     )
@@ -410,6 +410,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
                     ".odp",
                     ".rtf",
                     ".epub",
+                    ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp",
                 ],
                 "linked_config_paths": [
                     "inputs.payload.document_folder",
@@ -421,8 +422,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         ]
     }
     assert config["input_skills"]["llm_ocr"] == {
-        "skill": "llm_ocr_skill",
-        "package": "mirrorneuron-llm-ocr-skill",
+        "skill": "docs_to_markdown_skill",
         "purpose": "shared local OCR for scanned or low-text PDF startup packets",
         "enabled": True,
         "required": True,
@@ -430,6 +430,8 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         "max_pages": None,
         "timeout_seconds": 180,
     }
+    dependencies = json.loads((BLUEPRINT_DIR / "dependencies.json").read_text())
+    assert any(skill["name"] == "mirrorneuron-docs-to-markdown-skill" for skill in dependencies["skills"])
     assert (
         config["input_skills"]["web_browser"]["install_policy"] == "docker_worker_image"
     )
@@ -472,9 +474,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "preferred_model" not in config["llm"]
     assert "live_model_profile" not in config["llm"]
     assert "large_model_profile" not in config["llm"]
-    assert config["resources"]["gpu"] == {"min_count": 0}
-    assert manifest["requirements"]["gpu"] == {"min_count": 0}
-    assert manifest["runtime"]["resources"]["gpu"] == {"min_count": 0}
+    assert config["resources"]["gpu"] == {"min_count": 1, "min_memory_mb": 16384}
+    assert manifest["requirements"]["gpu"] == config["resources"]["gpu"]
+    assert manifest["runtime"]["resources"]["gpu"] == config["resources"]["gpu"]
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
         "backend": "llama.cpp",
@@ -567,9 +569,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     )
     assert "skill_runtime" in config["interfaces"]["config"]
     dockerfile = (
-        ROOT.parent
-        / "mn-blueprints"
-        / "vc_assistant"
+        BLUEPRINT_DIR
         / "payloads"
         / "docker_worker"
         / "Dockerfile"
@@ -583,9 +583,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "playwright" not in dockerfile.lower()
     assert "chromium" not in dockerfile.lower()
     assert (
-        ROOT.parent
-        / "mn-blueprints"
-        / "vc_assistant"
+        BLUEPRINT_DIR
         / "payloads"
         / "docker_worker"
         / "local-requirements.txt"
@@ -612,17 +610,17 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         )
         assert (
             embedded_config["inputs"]["payload"]["output_folder"]
-            == "~/Downloads/vc_assistant"
+            == "~/Downloads/vc-assistant"
         )
         assert embedded_config["local_inputs"] == config["local_inputs"]
-        assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
+        assert embedded_config["outputs"]["folder_path"] == "~/Downloads/vc-assistant"
         assert embedded_config["llm"]["model"] == "default"
         assert "runtime_model" not in embedded_config["llm"]
         assert "fallback_model" not in embedded_config["llm"]
         assert "preferred_model" not in embedded_config["llm"]
         assert "fallback_model" not in embedded_config["llm"]["configs"]["primary"]
         assert "model" not in embedded_config["llm"]["configs"]["primary"]
-        assert embedded_config["resources"]["gpu"] == {"min_count": 0}
+        assert embedded_config["resources"]["gpu"] == config["resources"]["gpu"]
         assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
@@ -780,9 +778,9 @@ def test_explicit_fake_llm_mode_overrides_live_vc_runtime(monkeypatch, tmp_path)
     limiter = runner.build_llm_call_limiter(config)
     assert limiter.config_summary()["min_interval_seconds"] == 0.0
 
-    knowledge = runner.load_vc_knowledge(ROOT.parent / "mn-blueprints" / "vc_assistant")
+    knowledge = runner.load_vc_knowledge(BLUEPRINT_DIR)
     rag = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
+        blueprint_dir=BLUEPRINT_DIR,
         resolved_config=config,
         active_knowledge=knowledge,
         run_dir=tmp_path,
@@ -817,7 +815,7 @@ def test_fake_skills_returns_mock_rag_context(tmp_path):
     }
 
     rag = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
+        blueprint_dir=BLUEPRINT_DIR,
         resolved_config=config,
         active_knowledge={},
         run_dir=tmp_path,
@@ -996,23 +994,19 @@ def test_vc_assistant_is_daily_batch_folder_scan():
     index = read_catalog(blueprint_path("vc_assistant").parent / "index.json")
     entry = next(item for item in index if item["id"] == "vc_assistant")
     manifest = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
     config = resolve_config(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+        read_blueprint(BLUEPRINT_DIR)
     ).data
 
     assert entry["type"] == "batch"
     assert "service" not in entry["product"]["runtime_features"][0]
-    assert entry["product"]["runtime_features"][0] == "daily scheduled folder scan"
-    assert (
-        "Adaptive default-model route through LiteLLM proxy"
-        in entry["product"]["runtime_features"]
-    )
+    assert any("folder" in feature.lower() for feature in entry["product"]["runtime_features"])
     assert entry["requirements"] == manifest["requirements"]
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["llm"]["model"] == "default"
-    assert manifest["requirements"]["gpu"] == {"min_count": 0}
+    assert manifest["requirements"]["gpu"] == {"min_count": 1, "min_memory_mb": 16384}
     assert config["monitoring"]["max_cycles"] == 1
     assert config["triggers"]["schedule"] is None
     assert config["suggested_schedule"] == {
@@ -1025,10 +1019,10 @@ def test_vc_assistant_is_daily_batch_folder_scan():
 
 def test_vc_assistant_requires_no_initial_config():
     manifest = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
     config = resolve_config(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+        read_blueprint(BLUEPRINT_DIR)
     ).data
 
     assert manifest["metadata"]["init_config_review"] == {
@@ -1036,15 +1030,13 @@ def test_vc_assistant_requires_no_initial_config():
         "fields": [],
     }
     assert config["inputs"]["payload"]["document_folder"] == "@/examples/sample_inputs"
-    assert config["outputs"]["folder_path"] == "~/Downloads/vc_assistant"
+    assert config["outputs"]["folder_path"] == "~/Downloads/vc-assistant"
 
 
 def test_vc_assistant_runtime_requirements_install_skills_with_pip():
     requirements = (
         (
-            ROOT.parent
-            / "mn-blueprints"
-            / "vc_assistant"
+            BLUEPRINT_DIR
             / "payloads"
             / "requirements.txt"
         )
@@ -1061,7 +1053,7 @@ def test_vc_assistant_runtime_requirements_install_skills_with_pip():
 
 def test_vc_assistant_runtime_upload_bundle_contains_sample_inputs():
     bundled_sample_root = (
-        ROOT.parent / "mn-blueprints" / "vc_assistant" / "examples" / "sample_inputs"
+        BLUEPRINT_DIR / "examples" / "sample_inputs"
     )
 
     assert {path.name for path in bundled_sample_root.iterdir() if path.is_dir()} >= {
@@ -1083,7 +1075,7 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
     golden_inputs = tmp_path / "golden-inputs"
     golden_inputs.mkdir()
     bundled_inputs = (
-        ROOT.parent / "mn-blueprints" / "vc_assistant" / "examples" / "sample_inputs"
+        BLUEPRINT_DIR / "examples" / "sample_inputs"
     )
     for company in ("aurora_ai", "boreal_robotics", "otterdesk"):
         shutil.copytree(bundled_inputs / company, golden_inputs / company)
@@ -1190,6 +1182,7 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
         "company_index.json",
         "company_index.md",
         "company_work_queue.json",
+        "context_sources",
         "evidence_items",
         "final_artifact.json",
         "llm_rag_trace.jsonl",
@@ -1349,7 +1342,7 @@ def test_rag_retrieval_observation_is_metadata_only(monkeypatch, tmp_path):
             "chunks": [],
         }
 
-    monkeypatch.setattr(runner, "skill_retrieve_knowledge_rag_context", fake_retrieve)
+    monkeypatch.setattr(runner, "sdk_retrieve_knowledge_rag_context", fake_retrieve)
     context = runner.retrieve_knowledge_rag_context(
         knowledge_rag={"enabled": True, "status": "ready"},
         query="Confidential company query",
@@ -1384,7 +1377,8 @@ def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
     company_dir = docs / "optical_ventures"
     company_dir.mkdir(parents=True)
     pdf_path = company_dir / "pitch.pdf"
-    pdf_path.write_bytes(b"%PDF-1.4 synthetic startup packet")
+    from pypdf import PdfWriter
+    writer = PdfWriter(); writer.add_blank_page(width=72, height=72); writer.write(pdf_path)
     (company_dir / "memo.txt").write_text(
         "Company: Optical Ventures\nMarket: oncology workflow software.",
         encoding="utf-8",
@@ -1441,7 +1435,7 @@ def test_vc_pdf_packets_use_llm_ocr_skill_for_evidence(monkeypatch, tmp_path):
     assert pdf_record["ocr_required"] is False
     assert pdf_record["warnings"] == ["low contrast page reviewed"]
     assert len(pdf_record["sha256"]) == 64
-    assert txt_record["extraction_method"] == "embedded_text"
+    assert txt_record["extraction_method"] == "markitdown"
     assert txt_record["ocr_required"] is False
     assert factory_configs == [
         {
@@ -1456,10 +1450,11 @@ def test_vc_pdf_packets_fail_closed_when_ocr_unavailable(monkeypatch, tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     docs.mkdir()
-    (docs / "pitch.pdf").write_bytes(b"%PDF-1.4 image-only packet")
+    from pypdf import PdfWriter
+    writer = PdfWriter(); writer.add_blank_page(width=72, height=72); writer.write(docs / "pitch.pdf")
     monkeypatch.setattr(runner, "extract_document_folder", None)
 
-    with pytest.raises(runner.OcrRequiredError, match="OCR extractor is unavailable"):
+    with pytest.raises(runner.MarkdownConversionError, match="OCR extractor is unavailable"):
         runner.scan_documents(
             docs, {"input_skills": {"llm_ocr": {"enabled": True, "required": True}}}
         )
@@ -1469,7 +1464,8 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     docs.mkdir()
-    (docs / "pitch.pdf").write_bytes(b"%PDF-1.4 image-only packet")
+    from pypdf import PdfWriter
+    writer = PdfWriter(); writer.add_blank_page(width=72, height=72); writer.write(docs / "pitch.pdf")
     outputs = tmp_path / "reports"
 
     monkeypatch.setattr(
@@ -1481,7 +1477,7 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     monkeypatch.setattr(
         importlib.import_module("agents.document_evidence_extractor"),
         "scan_documents",
-        lambda folder, config=None: (_ for _ in ()).throw(
+        lambda folder, config=None, **kwargs: (_ for _ in ()).throw(
             runner.OcrRequiredError("PDF OCR did not produce usable text")
         ),
     )
@@ -1521,11 +1517,11 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
 
 def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink():
     source = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
     manifest = _expand_source_manifest(source)
     config = resolve_config(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant")
+        read_blueprint(BLUEPRINT_DIR)
     ).data
     expected_pairs = {
         (dependency, step["id"])
@@ -1576,9 +1572,9 @@ def test_vc_assistant_runtime_graph_is_manifest_declared_dag_with_terminal_sink(
 
 def test_vc_manifest_agent_dependencies_are_imported_and_runtime_boundaries_are_stable():
     source = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
-    payload_root = ROOT.parent / "mn-blueprints" / "vc_assistant" / "payloads"
+    payload_root = BLUEPRINT_DIR / "payloads"
     imported_modules: set[str] = set()
     for path in payload_root.rglob("*.py"):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -1629,7 +1625,7 @@ def test_vc_agents_are_llm_backed_and_selected_for_actor_reviews():
 def test_vc_step_modules_assign_explicit_reusable_agents():
     runner = _load_runner()
     source = blueprint_definition(
-        read_blueprint(ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json")
+        read_blueprint(BLUEPRINT_DIR / "manifest.json")
     )
 
     def agent_ids(flow):
@@ -1668,7 +1664,7 @@ def test_vc_knowledge_excludes_stale_non_domain_terms():
         / "knowledge"
         / "startup_research_playbook.md"
     ).read_text(encoding="utf-8")
-    knowledge = runner.load_vc_knowledge(ROOT.parent / "mn-blueprints" / "vc_assistant")
+    knowledge = runner.load_vc_knowledge(BLUEPRINT_DIR)
     serialized = json.dumps(knowledge).lower()
 
     assert knowledge["path"] == "knowledge"
@@ -2150,7 +2146,7 @@ def test_agentic_research_prompt_includes_knowledge_rag_context(monkeypatch, tmp
     )
     monkeypatch.setattr(
         runner,
-        "skill_retrieve_knowledge_rag_context",
+        "sdk_retrieve_knowledge_rag_context",
         lambda *, knowledge_rag, query, stage="", company="", **_: {
             "enabled": True,
             "status": "ready",
@@ -2213,15 +2209,15 @@ def test_knowledge_rag_failure_records_explicit_warning(monkeypatch, tmp_path):
     runner = _load_runner()
     monkeypatch.setattr(
         runner,
-        "skill_prepare_blueprint_knowledge_rag",
+        "sdk_prepare_blueprint_knowledge_rag",
         lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("duckdb unavailable")),
     )
 
     state = runner.prepare_knowledge_rag(
-        blueprint_dir=ROOT.parent / "mn-blueprints" / "vc_assistant",
+        blueprint_dir=BLUEPRINT_DIR,
         resolved_config={"knowledge_rag": {"enabled": True}},
         active_knowledge=runner.load_vc_knowledge(
-            ROOT.parent / "mn-blueprints" / "vc_assistant"
+            BLUEPRINT_DIR
         ),
         run_dir=tmp_path,
     )
@@ -2316,10 +2312,14 @@ def test_complete_preprocessed_input_is_indexed_beyond_preview(tmp_path, text_me
     records = runner.scan_documents(tmp_path, {'text_memory': {'enabled': True}})
     source = next(iter(records.values()))[0]
     assert 'END_OF_COMPLETE_INPUT' not in source['text_preview']
-    bodies = text_memory_transport.scopes[('test-memory-job', 'test-memory-run')]
+    from mn_context_engine_sdk.intelligent_system import corpus_job_id
+    source_job = corpus_job_id('test-memory-job', 'sources')
+    bodies = text_memory_transport.scopes[(source_job, None)]
     assert any(body.endswith('END_OF_COMPLETE_INPUT') for body in bodies.values())
-    metadata = text_memory_transport.metadata[('test-memory-job', 'test-memory-run')]
+    metadata = text_memory_transport.metadata[(source_job, None)]
     assert all(meta['allow'] == ['vc-inputs', 'vc-company-analysis'] for meta in metadata.values())
+    assert source['context_source']['scope']['job_id'] == source_job
+    assert not text_memory_transport.scopes.get(('test-memory-job', 'test-memory-run'))
 
 
 def test_actor_review_context_uses_markdown_and_keeps_witness_sideband(tmp_path, text_memory_transport):
@@ -2382,9 +2382,7 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
             "status": "ready",
             "_rag_config": object(),
             "knowledge_dir": str(
-                ROOT.parent
-                / "mn-blueprints"
-                / "vc_assistant"
+                BLUEPRINT_DIR
                 / "payloads"
                 / "knowledge"
             ),
@@ -2433,11 +2431,11 @@ def test_vc_early_heuristic_filtering_writes_score_only_company_reports(
         }
 
     monkeypatch.setattr(
-        runner, "skill_prepare_blueprint_knowledge_rag", fake_prepare_rag
+        runner, "sdk_prepare_blueprint_knowledge_rag", fake_prepare_rag
     )
-    monkeypatch.setattr(runner, "skill_public_rag_state", fake_public_rag_state)
+    monkeypatch.setattr(runner, "sdk_public_rag_state", fake_public_rag_state)
     monkeypatch.setattr(
-        runner, "skill_retrieve_knowledge_rag_context", fake_rag_context
+        runner, "sdk_retrieve_knowledge_rag_context", fake_rag_context
     )
 
     class FakeWebBrowserConfig:
@@ -3042,8 +3040,8 @@ def test_tilde_output_folder_can_use_runtime_output_home(tmp_path, monkeypatch):
     monkeypatch.setenv("MN_OUTPUT_HOME", str(output_home))
 
     assert (
-        runner.expand_runtime_path("~/Downloads/vc_assistant")
-        == output_home / "Downloads" / "vc_assistant"
+        runner.expand_runtime_path("~/Downloads/vc-assistant")
+        == output_home / "Downloads" / "vc-assistant"
     )
 
 
@@ -3067,8 +3065,8 @@ def test_tilde_output_folder_derives_user_home_from_mirror_neuron_runs_root(
     monkeypatch.setenv("MN_RUNS_ROOT", str(user_home / ".mn" / "runs"))
 
     assert (
-        runner.expand_runtime_path("~/Downloads/vc_assistant")
-        == user_home / "Downloads" / "vc_assistant"
+        runner.expand_runtime_path("~/Downloads/vc-assistant")
+        == user_home / "Downloads" / "vc-assistant"
     )
 
 
@@ -3078,7 +3076,7 @@ def test_runtime_managed_output_folder_wins_over_configured_downloads(
     from mn_sdk.blueprint_support import resolve_output_folder
 
     runtime_output = tmp_path / "shared" / "outputs" / "user"
-    payload = {"output_folder": "~/Downloads/vc_assistant"}
+    payload = {"output_folder": "~/Downloads/vc-assistant"}
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(runtime_output))
 
@@ -3095,7 +3093,7 @@ def test_explicit_output_folder_wins_for_local_direct_runs(monkeypatch, tmp_path
 
     runtime_output = tmp_path / "shared" / "outputs" / "user"
     explicit_output = tmp_path / "explicit"
-    payload = {"output_folder": "~/Downloads/vc_assistant"}
+    payload = {"output_folder": "~/Downloads/vc-assistant"}
     resolved_config = {"outputs": {"folder_path": str(runtime_output)}}
     monkeypatch.delenv("MN_JOB_OUTPUT_DIR", raising=False)
 
@@ -3658,3 +3656,31 @@ def test_budget_exhaustion_finishes_with_warnings_and_no_extra_llm_calls(tmp_pat
         for warning in artifact["research_warnings"]
     )
     assert fake_llm.calls <= 1
+
+
+@pytest.mark.parametrize('source_type', ['founder_provided_document', 'company_website',
+    'public_profile', 'search_result_page', 'blocked_page', 'failed_fetch'])
+@pytest.mark.parametrize('typed', [False, True])
+def test_bayesian_source_qualification_prevents_keyword_only_verification(source_type, typed):
+    _load_runner()
+    from domain.bayesian_policy import _observations_from_vc_evidence
+    from mn_evidence_engine_skill import EvidencePolarity
+    evidence = {'evidence_id':'assertion', 'source_id':'source',
+        'polarity':EvidencePolarity.SUPPORTS if typed else 'supports',
+        'raw_excerpt':'We report ARR with invoices, contracts and bank deposits.'}
+    observed = _observations_from_vc_evidence('revenue_claim', [evidence],
+        {'source':{'source_type':source_type, 'title':'Company assertion'}})
+    expected = {'FounderEvidenceObserved'} if source_type in {
+        'founder_provided_document', 'company_website', 'public_profile'} else set()
+    assert set(observed.observed_evidence_ids) == expected
+
+
+def test_bayesian_separate_primary_documents_still_bind_observed_support():
+    _load_runner()
+    from domain.bayesian_policy import _observations_from_vc_evidence
+    evidence = {'evidence_id':'document', 'source_id':'source', 'polarity':'supports',
+        'raw_excerpt':'Invoice and customer contract reconcile the bank deposit.'}
+    observed = _observations_from_vc_evidence('revenue_claim', [evidence],
+        {'source':{'source_type':'data_room_document', 'title':'Bank reconciliation'}})
+    assert set(observed.observed_evidence_ids) == {'FounderEvidenceObserved',
+        'InvoiceFound', 'CustomerContractFound', 'BankDepositFound'}

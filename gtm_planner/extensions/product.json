@@ -10,17 +10,21 @@
     "output": "Reviewable campaigns and observed delivery results.",
     "benefit": "Studies Bibblio and proposes evidence-backed email campaigns for your approval.",
     "collaboration": {
-      "topology": "pair",
+      "topology": "group",
       "protocol": "bibblio-marketing.v1",
       "goalId": "bibblio-marketing",
       "accepts": [
+        "gtm_planner",
         "gtm_executor"
       ],
       "goalKey": "inputs.payload.goal_id",
-      "peerKey": "inputs.payload.peer_job_id",
       "commonGoalKey": "inputs.payload.common_goal",
       "sameRuntime": true,
-      "schema": "mn.collaboration.pair.v1"
+      "schema": "mn.collaboration.group.v1",
+      "maxMembers": 5,
+      "groupKey": "inputs.payload.collaboration_group_id",
+      "peersKey": "inputs.payload.collaboration_peers",
+      "legacyPeerKey": "inputs.payload.peer_job_id"
     }
   },
   "runtime_features": [

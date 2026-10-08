@@ -5,13 +5,15 @@ relevant, human-approved email outreach. Use this with `gtm_executor`.
 
 ## Setup and operation
 
-Hire both through MirrorNeuron's catalog and blueprint-add API. Use OtterDesk’s Collaboration tab to select the pair and edit their common
-goal. The desktop binds stable partner Job IDs and the `bibblio-marketing`
-exchange identity. Configure each co-worker’s website and private inputs separately. Keep
-both on the same local runtime: their read-only MCP exchanges bind to loopback.
-This version does not support placing the pair on different computers.
-Saving configuration does not start work. Choose Start now explicitly for both;
-pause or stop with OtterDesk's existing lifecycle controls.
+Hire co-workers through MirrorNeuron's catalog and blueprint-add API. In
+OtterDesk’s Collaboration tab, enable a board, add compatible co-workers, and
+save a shared goal. The catalog declares groups of up to five planner/executor
+instances. Each receives the board identity and every other member’s stable Job
+ID and blueprint role. Configure websites and private inputs separately. Keep
+all members on the same local runtime: their read-only MCP exchanges bind to
+loopback. Saving a board does not start work; use each co-worker’s existing
+lifecycle controls explicitly. Existing scalar-peer pairs keep their runtime
+configuration until their membership or shared goal is edited.
 
 The planner reads public Bibblio product evidence at startup and at most daily,
 extracts exact source quotations, and proposes one idea per day or changed
@@ -62,3 +64,11 @@ Live provider sending is not a setup or test prerequisite.
 ## Context engine contract
 
 The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
+
+## Shared capability ownership
+
+Core-authoritative nonblocking approvals and verified peer discovery/cursors use shared SDK helpers. Marketing approval triggers, allowed marketing roles and work-packet content remain blueprint-owned.
+Group packets carry the board identity and exact member list. Each peer keeps
+an independent cursor; a peer restart resets only that cursor. Packets from
+another board or membership are rejected before consumption. Peer data never
+grants approval, and each executor still requires review of its exact delivery.

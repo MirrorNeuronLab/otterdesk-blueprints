@@ -40,14 +40,14 @@ class AdaptiveModel:
         if history and history[-1]["action"]["name"] == "invoke_skill" and "passages" in history[-1]["result"]:
             passages = history[-1]["result"]["passages"]
             if "Routine" not in " ".join(p["text"] for p in passages) and history[-1]["action"]["arguments"]["operation"] == "search":
-                return json.dumps({"name": "invoke_skill", "arguments": {"skill": "mirrorneuron.document.reading", "operation": "passage", "arguments": {"evidence_id": passages[0]["evidence_id"]}}, "reason": "Uncertain chronology requires exact passage follow-up."})
+                return json.dumps({"name": "invoke_skill", "arguments": {"skill": "otterdesk.litigation.evidence", "operation": "passage", "arguments": {"evidence_id": passages[0]["evidence_id"]}}, "reason": "Uncertain chronology requires exact passage follow-up."})
         if not history:
-            name, args = "read_skill", {"skill": "mirrorneuron.document.reading"}
+            name, args = "read_skill", {"skill": "otterdesk.litigation.evidence"}
         elif history[-1]["action"]["name"] == "read_skill":
             name, args = (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.document.reading",
+                    "skill": "otterdesk.litigation.evidence",
                     "operation": "search",
                     "arguments": {"query": "cybersecurity"},
                 },
@@ -80,7 +80,7 @@ class AdaptiveModel:
             name, args = (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.document.reading",
+                    "skill": "otterdesk.litigation.evidence",
                     "operation": "passage",
                     "arguments": {
                         "evidence_id": history[-1]["action"]["arguments"][
@@ -136,6 +136,21 @@ def test_ingestion_is_required_before_any_model_call(modules, tmp_path):
         modules["research"].investigate(context, llm_client=ScriptedModel())
 
 
+def test_source_retrieval_remains_enabled_without_runtime_recall(modules, tmp_path):
+    context = setup_case(modules, tmp_path)
+    context["config"]["text_memory"]["enabled"] = False
+    modules["research"].investigate(context, llm_client=ScriptedModel())
+    case = context["run_dir"] / "case"
+    state = json.loads((case / "agent_checkpoint.json").read_text())
+    searches = [r["result"] for r in state["records"]
+                if r["action"].get("arguments", {}).get("operation") == "search"]
+    assert searches and searches[0]["passages"]
+    assert searches[0]["retrieval"] == "membrane_original_source_units"
+    assert not (case / "documents.sqlite3").exists()
+    receipt = json.loads((case / "indexes.json").read_text())
+    assert "source-query.json" in receipt["hashes"]
+
+
 @pytest.mark.parametrize("change", ["config", "snapshot", "index"])
 def test_resume_binding_mismatch(modules, tmp_path, change):
     context = setup_case(modules, tmp_path)
@@ -146,7 +161,7 @@ def test_resume_binding_mismatch(modules, tmp_path, change):
         path = (
             context["run_dir"]
             / "case"
-            / ("sources.json" if change == "snapshot" else "documents.sqlite3")
+            / ("sources.json" if change == "snapshot" else "source-query.json")
         )
         path.write_bytes(b"tampered")
     with pytest.raises(ValueError):
@@ -179,7 +194,7 @@ def test_untrusted_document_cannot_grant_tools_or_citations(modules, tmp_path):
             (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.document.reading",
+                    "skill": "otterdesk.litigation.evidence",
                     "operation": "search",
                     "arguments": {"query": "delete"},
                 },

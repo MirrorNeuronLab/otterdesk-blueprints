@@ -1,15 +1,12 @@
 {
   "agent_handoffs": {},
-  "condition_screening": {
-    "min_confidence": 0.8
-  },
   "backpressure": {
     "drop_policy": "skip_with_error",
     "llm": {
       "max_calls_per_minute": 6,
       "max_concurrent_calls": 1,
       "min_interval_seconds": 10.0,
-      "rationale": "Protect local Docker Model Runner from concurrent blueprint actor calls."
+      "rationale": "Resident RF-DETR person events run independently. Periodic caption windows use one active Cosmos request and one latest pending window. Historical questions read MN caption memory with the text model."
     },
     "max_concurrency": 1,
     "max_events_per_second": 25,
@@ -85,7 +82,7 @@
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Default self-contained CCTV demo inputs bundled into the NVIDIA DockerWorker.",
+    "description": "Warehouse recording staged from the submitter, or an approved live camera stream.",
     "payload": {
       "alert_policy": {
         "cooldown_seconds": 120,
@@ -100,7 +97,8 @@
       "video_source": "bundled_demo",
       "visual_targets": [
         "person"
-      ]
+      ],
+      "monitoring_goal": "A person is visible in the video."
     }
   },
   "interfaces": {
@@ -345,17 +343,16 @@
     "agents": {
       "adaptive_frame_sampler": {
         "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
-          "Apply the configured baseline, scene-event, and on-demand priorities.",
-          "Select bounded, non-duplicate frame batches with source provenance.",
-          "Expose sampling skips and backpressure without making detections."
+          "Claim independent caption windows from the resident camera service.",
+          "Publish durable frame references through Core; keep caption admission bounded."
         ],
         "role": "Adaptive frame sampler"
       },
       "quality_controller": {
         "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
           "Check detection confidence and stream quality.",
           "Flag blurry, missing, or stale frames.",
@@ -365,7 +362,7 @@
       },
       "report_writer": {
         "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
           "Write concise watch summaries from detection events.",
           "Preserve frame and source references.",
@@ -375,7 +372,7 @@
       },
       "video_monitor": {
         "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
           "Maintain watch state and runtime lifecycle.",
           "Summarize active monitoring status.",
@@ -385,7 +382,7 @@
       },
       "video_source_validator": {
         "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
           "Validate video source configuration and reachability.",
           "Flag unsupported or unavailable sources.",
@@ -394,12 +391,11 @@
         "role": "Video source validator"
       },
       "visual_target_detector": {
-        "llm_config": "primary",
-        "model": "nemotron3:q4_K_M",
+        "llm_config": "vision",
+        "model": "cosmos3-nano-reasoner:1.7",
         "responsibilities": [
-          "Detect configured visual targets from sampled frames.",
-          "Tie alerts to frame evidence and model state.",
-          "Flag uncertain detections for review."
+          "Caption scheduled video windows, including quiet scenes, and evaluate complex visual goals.",
+          "Publish authored captions through MN memory; preserve times, evidence and uncertainty."
         ],
         "role": "Visual target detector actor"
       }
@@ -408,24 +404,37 @@
     "configs": {
       "primary": {
         "api_base": "auto",
-        "max_tokens": 900,
+        "max_tokens": 1800,
         "mock_mode": "fake",
         "mode": "live",
-        "model": "nemotron3:q4_K_M",
+        "model": "nemotron-3.5-lightning:latest",
         "num_retries": 1,
         "provider": "docker_model_runner",
         "required_capabilities": [
-          "image_input",
           "structured_output"
         ],
         "timeout_seconds": 60
+      },
+      "vision": {
+        "api_base": "auto",
+        "max_tokens": 4096,
+        "mock_mode": "fake",
+        "mode": "live",
+        "model": "cosmos3-nano-reasoner:1.7",
+        "num_retries": 1,
+        "provider": "docker_model_runner",
+        "required_capabilities": [
+          "image_input"
+        ],
+        "timeout_seconds": 120,
+        "backend": "nim"
       }
     },
     "default_config": "primary",
     "enabled": true,
     "mock_mode": "fake",
     "mode": "live",
-    "model": "nemotron3:q4_K_M",
+    "model": "nemotron-3.5-lightning:latest",
     "provider": "docker_model_runner",
     "quick_test_uses_fake": true,
     "responsibilities": [
@@ -435,7 +444,19 @@
     ],
     "strict_json": false
   },
-  "local_inputs": {},
+  "local_inputs": {
+    "files": [
+      {
+        "config_path": "video_source.demo_file",
+        "payload_path": "mn_local_inputs/demo.mp4",
+        "runtime_path": "mn_local_inputs/demo.mp4",
+        "max_bytes": 536870912,
+        "when": {
+          "video_source.profile": "bundled_demo"
+        }
+      }
+    ]
+  },
   "logging": {
     "events": [
       "run_started",
@@ -471,7 +492,8 @@
       "human_decision_applied",
       "output_skill_started",
       "output_skill_completed",
-      "output_skill_failed"
+      "output_skill_failed",
+      "cctv_operator_person_event"
     ],
     "events_jsonl": true,
     "level": "INFO",
@@ -522,11 +544,11 @@
     "blueprint_revision": "v1",
     "category": "security",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker with a self-contained Docker demo stream and optional approved external RTSP/RTMP input. It uses sparse adaptive sampling, operator steering, CUDA-enabled frame preparation, and source-grounded review reports.",
+    "description": "An NVIDIA-only CCTV co-worker with resident RF-DETR person events, independent periodic Cosmos captions, MN caption memory and measured pipeline stages. It supports a staged demo recording or approved external RTSP/RTMP input.",
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
     "problem_solved": "One NVIDIA-only workflow runs a self-contained CCTV demo or monitors an approved external RTSP/RTMP stream without sending the source frame rate to the model.",
-    "simulation_type": "Live-stream adaptive sampling with visual detection review state.",
+    "simulation_type": "Resident person events and independent caption sampling with review state.",
     "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
@@ -555,7 +577,7 @@
   },
   "outputs": {
     "adapter": "local_run_store",
-    "artifact_contract": "Visual detection observations with count, label, category, color, position, activity, confidence, and alert status.",
+    "artifact_contract": "Timestamped scene understanding, observed facts and separately qualified risk predictions in authored Markdown memory.",
     "folder_path": "~/Downloads/cctv-operator",
     "run_root": "~/.mn/runs",
     "skills": {
@@ -577,7 +599,10 @@
       "enabled": false,
       "ports": []
     },
-    "write_run_store": true
+    "write_run_store": true,
+    "job_files": [
+      "context_sources"
+    ]
   },
   "privacy": {
     "default_classification": "internal",
@@ -631,18 +656,22 @@
     "sample_interval_seconds": 10
   },
   "sampling": {
-    "baseline_interval_seconds": 20,
-    "burst_candidate_fps": 5,
+    "baseline_interval_seconds": 10,
+    "burst_candidate_fps": 4,
     "frame_jpeg_max_width": 896,
     "max_calls_per_minute": 6,
-    "max_model_frames": 10,
+    "max_model_frames": 12,
     "max_pending_batches": 1,
-    "post_roll_seconds": 5,
-    "pre_roll_seconds": 3,
+    "post_roll_seconds": 2,
+    "pre_roll_seconds": 2,
     "proxy_fps": 1,
     "proxy_width": 320,
     "scene_change_consecutive_samples": 2,
-    "scene_change_threshold": 0.18
+    "scene_change_threshold": 0.18,
+    "sequence_triggers": [
+      "baseline",
+      "on_demand"
+    ]
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
@@ -696,12 +725,13 @@
   },
   "video_source": {
     "camera_id": "cctv-demo",
-    "description": "Run the bundled looping CCTV demo stream inside the shared NVIDIA DockerWorker. Set profile=external and override uri for an approved real RTSP/RTMP source.",
+    "description": "Loop the staged warehouse recording as a demo RTSP stream. External mode uses an approved camera stream.",
     "media_accelerator": "nvidia_cuda",
     "mode": "stream",
     "profile": "bundled_demo",
     "transport": "rtsp_rtmp",
-    "uri": "rtsp://127.0.0.1:8554/cctv-demo"
+    "uri": "rtsp://127.0.0.1:8554/cctv-demo",
+    "demo_file": "/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4"
   },
   "web_ui": {
     "dashboard": {
@@ -742,6 +772,18 @@
   "text_memory": {
     "enabled": true,
     "max_results": 3,
-    "max_context_bytes": 4000
+    "max_context_bytes": 49152
+  },
+  "person_detector": {
+    "model": "small",
+    "fps": 5,
+    "confidence_threshold": 0.55,
+    "consecutive_hits": 2,
+    "absence_seconds": 2,
+    "max_gap_seconds": 2
+  },
+  "benchmarks": {
+    "cohort": "live",
+    "max_samples": 10000
   }
 }

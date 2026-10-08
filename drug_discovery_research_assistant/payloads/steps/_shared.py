@@ -3,6 +3,8 @@ from mn_sdk.step_graph import run_input, upstream
 
 def inputs(previous_step: str = ""):
     fields = {
+        "disease": run_input("disease"),
+        "targets": run_input("targets"),
         "disease_or_target_profile": run_input("disease_or_target_profile"),
         "assay_constraints": run_input("assay_constraints"),
         "candidate_seed_set": run_input("candidate_seed_set"),

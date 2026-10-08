@@ -6,6 +6,8 @@ from pathlib import Path
 import sys
 from typing import Any
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DETECTOR_PATH = (
@@ -65,7 +67,7 @@ def _run_detector(
     batch_dir = run_dir / "frame_batches" / "batch-test"
     batch_dir.mkdir(parents=True)
     frame_path = batch_dir / "frame-01.jpg"
-    frame_path.write_bytes(b"jpeg-frame")
+    frame_path.write_bytes(b"\xff\xd8jpeg-frame\xff\xd9")
     batch_ref = "frame_batches/batch-test/batch.json"
     instruction = str(payload.get("instruction") or "")
     revision = int(payload.get("instruction_revision") or 0)
@@ -113,6 +115,7 @@ def _run_detector(
     monkeypatch.setenv("MN_MESSAGE_FILE", str(message_file))
     monkeypatch.setenv("MN_CONTEXT_FILE", str(context_file))
     monkeypatch.setenv("MN_RUN_DIR", str(run_dir))
+    monkeypatch.setenv("MN_RUN_ID", "test-run")
     monkeypatch.setenv(
         "MN_BLUEPRINT_CONFIG_JSON",
         json.dumps(
@@ -133,7 +136,8 @@ def _run_detector(
         if response_schema:
             return gate or {"condition_met": True, "confidence": 0.95}
         prompts.append(prompt)
-        return module.normalize_detection(detection)
+        matched = detection.get("detected_target", detection.get("detected")) is True
+        return module.normalize_detection({"goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None, **detection})
 
     monkeypatch.setattr(module, "call_ollama", fake_call_ollama)
     if review_approved is not None:
@@ -144,43 +148,30 @@ def _run_detector(
     return output, prompts
 
 
-def test_confident_absence_skips_detailed_model_call(monkeypatch, tmp_path, capsys):
+def test_quiet_scene_is_analyzed_without_target_screening(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
-    output, deep_prompts = _run_detector(
-        detector, monkeypatch, tmp_path, capsys,
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={"tick_seq": 1, "camera_id": "entrance"},
-        detection={"detected": True, "confidence": 0.99},
-        gate={"condition_met": False, "confidence": 0.94},
-    )
-    assert deep_prompts == []
-    assert output["next_state"]["last_observation"]["detected_target"] is False
-    assert output["next_state"]["last_observation"]["condition_screening"]["route"] == "no_match"
+        detection={"detected": False, "confidence": .9, "summary": "The aisle remains clear.",
+                   "scene_understanding": "A parked cart remains beside the aisle."},
+        gate={"condition_met": False, "confidence": .94})
+    assert len(prompts) == 1
+    observed = output["next_state"]["last_observation"]
+    assert observed["scene_understanding"] == "A parked cart remains beside the aisle."
+    assert observed["condition_screening"]["mode"] == "independent_captioning"
+    assert not any(event["type"] == "human_input_requested" for event in output["events"])
 
 
-def test_uncertain_gate_only_runs_detail_after_operator_approval(monkeypatch, tmp_path, capsys):
+def test_uncertain_scene_does_not_block_observation_for_approval(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
-    output, deep_prompts = _run_detector(
-        detector, monkeypatch, tmp_path, capsys,
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={"tick_seq": 2, "camera_id": "entrance"},
-        detection={"detected": True, "detected_target": True, "confidence": 0.9,
-                   "summary": "A person is visible."},
-        gate={"condition_met": True, "confidence": 0.56}, review_approved=False,
-    )
-    assert deep_prompts == []
-    assert output["next_state"]["last_observation"]["detected_target"] is False
-    assert output["next_state"]["last_observation"]["condition_screening"]["route"] == "review_declined"
-
-    approved_dir = tmp_path / "approved"
-    approved_dir.mkdir()
-    output, deep_prompts = _run_detector(
-        detector, monkeypatch, approved_dir, capsys,
-        payload={"tick_seq": 2, "camera_id": "entrance"},
-        detection={"detected": True, "detected_target": True, "confidence": 0.9,
-                   "summary": "A person is visible."},
-        gate={"condition_met": True, "confidence": 0.56}, review_approved=True,
-    )
-    assert len(deep_prompts) == 1
-    assert output["next_state"]["last_observation"]["detected_target"] is True
+        detection={"detected": False, "confidence": .3, "summary": "The aisle is obscured.",
+                   "uncertainties": ["Occlusion prevents assessing clearance."]},
+        review_approved=False)
+    assert len(prompts) == 1
+    assert output["next_state"]["last_observation"]["uncertainties"] == ["Occlusion prevents assessing clearance."]
+    assert not any(event["type"] == "human_input_requested" for event in output["events"])
 
 
 def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path, capsys):
@@ -241,7 +232,7 @@ def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path,
     assert observed["observed_at"].endswith("Z")
 
 
-def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path, capsys):
+def test_monitoring_goal_match_emits_timed_chat_notice_with_frame(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
     previous_state = detector.initial_state()
     previous_state["last_observation"] = {
@@ -258,7 +249,7 @@ def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path,
         monkeypatch,
         tmp_path,
         capsys,
-        payload={"tick_seq": 5, "camera_id": "front-door"},
+        payload={"tick_seq": 5, "camera_id": "front-door", "instruction": "People entering the front door.", "instruction_revision": 1},
         state=previous_state,
         detection={
             "detected": True,
@@ -293,11 +284,51 @@ def test_cctv_operator_big_change_emits_chat_human_notice(monkeypatch, tmp_path,
 
     notice = next(event for event in output["events"] if event["type"] == "human_notice")
     assert notice["channel"] == "human"
-    assert notice["payload"]["kind"] == "video_big_change"
+    assert notice["payload"]["kind"] == "configured_target_detection"
     assert notice["payload"]["chat_delivery"] == "otterdesk_worker_chat"
-    assert notice["payload"]["title"] == "Big change in video"
-    assert "2 people" in notice["payload"]["message"].lower()
+    assert notice["payload"]["title"] == "Monitoring goal detected"
+    assert "two people" in notice["payload"]["message"].lower()
     assert "front door" in notice["payload"]["message"].lower()
+    assert notice["payload"]["observed_at"] == "1970-01-01T00:00:01Z"
+    assert "1970-01-01T00:00:01Z" in notice["payload"]["message"]
+    assert notice["payload"]["image"]["mime_type"] == "image/jpeg"
+    assert notice["payload"]["image"]["run_id"] == "test-run"
+    assert notice["payload"]["monitoring_goal"] == "People entering the front door."
+    assert not (tmp_path / "run/web/conversation_media.json").exists()
+
+
+def test_continuing_goal_match_is_not_repeated_after_cooldown(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    state = {**detector.initial_state(), "notified_goal": "A person is visible in the video."}
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 3}, state=state,
+        detection={"detected_target": True, "confidence": .95, "summary": "The group is still standing together."})
+    assert not any(event["type"] == "human_notice" for event in output["events"])
+    assert output["next_state"]["notified_goal"] == state["notified_goal"]
+
+
+def test_confirmed_goal_absence_rearms_notifications(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    state = {**detector.initial_state(), "notified_goal": "A person is visible in the video."}
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 3}, state=state,
+        detection={"detected_target": False, "confidence": .95, "summary": "The group dispersed."})
+    assert output["next_state"]["notified_goal"] is None
+
+
+@pytest.mark.parametrize("matched,confidence,cooldown", [(False, .95, 0), (True, .3, 0), (True, .95, 120)])
+def test_unrelated_low_confidence_and_repeated_activity_stay_quiet(monkeypatch, tmp_path, capsys, matched, confidence, cooldown):
+    detector = _load_detector()
+    state = detector.initial_state()
+    state["last_alert_wall_ts"] = __import__("time").time() if cooldown else 0
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 2}, state=state,
+        detection={"detected_target": matched, "confidence": confidence,
+                   "detections": [{"label": "person", "category": "person"}],
+                   "summary": "People are visible.", "scene_understanding": "People are visible."})
+    assert "A person is visible in the video." in prompts[0]
+    assert not any(event["type"] == "human_notice" for event in output["events"])
+    assert not (tmp_path / "run/web/conversation_media.json").exists()
 
 
 def test_cctv_operator_user_attention_request_changes_prompt_and_state(monkeypatch, tmp_path, capsys):
@@ -373,6 +404,7 @@ def test_cctv_operator_uses_configured_targets_and_notice_policy(
             },
             "inputs": {
                 "payload": {
+                    "monitoring_goal": "red backpack",
                     "visual_targets": ["red backpack"],
                     "alert_policy": {
                         "mode": "human_notice_only",
@@ -461,7 +493,7 @@ def test_cctv_setup_offers_sample_and_secure_external_source():
     assert stream["active_when_any"] == [{"key": "video_source.profile", "equals": "external"}]
     assert set(stream["protocols"]) == {"rtsp:", "rtsps:", "rtmp:", "rtmps:"}
     assert all(not field["required"] for key, field in fields.items()
-               if key not in {"video_source.profile", "video_source.uri"})
+               if key not in {"video_source.profile", "video_source.uri", "video_source.demo_file", "inputs.payload.monitoring_goal"})
 
 
 def test_floor_focus_replaces_default_targets_in_model_request(monkeypatch, tmp_path, capsys):
@@ -505,7 +537,7 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
     tools = prompt["allowed_user_tools"]
     assert question in tools["set_monitoring_instruction"]["description"]
     assert "change the goal to watch the corridor" in tools["set_monitoring_instruction"]["description"]
-    assert "30-second monitoring update" in tools["watch_operator_activity"]["description"]
+    assert "Quiet and unrelated activity produce no chat messages" in tools["watch_operator_activity"]["description"]
     assert 'Never use "latest"' in tools["get_operator_activity"]["description"]
     assert "command_id" not in tools["set_monitoring_instruction"]["arguments"]
     assert "action" in prompt["turn_contract"]["allowed_intents"]

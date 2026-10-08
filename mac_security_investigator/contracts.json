@@ -1,0 +1,79 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Local retrospective unified-log review without OS file inspection; diagnostic evidence only.",
+  "inputs": {
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "example": "~/Downloads/mac-security-investigator",
+      "description": "Folder for investigation reports. Recent Mac security logs are queried automatically."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "schema_version": "mn.mac_security.analysis.v1",
+      "type": "review_packet",
+      "required_fields": [
+        "host_epoch_id",
+        "graph_revision",
+        "cases",
+        "coverage",
+        "completeness",
+        "remediation_performed"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "scan_batch",
+        "path": "scan_batch.json",
+        "schema_version": "mn.mac_security.scan_batch.v1"
+      },
+      {
+        "artifact_id": "graph_revision",
+        "path": "graph_revision.json",
+        "schema_version": "mn.mac_security.graph_revision.v1"
+      },
+      {
+        "artifact_id": "analysis",
+        "path": "analysis.json",
+        "schema_version": "mn.mac_security.analysis.v1"
+      },
+      {
+        "artifact_id": "context_graph",
+        "path": "context_graph.json",
+        "schema_version": "mn.mac_security.context_graph.v1"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "path": "final_artifact.json",
+        "schema_version": "mn.mac_security.final_artifact.v1"
+      },
+      {
+        "artifact_id": "evidence",
+        "path": "evidence.json",
+        "schema_version": "mn.mac_security.evidence.v1"
+      },
+      {
+        "artifact_id": "report",
+        "path": "report.md",
+        "schema_version": "mn.mac_security.report.v1"
+      },
+      {
+        "artifact_id": "preview",
+        "path": "web/index.html",
+        "schema_version": "mn.mac_security.preview.v1",
+        "optional": true
+      }
+    ]
+  },
+  "status": {
+    "heartbeat": true
+  },
+  "privacy": {
+    "classification": "confidential"
+  }
+}

@@ -55,7 +55,14 @@
         "adapter": "mock",
         "description": "Bundled Alzheimer demo target and synthetic candidate workflow.",
         "payload": {
-          "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis."
+          "disease_or_target_profile": "Alzheimer disease with BACE1 modulation as the primary target hypothesis.",
+          "disease": "Alzheimer disease",
+          "targets": [
+            {
+              "protein_id": "P56817",
+              "gene": "BACE1"
+            }
+          ]
         }
       },
       "sample_file": {
@@ -122,6 +129,25 @@
         "potency": "sub-micromolar",
         "toxicity": "low"
       },
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    },
+    "disease": {
+      "description": "Disease name used by Open Targets when no protein targets are provided. Keep therapeutic intent in disease_or_target_profile.",
+      "example": "Alzheimer disease",
+      "type": "domain_value",
+      "required": false,
+      "privacy": "confidential"
+    },
+    "targets": {
+      "description": "Explicit UniProt protein targets. When provided, these targets are preserved and disease association discovery is not performed.",
+      "example": [
+        {
+          "protein_id": "P56817",
+          "gene": "BACE1"
+        }
+      ],
       "type": "domain_value",
       "required": false,
       "privacy": "confidential"

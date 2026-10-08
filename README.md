@@ -9,9 +9,14 @@ depend on the deprecated LiteLLM communication skill. Their RAG packages and OCR
 own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
 
-All 12 published blueprints declare the Markdown context profile. Architecture,
-CCTV, Architecture, Litigation and VC use Membrane v2; the other eight explicitly disable it. See
+All 13 published blueprints declare the Markdown context profile.
+CCTV, Architecture, Litigation, VC and Mac security investigator use Membrane v2
+runtime recall. Drug Discovery uses Membrane source intelligence for input, output
+and procedure questions; seven other blueprints disable worker context consumers. See
 [the catalog audit and runtime prerequisites](CONTEXT_ENGINE.md).
+Every active context consumer prepares Membrane SDK 2.1 and the v2 RPC service.
+The shared runtime readiness check rejects older engines before submission;
+the Markdown record label `mn.context.text.v1` remains valid on v2.
 
 ## Quick Start
 
@@ -72,7 +77,8 @@ helpers and render shared agent templates.
 | [`research_assistant`](research_assistant/README.md) | Science | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, evidence and proposed work packages. |
 | [`procurement_manager`](procurement_manager/README.md) | Finance | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
-| [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, a small condition check before detailed frame analysis, and snapshot-backed approval for uncertain findings. |
+| [`mac_security_investigator`](mac_security_investigator/README.md) | Security | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
+| [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
 | [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`litigation_analyst`](litigation_analyst/README.md) | Legal | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
 | [`financial_advisor`](financial_advisor/README.md) | Finance | Reviews financial documents and prepares a grounded advisory packet. |

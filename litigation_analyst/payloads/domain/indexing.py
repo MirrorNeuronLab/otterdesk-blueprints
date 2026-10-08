@@ -1,12 +1,10 @@
 """Deterministic materialization and verification of frozen evidence indexes."""
 
-from dataclasses import asdict
 import hashlib
 import json
 import shutil
 from pathlib import Path
 
-from mn_document_reading_skill.search import PassageIndex
 from mn_graph_analysis_skill import GraphClient
 from mn_prototype_bounded_tool_loop_agent.checkpoint import atomic_json
 from mn_sdk.step_runtime import artifact_reference
@@ -40,8 +38,9 @@ def validate_indexes(case, scope):
     for name in (
         "sources.json",
         "source_inventory.json",
-        "documents.sqlite3",
+        "source-query.json",
         "evidence.rgx",
+        "source-relationships.json",
     ):
         if digest(case / name) != receipt["hashes"][name]:
             raise ValueError("evidence index hash mismatch: " + name)
@@ -59,15 +58,20 @@ def build_indexes(context, *, llm_client=None):
         validate_indexes(case, scope)
     else:
         # No receipt means an interrupted build; these are derived artifacts only.
-        for name in ("documents.sqlite3", "evidence.rgx"):
+        for name in ("evidence.rgx",):
             path = case / name
             if path.exists():
                 shutil.rmtree(path) if path.is_dir() else path.unlink()
-        PassageIndex.build(
-            case / "documents.sqlite3", [asdict(d) for d in corpus.scan()], scope
-        )
+        # Seal the SDK SourceCorpus catalog rather than build a second text index.
+        if not (case / "source-query.json").is_file():
+            raise ValueError("Original source catalog must be prepared before indexing")
         graph = GraphClient(case / "evidence.rgx")
-        CaseGraphProjector(graph.database_path, graph.binary).project(corpus.scan())
+        inventory = json.loads((case / 'source_inventory.json').read_text())
+        from .relationship_index import build as build_relationships
+        relationships = build_relationships(context, corpus.scan(), llm_client=llm_client)
+        CaseGraphProjector(graph.database_path, graph.binary).project(corpus.scan(),
+            repository_id=inventory.get('repository_id'), file_identities=inventory.get('file_identities'),
+            relationship_index=relationships)
         graph.check()
         atomic_json(
             receipt_path,
@@ -78,8 +82,9 @@ def build_indexes(context, *, llm_client=None):
                     for name in (
                         "sources.json",
                         "source_inventory.json",
-                        "documents.sqlite3",
+                        "source-query.json",
                         "evidence.rgx",
+                        "source-relationships.json",
                     )
                 },
             },
@@ -87,7 +92,7 @@ def build_indexes(context, *, llm_client=None):
     refs = [
         artifact_reference(key, "case/" + name)
         for key, name in (
-            ("document_index", "documents.sqlite3"),
+            ("document_index", "source-query.json"),
             ("evidence_graph", "evidence.rgx"),
             ("index_receipt", "indexes.json"),
         )

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def architecture_paths(monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / 'software_architecture_advisor/payloads'))
     workspace = companion_workspace(ROOT)
+    monkeypatch.syspath_prepend(str(workspace / 'Membrane/mn-context-source-code/src'))
     for repo in ['mn-skills', 'mn-agents']:
         for path in (workspace/repo).glob('*/src'):
             monkeypatch.syspath_prepend(str(path))

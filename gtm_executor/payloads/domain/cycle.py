@@ -52,7 +52,7 @@ def cycle(context, stop_event):
         brief = packet.get('analysis',{}).get('modeled_or_inferred',{}).get('brief')
         if not isinstance(brief,dict) or len(str(brief))>10000:
             raise ValueError('Invalid campaign handoff')
-        prepare_campaign(state,context,brief,source_id=packet['work_packet_id'])
+        prepare_campaign(state,context,brief,source_id=packet['worker']+':'+packet['work_packet_id'])
     state.put('meta','peer_cursor',cursor)
     instruction = context['payload'].get('instruction','').strip()
     default_instruction = 'Market Bibblio through relevant, human-approved email outreach.'

@@ -99,6 +99,29 @@ def test_cancel_before_planning_writes_explicit_partial_draft(dynamic_case, modu
     assert 'cancelled' in (context['run_dir']/'final_report.md').read_text()
 
 
+def test_missing_required_context_returns_inconclusive_without_model(dynamic_case):
+    from domain.round_state import save,read,load
+    from domain.round_tasks import assess_hypothesis
+    context,ref=dynamic_case
+    root=context['run_dir']
+    frozen=load(root,ref)
+    context['config']['text_memory']['quality_verification']=True
+    frozen['config']=context['config']
+    ref=save(root,'case/rounds/quality-enabled-context.json',frozen)
+    task={'prefix':'missing-context','hypothesis':{'id':'H01','question':'Did approval occur?'}}
+    task_ref=save(root,'case/rounds/missing-context-task.json',task)
+    save(root,'case/rounds/missing-context-evidence.json',{'evidence_ids':[],
+        'records':[{'purpose':'support','result':{'passages':[],
+            'status':'incomplete','unresolved':['source_name_unresolved']}}]})
+    class NoModel:
+        def completion_text(self,*args):pytest.fail('missing required context reached model')
+    result=assess_hypothesis(context,{'context':ref,'task':task_ref},llm_client=NoModel())
+    value=read(root/result['assessment']['path'])
+    assert value['hypothesis']['status']=='inconclusive' and not value['report']['findings']
+    quality=read(root/'case/rounds/missing-context-context-quality.json')
+    assert quality['action']=='insufficient_evidence' and 'source_name_unresolved' in quality['reasons']
+
+
 def test_replanning_stops_when_no_enquiries_are_proposed(dynamic_case):
     from domain.round_planning import plan_round
     context, ref = dynamic_case
@@ -282,8 +305,14 @@ def test_rounds_use_shared_runtime_mechanics():
 def test_runtime_notes_recalled_without_becoming_case_citations(dynamic_case, text_memory_transport):
     from domain.round_planning import plan_round
     context, ref = dynamic_case
-    files = text_memory_transport.scopes.setdefault(('test-memory-job', 'test-memory-run'), {})
-    files['run:lesson-approval'] = 'financially relevant events: verify identity before alleging approval'
+    from mn_sdk.text_memory import runtime_text_memory
+    from mn_context_engine_sdk.intelligent_system import RuntimeRecord
+    memory = runtime_text_memory(context['config'], principal='round-specialists',
+        scope={'job_id':'test-memory-job','run_id':'test-memory-run'})
+    memory.record(RuntimeRecord('lesson-approval','Prior review','2026-10-04T10:00:00Z',
+        'inferred_not_source_evidence', {'memory_family':'litigation_review'},
+        notes='financially relevant events: verify identity before alleging approval'),event_id='lesson-approval')
+    memory.close()
     model = RoundModel()
     first = plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=model)
     assert any('verify identity' in item['content'] for item in model.calls[0]['runtime_memory']['evidence'])
@@ -294,5 +323,41 @@ def test_runtime_notes_recalled_without_becoming_case_citations(dynamic_case, te
     # Exact evidence still comes from frozen case passages, never note hashes/paths.
     assessment = next(call for call in model.calls if call['stage'] == 'assess')
     assert assessment['evidence']
+    assert 'runtime_memory' not in assessment
+    assert all('runtime_memory' not in call for call in model.calls if call['stage'] == 'review')
     assert all(not e['evidence_id'].endswith('.md') for e in assessment['evidence'])
     assert list((context['run_dir'] / 'case/rounds/models').glob('*.memory.json'))
+    assert not list((context['run_dir'] / 'case/rounds/models').glob('*-assess.memory.json'))
+    assert not list((context['run_dir'] / 'case/rounds/models').glob('*-review.memory.json'))
+
+
+def test_enquiry_memory_keeps_opposing_evidence_and_source_links(dynamic_case, text_memory_transport):
+    from domain.round_planning import plan_round
+    context, ref = dynamic_case
+    class CounterModel(RoundModel):
+        def completion_text(self, system, user):
+            value = json.loads(super().completion_text(system, user))
+            if json.loads(user)['stage'] == 'assess':
+                h = value['hypothesis']
+                h['contradictory_evidence'] = h['supporting_evidence']
+                h['supporting_evidence'] = []
+            return json.dumps(value)
+    model = CounterModel()
+    plan = plan_round(context, {'context':ref,'_child':{'revision':0}}, llm_client=model)
+    execute_round(context, ref, plan, model)
+    marker = json.loads((context['run_dir'] / 'case/rounds/r01-H01-memory-graph.json').read_text())
+    metadata = text_memory_transport.metadata[('test-memory-job','test-memory-run')]
+    files = text_memory_transport.scopes[('test-memory-job','test-memory-run')]
+    claim = files[marker['claim']['source_id']]
+    assert '"OPPOSED_BY"' in claim and '"SUPPORTED_BY"' not in claim
+    assert '## Facts' in claim and '## Relations' in claim and '## Notes' in claim
+    evidence = metadata[marker['evidence'][0]['source_id']]
+    assert evidence['upstream'][0]['revision']
+    assert evidence['upstream'][0]['scope']['job_id'] != 'test-memory-job'
+    body = files[marker['evidence'][0]['source_id']]
+    assert '"CITES"' in body and 'source_reference' in body and '"text": null' in body
+    assert 'Approval notice. Routine duties explain the correspondence.' not in body
+    assert marker['source_dependency_scope'] == 'explicit_cross_corpus_revalidation'
+    puts = len(text_memory_transport.calls)
+    execute_round(context, ref, plan, model)
+    assert len(text_memory_transport.calls) == puts

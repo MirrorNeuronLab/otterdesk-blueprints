@@ -26,9 +26,9 @@ from domain.monitoring import (
     load_monitoring_state,
     write_monitoring_state,
 )
+from domain.caption_schedule import claim_caption
 from mn_sdk_common.beacon import start_agent_beacon_thread
 from mn_live_video_analysis_skill import (
-    AdaptiveStreamSampler,
     SamplingPolicy,
     initial_sampling_state,
 )
@@ -197,11 +197,10 @@ def _event(value: dict[str, Any]) -> dict[str, Any]:
 def main() -> int:
     invocation_started = time.monotonic()
     start_agent_beacon_thread(
-        "CCTV adaptive sampler is inspecting the proxy stream"
+        "CCTV caption sampler is requesting the next independent video window"
     )
     config = load_config()
     artifact_dir = run_dir()
-    reset_stale_live_stream_cache(artifact_dir)
     policy = SamplingPolicy.from_mapping(config.get("sampling"))
     payload = load_json_env("MN_INPUT_FILE")
     message = load_json_env("MN_MESSAGE_FILE")
@@ -257,42 +256,19 @@ def main() -> int:
 
     try:
         write_monitoring_state(artifact_dir, monitoring)
-        result = AdaptiveStreamSampler(
-            run_dir=artifact_dir,
-            policy=policy,
-            batch_schema="otterdesk.cctv_operator.frame_batch.v2",
-        ).sample(
-            config,
-            state,
-            force_analysis=analyze_now,
-            instruction=str(monitoring.get("instruction") or ""),
-            instruction_revision=int(
-                monitoring.get("instruction_revision") or 0
-            ),
-            command_id=str(monitoring.get("last_command_id") or "") or None,
-            idempotency_key=invocation_id or None,
-            batch_metadata={
-                "camera_id": (
-                    payload.get("camera_id")
-                    or (
-                        config.get("video_source", {}).get("camera_id")
-                        if isinstance(config.get("video_source"), dict)
-                        else None
-                    )
-                    or "cctv"
-                )
-            },
-        )
-        state = result.state
+        result = claim_caption(artifact_dir,
+            str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run"),
+            monitoring=monitoring, force=analyze_now, invocation_id=invocation_id)
+        state.update(caption_schedule=result["state"])
         state["monitoring"] = monitoring
         write_sampling_state(artifact_dir, state)
-        events.extend(_event(event) for event in result.events)
-        if result.batch:
-            batch_ref = str(result.batch["frame_batch_ref"])
+        if result["batch"]:
+            batch_ref = str(result["batch"]["frame_batch_ref"])
+            events.append({"type": "cctv_operator_frame_batch_ready", "payload": result["batch"]})
             emit_messages.append(
                 {
                     "type": "cctv_operator_frame_batch_ready",
-                    "body": result.batch,
+                    "body": result["batch"],
                     "artifacts": [
                         {"path": batch_ref, "type": "frame_batch"}
                     ],

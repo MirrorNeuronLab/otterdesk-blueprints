@@ -5,7 +5,9 @@
       "goal_id": "bibblio-marketing",
       "peer_job_id": "",
       "instruction": "Market Bibblio through relevant, human-approved email outreach.",
-      "common_goal": "Market Bibblio through relevant, human-approved email outreach."
+      "common_goal": "Market Bibblio through relevant, human-approved email outreach.",
+      "collaboration_group_id": "",
+      "collaboration_peers": []
     }
   },
   "outputs": {

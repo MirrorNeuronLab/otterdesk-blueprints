@@ -244,140 +244,48 @@ def test_frame_batch_is_durable_and_contains_only_artifact_metadata(tmp_path):
     assert metadata["model_latency_ms"] == 42
 
 
-def test_sampler_maps_skill_batch_to_cctv_message_without_image_blob(
-    monkeypatch, tmp_path, capsys
-):
-    sampler = _load(
-        PAYLOADS / "agents" / "adaptive_frame_sampler" / "scripts" / "sample_video.py",
-        "cctv_adaptive_sampler",
-    )
-    input_path = tmp_path / "input.json"
-    context_path = tmp_path / "context.json"
-    message_path = tmp_path / "message.json"
-    input_path.write_text(json.dumps({"tick_seq": 1}))
-    context_path.write_text(json.dumps({"agent_state": sampler.initial_state()}))
-    message_path.write_text("{}")
-    monkeypatch.setenv("MN_INPUT_FILE", str(input_path))
-    monkeypatch.setenv("MN_CONTEXT_FILE", str(context_path))
-    monkeypatch.setenv("MN_MESSAGE_FILE", str(message_path))
+def test_sampler_maps_resident_batch_to_cctv_message_without_image_blob(monkeypatch, tmp_path, capsys):
+    sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_caption_sampler")
     monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"sampling": {}, "video_source": {"mode": "stream", "uri": "rtsp://secret:password@camera/live"}}),
-    )
-    class Result:
-        state = {
-            **sampler.initial_state(),
-            "previous_proxy": "cHJveHk=" * 20_000,
-            "recent_frames": [
-                {
-                    "content_base64": "ZnJhbWU=" * 20_000,
-                    "score": 0.2,
-                    "sha256": "frame-sha",
-                    "timestamp": 1.0,
-                }
-            ],
-        }
-        events = (
-            {
-                "kind": "batch_ready",
-                "payload": {
-                    "trigger": "baseline",
-                    "selected_count": 1,
-                },
-            },
-        )
-        batch = {
-            "batch_id": "batch-1",
-            "frame_batch_ref": "frame_batches/batch-1/batch.json",
-            "trigger": "baseline",
-            "camera_id": "cctv",
-            "instruction": "",
-            "instruction_revision": 0,
-            "command_id": None,
-            "candidate_count": 1,
-            "selected_count": 1,
-            "source": {
-                "mode": "stream",
-                "uri": "rtsp://camera/live",
-            },
-            "metrics": {},
-        }
-
-    class Engine:
-        def __init__(self, **_kwargs):
-            pass
-
-        def sample(self, *_args, **_kwargs):
-            return Result()
-
-    monkeypatch.setattr(sampler, "AdaptiveStreamSampler", Engine)
-    monkeypatch.setattr(sampler.time, "sleep", lambda *_args, **_kwargs: None)
-    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_args, **_kwargs: None)
-
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", "{}")
+    monkeypatch.setattr(sampler, "load_json_env", lambda _name: {})
+    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a: None)
+    monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
+    batch = {"batch_id": "caption-one", "frame_batch_ref": "frame_batches/one/batch.json",
+             "trigger": "baseline", "selected_count": 1}
+    monkeypatch.setattr(sampler, "claim_caption", lambda *_a, **_kw: {"batch": batch, "state": {"pending_windows": 0}})
     assert sampler.main() == 0
-
-    raw_output = capsys.readouterr().out
-    result = json.loads(raw_output)
-    message = result["emit_messages"][0]
-    assert message["type"] == "cctv_operator_frame_batch_ready"
-    assert message["body"]["trigger"] == "baseline"
-    assert message["body"]["selected_count"] == 1
-    assert "password" not in json.dumps(result)
-    assert "jpeg" not in json.dumps(message)
+    result = json.loads(capsys.readouterr().out)
+    assert result["emit_messages"][0] == {"type": "cctv_operator_frame_batch_ready", "body": batch,
+                                        "artifacts": [{"path": batch["frame_batch_ref"], "type": "frame_batch"}]}
     assert result["emit_messages"][-1]["type"] == "cctv_operator_sample_due"
-    assert "previous_proxy" not in result["next_state"]
-    assert "recent_frames" not in result["next_state"]
-    assert result["next_state"]["sampling_state_ref"] == "sampling_state.json"
-    assert result["next_state"]["recent_frame_count"] == 1
-    persisted_state = json.loads(
-        (tmp_path / "run" / "sampling_state.json").read_text()
-    )
-    assert persisted_state["previous_proxy"] == Result.state["previous_proxy"]
-    assert persisted_state["recent_frames"] == Result.state["recent_frames"]
-    assert len(raw_output.encode()) < 64 * 1024
+    assert "content_base64" not in json.dumps(result)
+    assert result["next_state"]["caption_schedule"] == {"pending_windows": 0}
 
 
-def test_sampler_carries_conversation_command_into_the_vision_batch(monkeypatch, tmp_path, capsys):
-    from types import SimpleNamespace
+def test_sampler_carries_conversation_command_into_the_caption_claim(monkeypatch, tmp_path, capsys):
     sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_sampler_goal")
     instruction = "Look for objects blocking the exit."
-    files = {
-        "MN_INPUT_FILE": {"command_id": "conversation-command", "instruction": instruction, "analyze_now": True},
-        "MN_MESSAGE_FILE": {"message_id": "transport-message"},
-        "MN_CONTEXT_FILE": {"agent_state": sampler.initial_state()},
-    }
+    files = {"MN_INPUT_FILE": {"command_id": "conversation-command", "instruction": instruction, "analyze_now": True},
+             "MN_MESSAGE_FILE": {"message_id": "transport-message"}, "MN_CONTEXT_FILE": {"agent_state": sampler.initial_state()}}
     for name, value in files.items():
         path = tmp_path / f"{name}.json"
         path.write_text(json.dumps(value))
         monkeypatch.setenv(name, str(path))
     monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
     monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", "{}")
-    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a, **_kw: None)
+    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a: None)
     monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
-
-    class Engine:
-        def __init__(self, **kwargs):
-            pass
-
-        def sample(self, config, state, **kwargs):
-            assert kwargs["force_analysis"] is True
-            assert kwargs["command_id"] == "conversation-command"
-            assert kwargs["instruction"] == instruction
-            assert kwargs["instruction_revision"] == 1
-            return SimpleNamespace(state=state, events=[], batch={
-                "frame_batch_ref": "frame_batches/test/batch.json",
-                "instruction": kwargs["instruction"],
-                "instruction_revision": kwargs["instruction_revision"],
-                "command_id": kwargs["command_id"],
-            })
-
-    monkeypatch.setattr(sampler, "AdaptiveStreamSampler", Engine)
+    def claim(_root, _run_id, **kwargs):
+        monitoring = kwargs["monitoring"]
+        assert kwargs["force"] is True and monitoring["last_command_id"] == "conversation-command"
+        assert monitoring["instruction"] == instruction and monitoring["instruction_revision"] == 1
+        return {"state": {}, "batch": {"frame_batch_ref": "frame_batches/test/batch.json",
+                "instruction": instruction, "instruction_revision": 1, "command_id": monitoring["last_command_id"]}}
+    monkeypatch.setattr(sampler, "claim_caption", claim)
     assert sampler.main() == 0
     result = json.loads(capsys.readouterr().out)
     batch = result["emit_messages"][0]["body"]
-    assert batch["instruction"] == instruction
-    assert batch["command_id"] == "conversation-command"
     persisted = json.loads((tmp_path / "run/monitoring_state.json").read_text())
     assert persisted["last_command_id"] == batch["command_id"]
     assert persisted["instruction_revision"] == batch["instruction_revision"]

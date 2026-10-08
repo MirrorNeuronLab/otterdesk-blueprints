@@ -42,13 +42,24 @@ class Records:
         self.sources, self.layer, self.scope = sources, layer, scope
         self.nodes, self.edges, self.evidence = {}, {}, {}
         self.known = dict(known or {})
+        self.file_ids = {n['properties']['key']: n['id'] for n in self.known.values() if n['kind'] == 'File'}
         self.details = {"limitations": [], "warnings": []}
 
+    def identifier(self, key):
+        # Captured files use persistent handles; parser-owned keys retain their
+        # existing scheme. Never create another file identity in a collector.
+        return self.file_ids[key] if key in self.file_ids else logical_id(key)
+
     def node(self, key, node_kind, **properties):
-        identifier = logical_id(key)
+        if node_kind == 'File' and key not in self.file_ids:
+            raise ValueError('File nodes must reference a captured persistent file key')
+        identifier = self.identifier(key)
         prior = self.known.get(identifier)
         if prior and (prior["properties"]["key"] != key or prior["kind"] != node_kind):
             raise ValueError("Node identity collision")
+        if node_kind == 'File' and any(k in properties and properties[k] != prior['properties'][k]
+            for k in ('node_id', 'repository_id', 'current_path', 'content_hash', 'previous_paths', 'path')):
+            raise ValueError('A collector cannot change frozen file identity/version properties')
         record = {"id": identifier, "kind": node_kind, "labels": [node_kind], "properties": {**(prior["properties"] if prior else {}), "key": key, **properties}}
         self.nodes[identifier] = record
         self.known[identifier] = record
@@ -66,10 +77,11 @@ class Records:
         return identifier
 
     def edge(self, source, target, relation, eid, kind="extracted", detail=""):
-        key = f"{logical_id(source)}|{relation}|{logical_id(target)}"
+        source_id, target_id = self.identifier(source), self.identifier(target)
+        key = f"{source_id}|{relation}|{target_id}"
         identifier = logical_id(key)
         if identifier not in self.edges:
-            self.edges[identifier] = {"id": identifier, "src": logical_id(source), "dst": logical_id(target),
+            self.edges[identifier] = {"id": identifier, "src": source_id, "dst": target_id,
                                       "rel_type": relation, "properties": {"evidence_ids": [], "kind": kind, "detail": detail}}
         if eid not in self.edges[identifier]["properties"]["evidence_ids"]:
             self.edges[identifier]["properties"]["evidence_ids"].append(eid)
@@ -119,7 +131,7 @@ def add_export(records, bundle, modules):
     count = 0
     for edge in content.get("edges", []):
         if LAYERS[layer].scoped:
-            owners = {records.known[logical_id(edge[endpoint])]["properties"].get("module", "") for endpoint in ("source", "target")}
+            owners = {records.known[records.identifier(edge[endpoint])]["properties"].get("module", "") for endpoint in ("source", "target")}
             owners.update(edge[endpoint][7:] for endpoint in ("source", "target") if edge[endpoint].startswith("module:"))
             if not owners.intersection(modules):
                 raise ValueError(f"Scoped {layer} export endpoints require an indexed module property")

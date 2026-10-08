@@ -1,0 +1,4 @@
+# Model-specific backend dependencies are owned by this blueprint.
+# Keep the CUDA-enabled torch/torchvision pair supplied by the pinned NGC base.
+rfdetr==1.11.2
+Pillow>=11,<13

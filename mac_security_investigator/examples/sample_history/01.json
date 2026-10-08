@@ -1,0 +1,37 @@
+{
+  "host_epoch_id": "synthetic-northstar-epoch-1",
+  "scan_id": "R-01",
+  "acquisition": {
+    "earliest": "2026-09-28T09:00:00Z",
+    "latest": "2026-09-28T09:00:00Z"
+  },
+  "synthetic": true,
+  "sources": [
+    {
+      "source_id": "startup:user-demo",
+      "scope": "user:demo",
+      "capabilities": [
+        "startup_state"
+      ],
+      "availability": "available",
+      "enumeration": "complete",
+      "parser_version": "synthetic-v1",
+      "consistency": "atomic_fixture",
+      "records": [
+        {
+          "kind": "state",
+          "entity": "slot-northstar",
+          "capability": "startup_state",
+          "claim_class": "observed",
+          "time": {
+            "earliest": "2026-09-28T09:00:00Z",
+            "latest": "2026-09-28T09:00:00Z"
+          },
+          "fields": {
+            "target": "/Applications/Northstar.app/V1"
+          }
+        }
+      ]
+    }
+  ]
+}

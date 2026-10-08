@@ -24,6 +24,7 @@ def run(tmp_path, monkeypatch, architecture_paths):
         ).read_text()
     )
     cfg["offline"] = False
+    cfg['source_search']['mode'] = 'lexical'
     source = "def charge(amount):\n    gateway.charge(amount)\n    return amount\n"
     sources = {
         f"src/module {n}.py": {
@@ -81,6 +82,8 @@ def fake(prompt, *, followup=False):
                 "confidence": "high",
                 "rationale": "Exact frozen source span",
                 "counterevidence": "Runtime behavior was not observed.",
+                "counterevidence_status": "unknown",
+                "counterevidence_citations": [],
                 "finding": True,
                 "evidence": [p["evidence"][0]["id"]],
             }
@@ -123,6 +126,29 @@ def fake(prompt, *, followup=False):
             }
         ]
     return json.dumps(value)
+
+
+def test_supplied_counterexample_requires_visible_exact_citations(architecture_paths):
+    from domain.review_response import validate_result
+    from domain.review_prompts import expand_evidence
+    source = 'return True\n'
+    sha = hashlib.sha256(source.encode()).hexdigest()
+    witness = {'path':'guard.py','sha256':sha,'start_offset':0,'end_offset':len(source),
+               'start_line':1,'end_line':1,'excerpt':source}
+    task = {'task_id':'scan','kind':'source_scan'}
+    value = {'task_id':'scan','kind':'source_scan','status':'completed','conclusion':'A guard exists.',
+             'scope':'One source span','limitations':[],'observations':[],
+             'claims':[{'claim_id':'C1','statement':'A guard exists.','claim_type':'observed','confidence':'low',
+                        'rationale':'Static source','counterevidence':'A supplied alternative path.',
+                        'counterevidence_status':'supplied','counterevidence_citations':[], 'evidence':[witness]}]}
+    snapshot = {'sources':{'guard.py':{'text':source,'sha256':sha}}}
+    with pytest.raises(ValueError,match='counterevidence requires'):
+        validate_result(task,value,snapshot,{})
+    value['claims'][0]['counterevidence_citations'] = ['S-hidden']
+    with pytest.raises(ValueError,match='Unknown supplied'):
+        expand_evidence(value,{'S-visible':witness})
+    value['claims'][0]['counterevidence_citations'] = [witness]
+    assert validate_result(task,value,snapshot,{}) == value
 
 
 def execute_round(ctx, ref, decision, model=fake):

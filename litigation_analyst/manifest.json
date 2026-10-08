@@ -2,8 +2,8 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "litigation_analyst",
   "name": "Litigation Analyst",
-  "version": "2.2.0",
-  "description": "Reviews legal documents and emails to find investigation leads, compare explanations, and draft findings with precise source citations. Every draft requires human review.",
+  "version": "2.7.0",
+  "description": "Builds a local interactive investigation with source-linked findings, counterevidence, temporal relationship paths, snapshot changes and reviewable work product. Every model finding remains a human-review draft.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
@@ -30,6 +30,10 @@
     },
     "mn.context": {
       "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.storage": {
+      "file": "extensions/storage.json",
       "required": true
     }
   }

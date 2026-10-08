@@ -138,8 +138,8 @@ class JsonModel:
             self.client = client
             record["model"] = client.model
             self.memory_session()
-            # Domain-required inputs remain exact. Optional prior observations are
-            # durable and recalled by Membrane before each bounded decision.
+            # Domain-required inputs remain exact. This turn owns admission and
+            # dispatch receipts; historical recall is an explicit caller choice.
             required = ("goal", "hypothesis_registry", "consumed", "round_planner", "candidates", "families", "tools", "max_hypotheses", "revision", "remaining",
                         "hypothesis", "prior_proposal", "review_policy", "unavailable_evidence", "semantic_layer", "passages")
             if data.get("review_policy"):

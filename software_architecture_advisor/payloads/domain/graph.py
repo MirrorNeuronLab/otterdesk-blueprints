@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 
 from mn_graph_analysis_skill import GraphClient, ensure_readonly_rgql
-from .ingest import make_embedder, logical_id
+from .ingest import make_embedder
 from .lazy import LayerManager
 from .catalog import LayerUnavailable
 from .events import emit
@@ -65,6 +65,8 @@ class QuerySession:
         active = Path(generation["directory"])
         self.generation = generation["id"]
         self.active_directory = active
+        self.nodes = json.loads((active / 'nodes.json').read_text())
+        self.node_ids = {n['properties']['key']: n['id'] for n in self.nodes}
         self.evidence = {**getattr(self, "evidence", {}), **json.loads((active / "evidence.json").read_text())}
         edge_bytes = (active / "edges.json").read_bytes()
         self.edge_manifest_sha256 = hashlib.sha256(edge_bytes).hexdigest()
@@ -145,7 +147,10 @@ class QuerySession:
                         relation = relations[tool]
                         if isinstance(relation, tuple):
                             relation = relation[bool(prefix)]
-                        edge_key = (logical_id(row[prefix + "source_key"]), logical_id(row[prefix + "target_key"]), relation)
+                        source_key, target_key = row[prefix + "source_key"], row[prefix + "target_key"]
+                        if source_key not in self.node_ids or target_key not in self.node_ids:
+                            raise ValueError('Returned graph endpoint is absent from the snapshot')
+                        edge_key = (self.node_ids[source_key], self.node_ids[target_key], relation)
                         if edge_key not in self.edge_evidence:
                             raise ValueError("Returned graph relation has no snapshot provenance")
                         row[prefix + "evidence_ids"] = self.edge_evidence[edge_key]
@@ -154,7 +159,7 @@ class QuerySession:
             record["result_sha256"] = hashlib.sha256(json.dumps(raw, sort_keys=True).encode()).hexdigest()
             record["status"] = "ok"
             if self.layers:
-                record["layer_coverage"] = {k: v for k, v in self.layers.status()["layers"].items() if k in REQUIREMENTS[tool]}
+                record["layer_coverage"] = {k: v for k, v in self.layers.status()["layers"].items() if k in REQUIREMENTS.get(tool, ())}
             record["row_count"] = len(record["rows"])
             record["limit_note"] = "Exact aggregate over indexed snapshot" if exhaustive else "Bounded sample; missing rows do not prove absence"
             self.cache[key] = record

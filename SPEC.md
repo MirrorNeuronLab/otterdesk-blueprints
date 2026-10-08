@@ -1,5 +1,23 @@
 # OtterDesk Blueprint Catalog Specification
 
+## Output folders and conversation sources
+
+For a configured host output folder such as `~/Downloads/<job name>`, batch
+blueprints put job-level entries declared in `outputs.job_files` at the root.
+The prepared `context_sources/` folder is always a job-level root entry.
+Each run's remaining output belongs in `run_<timestamp>/`; timestamps use UTC,
+and delivery retries reuse the same folder. Service blueprints publish all
+output at the root. MirrorNeuron SDK submission preparation and runtime output
+delivery enforce this standard; blueprint report writers keep using their
+runtime-provided output paths.
+
+The MirrorNeuron runtime Job owns the input/output connection to Membrane
+source intelligence for conversation questions. Only prepared Markdown under
+the runtime Job's `outputs/user/context_sources/{inputs,outputs}/` folders is
+connected; raw input documents are never read by the responder. These subjects
+remain distinct from curated RAG knowledge.
+OtterDesk consumes the Job's answer and citations through `ask_job`.
+
 ## Purpose
 
 `otterdesk-blueprints` is the self-contained product blueprint catalog consumed
@@ -46,8 +64,16 @@ documents, unrestricted artifacts, and other confidential run data.
 ## Markdown context profile
 
 Every published entry declares `mn.context.text.v1` through `mn.context`.
-CCTV, Architecture, Litigation and VC enable it and declare the SDK `context` extra;
-the remaining eight have disabled profiles and no TextMemory consumer. Resolved
+That label identifies the Markdown storage format; the service RPCs use
+`mirrorneuron.context.v2`. Active consumers require Membrane SDK >=2.1,<3.
+Shared preparation checks the authenticated v2 protocol before reporting
+readiness, including when the service container is already running.
+CCTV, Architecture, Litigation, VC and Mac security investigator enable it and
+declare the SDK `context` extra;
+Drug Discovery declares the context extra and enables separate `source_context`
+intelligence for complete prepared inputs, configured procedure and saved results.
+It keeps unused TextMemory recall disabled. The remaining seven have disabled
+profiles and no worker context consumer. Resolved
 config overrides take precedence. Complete preprocessing output is ingested into
 trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation
 witnesses stay in sidecars. Verified model dispatch requires a serving counter;
@@ -169,3 +195,13 @@ name, ignoring the declared release version. Local setup enables
 skill source automatically. The same declaration works in both modes; source
 paths are prepared by the SDK rather than authored in dependency records.
 Each blueprint activates only its declared SDK capability closure.
+
+## Declared communication groups
+
+`gtm_planner` and `gtm_executor` declare `mn.collaboration.group.v1` with capacity
+five and structured stable-Job peers. Catalog compatibility is explicit; other
+scalar-peer declarations stay limited to two. Group consumers require matching
+SDK, MCP, and collaboration package releases with the group contract before the
+updated catalog is distributed. Existing configured pairs are read through their
+declared legacy scalar field until an explicit board change upgrades them.
+Human approval and private data boundaries are unchanged.

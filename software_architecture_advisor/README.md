@@ -1,6 +1,23 @@
 # Architecture Advisor
 
-Architecture Advisor 3.3 reviews code repositories piece by piece with the
+Every captured code file now has a persistent UUIDv5 entity identity independent
+of its content and derived graphs. `File` nodes retain `node_id`, `repository_id`,
+`current_path`, SHA-256 `content_hash`, `previous_paths` and language. Modules link
+through `DECLARED_IN`; existing module/symbol and immutable citation IDs remain
+compatible. Initial IDs use a canonical Git origin or optional
+`ingest.repository_id`. For local repositories without either, a path-free
+workspace ID is retained in each snapshot's `file-identities.json`. Keep this
+registry when copying an index or changing checkout locations. Git rename
+observations take priority; unique exact-content moves are conservative matches.
+Ambiguous moves receive new IDs. Legacy snapshots remain readable; capture a new
+snapshot to adopt file nodes. Pre-upgrade rename history cannot be reconstructed.
+
+Runtime recall is selected by task: aspect analysis and challenges may use prior
+navigation; file scans, evidence lookups, and section/executive summaries use
+their explicit source and result packets. A globally enabled memory service does
+not cause recall on every model call.
+
+Architecture Advisor 3.5 reviews code repositories piece by piece with the
 OpenCode skill inside OpenShell. It evaluates the supplied report library's
 **150 aspects in 23 sections**, including an independent counterevidence review
 for each aspect, and produces explicit coverage even when evidence is missing.
@@ -203,10 +220,117 @@ Historical investigations without sufficient retained state cannot be retried.
 
 ## Context engine contract
 
-This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation installs the Membrane v2 client (>=2.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.
+This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`. Worker preparation requires the Membrane v2 client (>=2.1.0,<3); local source mode stages its matching source project. `mn.context` declares the Markdown profile, and `text_memory.enabled=false` explicitly disables recall. The context service stores Markdown revisions with one disposable DuckDB per job and uses CPU only. Set `MN_CONTEXT_ADDR` and `MN_CONTEXT_AUTH_TOKEN` through trusted runtime settings. Optional `MN_CONTEXT_OBSERVABILITY=true` logs authorized source and context content. No model compressor, Redis memory, or automatic migration is required.
 
 Historical runtime recall uses native filesystem passages with exact supporting
 handles, bounded separately from the current task and source evidence. Structural
 graph queries continue through the source-backed allowlisted views; each query
 and canonical witness is retained in the catalog audit. Runtime notes cannot
 replace a graph query or establish source claims.
+
+Focused context selection now uses the existing call/state/test cross-layer
+views for retry and idempotency questions, alongside typed path traversal.
+Relevant views are selected deterministically under the existing query allowance.
+The packet records its selection policy and omitted rows. Every displayed graph
+row binds to supplied S- source spans; when its whole witnesses cannot fit, the
+row is omitted too. Static calls and test presence remain distinct from runtime
+measurements and executed tests. No parser or extra model call is added.
+
+Each claim declares counterevidence coverage. Supplied counterexamples must cite
+exact visible S- spans and remain linked in the final report. Unknown and bounded
+searches with no result remain separate statuses.
+
+Version 3.4.1 separates complete repository originals from runtime review
+knowledge in Membrane's Context Intelligent System. The declared optional
+`mn-context-source-code` adapter retrieves complete Python definitions and imports
+at pinned source revisions. Syntax-unavailable files retain their originals and
+an explicit native-text limitation. `catalog/source-inputs.json` and
+`catalog/source-context/` preserve original-source bindings and query receipts;
+cached source evidence is reauthorized and revision-checked before replay.
+
+Validated review outcomes become authored Markdown Facts/Notes records. Claims,
+qualifications and source locators remain complete; original citation excerpt
+bodies stay in the original-source corpus. Runtime recall uses a DuckDB recent
+query filtered to the current snapshot and, when available, aspect. Complete
+original witnesses and prior claims have prompt priority over historical
+navigation. Omitted whole records are counted explicitly. Default retrieval is
+six results and 32,768 UTF-8 bytes; paired 8,192-byte tests remain the control.
+These byte bounds do not establish serving-token admission or answer quality.
+An authored schema declaration establishes query fields before the first review;
+its separate family excludes it from review recall. An empty history remains
+`no_evidence`, never a fabricated review outcome.
+Whole source witnesses use available full-prompt space after mandatory
+instructions and schema; a fixed one-third share cannot discard a fitting
+definition. Prompt admission operates on a copy of frozen retrieval packets.
+The optional adapter is declared through `skills`, the existing reusable
+capability package mechanism. It is not an SDK component/provider.
+
+Prompt admission now uses Membrane SDK support components. A graph relationship,
+its complete witnesses, and any prior claims sharing those witnesses enter or
+leave together. Counterevidence citations are part of each prior claim's closure;
+oversized prior results are omitted whole. Unrelated complete source candidates
+remain optional. Graph-packet omissions no longer contribute unused witnesses.
+The prompt reports support/capacity status and omitted counts; each frozen request
+retains a `support_admission` receipt with group IDs, members and omission reasons.
+Only identical span identities at the same source SHA-256 can reuse evidence;
+conflicting citation bodies fail. This is a byte-budget assembly fix, not a
+serving-token or answer-quality claim. Existing frozen requests replay unchanged.
+# Query-derived source support
+
+The Python 0.1.3 source adapter retains complete local static helpers, constants,
+import declarations, guards and enclosing lexical definitions for named-symbol
+queries. Support metadata is pinned to each original revision and compiled as
+required evidence; unrelated functions stay outside the closure. Static source
+support does not establish deployed execution or imported implementation behavior.
+The v3 original-source publication binding rejects replay of a catalog/query
+created under the earlier selection policy; a new reviewed publication is needed.
+
+## Version 3.5 source selection and traversal
+
+Source discovery uses Membrane SDK 2.1 whole-unit search. Exact Python symbols
+take precedence; otherwise `source_search.mode=hybrid` uses the declared encoder
+and native lexical/vector ranking. `lexical` is the explicit CPU-only profile.
+Embeddings cover the complete unit through pooled pieces; selected originals
+remain byte-exact. Every selected root carries its declared local dependencies
+as one support component. Syntax-unavailable and non-Python inputs use complete
+text units with explicit structural limitations.
+
+Graph seeds come from exact module/file bindings and ranked original evidence.
+The default limits are 12 module seeds, four hops, 128 nodes and 128 edges,
+configured under `graph`. Incoming caller/dependent questions reverse direction.
+There is no two-module shortlist, three-view cap, automatic cycle query, or
+separate 3,500-byte graph truncation. Query budgets still apply. Each path keeps
+its edge witnesses and endpoint declarations; hydration expands those witnesses
+to complete definitions and local dependencies. Final prompt admission keeps
+paths and their complete source support together. Missing entities, unresolved
+static references and capacity omissions remain visible.
+
+For manual validation, start a fresh catalog with matching source-built Membrane
+SDK and graph skill packages. Inspect `catalog/source-context/`, `catalog/graph/`
+and frozen requests' `support_admission` receipts. A cross-file call path should
+contain ordered edges plus complete caller/callee source; an oversized support
+component should be omitted whole or report insufficient capacity. File UUIDs
+and the identity ledger remain independent of source revisions. History recall
+remains limited to aspect analysis/challenge; source lookups and synthesis do
+not acquire historical context. These changes carry no measured quality claim.
+
+
+Final context verification is experimental and defaults to
+`text_memory.quality_verification=false`. For manual validation in a new run, set
+`--set text_memory.quality_verification=true`. Required original-source packets
+then receive explicit binding/support checks and at most one bounded retrieval
+repair within their authorized scope. Missing required support produces an
+explicit inconclusive/blocked result before model dispatch; optional runtime
+notes may be omitted. Full witnesses stay in run artifacts. A passing witness
+does not prove semantic sufficiency, exhaustive discovery or the truth of a
+model answer. Initial Laya problem classification remains independent.
+
+The October 5 paired source trial improved legal excerpt retention but did not
+reduce strict unsupported/nonconforming answers; it therefore failed the
+reliability-first default-rollout rule. The switch remains off pending improved
+source selection and a successful prospective evaluation. This change does not
+deploy or reset a runtime.
+
+## Shared capability ownership
+
+Exact citation hash, offset, excerpt and line checks use the SDK RAG verifier. Architecture claim policy, allowed-source scope and report composition remain blueprint-owned.

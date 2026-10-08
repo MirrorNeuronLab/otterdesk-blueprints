@@ -227,7 +227,9 @@ def _observations_from_vc_evidence(
         source = sources_by_id.get(str(evidence.get("source_id") or "")) or {}
         source_type = str(source.get("source_type") or evidence.get("source_type") or "")
         text = f"{evidence.get('raw_excerpt') or ''} {evidence.get('claim_text') or ''} {source.get('title') or ''}".lower()
-        polarity = str(evidence.get("polarity") or "")
+        polarity = str(getattr(evidence.get('polarity'), 'value', evidence.get('polarity')) or '')
+        if source_type in {'search_result_page', 'blocked_page', 'failed_fetch'}:
+            continue
         if polarity == "contradicts":
             observations.mark("ContradictionFound", evidence_id)
             continue
@@ -241,6 +243,11 @@ def _observations_from_vc_evidence(
             "data_room_document",
         }:
             observations.mark("FounderEvidenceObserved", evidence_id)
+        # A founder assertion mentioning invoices, contracts or usage is still
+        # self-report. Independent variables need a separately classified source.
+        if source_type in {'founder_document', 'founder_provided_document',
+                           'company_website', 'public_profile'}:
+            continue
         if template_id == "revenue_claim":
             if source_type == "invoice" or "invoice" in text:
                 observations.mark("InvoiceFound", evidence_id)

@@ -23,6 +23,9 @@ def review_admitted(reference, *, llm_client=None):
     expanded = False
     if frozen['offline']:
         value.update(status='not_analyzed', reason='Explicit offline mode: no model call; no architecture conclusion.')
+    elif request.get('context_quality',{}).get('action')=='insufficient_evidence':
+        value.update(reason='Required source evidence is unavailable.',claims=[],observations=[],
+                     limitations=request['context_quality']['reasons'])
     elif time.time() < deadline:
         if llm_client is None:
             if b'openshell-sandbox' not in Path('/proc/1/cmdline').read_bytes():

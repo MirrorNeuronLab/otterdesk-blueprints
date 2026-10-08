@@ -10,7 +10,6 @@ from .intake import PreparedCorpus
 from .app.review import build_review
 from .app.findings import evidence_appendix
 from .app.report_sections import graph_exhibits
-from mn_document_reading_skill.search import PassageIndex
 
 
 def write_review(context, *, llm_client=None):
@@ -41,15 +40,8 @@ def write_review(context, *, llm_client=None):
     # Re-render from the persisted action/evidence records after citation checks.
     # A cached Markdown string is never treated as an authoritative finding.
     state = json.loads((case / "agent_checkpoint.json").read_text())
-    # Recompute all derived observations from the frozen source index.
-    index_reader = PassageIndex(case / "documents.sqlite3", corpus.access_scope)
-    for item in state["data"].get("derivations", []):
-        operation = item["arguments"]["operation"]
-        if operation not in ("decode_rot13", "summarize_csv"):
-            raise ValueError("unknown evidence derivation")
-        actual = getattr(index_reader, operation)(**item["arguments"]["arguments"])
-        if actual != item["result"]:
-            raise ValueError("derived evidence differs from frozen source calculation")
+    if state["data"].get("derivations"):
+        raise ValueError("Retired document-index derivations require their original staged implementation")
     (run_dir / "evidence_appendix.md").write_text(
         evidence_appendix(evidence, state["data"].get("derivations", [])),
         encoding="utf-8",
@@ -72,6 +64,23 @@ def write_review(context, *, llm_client=None):
     text += "See case/source_inventory.json for original file hashes and unprocessed sources. "
     text += "Citations address the frozen normalized text in case/sources.json; mailbox spans address normalized message headers and bodies.\n"
     (run_dir / "final_report.md").write_text(text, encoding="utf-8")
+    from .workspace_projection import build as build_workspace
+    from .workspace_graph import attach as attach_graph
+    from .workspace_history import publish as publish_history
+    from .workspace_memory import publish as publish_memory
+    from .workspace_web import publish as publish_web
+    workspace = build_workspace(context, tuple(documents.values()), evidence, state, inventory)
+    workspace = attach_graph(workspace, case, context["config"].get("workspace", {}))
+    workspace = publish_history(context, workspace)
+    # Memory locators refer to a durable authoritative snapshot, never a cached
+    # narrative. Context-service failure is an explicit navigation limitation.
+    (case / "workspace.json").write_text(json.dumps(workspace, ensure_ascii=False), encoding="utf-8")
+    try:
+        workspace["memory"] = publish_memory(context, workspace)
+    except (OSError, ValueError, RuntimeError) as error:
+        workspace["memory"] = {"status": "Unavailable", "reason": type(error).__name__,
+            "qualification": "Historical workspace navigation was not published; exact frozen evidence remains available"}
+    workspace_status, workspace_refs = publish_web(context, workspace)
     index = {
         "status": report["status"],
         "report": "final_report.md",
@@ -86,6 +95,9 @@ def write_review(context, *, llm_client=None):
         "failed_queries": summary["failed_queries"],
         "hypothesis_count": summary["hypothesis_count"],
         "unreadable_count": len(inventory["unreadable_sources"]),
+        "workspace": "case/workspace.json",
+        "interactive_investigation": workspace_status.get("path"),
+        "workspace_status": "workspace_status.json",
     }
     (run_dir / "review_index.json").write_text(
         json.dumps(index, indent=2), encoding="utf-8"
@@ -114,9 +126,11 @@ def write_review(context, *, llm_client=None):
         artifact_reference("review_index", "review_index.json"),
         artifact_reference("evidence_appendix", "evidence_appendix.md"),
         artifact_reference("graph_appendix", "graph_appendix.md"),
-    ]
+    ] + workspace_refs + [artifact_reference("workspace_status", "workspace_status.json")]
     return {
         "review_draft": refs[0],
         "review_index": refs[1],
         "status": report["status"],
+        "investigation_workspace": workspace_refs[0],
+        "web_ui": workspace_status.get("handle"),
     }, refs

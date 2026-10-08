@@ -7,7 +7,8 @@ from mn_sdk.blueprints import read_blueprint, blueprint_definition, resolve_conf
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = json.loads((ROOT / "index.json").read_text())
-RAG = [name for name in CATALOG if (ROOT / name / "extensions/rag.json").exists()]
+RAG = [name for name in CATALOG if (ROOT / name / "extensions/rag.json").exists()
+       and json.loads((ROOT / name / "extensions/rag.json").read_text()).get("enabled", True)]
 
 
 @pytest.mark.parametrize("name", RAG)
@@ -33,3 +34,10 @@ def test_vc_worker_installs_duckdb_through_rag_dependency():
     dockerfile = (ROOT / "vc_assistant/payloads/docker_worker/Dockerfile").read_text()
     assert "pymilvus" not in requirements and "[milvus]" not in requirements
     assert "python3 -c 'import duckdb'" in dockerfile
+
+
+def test_mac_private_evidence_has_explicitly_disabled_product_rag():
+    package = read_blueprint(ROOT / "mac_security_investigator")
+    assert package.extension("mn.rag")["enabled"] is False
+    assert blueprint_definition(package)["knowledge_rag"]["enabled"] is False
+    assert "mn-python-sdk-rag" not in {r["name"] for r in package.document("dependencies")["packages"]}

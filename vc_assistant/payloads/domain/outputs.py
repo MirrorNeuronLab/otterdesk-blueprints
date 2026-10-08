@@ -126,6 +126,10 @@ def write_company_outputs(
         write_json(output_folder / "audit_findings" / f"{slug}.json", analysis["audit"])
         write_json(output_folder / "evidence_items" / f"{slug}.json", analysis.get("evidence_items") or [])
         write_json(output_folder / "claim_records" / f"{slug}.json", analysis.get("claim_records") or [])
+        for folder_name in ('company_fact_tables', 'research_ledgers', 'method_scores',
+                            'audit_findings', 'evidence_items', 'claim_records'):
+            output_files.append({'kind': folder_name, 'path': str(output_folder / folder_name / f'{slug}.json'),
+                                 'company': analysis['company_name']})
     index = {
         "blueprint_id": BLUEPRINT_ID,
         "generated_at": utc_now_iso(),

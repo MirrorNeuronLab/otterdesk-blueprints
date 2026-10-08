@@ -1,0 +1,9 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "Which Mac logs does this co-worker inspect?",
+    "Does this co-worker read OS files?",
+    "What can diagnostic logs establish?",
+    "Which parts of the timeline remain unknown?"
+  ]
+}

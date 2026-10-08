@@ -48,8 +48,8 @@
     {
       "id": "write_review_draft",
       "kind": "sink",
-      "label": "Write Review Draft",
-      "goal": "Verify evidence citations and write a human-review draft and audit index.",
+      "label": "Publish investigation workspace",
+      "goal": "Verify exact citations and publish a source-linked interactive investigation, immutable snapshot history and review draft.",
       "needs": [
         "investigate_case_evidence"
       ],

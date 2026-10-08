@@ -27,7 +27,7 @@ from mn_sdk_common.events import append_event_jsonl
 from mn_sdk_common.prompts import PromptLibrary
 
 try:
-    from mn_llm_ocr_skill import docker_ocr_client_factory_from_config, extract_document
+    from mn_docs_to_markdown_skill import docker_ocr_client_factory_from_config, extract_document
 except Exception:  # pragma: no cover - optional runtime dependency
     docker_ocr_client_factory_from_config = None
     extract_document = None

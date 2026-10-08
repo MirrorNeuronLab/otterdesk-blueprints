@@ -25,7 +25,8 @@ def admit(store, saved, plan, task, review, opener, *, run_id):
         retrieval, graph_evidence = retrieve(store, saved, snapshot, task, catalog)
         request = {'identity': identity, **build_prompt(task, catalog, snapshot, packets,
             store.results(), review['prompt_bytes'], plan['omitted'],
-            retrieval=retrieval, graph_evidence=graph_evidence)}
+            retrieval=retrieval, graph_evidence=graph_evidence,
+            quality_config=saved['request']['retrieval_config'])}
         store.write(request_path, request)
     request_hash = fingerprint(request)
     admission_path = f'catalog/admissions/{task_id}.json'

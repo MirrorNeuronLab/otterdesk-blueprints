@@ -15,7 +15,14 @@
   "graph": {
     "binary": "rgx",
     "timeout_seconds": 15,
-    "row_limit": 20
+    "row_limit": 20,
+    "seed_limit": 12,
+    "max_hops": 4,
+    "max_nodes": 128,
+    "max_edges": 128
+  },
+  "source_search": {
+    "mode": "hybrid"
   },
   "analysis": {
     "max_dsm_modules": 300
@@ -147,7 +154,8 @@
   },
   "text_memory": {
     "enabled": true,
-    "max_results": 3,
-    "max_context_bytes": 4000
+    "quality_verification": false,
+    "max_results": 6,
+    "max_context_bytes": 32768
   }
 }

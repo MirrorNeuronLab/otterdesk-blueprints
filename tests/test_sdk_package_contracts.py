@@ -11,7 +11,8 @@ from pathlib import Path
 import pytest
 
 from mn_sdk.version_constraints import dependency_requirement
-from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint
+from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint, resolve_config
+from mn_sdk.context_engine import blueprint_requires_context_engine
 from mn_sdk.components.dependencies import component_requirements
 from mn_sdk.components.installation import SDKInstallation
 from mn_sdk.submission_preparation import (
@@ -95,6 +96,7 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
     )
     declaration = blueprint_definition(read_blueprint(root))
     before = copy.deepcopy(declaration)
+    needs_context = blueprint_requires_context_engine(before, resolve_config(read_blueprint(root)).data, env={})
     prepared = prepare_manifest_for_submission(root, declaration)
     assert declaration == before
     assert prepared["packages"] == before["packages"]
@@ -114,18 +116,31 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
         for key, value in payloads.items()
         if key.endswith("local-requirements.txt")
     )
+    if blueprint_id in {"vc_assistant", "financial_advisor", "procurement_manager", "research_assistant", "litigation_analyst"}:
+        retired = {"mirrorneuron-document-reading-skill", "mirrorneuron-llm-ocr-skill", "mirrorneuron-pdf-extract-skill"}
+        assert all(name not in requirements for name in retired)
+        assert not retired & {
+            record["name"] for record in before["skill_dependencies"]
+        }
+        if local:
+            assert "/tmp/mn-skill-runtime/local/docs_to_markdown_skill" in local_requirements
+        else:
+            assert "mirrorneuron-docs-to-markdown-skill>=1.3.58.dev0,<2" in requirements
     python_workers = [n for n in prepared.get('agents', {}).get('nodes', [])
                       if n.get('config', {}).get('runner_module') in {'MirrorNeuron.Runner.DockerWorker', 'MirrorNeuron.Runner.HostLocal'}]
     if not requirements:
         # Compose-only and supervised services prepare their Python environment
         # on the native host rather than through a Docker build context.
-        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor'}
+        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor', 'mac_security_investigator'}
         assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
         if local:
             sources = prepared['metadata']['mn_local_skill_dependencies']['sources']
             assert any(r['package'] == 'mirrorneuron-python-sdk' for r in sources)
             assert all(any(r['package'] == component.distribution for r in sources)
                        for component in component_requirements(prepared))
+            if needs_context:
+                assert any(r['package'] == 'mirrorneuron-membrane-python-sdk'
+                           and r['extras'] == '[grpc]' for r in sources)
         else:
             assert not prepared.get('metadata', {}).get('mn_local_skill_dependencies')
         return
@@ -138,22 +153,43 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
     if not local:
         assert not local_requirements
     if not local:
-        assert any('mirrorneuron-python-sdk' in line and '>=1.3.58.dev0,<2' in line for line in requirements.splitlines())
-    if blueprint_id in {'software_architecture_advisor', 'litigation_analyst', 'vc_assistant'}:
+        declared_sdk = next(row for row in before["packages"]
+                            if row["name"] == "mirrorneuron-python-sdk")
+        sdk_name = declared_sdk["name"]
+        if declared_sdk.get("extras"):
+            sdk_name += "[" + ",".join(sorted(declared_sdk["extras"])) + "]"
+        assert dependency_requirement(sdk_name, declared_sdk["version"]) in requirements
+    if needs_context:
         if local:
             assert '/mn-context-engine-python-sdk[grpc]' in local_requirements
             assert '/mn-python-sdk[context]' in local_requirements
             assert any(key.endswith('/mn_context_engine_sdk/text_memory.py') for key in payloads)
+            assert any(key.endswith('/mn_context_engine_sdk/proto/context_pb2.py')
+                       and b'mirrorneuron.context.v2' in value for key, value in payloads.items())
         else:
-            assert 'mirrorneuron-python-sdk[context]>=1.3.58.dev0,<2' in requirements
+            sdk = next(row for row in before['packages'] if row['name'] == 'mirrorneuron-python-sdk')
+            assert dependency_requirement('mirrorneuron-python-sdk[context]', sdk['version']) in requirements
     if blueprint_id == "software_architecture_advisor":
         if local:
             assert "graph_analysis_skill" in local_requirements
             assert "mirrorneuron-graph-analysis-skill==" not in requirements
         else:
-            assert dependency_requirement(
-                "mirrorneuron-graph-analysis-skill", ">=1.3.47"
-            ) in requirements
+            from packaging.requirements import Requirement
+            declared_graph = Requirement(dependency_requirement('mirrorneuron-graph-analysis-skill',
+                next(row['version'] for row in before['skill_dependencies']
+                     if row['name'] == 'mirrorneuron-graph-analysis-skill')))
+            graph = next(Requirement(line) for line in requirements.splitlines()
+                         if line.startswith('mirrorneuron-graph-analysis-skill'))
+            assert graph.name == declared_graph.name
+            if graph.url:
+                from urllib.parse import unquote, urlsplit
+                from packaging.utils import parse_wheel_filename
+                distribution, version, _, _ = parse_wheel_filename(
+                    Path(unquote(urlsplit(graph.url).path)).name)
+                assert distribution == graph.name
+                assert declared_graph.specifier.contains(version)
+            else:
+                assert graph.specifier == declared_graph.specifier
             assert not any(
                 "local-requirements.txt" in value.decode()
                 for key, value in payloads.items()

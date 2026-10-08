@@ -22,7 +22,7 @@ def blueprint_path(blueprint_id: str) -> Path:
     return (
         ROOT / blueprint_id
         if (ROOT / blueprint_id).is_dir()
-        else ROOT.parent / "mn-blueprints" / blueprint_id
+        else WORKSPACE / "mn-blueprints" / blueprint_id
     )
 
 

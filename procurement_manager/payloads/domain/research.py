@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import inspect
 import json
 import re
 from typing import Any
 
-from mn_public_research_orchestrator_skill import source_records_from_browser_result
+from mn_public_research_orchestrator_skill import BrowserResearch, load_browser as _load_web_browser_skill
 
-from .common import _compact, _now, _sha256, load_prompt
-from .inputs import _call_optional
+from .common import _compact, load_prompt
 
 
 def build_public_queries(inputs: dict[str, Any], intake_plan: dict[str, Any] | None = None) -> list[str]:
@@ -116,170 +114,24 @@ def sanitize_public_text(value: Any) -> str:
     return re.sub(r"[^\w\s.,:/-]", "", text)[:180]
 
 
-def _load_web_browser_skill() -> tuple[Any, Any, Any]:
-    try:
-        from mn_web_browser_skill import WebBrowserConfig, browse, research_topic
-        return WebBrowserConfig, browse, research_topic
-    except Exception:
-        return None, None, None
-
-
-def _source_record(*, url: str, title: str, snippet: str, status: str, skill: str, query: str, warning: str = "") -> dict[str, Any]:
-    lowered = f"{title} {snippet} {warning}".lower()
-    if any(marker in lowered for marker in ("captcha", "login required", "robots.txt", "access denied", "blocked")):
-        status = "blocked"
-    elif status == "ok":
-        status = "observed"
-    return {
-        "source_ref": f"web:{_sha256(url or query)[:12]}",
-        "url": url,
-        "title": title or url or skill,
-        "snippet": snippet[:1800],
-        "status": status,
-        "skill": skill,
-        "query": query,
-        "retrieved_at": _now(),
-        "warning": warning,
-    }
-
-
-def _normalize_browser_result(result: Any, query: str, skill: str) -> list[dict[str, Any]]:
-    normalized = source_records_from_browser_result(
-        result,
-        entity="purchase",
-        query=query,
-        skill=skill,
-        verification_target="purchase_source",
-        snippet_limit=1800,
-    )
-    return [
-        _source_record(
-            url=str(item.get("url") or ""),
-            title=str(item.get("title") or ""),
-            snippet=str(item.get("snippet") or ""),
-            status=str(item.get("status") or "observed"),
-            skill=skill,
-            query=query,
-            warning=str(item.get("warning") or ""),
-        )
-        for item in normalized
-    ]
-
-
-def research_public_sources(
-    queries: list[str],
-    config: dict[str, Any],
-    *,
-    seed_urls: list[str] | None = None,
-    quick_test: bool = False,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def research_public_sources(queries, config, *, seed_urls=None, quick_test=False):
     internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
     if not internet.get("enabled", True):
         return [], [{"status": "disabled", "message": "Public research is disabled by configuration."}]
     if quick_test:
         return [], [{"status": "skipped_quick_test", "message": "Public research is skipped in fake/quick-test mode."}]
-    sources: list[dict[str, Any]] = []
-    warnings: list[dict[str, Any]] = []
     max_queries = max(0, min(8, int(internet.get("max_queries", 2))))
     max_seed_urls = max(0, min(12, int(internet.get("max_seed_urls", 6))))
     max_sources = max(1, min(8, int(internet.get("max_sources", 3))))
-    browser_config_cls, browse, research_topic = _load_web_browser_skill()
-    raw_config = {
-        "timeout_seconds": internet.get("timeout_seconds", 20),
-        "total_timeout_seconds": internet.get("total_timeout_seconds", 60),
-        "max_chars": internet.get("max_chars", 12000),
-        "output_format": "plain_text",
-        "respect_robots": internet.get("respect_robots", True),
-        "per_host_delay_seconds": internet.get("per_host_delay_seconds", 1),
-    }
-    browser_config = _instantiate(browser_config_cls, raw_config)
-    for url in list(dict.fromkeys(seed_urls or []))[:max_seed_urls]:
-        if browse is None:
-            warnings.append(
-                {
-                    "status": "skill_unavailable",
-                    "skill": "web_browser_skill",
-                    "url": url,
-                    "message": "The supplied public research link could not be opened because the unified web browser skill is unavailable.",
-                }
-            )
-            break
-        try:
-            result = _call_optional(
-                browse,
-                url=url,
-                config=browser_config,
-                depth="standard",
-                output_format="plain_text",
-            )
-            records = _normalize_browser_result(
-                result,
-                "User-supplied public research lead",
-                "web_browser_skill",
-            )
-            for record in records:
-                if not record["url"]:
-                    record["url"] = url
-                    record["source_ref"] = f"web:{_sha256(url)[:12]}"
-            sources.extend(records)
-        except Exception as exc:
-            warnings.append(
-                {
-                    "status": "failed",
-                    "skill": "web_browser_skill",
-                    "url": url,
-                    "message": str(exc),
-                }
-            )
-    observed_source_count = sum(item.get("status") == "observed" for item in sources)
-    minimum_before_search = max(
-        0,
-        min(max_seed_urls, int(internet.get("min_observed_sources_before_search", 4))),
-    )
-    search_only_for_gaps = bool(internet.get("search_only_when_source_gap", True))
-    queries_to_run = [] if search_only_for_gaps and observed_source_count >= minimum_before_search else queries[:max_queries]
-    for query in queries_to_run:
-        if research_topic is None:
-            if not any(
-                warning.get("status") == "skill_unavailable"
-                and warning.get("skill") == "web_browser_skill"
-                for warning in warnings
-            ):
-                warnings.append({"status": "skill_unavailable", "skill": "web_browser_skill", "message": "Install mirrorneuron-web-browser-skill for public research."})
-            break
-        try:
-            result = _call_optional(
-                research_topic,
-                query=query,
-                config=browser_config,
-                depth="standard",
-                max_sources=max_sources,
-                output_format="plain_text",
-            )
-            sources.extend(_normalize_browser_result(result, query, "web_browser_skill"))
-            if isinstance(result, dict):
-                for warning in result.get("warnings") or []:
-                    warnings.append(
-                        {
-                            "status": "warning",
-                            "skill": "web_browser_skill",
-                            "query": query,
-                            "message": str(warning),
-                        }
-                    )
-        except Exception as exc:
-            warnings.append({"status": "failed", "skill": "web_browser_skill", "query": query, "message": str(exc)})
-    return sources, warnings
-
-
-def _instantiate(cls: Any, values: dict[str, Any]) -> Any:
-    if cls is None:
-        return values
-    try:
-        params = inspect.signature(cls).parameters
-        return cls(**{key: value for key, value in values.items() if key in params})
-    except (TypeError, ValueError):
-        return cls()
+    browser = BrowserResearch(internet, entity="purchase", verification_target="purchase_source",
+                              browser_loader=_load_web_browser_skill)
+    browser.browse_urls(list(dict.fromkeys(seed_urls or []))[:max_seed_urls],
+                       query_label="User-supplied public research lead")
+    observed = sum(item.get("status") == "observed" for item in browser.sources)
+    minimum = max(0, min(max_seed_urls, int(internet.get("min_observed_sources_before_search", 4))))
+    queries_to_run = [] if internet.get("search_only_when_source_gap", True) and observed >= minimum else queries[:max_queries]
+    browser.research_queries(queries_to_run, max_sources=max_sources)
+    return browser.sources, browser.warnings
 
 
 def deterministic_evidence(inputs: dict[str, Any], documents: list[dict[str, Any]], sources: list[dict[str, Any]]) -> dict[str, Any]:
@@ -453,4 +305,4 @@ def ask_llm_for_recommendation(llm: Any, inputs: dict[str, Any], evidence: dict[
     }
 
 
-__all__ = ['build_public_queries', 'sanitize_public_text', '_load_web_browser_skill', '_source_record', '_normalize_browser_result', 'research_public_sources', '_instantiate', 'deterministic_evidence', '_number', 'deterministic_recommendation', '_normalize_intake_plan', 'ask_llm_for_intake', '_status_counts', 'ask_llm_for_recommendation']
+__all__ = ['build_public_queries', 'sanitize_public_text', '_load_web_browser_skill', 'research_public_sources', 'deterministic_evidence', '_number', 'deterministic_recommendation', '_normalize_intake_plan', 'ask_llm_for_intake', '_status_counts', 'ask_llm_for_recommendation']

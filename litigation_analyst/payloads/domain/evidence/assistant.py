@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 from typing import Iterable, Mapping
 
-from mn_sdk_rag import DocumentIndex, EvidenceSpan
+from mn_sdk_rag import DocumentIndex, EvidenceSpan, verify_source_span
 
 from ..models import CaseDocument, DraftReport, ProvenanceKind, StoredEvidence
 from ..ingestion.corpus import CaseCorpus
@@ -108,9 +108,12 @@ class EvidenceAssistant:
             raise ValueError(f"evidence source is not in the indexed corpus: {evidence.source_id}")
         if document.content_sha256 != evidence.content_sha256:
             raise ValueError(f"evidence hash mismatch: {evidence.source_id}")
-        exact = document.text[evidence.start_offset : evidence.end_offset]
-        if exact != evidence.text:
-            raise ValueError(f"evidence span mismatch: {evidence.evidence_id}")
+        try:
+            verify_source_span(document.text, document.content_sha256,
+                sha256=evidence.content_sha256, start_offset=evidence.start_offset,
+                end_offset=evidence.end_offset, excerpt=evidence.text)
+        except ValueError as exc:
+            raise ValueError(f"evidence span mismatch: {evidence.evidence_id}") from exc
 
     @staticmethod
     def _render(title: str, review_query: str, evidence) -> str:

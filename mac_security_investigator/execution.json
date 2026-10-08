@@ -1,0 +1,93 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "mode": "compiled",
+  "job_name": "mac-security-investigator",
+  "runtime": {
+    "placement": {
+      "must_run_local": true
+    }
+  },
+  "requirements": {
+    "os": "darwin",
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 1
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "agents": {
+    "registry": {
+      "mac_evidence_collector": {
+        "handler": "agents.mac_evidence_collector",
+        "role": "Mac evidence collector"
+      },
+      "temporal_history_reconciler": {
+        "handler": "agents.temporal_history_reconciler",
+        "role": "Temporal history reconciler"
+      },
+      "temporal_behavior_investigator": {
+        "handler": "agents.temporal_behavior_investigator",
+        "role": "Temporal behavior investigator"
+      },
+      "security_evidence_reporter": {
+        "handler": "agents.security_evidence_reporter",
+        "role": "Security evidence reporter"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_host@1",
+      "with": {
+        "stereotype": [
+          "blueprint_host_worker",
+          "internal_write_worker"
+        ],
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "agents",
+            "target": "agents"
+          }
+        ],
+        "timeout_seconds": 300,
+        "pass_env": [
+          "MN_CONTEXT_ADDR",
+          "MN_CONTEXT_AUTH_TOKEN"
+        ]
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "capture_mac_evidence",
+          "reconcile_evidence_history",
+          "investigate_temporal_behavior",
+          "publish_security_review"
+        ],
+        "uses": "mn-agents.worker.python_host@1",
+        "with": {
+          "stereotype": [
+            "blueprint_host_worker",
+            "internal_write_worker"
+          ],
+          "side_effect": "internal_write",
+          "timeout_seconds": 300
+        }
+      }
+    ]
+  }
+}

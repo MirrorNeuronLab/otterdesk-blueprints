@@ -1,6 +1,13 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
-  "skills": [],
+  "skills": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-docs-to-markdown-skill",
+      "version": ">=1.3.58.dev0,<2"
+    }
+  ],
   "agents": [
     {
       "type": "pip",
@@ -50,7 +57,10 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-python-sdk",
-      "version": ">=1.3.58.dev0,<2"
+      "version": ">=1.3.58.dev0,<2",
+      "extras": [
+        "context"
+      ]
     }
   ]
 }

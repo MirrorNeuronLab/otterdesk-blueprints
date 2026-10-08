@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .common import *
+from mn_docs_to_markdown_skill import DocumentExtractionError, extract_folder_records, convert_documents, MarkdownConversionError
 
 def slugify(value: str) -> str:
     from mn_sdk.blueprint_support import slugify as shared_slugify
@@ -54,49 +55,18 @@ def _llm_ocr_records_for_pdfs(folder: Path, pdf_paths: list[Path], config: dict[
                 "mocked": True,
             }
         return records_by_path
-    if extract_document_folder is None:
-        raise OcrRequiredError("PDF startup packets require llm_ocr_skill, but the OCR extractor is unavailable.")
-
-    resolved_pdf_keys = {_path_key(path) for path in pdf_paths}
     skill_config = {"input_skills": (config or {}).get("input_skills", {})}
     ocr_config = ((config or {}).get("input_skills") or {}).get("llm_ocr") or {}
-    min_text_chars = int(ocr_config.get("min_text_chars") or 40)
     factory = docker_ocr_client_factory_from_config(skill_config) if docker_ocr_client_factory_from_config else None
-    records_by_path: dict[str, dict[str, Any]] = {}
+    try:
+        return extract_folder_records(
+            pdf_paths, extractor=extract_document_folder, classifier=startup_packet_classifier,
+            redactor=redactor, client_factory=factory,
+            min_text_chars=int(ocr_config.get("min_text_chars") or 40),
+        )
+    except DocumentExtractionError as exc:
+        raise OcrRequiredError(str(exc)) from exc
 
-    for parent in sorted({path.parent for path in pdf_paths}):
-        try:
-            extracted_records = extract_document_folder(
-                parent,
-                classifier=startup_packet_classifier,
-                redactor=redactor,
-                llm_ocr_client_factory=factory,
-                min_text_chars=min_text_chars,
-            )
-        except Exception as exc:
-            raise OcrRequiredError(f"PDF OCR failed for {parent}: {exc}") from exc
-
-        for record in extracted_records:
-            raw_path = record.get("path")
-            if not raw_path:
-                continue
-            key = _path_key(Path(str(raw_path)))
-            if key in resolved_pdf_keys:
-                records_by_path[key] = dict(record)
-
-    missing = [str(path) for path in pdf_paths if _path_key(path) not in records_by_path]
-    if missing:
-        raise OcrRequiredError(f"PDF OCR returned no evidence for required input(s): {', '.join(missing)}")
-
-    for path in pdf_paths:
-        record = records_by_path[_path_key(path)]
-        text = str(record.get("text") or "")
-        warnings = record.get("warnings") if isinstance(record.get("warnings"), list) else []
-        if bool(record.get("ocr_required")) or len(text.strip()) < min_text_chars:
-            detail = "; ".join(str(warning) for warning in warnings if warning) or "OCR returned too little text."
-            raise OcrRequiredError(f"PDF OCR did not produce usable text for {path}: {detail}")
-
-    return records_by_path
 
 def infer_company_name(path: Path, text: str, root: Path) -> str:
     try:
@@ -112,42 +82,39 @@ def infer_company_name(path: Path, text: str, root: Path) -> str:
         label_pattern=r"(?im)^\s*(company|startup)\s*[:\-]\s*(.+?)\s*$",
     )[:80]
 
-def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[str, list[dict[str, Any]]]:
+def stable_conversion_policy(config):
+    import hashlib
+    import json
+    value = {'redaction':'common-pii-v1', 'fake_skills':fake_skills_mode_enabled(config),
+             'input_skills':(config or {}).get('input_skills',{})}
+    return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
+
+
+def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source_output_folder: Path | None = None) -> dict[str, list[dict[str, Any]]]:
     records_by_company: dict[str, list[dict[str, Any]]] = {}
     paths = _document_paths(folder)
     if not paths:
         return records_by_company
-    pdf_paths = [path for path in paths if path.suffix.lower() == ".pdf"]
-    ocr_records_by_path = _llm_ocr_records_for_pdfs(folder, pdf_paths, config)
     complete_inputs = []
-    for path in paths:
+    indexed_records = []
+    fake = fake_skills_mode_enabled(config)
+    def selected_ocr_records(selected):
+        return _llm_ocr_records_for_pdfs(folder,
+            [path for path in selected if path.suffix.lower() in {'.pdf','.png','.jpg','.jpeg','.tif','.tiff','.bmp','.webp'}],config)
+    converted = convert_documents(paths, source_root=folder, output_root=source_output_folder,
+        pdf_records_factory=selected_ocr_records if fake else None,
+        pdf_extractor=lambda path: selected_ocr_records([path])[_path_key(path)],
+        min_text_chars=int(((config or {}).get('input_skills',{}).get('llm_ocr') or {}).get('min_text_chars') or 40),
+        redactor=redactor, cache_tag=stable_conversion_policy(config))
+    for processed in converted:
+        path = Path(processed['path'])
         suffix = path.suffix.lower()
-        if suffix in PLAIN_TEXT_SUFFIXES:
-            text, warnings = safe_read_text(path)
-            extraction_method = "embedded_text"
-            ocr_required = False
-        elif suffix in ANYDOC_DOCUMENT_SUFFIXES:
-            try:
-                text = convert_with_anydoc(path)
-            except AnyDocConversionError as exc:
-                raise DocumentConversionError(
-                    f"Non-PDF document conversion failed for {path}: {exc}"
-                ) from exc
-            warnings = []
-            extraction_method = "firecrawl_anydoc"
-            ocr_required = False
-        elif suffix in PDF_SUFFIXES:
-            ocr_record = ocr_records_by_path[_path_key(path)]
-            text = str(ocr_record.get("text") or "")
-            raw_warnings = ocr_record.get("warnings")
-            warnings = [str(warning) for warning in raw_warnings] if isinstance(raw_warnings, list) else []
-            extraction_method = str(ocr_record.get("extraction_method") or "llm_ocr")
-            ocr_required = bool(ocr_record.get("ocr_required"))
-        else:  # pragma: no cover - paths are filtered by SUPPORTED_SUFFIXES
-            raise DocumentConversionError(f"Unsupported startup packet format: {path}")
-        redacted = redactor(text)
+        redacted = processed['markdown']
+        warnings = processed['warnings']
+        extraction_method = processed['extraction_method']
+        ocr_required = False
         company = infer_company_name(path, redacted, folder)
-        digest = file_sha256(path)
+        digest = processed['original_sha256']
         record = {
             "path": str(path),
             "filename": path.name,
@@ -157,20 +124,36 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None) -> dict[s
             "text_preview": redacted[:1200],
             "character_count": len(redacted),
             "extraction_method": extraction_method,
+            "markdown_reused": processed["reused"],
             "ocr_required": ocr_required,
             "warnings": warnings,
         }
-        complete_inputs.append({'source_ref': path.relative_to(folder).as_posix(), 'text': redacted,
+        complete_inputs.append({'source_ref': 'inputs/' + processed['markdown_ref'], 'text': redacted,
+            'aliases': [processed['source_ref']],
             'allow': ['vc-inputs', 'vc-company-analysis'],
-            'upstream': [{'sha256': digest, 'extraction_method': extraction_method}]})
+            'upstream': [{'sha256': digest, 'extraction_method': extraction_method,
+                          'artifact_role': 'input', 'original_ref': processed['source_ref'],
+                          'markdown_sha256': processed['markdown_sha256']}]})
+        if source_output_folder is not None:
+            record['markdown_artifact'] = {'path': 'context_sources/inputs/' + processed['markdown_ref'],
+                'sha256': processed['markdown_sha256']}
         records_by_company.setdefault(company, []).append(record)
-    from mn_sdk.text_memory import runtime_text_memory, ingest_inputs
-    memory = runtime_text_memory(config or {}, principal='vc-inputs')
-    if memory is not None:
+        indexed_records.append(record)
+    from mn_sdk.source_query import source_text_query
+    sources = source_text_query(config or {}, principal='vc-inputs')
+    receipts, catalog = [], None
+    if sources is not None:
         try:
-            ingest_inputs(memory, complete_inputs)
+            receipts = sources.ingest(complete_inputs)
+            for record, receipt in zip(indexed_records, receipts, strict=True):
+                record['context_source'] = {**receipt, 'scope': dict(sources.scope)}
+            catalog = sources.catalog()
         finally:
-            memory.close()
+            sources.close()
+    if source_output_folder is not None:
+        write_json(source_output_folder.parent / 'inputs.json', {
+            'catalog': catalog, 'receipts': receipts,
+            'files': [record['markdown_artifact'] for record in indexed_records]})
     return records_by_company
 
 def company_fingerprint(records: list[dict[str, Any]]) -> str:

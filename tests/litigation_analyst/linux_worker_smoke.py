@@ -44,12 +44,12 @@ class Model:
             )
         elif i == 2:
             assert "error" not in history[-1]["result"], history[-1]
-            name, args = "read_skill", {"skill": "mirrorneuron.document.reading"}
+            name, args = "read_skill", {"skill": "otterdesk.litigation.evidence"}
         elif i == 3:
             name, args = (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.document.reading",
+                    "skill": "otterdesk.litigation.evidence",
                     "operation": "search",
                     "arguments": {"query": "cybersecurity"},
                 },

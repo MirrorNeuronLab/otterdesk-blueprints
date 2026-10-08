@@ -14,7 +14,6 @@ from mn_sdk.blueprint_support import (
 )
 
 from .common import BLUEPRINT_ID, quick_test_enabled, research_llm
-from .llm_services import adapt_structured_research_llm
 
 
 def runtime_context_for_step(
@@ -52,9 +51,7 @@ def init_research_llm(
         default_actions=max(1, int(budgets.get("max_llm_calls") or 20)),
     )
     limiter = build_llm_call_limiter(config, fake_mode=quick_test)
-    configured_llm = adapt_structured_research_llm(
-        research_llm(config, llm_client), config
-    )
+    configured_llm = research_llm(config, llm_client)
     llm = BudgetedLlmClient(
         configured_llm,
         action_budget,

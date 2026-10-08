@@ -21,7 +21,7 @@ policy = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(policy)
 
 
-def test_demo_starts_with_person_goal_and_current_view_answer_contract():
+def test_demo_starts_with_person_goal_and_markdown_summary_contract():
     blueprint = ROOT / "cctv_operator"
     config = json.loads((blueprint / "config/default.json").read_text())
     ui = json.loads((blueprint / "extensions/ui.json").read_text())
@@ -29,11 +29,15 @@ def test_demo_starts_with_person_goal_and_current_view_answer_contract():
     assert payload["visual_targets"] == ["person"]
     assert payload["alert_policy"]["notify_on"] == ["person"]
     assert policy.configured_visual_targets({}) == ["person"]
-    assert ui["starter_questions"][0].startswith("Do you see any person")
+    assert payload["monitoring_goal"] == "A person is visible in the video."
+    assert policy.configured_monitoring_goal({}) == payload["monitoring_goal"]
+    assert ui["starter_questions"][0] == "Has the monitoring goal happened?"
+    assert "Summarize the video." in ui["starter_questions"]
     chat = (blueprint / "payloads/prompts/chat-system.md").read_text()
     visual = (blueprint / "payloads/prompts/visual-detection.md").read_text()
-    assert "Call `get_operator_status` with the operator's exact question" in chat
-    assert "alert confidence is zero" in chat
+    assert "Use `answer_video_question` with the actual question" in chat
+    assert "It never retrieves images or calls Cosmos" in chat
+    assert "detection gaps do not prove absence" in chat
     assert "corridor is blocked" in chat
     assert "visible travel path" in visual
 

@@ -15,6 +15,7 @@ from typing import Any, Iterable
 from uuid import uuid4
 
 from mn_graph_analysis_skill import GraphClient as RGXCliClient
+from mn_graph_analysis_skill import make_code_file_node_id, file_logical_id
 
 from ..models import CaseDocument
 
@@ -71,14 +72,35 @@ def _email_headers(text: str) -> dict[str, Any]:
 
 def build_records(
     documents: Iterable[CaseDocument],
+    *, repository_id: str | None = None, file_identities: dict | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     ordered = sorted(documents, key=lambda item: item.source_id)
+    if len({d.source_id for d in ordered}) != len(ordered):
+        raise ValueError('Duplicate source document')
+    supplied_identities = file_identities is not None
+    file_identities = {} if file_identities is None else file_identities
     node_sources: dict[int, str] = {}
     edge_ids: dict[int, str] = {}
     nodes: list[dict[str, Any]] = []
     edges: list[dict[str, Any]] = []
     email_headers: dict[str, dict[str, Any]] = {}
     correspondents: dict[tuple[str, str], dict[str, set[str]]] = {}
+
+    def file_identity(path, scope, content_hash=None):
+        if path in file_identities:
+            identity = file_identities[path]
+            if identity['current_path'] != path or identity['repository_id'] != repository_id:
+                raise ValueError('File identity does not match frozen case scope/path')
+            return identity
+        if supplied_identities:
+            raise ValueError('Frozen file identity is missing')
+        # Pure/legacy normalized-record callers have no original bytes or ledger.
+        # Production preparation supplies both; citations keep their own hashes.
+        rid = repository_id or 'case-scope:' + scope
+        return {'node_id': make_code_file_node_id(rid, path), 'repository_id': rid,
+                'current_path': path, 'previous_paths': [],
+                **({'content_hash': content_hash} if content_hash is not None else {}),
+                'content_hash_basis': 'normalized_source' if content_hash is not None else 'unavailable'}
 
     def register(identifier: int, source_id: str) -> None:
         prior = node_sources.get(identifier)
@@ -162,17 +184,19 @@ def build_records(
         {item.container_source_id for item in ordered if item.container_source_id is not None}
     )
     for source_id in containers:
-        identifier = _logical_id("node", source_id)
-        register(identifier, source_id)
         scope = next(
             item.access_scope for item in ordered if item.container_source_id == source_id
         )
+        identity = file_identity(source_id.removeprefix('case:'), scope)
+        identifier = file_logical_id(identity['node_id'])
+        register(identifier, source_id)
         nodes.append(
             {
                 "id": identifier,
                 "kind": "Mailbox",
                 "labels": ["SourceArtifact", "Mailbox"],
                 "properties": {
+                    **identity,
                     "logical_id": identifier,
                     "source_id": source_id,
                     "access_scope": scope,
@@ -181,10 +205,13 @@ def build_records(
         )
 
     for document in ordered:
-        identifier = _logical_id("node", document.source_id)
+        identity = (file_identity(document.relative_path, document.access_scope, document.content_sha256)
+                    if document.container_source_id is None else {})
+        identifier = file_logical_id(identity['node_id']) if identity else _logical_id("node", document.source_id)
         register(identifier, document.source_id)
         kind = "Email" if document.media_type == "message/rfc822" else "Document"
         properties: dict[str, Any] = {
+            **identity,
             "logical_id": identifier,
             "title": document.relative_path.rsplit("/", 1)[-1],
             "filename": document.relative_path,
@@ -224,7 +251,8 @@ def build_records(
         )
 
         if document.container_source_id is not None:
-            container_id = _logical_id("node", document.container_source_id)
+            container_identity = file_identity(document.container_source_id.removeprefix('case:'), document.access_scope)
+            container_id = file_logical_id(container_identity['node_id'])
             add_edge(
                 f"{document.source_id}|CONTAINED_IN|{document.container_source_id}",
                 identifier,
@@ -275,10 +303,17 @@ class CaseGraphProjector:
         self.rgx_binary = str(rgx_binary)
         self.timeout_seconds = timeout_seconds
 
-    def project(self, documents: Iterable[CaseDocument]) -> GraphProjectionSummary:
+    def project(self, documents: Iterable[CaseDocument], *, repository_id=None, file_identities=None,
+                relationship_index=None) -> GraphProjectionSummary:
         if self.graph_path.exists():
             raise FileExistsError(f"RGX graph already exists: {self.graph_path}")
-        nodes, edges = build_records(documents)
+        nodes, edges = build_records(documents, repository_id=repository_id, file_identities=file_identities)
+        if relationship_index is not None:
+            from .legal import records
+            extra_nodes, extra_edges = records(relationship_index)
+            nodes.extend(extra_nodes); edges.extend(extra_edges)
+            if len({n['id'] for n in nodes}) != len(nodes) or len({e['id'] for e in edges}) != len(edges):
+                raise ValueError('Legal projection logical-ID collision')
         self.graph_path.parent.mkdir(parents=True, exist_ok=True)
         temporary_graph = self.graph_path.with_name(
             f".{self.graph_path.name}.{uuid4().hex}.tmp"

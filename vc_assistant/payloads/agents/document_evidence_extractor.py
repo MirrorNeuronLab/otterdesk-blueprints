@@ -6,6 +6,7 @@ from mn_sdk.blueprint_support import write_failed_run, write_workflow_state
 from domain.common import SUPPORTED_SUFFIXES
 from domain.intake import (
     OcrRequiredError,
+    MarkdownConversionError,
     scan_documents,
 )
 from domain.runtime_tools import (
@@ -31,7 +32,8 @@ def run_document_evidence_extractor(
             path_hash=stable_text_hash(ctx["document_folder"]),
             supported_suffixes=sorted(SUPPORTED_SUFFIXES),
         ) as op:
-            company_records = scan_documents(ctx["document_folder"], ctx["config"])
+            company_records = scan_documents(ctx["document_folder"], ctx["config"],
+                source_output_folder=ctx["output_folder"] / "context_sources" / "inputs")
             if not company_records:
                 company_records = {"Sample Startup": []}
             op.close(
@@ -41,13 +43,14 @@ def run_document_evidence_extractor(
                     len(records) for records in company_records.values()
                 ),
             )
-    except OcrRequiredError as exc:
+    except (OcrRequiredError, MarkdownConversionError) as exc:
+        ocr_failed = isinstance(exc, OcrRequiredError) or isinstance(exc.__cause__, OcrRequiredError)
         append_event(
             ctx["run_dir"],
             "tool_call_failed",
             {
-                "tool": "llm_ocr.extract_document_folder",
-                "status": "required_ocr_failed",
+                "tool": "llm_ocr.extract_document_folder" if ocr_failed else "docs_to_markdown.convert_documents",
+                "status": "required_ocr_failed" if ocr_failed else "required_document_conversion_failed",
                 "error": str(exc),
             },
         )

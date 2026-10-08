@@ -156,7 +156,8 @@
           "gene": "BACE1",
           "protein_id": "P56817"
         }
-      ]
+      ],
+      "disease": "Alzheimer disease"
     }
   },
   "interfaces": {
@@ -179,6 +180,7 @@
       "resources",
       "human_control",
       "text_memory",
+      "source_context",
       "backpressure",
       "budgets",
       "determinism",
@@ -208,6 +210,7 @@
       "resources",
       "human_control",
       "text_memory",
+      "source_context",
       "backpressure",
       "budgets",
       "determinism",
@@ -356,5 +359,8 @@
     },
     "refresh_seconds": 1,
     "renderer": "static_html"
+  },
+  "source_context": {
+    "enabled": true
   }
 }

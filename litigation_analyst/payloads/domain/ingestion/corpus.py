@@ -98,7 +98,7 @@ class CaseCorpus:
             except UnicodeDecodeError:
                 text = None
         if path.suffix.casefold() == ".pdf":
-            from mn_pdf_extract_skill import extract_pages_from_pdf
+            from mn_docs_to_markdown_skill import extract_pages_from_pdf
             try:
                 pages = extract_pages_from_pdf(path)
                 text = "\n".join(f"Page {p['page_number']}:\n\n{p['text']}" for p in pages) if any(p["text"].strip() for p in pages) else None
@@ -107,10 +107,10 @@ class CaseCorpus:
                 # imports above still fail preparation instead of hiding setup errors.
                 text = None
         elif path.suffix.casefold() in {".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".odt", ".rtf"}:
-            from mn_document_reading_skill.anydoc_conversion import AnyDocConversionError, convert_with_anydoc
+            from mn_docs_to_markdown_skill import MarkItDownConversionError, convert_with_markitdown
             try:
-                text = convert_with_anydoc(path)
-            except AnyDocConversionError:
+                text = convert_with_markitdown(path)
+            except MarkItDownConversionError:
                 text = None
         digest_source = text.encode("utf-8") if text is not None else content
         return CaseDocument(
@@ -172,6 +172,10 @@ class CaseCorpus:
             f"Cc: {message.get('Cc', '')}",
             f"Subject: {message.get('Subject', '')}",
         ]
+        # Preserve occurrence and family identifiers from the top-level message.
+        # Their absence stays explicit; byte hashes are not message identities.
+        headers += [f"{name}: {message.get(name)}" for name in
+                    ("Message-ID", "In-Reply-To", "References", "Bcc") if message.get(name)]
         bodies: list[str] = []
         parts = message.walk() if message.is_multipart() else (message,)
         for part in parts:

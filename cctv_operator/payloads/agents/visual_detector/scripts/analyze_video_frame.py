@@ -6,7 +6,7 @@ import datetime as dt
 import hashlib
 import json
 import os
-import subprocess
+import re
 import sys
 import time
 import urllib.error
@@ -38,6 +38,8 @@ from video_json_utils import (
 )
 
 from mn_sdk import RuntimeModelError, runtime_model_json_request
+from mn_sdk.model_runtime import load_model_catalog
+from mn_sdk.model_catalog import resolve_catalog_entry
 from mn_sdk_common.prompts import PromptLibrary
 from mn_sdk_common.beacon import start_agent_beacon_thread
 from mn_sdk.blueprint_support import append_human_event, read_human_events
@@ -48,14 +50,24 @@ from mn_live_video_analysis_skill import (
 )
 from domain.detection_policy import (
     configured_alert_policy,
+    configured_monitoring_goal,
     configured_target_notice,
     configured_visual_targets,
     evaluate_alert,
     target_prompt_text,
 )
 from domain.screening import GATE_SCHEMA, approved, branch, normalize_gate, review_request
-from domain.conversation_snapshot import publish_snapshot
+from domain.conversation_snapshot import event_snapshot
+from domain.goal_events import goal_event
 from domain.runtime_memory import CameraMemory, with_history
+from domain.video_understanding import batch_context, temporal_prompt, understanding_fields
+from domain.cosmos_access import cosmos_slot
+from domain.model_definitions import cosmos_model_spec
+from domain.benchmarks import Benchmarks
+from domain.caption_schedule import complete_caption
+from domain.monitoring import load_monitoring_state
+from domain.person_events import uses_person_events
+from domain.alert_delivery import post_slack
 
 
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=3)
@@ -96,6 +108,7 @@ def initial_state() -> dict[str, Any]:
         "frames_seen": 0,
         "source_mode": "stream",
         "last_alert_wall_ts": 0.0,
+        "notified_goal": None,
         "last_human_notice_wall_ts": 0.0,
         "last_human_notice_signature": None,
         "detections": 0,
@@ -117,36 +130,18 @@ def initial_state() -> dict[str, Any]:
 
 def mock_detection(frame_seq: int) -> dict[str, Any]:
     detected = frame_seq % 4 in {2, 3}
-    detections = (
-        [
-            {
-                "label": "industrial equipment",
-                "category": "equipment",
-                "color": "orange",
-                "position": "near the center of the monitored scene",
-                "activity": "visible in the active work area",
-                "confidence": 0.82,
-            }
-        ]
-        if detected
-        else []
-    )
-    return {
-        "detected": detected,
+    return normalize_detection({
         "detected_target": detected,
-        "detection_count": len(detections),
-        "detections": detections,
-        "confidence": 0.82 if detected else 0.18,
-        "summary": "Mock mode detected one notable equipment item in the monitored scene." if detected else "Mock mode sees no configured targets in the monitored scene.",
-        "detection_report": "1 detection: orange industrial equipment in the active work area." if detected else "",
-        "activity_description": "The detected item is visible in the active work area." if detected else "",
-        "detected_types": ["equipment"] if detected else [],
-        "detected_colors": ["orange"] if detected else [],
-        "appearance_notes": ["Detection details are synthetic in mock mode."] if detected else [],
-        "risk_level": "medium" if detected else "low",
-        "visible_subjects": ["industrial equipment"] if detected else [],
-    }
-
+        "goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if detected else None,
+        "detections": [{"label": "group of people", "category": "person",
+                        "position": "center of the scene", "activity": "standing together",
+                        "confidence": 0.82}] if detected else [],
+        "confidence": 0.82 if detected else 0.9,
+        "summary": "Synthetic example: a group stands together." if detected else "Synthetic example: no group stands together.",
+        "detection_report": "Synthetic example: a group stands together." if detected else "",
+        "risk_level": "low", "visible_subjects": ["group of people"] if detected else [],
+        "appearance_notes": ["Mock data, not camera evidence."],
+    })
 
 def call_ollama(frame: bytes | list[bytes], prompt: str, *,
                 response_schema: dict[str, Any] | None = None) -> dict[str, Any]:
@@ -169,14 +164,17 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
         or os.environ.get("MN_LLM_MODEL")
         or os.environ.get("VL_MODEL_NAME")
         or os.environ.get("OLLAMA_MODEL")
-        or "nemotron3:q4_K_M"
+        or "cosmos3-nano-reasoner:1.7"
     )
     timeout = float(os.environ.get("MN_VLM_TIMEOUT_SECONDS") or os.environ.get("MN_LLM_TIMEOUT_SECONDS") or os.environ.get("OLLAMA_TIMEOUT_SECONDS", "90"))
     if _uses_openai_compatible_runtime(provider, base_url):
-        uses_dmr = _uses_docker_model_runner(provider, base_url) or (
+        backend = os.environ.get("MN_VLM_BACKEND") or os.environ.get("MN_LLM_BACKEND") or resolve_catalog_entry(model, catalog=load_model_catalog()).get("backend") or "auto"
+        uses_nim = backend.lower() == "nim"
+        uses_dmr = not uses_nim and (_uses_docker_model_runner(provider, base_url) or (
             provider == "litellm"
             and os.environ.get("MN_RUNTIME_MODEL_MANAGED", "").strip().lower()
             in {"1", "true", "yes", "on"}
+        )
         )
         model_prompt = prompt
         if uses_dmr and not prompt.lstrip().startswith("/no_think"):
@@ -186,10 +184,10 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
             "messages": [
                 {
                     "role": "user",
-                    "content": model_user_content(model_prompt, frame),
+                    "content": model_user_content(model_prompt, frame, media_format="video_frames" if uses_nim else "image_url"),
                 }
             ],
-            "max_tokens": 80 if response_schema else int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "900")),
+            "max_tokens": 80 if response_schema else int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "4096" if uses_nim else "900")),
             "temperature": float(os.environ.get("MN_VLM_TEMPERATURE") or os.environ.get("OLLAMA_TEMPERATURE", "0.0")),
             "response_format": (
                 {"type": "json_schema", "json_schema": {
@@ -197,6 +195,9 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
                 }} if response_schema else {"type": "json_object"}
             ),
         }
+        if uses_nim:
+            payload.pop("response_format")
+            payload["chat_template_kwargs"] = {"enable_thinking": True}
         if uses_dmr:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
             payload["thinking_budget_tokens"] = 0
@@ -207,9 +208,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
                 "/chat/completions",
                 payload,
                 provider=provider,
-                backend=os.environ.get("MN_VLM_BACKEND")
-                or os.environ.get("MN_LLM_BACKEND")
-                or "auto",
+                backend=backend,
                 api_base=base_url,
                 api_key=os.environ.get("MN_VLM_API_KEY")
                 or os.environ.get("MN_LLM_API_KEY"),
@@ -224,8 +223,9 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
                     or os.environ.get("MN_LLM_RETRY_BACKOFF_SECONDS")
                     or "1"
                 ),
-                structured_output=True,
-                required_capabilities=("image_input", "structured_output"),
+                structured_output=not uses_nim,
+                required_capabilities=("image_input",) if uses_nim else ("image_input", "structured_output"),
+                model_spec=cosmos_model_spec() if uses_nim else None,
                 urlopen=urllib.request.urlopen,
             )
         except RuntimeModelError as exc:
@@ -233,6 +233,13 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
         choice = (raw.get("choices") or [{}])[0]
         message = choice.get("message") if isinstance(choice, dict) else {}
         text = str((message or {}).get("content") or "")
+        if uses_nim:
+            # Keep private reasoning out of memory; parse only the final account.
+            text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL)
+            if "<answer>" in text:
+                text = text.split("<answer>", 1)[1].split("</answer>", 1)[0]
+            if "<think>" in text or str(choice.get("finish_reason") or "") == "length":
+                raise RuntimeError("Cosmos returned incomplete video understanding")
         result, parse_error = parse_model_json(text)
         if result is None:
             reasoning_only = bool(
@@ -249,6 +256,13 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
                 f"reasoning_only={str(reasoning_only).lower()}, "
                 f"parse_error={parse_error})"
             )
+        if uses_nim and (
+            not isinstance(result.get("scene_understanding"), str)
+            or not result["scene_understanding"].strip()
+            or not isinstance(result.get("risk_predictions"), list)
+            or not isinstance(result.get("uncertainties"), list)
+        ):
+            raise RuntimeError("Cosmos final answer is missing scene understanding, risk predictions or uncertainties")
         return normalize_gate(result) if response_schema else normalize_detection(result)
 
     payload = {
@@ -456,6 +470,8 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
         visible_subjects = [str(visible_subjects)]
 
     return {
+        **understanding_fields(result),
+        "goal_event": result.get("goal_event"),
         "detected": bool(detected),
         "detected_target": bool(detected),
         "detection_count": detection_count,
@@ -614,6 +630,7 @@ def apply_attention_request(
             # A new watch target deserves its first notice even when the old
             # target produced an alert moments ago.
             state["last_alert_wall_ts"] = 0.0
+            state["notified_goal"] = None
         state["last_attention_update"] = {
             "camera_id": camera_id,
             "instruction": instruction,
@@ -793,6 +810,17 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
     activity = compact_string(detection_payload.get("activity_description"), limit=700)
     fallback = "No configured targets were observed in the monitored scene."
     return {
+        "scene_understanding": detection_payload.get("scene_understanding"),
+        "goal_event": detection_payload.get("goal_event"),
+        "monitoring_goal": detection_payload.get("monitoring_goal"),
+        "risk_predictions": detection_payload.get("risk_predictions"),
+        "uncertainties": detection_payload.get("uncertainties"),
+        "capture_started_at": detection_payload.get("capture_started_at"),
+        "capture_ended_at": detection_payload.get("capture_ended_at"),
+        "frame_timestamps": detection_payload.get("frame_timestamps"),
+        "timestamp_basis": detection_payload.get("timestamp_basis"),
+        "source_profile": detection_payload.get("source_profile"),
+        "analyzed_at": detection_payload.get("analyzed_at"),
         "frame_seq": detection_payload.get("frame_seq"),
         "camera_id": detection_payload.get("camera_id"),
         "video_position_seconds": detection_payload.get("video_position_seconds"),
@@ -854,6 +882,8 @@ def what_happened_summary(observations: list[dict[str, Any]]) -> str:
         details = f" Activity: {activity}" if activity else ""
         return f"Most recently on frame {frame} from {camera_id}, {report}{details}"
 
+    if last.get("scene_understanding"):
+        return f"Most recently on frame {frame} from {camera_id}, {last['scene_understanding']}"
     previous_notable = next((item for item in reversed(observations[:-1]) if item.get("detected_target")), None)
     if previous_notable:
         notable_report = (
@@ -891,6 +921,17 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
     return {
         "type": "cctv_operator_frame_observed",
         "payload": {
+            "scene_understanding": observation.get("scene_understanding"),
+            "goal_event": observation.get("goal_event"),
+            "monitoring_goal": observation.get("monitoring_goal"),
+            "risk_predictions": observation.get("risk_predictions"),
+            "uncertainties": observation.get("uncertainties"),
+            "capture_started_at": observation.get("capture_started_at"),
+            "capture_ended_at": observation.get("capture_ended_at"),
+            "frame_timestamps": observation.get("frame_timestamps"),
+            "timestamp_basis": observation.get("timestamp_basis"),
+            "source_profile": observation.get("source_profile"),
+            "analyzed_at": observation.get("analyzed_at"),
             "camera_id": observation.get("camera_id"),
             "frame_seq": observation.get("frame_seq"),
             "video_position_seconds": observation.get("video_position_seconds"),
@@ -929,96 +970,6 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
     }
 
 
-def human_notice_cooldown_seconds() -> float:
-    try:
-        return max(0.0, float(os.environ.get("HUMAN_NOTICE_COOLDOWN_SECONDS", "30")))
-    except ValueError:
-        return 30.0
-
-
-def scene_change_reason(detection_payload: dict[str, Any], previous_observation: dict[str, Any]) -> str:
-    if not detection_payload.get("detected_target"):
-        return ""
-
-    current_count = safe_int(detection_payload.get("detection_count"), 0)
-    previous_count = safe_int(previous_observation.get("detection_count"), 0)
-    current_people = person_like_count(detection_payload)
-    previous_people = safe_int(previous_observation.get("person_like_count"), 0)
-    risk_level = compact_string(detection_payload.get("risk_level"), limit=40).lower()
-    previous_risk = compact_string(previous_observation.get("risk_level"), limit=40).lower()
-
-    if current_people >= 2 and previous_people < 2:
-        return f"{current_people} people are now visible in the monitored scene."
-    if current_count >= 2 and previous_count == 0:
-        return f"{current_count} configured targets appeared in the monitored scene."
-    if current_count - previous_count >= 2:
-        return f"The scene changed from {previous_count} to {current_count} configured targets."
-    if risk_level == "high" and previous_risk != "high":
-        return "The scene is now marked high risk."
-    return ""
-
-
-def scene_change_signature(detection_payload: dict[str, Any]) -> str:
-    labels = []
-    detections = detection_payload.get("detections") if isinstance(detection_payload.get("detections"), list) else []
-    for item in detections:
-        if isinstance(item, dict):
-            label = compact_string(item.get("label"), limit=80)
-            position = compact_string(item.get("position"), limit=80)
-            labels.append(f"{label}@{position}".strip("@"))
-    if not labels:
-        labels = [compact_string(item, limit=80) for item in detection_payload.get("visible_subjects", [])]
-    return "|".join(sorted(item for item in labels if item))[:300] or compact_string(detection_payload.get("summary"), limit=300)
-
-
-def maybe_build_big_change_notice(
-    detection_payload: dict[str, Any],
-    state: dict[str, Any],
-    previous_observation: dict[str, Any],
-) -> dict[str, Any] | None:
-    reason = scene_change_reason(detection_payload, previous_observation)
-    if not reason:
-        return None
-
-    signature = f"video_big_change:{detection_payload.get('camera_id')}:{scene_change_signature(detection_payload)}"
-    now = time.time()
-    last_signature = state.get("last_human_notice_signature")
-    last_notice_ts = float(state.get("last_human_notice_wall_ts", 0.0) or 0.0)
-    if signature == last_signature and now - last_notice_ts < human_notice_cooldown_seconds():
-        return None
-
-    state["last_human_notice_signature"] = signature
-    state["last_human_notice_wall_ts"] = now
-    camera_id = compact_string(detection_payload.get("camera_id"), limit=80) or "cctv"
-    frame_seq = detection_payload.get("frame_seq")
-    summary = compact_string(detection_payload.get("detection_report"), limit=600) or compact_string(detection_payload.get("summary"), limit=500)
-    message = compact_string(f"{reason} {summary}", limit=900)
-    notice_id = f"cctv-big-change-{camera_id}-{frame_seq}"
-    return {
-        "type": "human_notice",
-        "channel": "human",
-        "payload": {
-            "notice_id": notice_id,
-            "observed_at": detection_payload.get("observed_at"),
-            "confidence": detection_payload.get("confidence"),
-            "risk_level": detection_payload.get("risk_level"),
-            "model_latency_ms": detection_payload.get("model_latency_ms"),
-            "selected_count": detection_payload.get("selected_count"),
-            "kind": "video_big_change",
-            "level": "attention",
-            "title": "Big change in video",
-            "message": message,
-            "detail": summary,
-            "camera_id": camera_id,
-            "frame_seq": frame_seq,
-            "detection_count": detection_payload.get("detection_count"),
-            "visible_subjects": detection_payload.get("visible_subjects"),
-            "chat_delivery": "otterdesk_worker_chat",
-            "requires_ack": True,
-        },
-    }
-
-
 def should_alert(
     detection: dict[str, Any],
     state: dict[str, Any],
@@ -1039,37 +990,6 @@ def should_alert(
     return bool(evaluate_alert(detection, effective_policy, state)["notify"])
 
 
-def post_slack(
-    text: str,
-    *,
-    enabled: bool | None = None,
-) -> tuple[str, dict[str, Any]]:
-    if enabled is None:
-        enabled = os.environ.get(
-            "SLACK_ALERT_ENABLED", "false"
-        ).strip().lower() in {"1", "true", "yes", "on"}
-    token = os.environ.get("MN_SLACK_BOT_TOKEN") or os.environ.get("SLACK_BOT_TOKEN")
-    channel = os.environ.get("MN_SLACK_DEFAULT_CHANNEL") or os.environ.get("SLACK_DEFAULT_CHANNEL")
-    if not enabled:
-        return "skipped", {"reason": "slack_disabled", "channel": channel}
-    if not token:
-        return "skipped", {"reason": "missing_slack_bot_token", "channel": channel}
-    if not channel:
-        return "skipped", {"reason": "missing_slack_channel", "channel": channel}
-
-    api_url = os.environ.get("MN_SLACK_API_BASE_URL") or os.environ.get("SLACK_API_BASE_URL") or "https://slack.com/api/chat.postMessage"
-    payload = {"channel": channel, "text": text}
-    request = urllib.request.Request(
-        api_url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        method="POST",
-    )
-    with urllib.request.urlopen(request, timeout=20) as response:
-        body = json.loads(response.read().decode("utf-8"))
-    if body.get("ok") is True:
-        return "sent", {"channel": channel, "ts": body.get("ts")}
-    return "error", {"channel": channel, "error": body.get("error", "unknown_slack_error")}
 
 
 def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source_uri: str) -> str:
@@ -1097,6 +1017,8 @@ def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source
 def main() -> None:
     start_agent_beacon_thread("Video detector is analyzing a frame")
     config = load_blueprint_config()
+    benchmarks = Benchmarks(configured_run_dir(), config)
+    vision_variant = str((config.get("llm", {}).get("configs", {}).get("vision") or {}).get("model") or "Cosmos")
     message = load_json_env("MN_MESSAGE_FILE")
     payload = load_json_env("MN_INPUT_FILE")
     context = load_json_env("MN_CONTEXT_FILE")
@@ -1106,6 +1028,7 @@ def main() -> None:
 
     frame_seq = int(payload.get("tick_seq") or state.get("frames_seen", 0) + 1)
     visual_targets = configured_visual_targets(config)
+    monitoring_goal = configured_monitoring_goal(config)
     alert_policy = configured_alert_policy(
         config, visual_targets=visual_targets
     )
@@ -1127,10 +1050,14 @@ def main() -> None:
         if attention_event:
             events.append(attention_event)
         attention_instruction = normalize_attention_instruction(state.get("attention_instruction"))
+        goal = attention_instruction or monitoring_goal
         batch_ref = compact_string(payload.get("frame_batch_ref"), limit=500)
         if not batch_ref:
             raise ValueError("visual detector requires a persisted frame_batch_ref")
         batch, batch_frames = load_frame_batch(batch_ref)
+        if batch.get("caption_claimed_at"):
+            benchmarks.record("caption.dispatch_wait", max(0, (time.time() - batch["caption_claimed_at"]) * 1000),
+                              variant="Core caption dispatch", metadata={"frames": len(batch_frames)})
         batch_source = batch.get("source") if isinstance(batch.get("source"), dict) else {}
         source = {
             "mode": "stream",
@@ -1145,71 +1072,48 @@ def main() -> None:
         safe_source_uri = redact_source_uri(source_uri)
         camera_memory = CameraMemory(config, configured_run_dir(), camera_id,
                                      hashlib.sha256(safe_source_uri.encode()).hexdigest())
-        history = camera_memory.recall(frame_seq)
+        if camera_memory.memory is None:
+            history = None
+            benchmarks.record("memory.recall", 0, variant="MN / Membrane authored captions", status="skipped")
+        else:
+            with benchmarks.measure("memory.recall", variant="MN / Membrane authored captions"):
+                history = camera_memory.recall(frame_seq)
         position = float(source["position_seconds"])
-        goal = active_visual_goal(attention_instruction, visual_targets)
-        screening_config = config.get("condition_screening") if isinstance(config.get("condition_screening"), dict) else {}
-        min_confidence = safe_confidence(screening_config.get("min_confidence", 0.8))
+        capture = batch_context(batch)
         mock_mode = os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}
-        gate_started = time.monotonic()
-        gate = (
-            {"condition_met": mock_detection(frame_seq)["detected_target"], "confidence": 0.95}
-            if mock_mode else call_ollama(
-                batch_frames, with_history(condition_prompt(camera_id, goal), history), response_schema=GATE_SCHEMA,
-            )
-        )
-        gate_latency_ms = max(0, int((time.monotonic() - gate_started) * 1000))
-        route = branch(gate, min_confidence=min_confidence)
+        analysis_started = time.monotonic()
+        with cosmos_slot(configured_run_dir()):
+            benchmarks.record("caption.model_queue_wait", (time.monotonic() - analysis_started) * 1000,
+                              variant=vision_variant)
+            with benchmarks.measure("caption.inference", variant="mock" if mock_mode else vision_variant,
+                                    metadata={"frames": len(batch_frames), "instruction_revision": batch["instruction_revision"]}):
+                detection = mock_detection(frame_seq) if mock_mode else call_ollama(
+                    batch_frames,
+                    with_history(temporal_prompt(detection_prompt(camera_id, goal, visual_targets), capture), history),
+                )
+        matched_event = goal_event(detection, batch)
+        model_latency_ms = max(0, int((time.monotonic() - analysis_started) * 1000))
         latest_frame_metadata: dict[str, Any] = {}
         if batch is not None:
             _latest_path, latest_frame_metadata = write_latest_analyzed_frame(
                 configured_run_dir(),
                 batch,
-                model_latency_ms=gate_latency_ms,
+                model_latency_ms=model_latency_ms,
                 schema="otterdesk.cctv_operator.latest_frame.v2",
             )
-            try:
-                publish_snapshot(
-                    configured_run_dir(), _latest_path,
-                    run_id=str(os.environ.get("MN_RUN_ID") or ""),
-                    camera_id=camera_id, frame_seq=frame_seq,
-                )
-            except (OSError, subprocess.SubprocessError):
-                pass  # The original frame remains authoritative if the chat preview fails.
-        events.append({"type": "cctv_operator_condition_screened", "payload": {
-            "camera_id": camera_id, "frame_seq": frame_seq, "condition_met": gate["condition_met"],
-            "confidence": gate["confidence"], "route": route, "frame_batch_ref": batch_ref,
+        events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
+            "camera_id": camera_id, "frame_seq": frame_seq, "frame_batch_ref": batch_ref,
+            "detected_target": detection["detected_target"], "analysis_mode": "independent_captioning",
         }})
-        if route == "human_review":
-            if await_operator_review(
-                batch_ref=batch_ref,
-                instruction_revision=int(payload.get("instruction_revision") or batch.get("instruction_revision") or 0),
-                goal=goal, camera_id=camera_id, frame_seq=frame_seq,
-                confidence=gate["confidence"],
-            ):
-                route = "deep_analysis"
-            else:
-                route = "review_declined"
-        model_latency_ms = gate_latency_ms
-        if route == "deep_analysis":
-            deep_started = time.monotonic()
-            detection = mock_detection(frame_seq) if mock_mode else call_ollama(
-                batch_frames,
-                with_history(detection_prompt(camera_id, attention_instruction, visual_targets), history),
-            )
-            model_latency_ms += max(0, int((time.monotonic() - deep_started) * 1000))
-            events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
-                "camera_id": camera_id, "frame_seq": frame_seq, "frame_batch_ref": batch_ref,
-                "detected_target": detection["detected_target"],
-            }})
-        else:
-            detection = skipped_detection(gate, uncertain=route == "review_declined")
 
         detection_payload = {
             **detection,
-            "observed_at": dt.datetime.now(dt.timezone.utc)
-            .isoformat()
-            .replace("+00:00", "Z"),
+            **capture,
+            "observed_at": matched_event["observed_at"] if matched_event else capture["capture_ended_at"],
+            "goal_event": matched_event,
+            "monitoring_goal": goal,
+            "analyzed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+            "source_profile": video_source_config.get("profile", "external"),
             "camera_id": camera_id,
             "frame_seq": frame_seq,
             "video_position_seconds": round(position, 3),
@@ -1236,22 +1140,42 @@ def main() -> None:
             "model_latency_ms": model_latency_ms,
             "sampling_metrics": dict((batch or {}).get("metrics") or {}),
             "latest_analyzed_frame": latest_frame_metadata or None,
-            "condition_screening": {**gate, "route": route, "min_confidence": min_confidence},
+            "condition_screening": {"route": "deep_analysis", "mode": "independent_captioning"},
             "configured_targets": visual_targets,
         }
+        candidate = batch.get("candidate_gate") or {}
+        episode = candidate.get("episode")
+        if episode is not None and episode != state.get("gate_episode"):
+            state["notified_goal"] = None
+            state["gate_episode"] = episode
         alert_decision = evaluate_alert(
             detection_payload,
             alert_policy,
             state,
-            active_goal=attention_instruction,
+            active_goal=goal,
         )
+        current_revision = int(load_monitoring_state(configured_run_dir()).get("instruction_revision") or 0)
+        if uses_person_events(goal):
+            alert_decision.update(notify=False, reason="dedicated_person_event_detector")
+        elif current_revision > detection_payload["instruction_revision"]:
+            alert_decision.update(notify=False, reason="superseded_monitoring_instruction")
         detection_payload["matched_alert_targets"] = list(
             alert_decision["matched_targets"]
         )
         detection_payload["alert_decision"] = alert_decision
-        previous_observation = state.get("last_observation") if isinstance(state.get("last_observation"), dict) else {}
+        if alert_decision["notify"]:
+            detection_payload["event_image"] = event_snapshot(
+                configured_run_dir(), matched_event, run_id=str(os.environ.get("MN_RUN_ID") or ""),
+                camera_id=camera_id, frame_seq=frame_seq,
+            )
         observation = update_conversation_context(state, detection_payload)
-        camera_memory.remember(detection_payload)
+        if camera_memory.memory is None:
+            benchmarks.record("memory.write", 0, variant="MN / Membrane authored captions", status="skipped")
+        else:
+            with benchmarks.measure("memory.write", variant="MN / Membrane authored captions"):
+                camera_memory.remember(detection_payload)
+            benchmarks.record("caption.capture_to_memory", max(0, (time.time() - batch["selected_frames"][-1]["timestamp"]) * 1000),
+                              variant=vision_variant, metadata={"timestamp_basis": batch.get("timestamp_basis", "worker_capture_unix_seconds")})
         conversation_context = state.get("conversation_context") if isinstance(state.get("conversation_context"), dict) else {}
         conversation_summary = conversation_context.get("what_happened", "")
         primary_events = [frame_observed_event(observation, conversation_summary)]
@@ -1261,27 +1185,7 @@ def main() -> None:
             state["last_detection_report"] = detection_payload.get("detection_report")
             primary_events.append({"type": "cctv_operator_detection", "payload": detection_payload})
 
-        big_change_notice = maybe_build_big_change_notice(detection_payload, state, previous_observation)
-        if big_change_notice:
-            if alert_decision["notify"]:
-                big_change_notice["payload"].update(
-                    {
-                        "matched_targets": list(
-                            alert_decision["matched_targets"]
-                        ),
-                        "confidence": alert_decision["confidence"],
-                        "risk_level": detection_payload.get("risk_level"),
-                        "observed_at": detection_payload.get("observed_at"),
-                        "frame_batch_ref": detection_payload.get(
-                            "frame_batch_ref"
-                        ),
-                    }
-                )
-                state["last_alert_wall_ts"] = float(
-                    alert_decision["evaluated_at"]
-                )
-            events.append(big_change_notice)
-        elif alert_decision["notify"]:
+        if alert_decision["notify"]:
             events.append(
                 configured_target_notice(
                     detection_payload,
@@ -1291,6 +1195,9 @@ def main() -> None:
             state["last_alert_wall_ts"] = float(
                 alert_decision["evaluated_at"]
             )
+            state["notified_goal"] = goal
+        elif not detection["detected_target"] and detection["confidence"] >= alert_policy["min_confidence"]:
+            state["notified_goal"] = None
 
         slack_enabled = os.environ.get(
             "SLACK_ALERT_ENABLED", "false"
@@ -1359,6 +1266,8 @@ def main() -> None:
         )
 
     finally:
+        if batch is not None:
+            complete_caption(configured_run_dir(), batch.get("batch_id"), status="error" if state.get("last_error") else "ok")
         if camera_memory is not None:
             camera_memory.close()
     print(json.dumps({"next_state": state, "events": events}))

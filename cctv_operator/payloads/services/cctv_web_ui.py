@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import hashlib
-import datetime as dt
 import importlib.util
+import importlib
 import json
 import mimetypes
 import os
@@ -12,6 +12,7 @@ import signal
 import secrets
 import socket
 import subprocess
+import sys
 import threading
 import time
 import urllib.parse
@@ -21,7 +22,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from mn_live_video_analysis_skill import redact_source_urls
+from mn_live_video_analysis_skill import redact_source_uri, redact_source_urls
 from mn_sdk.blueprint_support import load_runtime_config
 from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
@@ -40,6 +41,10 @@ class PreviewStream(Protocol):
     def frames(self) -> Iterator[bytes]: ...
 
     def snapshot(self) -> dict[str, str]: ...
+
+    def latest_frame(self) -> tuple[int, float, bytes]: ...
+
+    def ensure_started(self) -> None: ...
 
     def stop(self) -> None: ...
 
@@ -91,7 +96,9 @@ def mjpeg_preview_settings(config: Mapping[str, Any]) -> MJPEGPreviewSettings:
         or "rtsp://127.0.0.1:8554/cctv-demo"
     ).strip()
     scheme = urllib.parse.urlsplit(source_uri).scheme.lower()
-    enabled = bool(preview.get("enabled", True)) and scheme in {
+    # Preview visibility is a presentation control. The resident camera owner
+    # still feeds detection and captions when the browser preview is hidden.
+    enabled = scheme in {
         "rtsp",
         "rtsps",
         "rtmp",
@@ -171,6 +178,7 @@ class CUDAMJPEGPreview:
         self._condition = threading.Condition()
         self._latest_frame = b""
         self._revision = 0
+        self._published_at = 0.0
         self._status = "starting" if self.enabled else "disabled"
         self._warning = ""
         self._stop_event = threading.Event()
@@ -215,6 +223,10 @@ class CUDAMJPEGPreview:
         with self._condition:
             return {"status": self._status, "warning": self._warning}
 
+    def latest_frame(self) -> tuple[int, float, bytes]:
+        with self._condition:
+            return self._revision, self._published_at, self._latest_frame
+
     def wait_for_first_frame(self, timeout_seconds: float = 30.0) -> bool:
         self.ensure_started()
         with self._condition:
@@ -244,6 +256,7 @@ class CUDAMJPEGPreview:
         with self._condition:
             self._latest_frame = frame
             self._revision += 1
+            self._published_at = time.time()
             self._status = "live"
             self._warning = ""
             self._condition.notify_all()
@@ -319,17 +332,27 @@ def _load_domain_function(module_name: str, function_name: str) -> Callable:
         module_path = ancestor / "domain" / f"{module_name}.py"
         if not module_path.is_file():
             continue
-        spec = importlib.util.spec_from_file_location(f"cctv_operator_{module_name}", module_path)
-        if spec is None or spec.loader is None:
-            break
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+        package_name = "cctv_operator_domain_" + hashlib.sha256(str(module_path.parent).encode()).hexdigest()[:12]
+        if package_name not in sys.modules:
+            spec = importlib.util.spec_from_file_location(
+                package_name, module_path.parent / "__init__.py",
+                submodule_search_locations=[str(module_path.parent)],
+            )
+            if spec is None or spec.loader is None:
+                break
+            package = importlib.util.module_from_spec(spec)
+            sys.modules[package_name] = package
+            try:
+                spec.loader.exec_module(package)
+            except Exception:
+                sys.modules.pop(package_name, None)
+                raise
+        module = importlib.import_module(f"{package_name}.{module_name}")
         return getattr(module, function_name)
     raise RuntimeError(f"cctv_operator {module_name} is unavailable")
 
 
 operator_state = _load_domain_function("dashboard", "operator_state")
-routine_update_message = _load_domain_function("dashboard", "routine_update_message")
 _dashboard_html = _load_domain_function("media", "dashboard_html")
 
 
@@ -376,11 +399,12 @@ class CCTVWebUIService:
         )
         self._stop_event = threading.Event()
         self._activity_store = None
-        self._last_routine_update_at = time.monotonic()
-        self._last_routine_observed_at = "waiting"
-        self._routine_update_lock = threading.Lock()
-        self._routine_session_id = secrets.token_hex(8)
-        self._routine_update_sequence = 0
+        self._live_monitor = None
+
+    def start_monitor(self) -> None:
+        monitor = _load_domain_function("live_monitor", "LiveMonitor")
+        self._live_monitor = monitor(self.run_dir, self.run_id, self.config,
+                                     self.preview_stream, self.ui_state).start()
 
     def attach_activity_store(self, store: Any) -> None:
         self._activity_store = store
@@ -393,36 +417,6 @@ class CCTVWebUIService:
         projected = dict(state or self.ui_state())
         events = projected.get("events") if isinstance(projected.get("events"), list) else []
         published = []
-        current = time.monotonic() if now is None else now
-        if current - self._last_routine_update_at >= 30.0:
-            with self._routine_update_lock:
-                if current - self._last_routine_update_at >= 30.0:
-                    metrics = projected.get("metrics") if isinstance(projected.get("metrics"), Mapping) else {}
-                    observed_at = str(metrics.get("last analyzed") or "waiting")
-                    occurred_at = dt.datetime.now(dt.timezone.utc)
-                    self._routine_update_sequence += 1
-                    digest = hashlib.sha256(
-                        f"{self.run_id}\0monitoring-update\0{self._routine_session_id}\0{self._routine_update_sequence}".encode()
-                    ).hexdigest()[:32]
-                    message = routine_update_message(
-                        metrics, new_analysis=observed_at != self._last_routine_observed_at
-                    )
-                    activity = {
-                        "schema_version": "mn.mcp.job_activity.v1",
-                        "event_id": digest,
-                        "title": "Monitoring update",
-                        "message": message,
-                        "occurred_at": occurred_at.isoformat().replace("+00:00", "Z"),
-                        "source": "cctv_operator",
-                        "requires_review": False,
-                    }
-                    published.append(self._activity_store.publish_result(
-                        digest, activity, stage="live_activity",
-                        summary=f"Monitoring update: {message}"[:2_000],
-                        idempotency_key=f"cctv-activity:{digest}",
-                    ))
-                    self._last_routine_update_at = current
-                    self._last_routine_observed_at = observed_at
         for event in reversed(events):
             if not isinstance(event, Mapping):
                 continue
@@ -444,6 +438,8 @@ class CCTVWebUIService:
                 "occurred_at": occurred_at,
                 "source": "cctv_operator",
                 "requires_review": title in {"Operator notice", "Target observed"},
+                **({"image": event["image"]} if isinstance(event.get("image"), Mapping) else {}),
+                **({"notice_id": event["notice_id"]} if event.get("notice_id") else {}),
                 **({"details": event["details"]} if event.get("details") else {}),
             }
             published.append(
@@ -479,6 +475,12 @@ class CCTVWebUIService:
             preview_warning=str(preview.get("warning") or ""),
         )
         safe_state = json.loads(redact_source_urls(json.dumps(state)))
+        projection = _load_domain_function("pipeline_status", "pipeline_status")
+        safe_state["pipeline"], warning = projection(
+            read_json_object(self.run_dir / "person_detector_state.json"),
+            read_json_object(self.run_dir / "caption_schedule.json"))
+        if warning:
+            safe_state["warning"] = warning
         if self._activity_store is not None:
             self.sync_mcp_activity(safe_state)
         return safe_state
@@ -502,6 +504,8 @@ class CCTVWebUIService:
             self._stop_event.wait(0.75)
 
     def stop(self) -> None:
+        if self._live_monitor is not None:
+            self._live_monitor.stop()
         self._stop_event.set()
         self.preview_stream.stop()
 
@@ -574,7 +578,8 @@ def _handler_for(service: CCTVWebUIService) -> type[BaseHTTPRequestHandler]:
             self._send(body, mimetypes.guess_type(name)[0] or "application/octet-stream")
 
         def _mjpeg(self) -> None:
-            if not service.preview_stream.enabled:
+            preview_config = (service.config.get("web_ui") or {}).get("preview") or {}
+            if not service.preview_stream.enabled or preview_config.get("enabled") is False:
                 self._json({"error": "live preview is disabled"}, status=503)
                 return
             self.send_response(200)
@@ -735,10 +740,15 @@ def create_operator_mcp_server(
         run_id=run_id,
     )
     service.attach_activity_store(store)
+    VideoQuestions = _load_domain_function("video_questions", "VideoQuestions")
+    video_questions = VideoQuestions(run_dir, run_id, store, service.config)
     server = create_mrtr_mcp_server(
         "CCTV Operator agent",
         instructions=(
             "Inspect the current operator status and activity before answering. "
+            "Use get_video_history for past observations and qualified risk predictions. "
+            "Use answer_video_question and get_video_summary for text answers from saved Markdown history. "
+            "These asynchronous reads never invoke Cosmos or review images. Missing history is explicit. "
             "Use set_monitoring_instruction to change what the current run analyzes. "
             "Use watch_operator_activity for a bounded live wait. A transport receipt "
             "does not acknowledge an operator notice."
@@ -757,12 +767,11 @@ def create_operator_mcp_server(
         summary = f"{finding} Last analyzed: {observed_at}."
         normalized_question = " ".join(str(question or "").casefold().split())[:500]
         if any(word in normalized_question for word in ("person", "people", "anyone", "somebody")):
-            finding_text = str(finding).casefold()
-            if any(phrase in finding_text for phrase in (
-                "a person is visible", "a worker", "another person", "people are visible",
-                "person standing", "person walking", "people standing", "people walking",
-            )):
-                summary = f"Yes, a person is visible in the latest analyzed frame. {summary}"
+            person_summary = _load_domain_function("pipeline_status", "person_status_summary")(state.get("pipeline", {}))
+            if person_summary:
+                summary = person_summary
+            else:
+                summary = f"No fresh person-detector result is available. Last saved caption: {summary}"
         return {
             "schema_version": "mn.cctv.operator_status.v1",
             "ready": True,  # Control availability does not depend on a first detection.
@@ -772,8 +781,15 @@ def create_operator_mcp_server(
             "summary": summary,
             "metrics": metrics,
             "details": state.get("finding_details", []),
+            "understanding": state.get("understanding", {}),
+            "pipeline": state.get("pipeline", {}),
             "warning": state.get("warning"),
         }
+
+    @server.tool(name="get_pipeline_benchmarks", structured_output=True)
+    def get_pipeline_benchmarks() -> dict[str, Any]:
+        benchmarks = _load_domain_function("benchmarks", "Benchmarks")
+        return benchmarks(run_dir, service.config).summary()
 
     @server.tool(name="get_operator_activity", structured_output=True)
     def get_operator_activity(after_revision: str = "0") -> dict[str, Any]:
@@ -782,7 +798,30 @@ def create_operator_mcp_server(
             cursor = max(int(after_revision or 0), 0)
         except (TypeError, ValueError) as error:
             raise ValueError("after_revision must be a non-negative integer string") from error
-        return store.updates(after_revision=cursor, kinds=["result"], limit=100)
+        result = store.updates(after_revision=cursor, kinds=["result"], limit=20)
+        # Tool-planning history carries captions; evidence previews travel with
+        # the single-event watch and never accumulate in a large tool response.
+        for update in result["updates"]:
+            update["payload"].pop("image", None)
+        return result
+
+    @server.tool(name="get_video_history", structured_output=True)
+    def get_video_history(after: str = "", before: str = "") -> dict[str, Any]:
+        read_history = _load_domain_function("runtime_memory", "read_video_history")
+        return read_history(service.config, run_dir, after=after, before=before)
+
+    @server.tool(name="get_video_summary", structured_output=True)
+    def get_video_summary(command_id: str, after: str = "", before: str = "") -> dict[str, Any]:
+        return video_questions.submit(command_id, "Summarize what happened in the video, with capture times and uncertainty.",
+                                      after=after, before=before, summarize=True)
+
+    @server.tool(name="answer_video_question", structured_output=True)
+    def answer_video_question(command_id: str, question: str, after: str = "", before: str = "") -> dict[str, Any]:
+        return video_questions.submit(command_id, question, after=after, before=before)
+
+    @server.tool(name="get_video_answer", structured_output=True)
+    def get_video_answer(command_id: str) -> dict[str, Any]:
+        return video_questions.status(command_id)
 
     @server.tool(name="watch_operator_activity", structured_output=True)
     async def watch_operator_activity(
@@ -802,22 +841,13 @@ def create_operator_mcp_server(
         cursor = str(after_event_id or "")[:256]
         while True:
             service.ui_state()
-            updates = store.updates(after_revision=0, kinds=["result"], limit=200)["updates"]
-            activities = [
-                item.get("payload")
-                for item in updates
-                if isinstance(item.get("payload"), Mapping)
-            ]
-            activity = None
-            if not cursor and activities:
-                activity = activities[-1]
-            elif cursor:
-                for index, candidate in enumerate(activities):
-                    if candidate.get("event_id") == cursor:
-                        activity = activities[index + 1] if index + 1 < len(activities) else None
-                        break
-                if activity is None and activities and activities[-1].get("event_id") != cursor:
-                    activity = activities[-1]
+            previous = store.get_record("result", cursor) if cursor else None
+            if previous:
+                updates = store.updates(after_revision=previous["revision"], kinds=["result"], limit=1)["updates"]
+            else:
+                latest = store.latest_record("result")
+                updates = [latest] if latest else []
+            activity = updates[0]["payload"] if updates else None
             if activity is not None:
                 return job_activity_input_required(activity, after_event_id=cursor)
             if time.monotonic() >= deadline:
@@ -1059,6 +1089,7 @@ def main() -> int:
     )
     if not mcp_thread.is_alive():
         raise RuntimeError("CCTV Operator MCP failed to start")
+    service.start_monitor()
     server = CCTVWebUIServer(service, host=binding.host, port=binding.port)
     _bound_host, port = server.address
     web_thread = threading.Thread(target=server.serve_forever, name="cctv-web-ui", daemon=True)

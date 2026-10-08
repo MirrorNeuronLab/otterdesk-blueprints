@@ -62,13 +62,15 @@ def publish(context, *, llm_client=None):
                     [
                         "",
                         f"- {claim['statement']} ({claim['claim_type']}; {claim['confidence']}). {claim['rationale']}",
-                        f"  Counterevidence: {claim['counterevidence']}",
+                        f"  Counterevidence ({claim['counterevidence_status']}): {claim['counterevidence']}",
                     ]
                 )
                 for ev in claim["evidence"]:
                     lines.append(
                         f"  Evidence: `{ev['path']}:{ev['start_line']}-{ev['end_line']}`; SHA-256 `{ev['sha256']}`."
                     )
+                for ev in claim['counterevidence_citations']:
+                    lines.append(f"  Counterevidence source: `{ev['path']}:{ev['start_line']}-{ev['end_line']}`; SHA-256 `{ev['sha256']}`.")
             lines.extend(
                 [
                     "",

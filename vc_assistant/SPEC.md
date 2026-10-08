@@ -56,13 +56,18 @@ Local LLM calls are deliberately backpressured. The default run serializes Docke
 The blueprint requires no initial configuration: bundled synthetic startup
 packets and a local output path provide complete first-run defaults.
 
-The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. Text-like files are read directly. PDF files use the shared `llm_ocr_skill` for embedded or OCR text extraction. The skill owns its model and prepares it lazily only when OCR is required. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
+The prototype accepts local startup documents in PDF, TXT, Markdown, JSON, and CSV formats. MarkItDown converts text, structured data, office files and embedded PDF text in `docs_to_markdown_skill`. Scanned PDFs and document images use its dedicated LLM OCR route. The skill owns its model and prepares it lazily only when OCR is required. If a PDF startup packet cannot produce usable text, the batch run fails closed instead of creating metadata-only evidence.
 
 ## Output: Expected Customer Outcome
 
 Version 1.1.1 sets the default host output folder to
 `~/Downloads/vc-assistant`, matching the declared job name. Previously
 submitted jobs retain their configured destination.
+
+Batch host delivery places run artifacts under `run_<timestamp>/` in that
+destination. `outputs.job_files` declares `watch_state.json` and
+`context_sources/` as job-level entries, retained at the root across runs.
+The SDK/runtime owns folder allocation and result publication.
 
 Each company gets a dedicated output folder with structured JSON, Markdown, source records, and local evidence records. The report covers:
 
@@ -175,3 +180,70 @@ This release declares `mirrorneuron-python-sdk[context]` in `dependencies.json`.
 ## Runtime memory and external knowledge composition
 
 External knowledge remains in the job RAG index. A semantic query selects a small passage response with citations; Membrane composes that response ephemerally with source-qualified runtime query results and the current instruction. RAG passages are never copied into runtime memory, and the full knowledge corpus is never sent to the model. Runtime memory stores normalized claims, source qualification and method results created during this workflow, rather than actor prompt snapshots. Raw document excerpts remain restricted to their input consumers. Snapshot-scoped typed table queries select whole observations; source handles and retrieval witnesses stay in sidecars. Empty or completely omitted packets cannot claim readiness. Metadata compaction preserves runtime evidence, the selected RAG bodies, every selected citation and current state; its character target cannot silently remove evidence. The runtime model gateway remains responsible for complete-request token admission, including system instructions, schema and output allocation.
+
+## Authored runtime records and separate original sources (1.2.1)
+
+Runtime publication accepts validated `RuntimeRecord` Markdown, with typed scalar
+Facts, complete Notes and company/claim/evidence/source Relations. Batch authoring
+validates before semantic publication. Snapshot identity and a checkpointed actual
+publication clock make retry idempotent. Known event timestamps normalize to UTC;
+missing, naive or invalid event times stay unknown. Publication is not an inferred
+event time. Source fetch `status` and extraction `retrieval_status` stay distinct.
+Exact Facts are not duplicated in Notes; explicit nulls and complete non-scalar
+values are preserved. Raw excerpts, RAG bodies and prompt snapshots are excluded.
+
+Actor plans retrieve up to three known-time tool outcomes for that actor, one
+explicit unknown-time outcome when capacity permits, and relevant claim/method
+rows within the configured result limit. Source metadata is the fallback only
+when no eligible claim/method exists. Every selected row hydrates the whole current
+authored revision with complete citation bounds. Incomplete or all-omitted packets
+retain explicit failure status. Bounded recall is not proof of exhaustive coverage.
+
+Original UTF-8 inputs use `source_text_query` and a distinct physical Job corpus.
+Intake receipts bind source identity, original hash and revision; company analysis
+queries only that authorized pinned input. Failed pin validation never falls back
+to a preview. Inputs without source query enabled retain their preview contract.
+Source search precedes the existing bounded deterministic extractor and may
+include neighboring source text; it does not guarantee exhaustive extraction.
+The default actor recall allowance is 32,768 bytes with six selected results;
+8,192 bytes is an explicit comparison control. Complete-request token admission
+and external RAG composition retain their separate contracts.
+
+### Source-confidence contract corrections
+
+Keep search-result-page evidence and search-only claim confidence at or below 15;
+graph propagation cannot lift this ceiling. Normalize typed polarity values when
+binding Bayesian evidence. Founder/company sources may supply self-reported
+support, but keywords mentioning invoices, contracts or usage cannot establish
+independent observations. Search results and failed/blocked sources establish no
+Bayesian verification observation. These are heuristic belief updates; published
+qualifications must retain the lack of independent support.
+
+## Shared capability ownership
+
+Selected PDF batch extraction and usable-text checks use the shared `docs_to_markdown_skill`. It also owns the reusable intake helpers; the retired document-reading package is no longer a dependency. Company grouping policy, synthetic test evidence, redaction policy, valuation and evidence interpretation remain blueprint-owned.
+
+## Unified document conversion and artifact source intelligence
+
+VC intake calls `mirrorneuron-docs-to-markdown-skill` for every supported source.
+PDF/OCR, text, JSON, CSV and office/spreadsheet conversion share one skill API.
+Complete processed/redacted Markdown files are saved under the SDK-provided
+shared job output path at `context_sources/inputs/`, retaining the original relative
+filename with `.md` appended. Input and Markdown hashes, conversion method and
+pinned source revisions accompany the files. The output writer publishes its
+supported artifacts the same way under `context_sources/outputs/`.
+
+Syncthing replicates these files and `inputs.json`/`outputs.json` source catalogs
+with the other shared submission artifacts. Membrane SourceCorpus indexes their
+Markdown as the operation subject, with MarkdownDocumentAdapter for navigation.
+Artifact source intelligence uses `source_context.enabled` independently of
+runtime recall and performs no runtime-session journal reads. Runtime memory
+contains authored workflow observations, claims and method outcomes. Raw file
+bodies and output artifacts stay in the separate source corpus. Public research
+retains its redaction and confidential-source boundaries.
+
+The stable shared job output folder owns `context_sources/`, reused across
+workflow runs. Conversion receipts validate original and Markdown hashes and
+converter/redaction policy. Unchanged files skip conversion and OCR; changed or
+invalid cached files are converted again. Syncthing carries receipts and Markdown
+alongside the other job artifacts. Membrane receives only processed Markdown.

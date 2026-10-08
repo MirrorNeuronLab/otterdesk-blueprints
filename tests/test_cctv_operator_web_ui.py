@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import importlib.util
+import asyncio
+import base64
 import io
 import json
 import sys
 import threading
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -80,7 +83,10 @@ def test_private_mcp_starts_on_loopback_with_authenticated_relay(monkeypatch, tm
     monkeypatch.setattr(cctv_web_ui, "create_operator_mcp_server", create_server)
     monkeypatch.setattr(proxy_module, "create_mcp_proxy", create_proxy)
     monkeypatch.setattr(cctv_web_ui.threading, "Thread", lambda **kwargs: SimpleNamespace(start=lambda: None))
-    cctv_web_ui.start_operator_mcp_server(object(), job_id="job-1", run_id="run-1", run_dir=tmp_path)
+    # The production service also owns its activity-publishing thread. Supply
+    # that interface while this test isolates the real SDK bind restriction.
+    service = SimpleNamespace(publish_activity_until_stopped=lambda: None)
+    cctv_web_ui.start_operator_mcp_server(service, job_id="job-1", run_id="run-1", run_dir=tmp_path)
     assert bindings == ["127.0.0.1"]
     artifact = tmp_path / cctv_web_ui.CCTV_MCP_ENDPOINT_ARTIFACT
     endpoint = cctv_operator_mcp.read_endpoint(artifact)
@@ -326,6 +332,15 @@ def test_cctv_ui_mjpeg_relay_extracts_complete_jpegs_from_chunked_output():
     assert preview.snapshot() == {"status": "live", "warning": ""}
 
 
+def test_hiding_browser_preview_does_not_disable_shared_camera_capture():
+    settings = cctv_web_ui.mjpeg_preview_settings({
+        "video_source": {"uri": "rtsp://camera.example/live"},
+        "web_ui": {"preview": {"enabled": False}},
+    })
+    assert settings.enabled is True
+    assert "rtsp://camera.example/live" in cctv_web_ui.ffmpeg_mjpeg_command(settings)
+
+
 def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
     (tmp_path / "events.jsonl").write_text(
         "\n".join(
@@ -359,64 +374,18 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
     ]
 
 
-def test_routine_frame_analysis_publishes_conversation_update_every_30_seconds(tmp_path: Path):
-    (tmp_path / "cctv_report.json").write_text(json.dumps({
-        "observations": [{"summary": "No target is visible.",
-                          "observed_at": "2026-09-08T22:23:39Z"}],
-        "detections": [], "alerts": [],
-    }), encoding="utf-8")
-    service = cctv_web_ui.CCTVWebUIService(
-        run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview()
-    )
-
+@pytest.mark.parametrize("observations", [[], [{"summary": "A person walks past, without a group standing together.", "observed_at": "2026-09-08T22:23:39Z"}]])
+def test_quiet_and_unrelated_activity_never_publish_chat_updates(tmp_path, observations):
+    (tmp_path / "cctv_report.json").write_text(json.dumps({"observations": observations, "alerts": []}))
+    service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview())
     published = []
-    class ActivityStore:
-        def publish_result(self, _record_id, activity, **_kwargs):
-            published.append(activity)
-            return activity
-
-    service.attach_activity_store(ActivityStore())
-    state = service.ui_state()
-    started = service._last_routine_update_at
-    assert service.sync_mcp_activity(state, now=started + 29) == []
-    first = service.sync_mcp_activity(state, now=started + 30)
-    assert len(first) == 1
-    assert first[0]["title"] == "Monitoring update"
-    assert first[0]["requires_review"] is False
-    assert "No target is visible" in first[0]["message"]
-    assert service.sync_mcp_activity(state, now=started + 59) == []
-    second = service.sync_mcp_activity(state, now=started + 60)
-    assert "No new analyzed frame in the last 30 seconds" in second[0]["message"]
-    assert first[0]["event_id"] != second[0]["event_id"]
-    assert len(published) == 2
-
-
-def test_routine_conversation_update_reports_when_no_frame_exists(tmp_path: Path):
-    service = cctv_web_ui.CCTVWebUIService(
-        run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview()
-    )
-    published = []
-    class ActivityStore:
-        def publish_result(self, _record_id, activity, **_kwargs):
-            published.append(activity)
-            return activity
-
-    service.attach_activity_store(ActivityStore())
-    service.sync_mcp_activity(now=service._last_routine_update_at + 30)
-    assert len(published) == 1
-    assert "No analyzed frame is available yet" in published[0]["message"]
-
-
-def test_routine_update_does_not_apply_old_finding_to_new_goal():
-    message = cctv_web_ui.routine_update_message({
-        "watch target": "Check whether the corridor is blocked",
-        "instruction revision": 2,
-        "latest analyzed revision": 1,
-        "last analyzed": "2026-09-24T15:30:00Z",
-        "latest finding": "A person is visible at the entrance.",
-    }, new_analysis=True)
-    assert "Waiting for the first analyzed frame under this goal" in message
-    assert "A person is visible" not in message
+    class Store:
+        def publish_result(self, *args, **kwargs):
+            published.append(args)
+    service.attach_activity_store(Store())
+    for now in (0, 30, 60, 600, 3600):
+        assert service.sync_mcp_activity(now=now) == []
+    assert published == []
 
 
 def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
@@ -485,7 +454,13 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert status["finding"] in status["summary"]
     assert status["observed_at"] in status["summary"]
     person_answer = server.tools["get_operator_status"]("Do you see any person?")
-    assert person_answer["summary"].startswith("Yes, a person is visible")
+    assert person_answer["summary"].startswith("No fresh person-detector result")
+    (tmp_path / "person_detector_state.json").write_text(json.dumps({
+        "person_detector": "running", "last_person_frame_at": time.time(), "visible_people": 0,
+        "captions": "running"}))
+    current_person_answer = server.tools["get_operator_status"]("Do you see any person?")
+    assert "did not detect a person" in current_person_answer["summary"]
+    assert "visible near the center" not in current_person_answer["summary"]
 
     activity = server.tools["get_operator_activity"]("0")
 
@@ -494,6 +469,11 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         "get_command_status",
         "get_operator_activity",
         "get_operator_status",
+        "get_pipeline_benchmarks",
+        "get_video_history",
+        "get_video_summary",
+        "answer_video_question",
+        "get_video_answer",
         "set_monitoring_instruction",
         "watch_operator_activity",
     }
@@ -553,6 +533,43 @@ def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():
     assert "claim_web_ui" in source
     assert "json-render" not in source
     assert config["web_ui"]["service"]["port"] == 0
+
+
+def test_activity_watch_delivers_image_and_advances_beyond_200_events(tmp_path):
+    class Server:
+        def __init__(self, *args, **kwargs):
+            self.tools = {}
+        def tool(self, name=None, **kwargs):
+            def register(fn):
+                self.tools[name or fn.__name__] = fn
+                return fn
+            return register
+        def resource(self, *args, **kwargs):
+            return lambda fn: fn
+
+    service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview())
+    server = cctv_web_ui.create_operator_mcp_server(service, job_id="job-1", run_id="run-1", run_dir=tmp_path, server_factory=Server)
+    store = service._activity_store
+    image = {"run_id": "run-1", "mime_type": "image/jpeg", "title": "Frame 241", "alt": "Group standing together",
+             "caption": "Observed at 2026-01-01T00:00:02Z", "data": base64.b64encode(b"\xff\xd8frame\xff\xd9").decode()}
+    for index in range(241):
+        event_id = f"event-{index}"
+        store.publish_result(event_id, {"event_id": event_id, "message": "Group standing together.", "notice_id": f"notice-{index}",
+                              "image": image, "requires_review": True}, stage="goal_event", idempotency_key=event_id, publication_state="final")
+    watched = asyncio.run(server.tools["watch_operator_activity"]("event-239", "0"))
+    request = next(iter(watched.input_requests.values()))
+    event = json.loads(request.params.requested_schema["properties"]["mn_activity"]["default"])
+    assert event["event_id"] == "event-240"
+    assert event["image"] == image
+    assert event["notice_id"] == "notice-240"
+    idle = asyncio.run(server.tools["watch_operator_activity"]("event-240", "0"))
+    assert idle["delivered"] is False
+    assert idle["cursor"] == "event-240"
+    newest = asyncio.run(server.tools["watch_operator_activity"]("", "0"))
+    assert json.loads(newest.request_state)["activity"]["event_id"] == "event-240"
+    history = server.tools["get_operator_activity"]("0")
+    assert len(history["updates"]) == 20
+    assert all("image" not in update["payload"] for update in history["updates"])
 
 
 def test_preview_readiness_requires_first_frame(monkeypatch):

@@ -63,4 +63,39 @@ configuration are resolved by the SDK before launch.
 
 ## Context engine contract
 
-The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
+Version 1.2.0 enables Membrane source intelligence through `source_context.enabled`
+and declares `mirrorneuron-python-sdk[context]`. Before target discovery, the
+worker publishes the approved research inputs, complete Markdown conversions of
+staged JSON/CSV/text/Markdown documents, and the configured procedure. Saved
+stage results and final rankings update separate scientific output sources under
+`context_sources/{inputs,outputs}/` in the SDK-provided Job output folder. The
+runtime Job responder ingests these prepared sources and returns cited answers
+through `ask_job`, including while the scientific worker is stopped. Raw input
+files are never opened by Chat.
+
+Sources identify their Run and distinguish provided inputs, configured procedure,
+saved findings, missing results, and synthetic smoke tests. Scientific output
+projections exclude credentials, configuration, adapter commands, subprocess
+diagnostics, and private receptor paths. These are private local research
+artifacts: do not place credentials in the approved input documents. Curated
+scientific guidance remains separate RAG knowledge; unused TextMemory runtime
+recall remains disabled. Missing or oversized source evidence is explicit and
+never replaced with invented findings.
+
+The matching Membrane v2 CPU service and SDK are required. Each input batch is
+limited to 64 approved files and 24 MiB of complete text; one prepared source is
+limited to 4 MiB. Set `source_context.enabled=false` to opt out of source
+publication and engine preparation. Existing submitted runs retain their
+original package/configuration; updating the catalog does not rewrite them.
+
+## Target selection
+
+The default run uses the explicitly provided BACE1 UniProt target `P56817`.
+`inputs.payload.targets` is a list of `{protein_id, gene}` records; supplied
+targets are preserved rather than replaced by a general disease search. Clear
+that list to discover disease-associated proteins through Open Targets, using
+`inputs.payload.disease` (for example, `Alzheimer disease`). The separate
+`disease_or_target_profile` remains the complete therapeutic intent for DrugCLIP
+screening. It is never sent as a disease search query. Invalid target identifiers
+fail explicitly; no unrelated targets are substituted. Source documents identify
+whether the targets were provided or discovered.

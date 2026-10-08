@@ -6,19 +6,14 @@ import json
 import hashlib
 import os
 import subprocess
+import base64
 from pathlib import Path
 
 
 MAX_PREVIEW_BYTES = 75 * 1024
 
 
-def publish_snapshot(run_dir: Path, image_path: Path, *, run_id: str,
-                     camera_id: str, frame_seq: int) -> bool:
-    if not run_id or not image_path.is_file():
-        return False
-    web_dir = run_dir / "web"
-    web_dir.mkdir(parents=True, exist_ok=True)
-    source = image_path.read_bytes()
+def _preview_bytes(source: bytes) -> bytes:
     if len(source) <= MAX_PREVIEW_BYTES and source[:2] == b"\xff\xd8" and source[-2:] == b"\xff\xd9":
         preview = source
     else:
@@ -36,7 +31,47 @@ def publish_snapshot(run_dir: Path, image_path: Path, *, run_id: str,
                 preview = candidate
                 break
         if not preview:
-            return False
+            raise ValueError("Couldn't prepare the event frame for Chat")
+    return preview
+
+
+def event_snapshot(run_dir: Path, event: dict, *, run_id: str,
+                   camera_id: str, frame_seq: int) -> dict:
+    if not run_id:
+        raise ValueError("an event frame requires its run identity")
+    root = run_dir.resolve()
+    relative = Path(event["frame_path"])
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError("event frame must be run-relative")
+    image_path = (root / relative).resolve(strict=True)
+    if not image_path.is_relative_to(root):
+        raise ValueError("event frame is outside this run")
+    preview = _preview_bytes(image_path.read_bytes())
+    digest = hashlib.sha256(preview).hexdigest()
+    directory = run_dir / "web" / "events"
+    if not directory.resolve().is_relative_to(root):
+        raise ValueError("event output is outside this run")
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / f"{digest}.jpg"
+    temporary = target.with_suffix(".tmp")
+    temporary.write_bytes(preview)
+    os.replace(temporary, target)
+    return {"run_id": run_id, "mime_type": "image/jpeg",
+            "data": base64.b64encode(preview).decode("ascii"),
+            "title": f"Frame {frame_seq}", "alt": f"Goal match from {camera_id} at {event['observed_at']}",
+            "caption": f"Camera {camera_id}; observed at {event['observed_at']} (capture time). Sampled video evidence."}
+
+
+def publish_snapshot(run_dir: Path, image_path: Path, *, run_id: str,
+                     camera_id: str, frame_seq: int) -> bool:
+    if not run_id or not image_path.is_file():
+        return False
+    web_dir = run_dir / "web"
+    web_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        preview = _preview_bytes(image_path.read_bytes())
+    except ValueError:
+        return False
     image_name = "cctv_snapshot.jpg"
     image_tmp = web_dir / ".cctv_snapshot.jpg.tmp"
     image_tmp.write_bytes(preview)

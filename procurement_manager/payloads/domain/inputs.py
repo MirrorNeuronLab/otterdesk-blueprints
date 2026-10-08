@@ -4,19 +4,19 @@ from __future__ import annotations
 
 import copy
 import ipaddress
-import inspect
-import os
 import re
 import urllib.parse
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from mn_document_reading_skill import DocumentIntakeOptions, scan_document_packet
+from mn_sdk.blueprint_support import expand_runtime_path, runtime_user_home
 
-from .common import DEFAULT_OUTPUT_FOLDER, PURCHASE_TYPES, SUPPORTED_SUFFIXES, TEXT_SUFFIXES, _sha256
+from mn_docs_to_markdown_skill import DocumentIntakeOptions, read_packet_document, scan_document_packet
+
+from .common import DEFAULT_OUTPUT_FOLDER, PURCHASE_TYPES, SUPPORTED_SUFFIXES, TEXT_SUFFIXES
 
 try:
-    from mn_llm_ocr_skill import extract_document
+    from mn_docs_to_markdown_skill import extract_document
 except Exception:  # pragma: no cover - optional runtime skill
     extract_document = None
 
@@ -386,106 +386,13 @@ def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: P
     return path
 
 
-def _looks_like_sandbox_home(path: Path) -> bool:
-    raw = str(path)
-    return raw in {"/root", "/tmp", "/var/root"} or raw.startswith(
-        ("/root/", "/tmp/", "/private/tmp/", "/var/root/", "/var/folders/", "/private/var/folders/")
-    )
-
-
-def _home_from_mirror_neuron_path(value: str | Path | None) -> Path | None:
-    if not value:
-        return None
-    path = Path(value).expanduser()
-    parts = path.parts
-    if ".mn" not in parts:
-        return None
-    marker_index = parts.index(".mn")
-    if marker_index <= 0:
-        return None
-    home = Path(*parts[:marker_index])
-    return home if str(home) and not _looks_like_sandbox_home(home) else None
-
-
-def _home_from_macos_users_dir() -> Path | None:
-    users_dir = Path("/Users")
-    if not users_dir.exists():
-        return None
-    names = [os.environ.get("SUDO_USER"), os.environ.get("LOGNAME"), os.environ.get("USER")]
-    for name in names:
-        if not name or name in {"root", "daemon", "nobody"}:
-            continue
-        candidate = users_dir / name
-        if candidate.exists() and not _looks_like_sandbox_home(candidate):
-            return candidate
-    candidates = [
-        path
-        for path in users_dir.iterdir()
-        if path.is_dir()
-        and path.name not in {"Shared", "Guest", "Deleted Users"}
-        and not path.name.startswith(".")
-        and ((path / "Downloads").exists() or (path / ".mn").exists())
-    ]
-    if len(candidates) == 1 and not _looks_like_sandbox_home(candidates[0]):
-        return candidates[0]
-    return None
-
-
-def runtime_user_home() -> Path:
-    for env_name in ("MN_OUTPUT_HOME", "MN_USER_HOME", "OTTERDESK_USER_HOME"):
-        value = os.environ.get(env_name)
-        if value:
-            return Path(value).expanduser()
-    for env_name in ("MN_RUN_DIR", "MN_RUNS_ROOT", "MN_HOME", "OTTERDESK_RUN_DIR", "OTTERDESK_RUNS_ROOT"):
-        home = _home_from_mirror_neuron_path(os.environ.get(env_name))
-        if home:
-            return home
-    expanded = Path("~").expanduser()
-    if not _looks_like_sandbox_home(expanded):
-        return expanded
-    try:
-        import pwd
-
-        account_home = Path(pwd.getpwuid(os.getuid()).pw_dir)
-        if account_home and not _looks_like_sandbox_home(account_home):
-            return account_home
-    except Exception:
-        pass
-    macos_home = _home_from_macos_users_dir()
-    if macos_home:
-        return macos_home
-    return expanded
-
-
-def expand_runtime_path(value: str | Path) -> Path:
-    raw = str(value)
-    if raw == "~":
-        return runtime_user_home()
-    if raw.startswith("~/") or raw.startswith("~\\"):
-        return runtime_user_home() / raw[2:]
-    return Path(raw).expanduser()
-
-
 def load_input_documents(folder: Path | None, config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if folder is None or not folder.exists():
         return [], [] if folder is None else [{"status": "missing", "path": str(folder), "warning": "input_folder does not exist"}]
 
     def extract(path: Path) -> dict[str, Any]:
-        suffix = path.suffix.lower()
-        if suffix in TEXT_SUFFIXES:
-            return {
-                "text": path.read_text(encoding="utf-8", errors="replace"),
-                "extraction_method": "direct_text",
-            }
-        text = (
-            _call_optional(extract_document, path=str(path), file_path=str(path), config=config)
-            if extract_document is not None
-            else ""
-        ) or ""
-        return {
-            "text": text,
-            "extraction_method": "ocr_skill" if text else ("ocr_empty" if extract_document is not None else "ocr_unavailable"),
-        }
+        return read_packet_document(path, text_suffixes=TEXT_SUFFIXES,
+                                    extractor=extract_document, config=config)
 
     packet = scan_document_packet(
         folder,
@@ -503,26 +410,20 @@ def load_input_documents(folder: Path | None, config: dict[str, Any]) -> tuple[l
         if item["status"] == "failed":
             warnings.append({"path": str(path), "status": "failed", "message": "; ".join(item["warnings"])})
             continue
-        records.append({
+        record = {
             "path": str(path), "name": item["filename"], "suffix": item["suffix"],
             "bytes": path.stat().st_size, "sha256": item["sha256"],
             "extraction_method": item["extraction_method"],
             "status": "extracted" if item["text"] else "review_required",
             "text": item["text"], "source_ref": f"local:{item['filename']}",
-        })
+        }
+        if item["warnings"]:
+            record["warnings"] = item["warnings"]
+        records.append(record)
         if not item["text"]:
             warnings.append({"path": str(path), "status": "review_required", "message": f"No usable text extracted from {item['filename']}."})
     warnings.extend(dict(item) for item in packet.warnings if item.get("status") != "document_failed")
     return records, warnings
-
-
-def _call_optional(function: Callable[..., Any], **kwargs: Any) -> Any:
-    try:
-        signature = inspect.signature(function)
-        accepted = {name: value for name, value in kwargs.items() if name in signature.parameters}
-        return function(**accepted)
-    except (TypeError, ValueError):
-        return function(next(iter(kwargs.values())))
 
 
 __all__ = [

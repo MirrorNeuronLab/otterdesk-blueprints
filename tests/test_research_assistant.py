@@ -258,20 +258,18 @@ def test_research_structured_llm_preserves_route_limits_and_accepts_wrapped_json
         "research_assistant",
         """
 import json
-from domain import llm_services
+import os
+from mn_sdk import llm as sdk_llm
+from mn_sdk.blueprint_support import runtime as sdk_runtime
+from domain.common import research_llm
 
-class RuntimeSelectedClient:
-    provider = "litellm"
-    model = "default"
-    api_base = "http://runtime-selected.example/v1"
-    api_key = "not-needed"
-    backend = "llama.cpp"
-    context_size = 8192
-    timeout_seconds = 180
-    max_tokens = 1024
-    num_retries = 2
-    retry_backoff_seconds = 1.0
-    strict = False
+os.environ.update({
+    "MN_LLM_PROVIDER": "litellm", "MN_LLM_MODEL": "default",
+    "MN_LLM_API_BASE": "http://runtime-selected.example/v1",
+})
+sdk_runtime.select_default_model = lambda *a, **k: {
+    "selected_model": "external-route", "model": "default", "provider": "litellm",
+}
 
 captured = []
 def request(purpose, model, path, payload, **kwargs):
@@ -288,9 +286,8 @@ def request(purpose, model, path, payload, **kwargs):
         "usage": {"prompt_tokens": 12, "completion_tokens": 7, "total_tokens": 19},
     }
 
-llm_services.runtime_model_json_request = request
-client = llm_services.adapt_structured_research_llm(
-    RuntimeSelectedClient(),
+sdk_llm.runtime_model_json_request = request
+client = research_llm(
     {
         "llm": {
             "default_config": "primary",

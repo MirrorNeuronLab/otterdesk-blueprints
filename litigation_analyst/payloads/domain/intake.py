@@ -7,7 +7,6 @@ import os
 from pathlib import Path
 
 from mn_sdk.step_runtime import artifact_reference
-from mn_sdk.text_memory import runtime_text_memory, ingest_inputs, compile_memory_context
 from .ingestion.corpus import CaseCorpus
 from .sample_data import prepare_emc2
 
@@ -81,26 +80,17 @@ def prepare_sources(context, *, llm_client=None):
         "sources": [{k: v for k, v in r.items() if k != "text"} for r in records],
         "unreadable_sources": [d.source_id for d in documents if d.text is None],
     }
+    from .file_identity import capture_file_identities
+    inventory['repository_id'], inventory['file_identities'] = capture_file_identities(
+        source, run_dir, context, original_hashes)
     (case / "source_inventory.json").write_text(
         json.dumps(inventory, indent=2), encoding="utf-8"
     )
-    memory = runtime_text_memory(context['config'], principal='round-specialists', scope={
+    from .source_query import publish
+    publish({**context, 'run_dir': run_dir}, documents, {
         'job_id': context.get('job_id') or os.environ.get('MN_JOB_ID'),
         'run_id': os.environ.get('MN_WORKFLOW_RUN_ID') or context.get('run_id') or os.environ.get('MN_RUN_ID'),
     })
-    if memory is not None:
-        try:
-            receipts = ingest_inputs(memory, [
-                {'source_ref': d.source_id, 'text': d.text,
-                 'upstream': [{k: v for k, v in asdict(d).items() if k != 'text'}]}
-                for d in documents if d.text is not None
-            ])
-            settings = context['config']['text_memory']
-            packet, witness = compile_memory_context(memory, payload['goal'],
-                max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'])
-            (case / 'text_memory.json').write_text(json.dumps({'records': receipts, 'packet': packet, 'receipt': witness}, ensure_ascii=False), encoding='utf-8')
-        finally:
-            memory.close()
     refs = [
         artifact_reference("source_inventory", "case/source_inventory.json"),
         artifact_reference("normalized_sources", "case/sources.json"),

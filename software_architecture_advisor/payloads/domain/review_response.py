@@ -1,5 +1,7 @@
 """Validate untrusted review records and exact snapshot citations."""
 
+from mn_sdk_rag import verify_source_span
+
 from .review_packets import APPLICABILITY, COVERAGE, CLAIM_TYPES, CONFIDENCE
 
 
@@ -39,21 +41,10 @@ def citation(value, snapshot):
     source = snapshot["sources"].get(value.get("path"))
     if not source or value.get("sha256") != source["sha256"]:
         raise ValueError("Citation path/hash mismatch")
-    start, end = value.get("start_offset"), value.get("end_offset")
-    if (
-        type(start) is not int
-        or type(end) is not int
-        or not 0 <= start < end <= len(source["text"])
-    ):
-        raise ValueError("Citation offset range invalid")
-    if value.get("excerpt") != source["text"][start:end]:
-        raise ValueError("Citation excerpt differs from exact offsets")
-    if len(value["excerpt"].encode()) > 4000:
-        raise ValueError("Citation exceeds excerpt limit")
-    first = source["text"].count("\n", 0, start) + 1
-    last = source["text"].count("\n", 0, max(start, end - 1)) + 1
-    if value.get("start_line") != first or value.get("end_line") != last:
-        raise ValueError("Citation line range differs from offsets")
+    verify_source_span(source["text"], source["sha256"], sha256=value.get("sha256"),
+        start_offset=value.get("start_offset"), end_offset=value.get("end_offset"),
+        excerpt=value.get("excerpt"), max_excerpt_bytes=4000,
+        start_line=value.get("start_line"), end_line=value.get("end_line"))
     return {
         k: value[k]
         for k in [
@@ -111,6 +102,11 @@ def validate_result(
         if type(claim.get("finding", False)) is not bool:
             raise ValueError("Invalid finding flag")
         evidence = rows(claim, "evidence", 8)
+        counter = rows(claim, 'counterevidence_citations', 8)
+        if claim.get('counterevidence_status') not in {'supplied','not_found_in_searched_scope','unknown'}:
+            raise ValueError('Explicit counterevidence status required')
+        if claim['counterevidence_status'] == 'supplied' and not counter:
+            raise ValueError('Supplied counterevidence requires exact citations')
         if claim["claim_type"] in {"observed", "derived", "inferred"} and not evidence:
             raise ValueError("Evidence required for observed/derived/inferred claim")
         if not evidence and claim["confidence"] not in {"low", "insufficient_evidence"}:
@@ -124,7 +120,7 @@ def validate_result(
         if not rows(obs, "evidence", 8):
             raise ValueError("Observation requires evidence")
     for item in claims + observations:
-        for c in item.get("evidence", []):
+        for c in item.get("evidence", []) + item.get('counterevidence_citations', []):
             citation(c, snapshot)
             if allowed_sources is not None and not any(
                 c["path"] == a["path"]

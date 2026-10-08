@@ -92,7 +92,14 @@
       "*.ods",
       "*.odp",
       "*.rtf",
-      "*.epub"
+      "*.epub",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.tif",
+      "*.tiff",
+      "*.bmp",
+      "*.webp"
     ],
     "license": "Synthetic demo data",
     "name": "Synthetic startup packet samples",
@@ -139,7 +146,14 @@
       "*.ods",
       "*.odp",
       "*.rtf",
-      "*.epub"
+      "*.epub",
+      "*.png",
+      "*.jpg",
+      "*.jpeg",
+      "*.tif",
+      "*.tiff",
+      "*.bmp",
+      "*.webp"
     ],
     "folder_path": "@/examples/sample_inputs",
     "grouping": "first_level_folder_then_infer_company_name"
@@ -182,7 +196,7 @@
       "min_text_chars": 40,
       "purpose": "shared local OCR for scanned or low-text PDF startup packets",
       "required": true,
-      "skill": "llm_ocr_skill",
+      "skill": "docs_to_markdown_skill",
       "timeout_seconds": 180
     },
     "web_browser": {
@@ -213,6 +227,10 @@
       "stop_on_blocked": true,
       "timeout_seconds": 20,
       "total_timeout_seconds": 60
+    },
+    "document_conversion": {
+      "skill": "docs_to_markdown_skill",
+      "backend": "markitdown"
     }
   },
   "inputs": {
@@ -259,7 +277,14 @@
           "*.ods",
           "*.odp",
           "*.rtf",
-          "*.epub"
+          "*.epub",
+          "*.png",
+          "*.jpg",
+          "*.jpeg",
+          "*.tif",
+          "*.tiff",
+          "*.bmp",
+          "*.webp"
         ],
         "license": "Synthetic demo data",
         "name": "Synthetic startup packet samples",
@@ -626,7 +651,14 @@
           ".ods",
           ".odp",
           ".rtf",
-          ".epub"
+          ".epub",
+          ".png",
+          ".jpg",
+          ".jpeg",
+          ".tif",
+          ".tiff",
+          ".bmp",
+          ".webp"
         ],
         "config_path": "document_sources.folder_path",
         "linked_config_paths": [
@@ -714,6 +746,7 @@
   "output_skills": {},
   "outputs": {
     "folder_path": "~/Downloads/vc-assistant",
+    "job_files": ["watch_state.json", "context_sources"],
     "per_company_subfolders": true,
     "write_markdown_report": true,
     "write_run_store": true
@@ -879,7 +912,10 @@
   },
   "text_memory": {
     "enabled": true,
-    "max_results": 3,
-    "max_context_bytes": 4000
+    "max_results": 6,
+    "max_context_bytes": 32768
+  },
+  "source_context": {
+    "enabled": true
   }
 }

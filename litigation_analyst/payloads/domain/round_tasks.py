@@ -2,6 +2,7 @@
 from dataclasses import asdict
 from copy import deepcopy
 import json
+from itertools import zip_longest
 from mn_sdk.blueprint_support import source_manifest
 from mn_graph_analysis_skill import ensure_bounded_readonly_rgql
 from .round_state import task_input, read, save, checkpoint
@@ -50,11 +51,12 @@ def collect_evidence(context, work, *, llm_client=None):
     corpus, _ = validate_indexes(case, frozen["config"]["investigation"]["access_scope"])
     store = EvidenceStore(case / "evidence.sqlite3")
     runtime = bind_skills(case, corpus, store, frozen["investigation_id"],
-                         [d["name"] for d in source_manifest(__file__)["skill_dependencies"]])
+                         [d["name"] for d in source_manifest(__file__)["skill_dependencies"]],
+                         config=frozen['config'], scope=frozen['memory_scope'])
     records = []
     h = task["hypothesis"]
-    operations = [(DOC, "search", {"query": h[p + "_query"], "top_k": min(3, frozen["config"]["investigation"]["top_k"])}, p) for p in ("support", "counter")]
-    operations += [(GRAPH, "query", {"rgql": QUERIES[q]}, "graph") for q in h["graph_tools"]]
+    operations = [(DOC, "search", {"query": h[p + "_query"], "top_k": frozen["config"]["investigation"]["top_k"]}, p) for p in ("support", "counter")]
+    operations += [(GRAPH, "query", {"rgql": QUERIES[q]}, "graph") for q in h["graph_tools"] if q in QUERIES]
     for index, (skill, operation, arguments, purpose) in enumerate(operations):
         if skill == GRAPH:
             validate_graph_query(arguments["rgql"])
@@ -74,6 +76,27 @@ def collect_evidence(context, work, *, llm_client=None):
             record = {"action": action, "result": result, "purpose": purpose}
             save(root, action_path, record)
         records.append(record)
+    from .source_graph import VIEWS, walk
+    from .temporal_evidence import VIEWS as TEMPORAL_VIEWS, walk as temporal_walk
+    from mn_sdk_rag import EvidenceSpan
+    from .evidence.assistant import EvidenceAssistant
+    for view in h['graph_tools']:
+        if view not in VIEWS and view not in TEMPORAL_VIEWS:
+            continue
+        path = f"case/rounds/actions/{task['prefix']}-source-{view}.json"
+        if (root/path).exists():
+            record = read(root/path)
+        else:
+            passages = [p for r in records for p in r['result'].get('passages', [])]
+            result = (temporal_walk if view in TEMPORAL_VIEWS else walk)(case, corpus, passages, view, frozen['config'])
+            record = {'action':{'view':view}, 'purpose':'graph', 'result':result}
+            save(root,path,record)
+        documents = {d.source_id:d for d in corpus.scan()}
+        for passage in record['result']['passages']:
+            evidence = EvidenceSpan(**passage, provenance_kind='observed')
+            EvidenceAssistant._validate_evidence(evidence, documents)
+            store.add_evidence(frozen['investigation_id'], evidence)
+        records.append(record)
     # Exact spans are already verified by the shared skill binding and in the ledger.
     ids = list(dict.fromkeys(p["evidence_id"] for r in records for p in r["result"].get("passages", [])))
     ref = save(root, name, {"hypothesis": h, "records": records, "evidence_ids": ids})
@@ -84,15 +107,24 @@ def assess_hypothesis(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-assessment.json"
     if (root / name).exists():
+        from .claim_memory import publish
+        publish(root, frozen, task['prefix'], read(root / name))
         return {"assessment": save(root, name, read(root / name))}
     collected = read(root / f"case/rounds/{task['prefix']}-evidence.json")
     store = EvidenceStore(root / "case/evidence.sqlite3")
     allowed = set(collected["evidence_ids"])
-    # Focused complete spans fit a review unit. Omitted spans remain in the ledger.
-    spans, remaining = [], 2000
-    for e in store.evidence_for(frozen["investigation_id"]):
-        if e.evidence_id in allowed and e.source_id not in frozen["source_review_flags"] and len(e.text.encode()) <= remaining:
-            spans.append(asdict(e)); remaining -= len(e.text.encode())
+    # The 2000-byte limit applies to one proposed finding's citations, not all
+    # evidence an assessor may inspect. Retain query rank and interleave support
+    # with counterevidence before admitting whole source units.
+    by_id = {e.evidence_id:e for e in store.evidence_for(frozen['investigation_id'])}
+    support = [p['evidence_id'] for r in collected['records'] if r['purpose']=='support'
+               for p in r['result'].get('passages', [])]
+    counter = [p['evidence_id'] for r in collected['records'] if r['purpose']=='counter'
+               for p in r['result'].get('passages', [])]
+    ranked = list(dict.fromkeys([i for pair in zip_longest(support,counter) for i in pair if i]
+                               + collected['evidence_ids']))
+    spans = [asdict(by_id[id]) for id in ranked if id in allowed
+             and by_id[id].source_id not in frozen['source_review_flags']]
     visible = {e["evidence_id"] for e in spans}
     schema = assessment_schema(task, visible)
     instruction = (
@@ -100,23 +132,40 @@ def assess_hypothesis(context, work, *, llm_client=None):
         "Cite only visible evidence IDs. Include ordinary alternatives and outstanding enquiries. "
         "With no visible evidence, return inconclusive and an empty findings list. "
         "Propose at most one concise report finding; use the supplied finding_id. Findings are inferred assessments. "
+        "A proposed finding may cite at most 2000 UTF-8 bytes of complete passages; seeing additional passages does not waive that limit. "
         "Graph observations are navigation aids, not proof. State unexamined/omitted evidence limits.")
+    from .evidence_admission import admit, coverage, assess_admitted
     data = {"enquiry": task["hypothesis"], "finding_id": task["prefix"], "evidence": [],
          "omitted_passages": len(allowed - visible),
-         "graph_observations": investigation_history([r for r in collected["records"] if r["purpose"] == "graph"], max_bytes=2000),
-         "search_coverage": [{"purpose": r["purpose"], "passage_count": len(r["result"].get("passages", [])), "evidence_ids": [p["evidence_id"] for p in r["result"].get("passages", []) if p["evidence_id"] in visible]} for r in collected["records"]]}
-    room = evidence_room(frozen, "assess", instruction, data, schema)
-    for span in spans:
-        size = len(json.dumps(span).encode()) + 2
-        if size <= room:
-            data["evidence"].append(span)
-            room -= size
+         "graph_observations": investigation_history([r for r in collected["records"]
+             if r["purpose"] == "graph" and 'paths' not in r['result']], max_bytes=2000),
+         "search_coverage": coverage(collected['records'], visible)}
+    room = min(evidence_room(frozen, "assess", instruction, data, schema),
+               max(0, frozen['config'].get('text_memory',{}).get('max_context_bytes',32768)-512))
+    data.update(admit(spans, collected['records'], room))
     visible = {e["evidence_id"] for e in data["evidence"]}
     data["omitted_passages"] = len(allowed - visible)
-    for coverage in data["search_coverage"]:
-        coverage["evidence_ids"] = [e for e in coverage["evidence_ids"] if e in visible]
+    for item in data["search_coverage"]:
+        item["evidence_ids"] = [e for e in item["evidence_ids"] if e in visible]
     schema = assessment_schema(task, visible)
-    value = complete(root, frozen, task["prefix"] + "-assess", "assess", instruction, data, schema, llm_client)
+    from mn_sdk.memory_quality import context_requirements
+    requirement = context_requirements(frozen['config'])
+    quality = assess_admitted(data, collected['records']) if requirement else None
+    if quality:
+        save(root, f"case/rounds/{task['prefix']}-context-quality.json", quality)
+    if quality and quality['action']=='insufficient_evidence':
+        gaps=quality['reasons'][:40]
+        value={'hypothesis':{'id':task['hypothesis']['id'],'parent_id':None,
+            'question':task['hypothesis']['question'],'status':'inconclusive',
+            'factual_basis':'Required source support was not available after bounded retrieval.',
+            'supporting_evidence':[], 'contradictory_evidence':[],
+            'alternatives':['The available packet cannot resolve the enquiry.'],
+            'assessment':'Insufficient evidence; no factual finding was generated.',
+            'outstanding_enquiries':gaps},
+            'report':{'findings':[],'conclusion_ids':[],'follow_up':gaps}}
+        validate(schema,value)
+    else:
+        value = complete(root, frozen, task["prefix"] + "-assess", "assess", instruction, data, schema, llm_client)
     h = value["hypothesis"]
     if h["id"] != task["hypothesis"]["id"] or h["parent_id"] is not None:
         raise ValueError("Assessment changed the committed hypothesis identity")
@@ -128,7 +177,10 @@ def assess_hypothesis(context, work, *, llm_client=None):
         raise ValueError("Finding identity must match committed task")
     data = {"source_review_flags": frozen["source_review_flags"]}
     submit_report(data, value["report"], store, frozen["investigation_id"])
-    return {"assessment": save(root, name, value)}
+    ref = save(root, name, value)
+    from .claim_memory import publish
+    publish(root, frozen, task['prefix'], value)
+    return {"assessment": ref}
 
 
 def review_finding(context, work, *, llm_client=None):
@@ -141,17 +193,23 @@ def review_finding(context, work, *, llm_client=None):
     data = {"source_review_flags": frozen["source_review_flags"]}
     submit_report(data, assessment["report"], store, frozen["investigation_id"])
     cited = {i for f in assessment["report"]["findings"] for i in f["evidence_ids"]}
+    cited.update(assessment['hypothesis']['supporting_evidence'])
+    cited.update(assessment['hypothesis']['contradictory_evidence'])
     schema = deepcopy(REVIEW)
     finding_ids = [f["id"] for f in assessment["report"]["findings"]]
     schema["properties"]["accepted_ids"] = {"type": "array", "uniqueItems": True,
         "maxItems": len(finding_ids), "items": {"enum": finding_ids} if finding_ids else {"type": "string"}}
+    from .evidence_admission import review_closure, coverage
+    collected = read(root / f"case/rounds/{task['prefix']}-evidence.json")
+    support = review_closure([asdict(e) for e in store.evidence_for(frozen['investigation_id'])
+        if e.source_id not in frozen['source_review_flags']], collected['records'], cited)
     value = complete(root, frozen, task["prefix"] + "-review", "review",
-        "Independently review the proposed finding against every complete cited passage. Accept only wording "
+        "Independently review the proposed finding against every complete cited passage and its supplied dependencies. Accept only wording "
         "supported by these sources, preserving identity uncertainty, competing explanations and incomplete coverage. "
         "Reject overstatement, missing context, unsupported dates or allegations; explain issues concisely. "
         "accepted_ids must contain report finding IDs, NEVER evidence or source IDs. Return [] to reject all. You cannot add evidence or rewrite the finding.",
         {"report": assessment["report"], "hypothesis": assessment["hypothesis"],
-         "evidence": [asdict(e) for e in store.evidence_for(frozen["investigation_id"]) if e.evidence_id in cited]}, schema, llm_client)
+         "evidence": support, 'search_coverage':coverage(collected['records'], {e['evidence_id'] for e in support})}, schema, llm_client)
     review_report(data, value)
     return {"review": save(root, name, value)}
 

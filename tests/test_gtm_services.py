@@ -104,8 +104,9 @@ def test_concurrent_claims_only_one_wins(tmp_path):
 
 def test_authoritative_approval_and_expiry(monkeypatch):
     approval=load('executor','approval');published=[];events=[]
-    monkeypatch.setattr(approval,'read_interaction_events',lambda *_:events)
-    monkeypatch.setattr(approval,'publish_human_interaction_event',lambda *args:published.append(args))
+    from mn_sdk import human_interactions as authority
+    monkeypatch.setattr(authority,'read_interaction_events',lambda *_:events)
+    monkeypatch.setattr(authority,'publish_human_interaction_event',lambda *args:published.append(args))
     context={'run_id':'run'};expires=int((time.time()+60)*1000)
     assert approval.approval(context,'key','Review exact draft',expires_at=expires)=='pending'
     assert len(published)==1 and published[0][2]['interaction_kind']=='approval'
@@ -163,13 +164,15 @@ def test_research_rejects_unsupported_claims():
 
 def test_peer_identity_and_goal_isolation(monkeypatch):
     collab=load('planner','collaboration')
+    from mn_sdk.integrations import job_peers
+    from mn_sdk_mcp import peer_updates
     class Runtime:
         channel=type('Channel',(),{'close':lambda _:None})()
         def __init__(self,**_):pass
-        def get_run(self,_):return json.dumps({'job_id':'peer'})
-    monkeypatch.setattr(collab,'Client',Runtime)
-    monkeypatch.setattr(collab,'discover_mcp_job_servers',lambda **_:{'status':'ok','servers':[{'job_id':'execution','config':{}}]})
-    monkeypatch.setattr(collab,'get_mcp_job_updates',lambda *a,**k:{'status':'ok','updates':{'identity':{'job_id':'peer','goal_id':'wrong','blueprint_id':'gtm_executor'},'updates':[],'next_revision':1}})
+        def get_run(self,execution):return json.dumps({'run_id':execution,'job_id':'peer'})
+    monkeypatch.setattr(job_peers,'Client',Runtime)
+    monkeypatch.setattr(peer_updates,'discover_mcp_job_servers',lambda **_:{'status':'ok','servers':[{'job_id':'execution','config':{}}]})
+    monkeypatch.setattr(peer_updates,'get_mcp_job_updates',lambda *a,**k:{'status':'ok','updates':{'identity':{'job_id':'peer','goal_id':'wrong','blueprint_id':'gtm_executor'},'updates':[],'next_revision':1}})
     with pytest.raises(ValueError,match='identity'):
         collab.peer_updates({'payload':{'peer_job_id':'peer','goal_id':'bibblio-marketing'},'stable_job_id':'self','blueprint_id':'gtm_planner'}, {})
 
@@ -233,3 +236,46 @@ def test_common_goal_reaches_model_context_and_work_packets(role,monkeypatch,tmp
     collaboration.publish(context,'one','progress',{},'Synthetic progress')
     assert seen['model']['common_goal']==context['payload']['common_goal']
     assert seen['packet']['business_goal']==context['payload']['common_goal']
+
+
+@pytest.mark.parametrize('role', ['planner', 'executor'])
+def test_catalog_declares_structured_groups_and_required_sdk_versions(role):
+    from mn_sdk.blueprints import read_blueprint, blueprint_definition, catalog_record
+    from mn_sdk.blueprint_source import normalize_blueprint
+    package = read_blueprint(ROOT / f'gtm_{role}')
+    spec = blueprint_definition(package)
+    contract = normalize_blueprint(catalog_record(package, f'gtm_{role}'))['collaboration']
+    assert contract['topology'] == 'group' and contract['maxMembers'] == 5
+    assert set(contract['accepts']) == {'gtm_planner', 'gtm_executor'}
+    fields = {field['path']: field for field in spec['metadata']['init_config_review']['fields']}
+    assert fields[contract['peersKey']]['value_type'] == 'array'
+    dependencies = json.loads((ROOT / f'gtm_{role}' / 'dependencies.json').read_text())
+    versions = {item['name']: item['version'] for item in dependencies['packages']}
+    assert versions['mn-python-sdk-collaboration'] == '>=1.3.58.dev0,<2'
+
+
+@pytest.mark.parametrize('role', ['planner', 'executor'])
+def test_group_consumer_scopes_cursors_and_published_members(role, monkeypatch, tmp_path):
+    collaboration = load(role, 'collaboration')
+    peers = [{'jobId': 'peer-a', 'blueprintId': 'gtm_planner'}, {'jobId': 'peer-b', 'blueprintId': 'gtm_executor'}]
+    context = {'payload': {'goal_id': 'bibblio-marketing', 'common_goal': 'Reviewed marketing', 'collaboration_group_id': 'board-a', 'collaboration_peers': peers},
+               'stable_job_id': 'self', 'blueprint_id': 'gtm_' + role, 'run_dir': str(tmp_path), 'run_id': 'run', 'started_at': '2026-10-06T00:00:00Z'}
+    seen = {}
+    def read(**options):
+        seen['options'] = options
+        return [], {'peer-a': {'execution': 'new-run', 'revision': 2}}, 'connected'
+    monkeypatch.setattr(collaboration, 'read_group_work_packets', read)
+    old_cursor = {'peer-b': {'execution': 'run-b', 'revision': 7}}
+    _, cursor, status = collaboration.peer_updates(context, {'board-a': old_cursor})
+    assert seen['options']['cursors'] == old_cursor and status == 'connected'
+    assert cursor == {'board-a': {'peer-a': {'execution': 'new-run', 'revision': 2}}}
+    context['payload']['collaboration_group_id'] = 'board-b'
+    collaboration.peer_updates(context, cursor)
+    assert seen['options']['cursors'] == {}
+    monkeypatch.setattr(collaboration, 'publish_goal_work_packet', lambda **options: seen.update(packet=options['packet']) or {'status': 'published'})
+    collaboration.publish(context, 'one', 'progress', {}, 'Reviewed progress')
+    assert seen['packet']['group_id'] == 'board-b'
+    assert seen['packet']['group_members'] == ['peer-a', 'peer-b', 'self']
+    context['payload']['collaboration_peers'] = peers * 3
+    with pytest.raises(ValueError, match='group role'):
+        collaboration.peer_updates(context, {})

@@ -57,20 +57,20 @@
         "type": "domain_value"
       },
       {
-        "default": 20,
-        "description": "Seconds between baseline multimodal analyses; local scene scoring can trigger bounded bursts sooner.",
-        "label": "Baseline analysis interval",
-        "path": "sampling.baseline_interval_seconds",
-        "type": "domain_value"
+        "path": "video_source.demo_file",
+        "label": "Demo video file",
+        "type": "local_path",
+        "path_kind": "file",
+        "default": "/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4",
+        "description": "Staged from the submitting computer for warehouse demo playback."
       },
       {
-        "default": [
-          "person"
-        ],
-        "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
-        "label": "Visual targets",
-        "path": "inputs.payload.visual_targets",
-        "type": "domain_value"
+        "default": "A person is visible in the video.",
+        "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
+        "label": "Monitoring goal",
+        "path": "inputs.payload.monitoring_goal",
+        "type": "text",
+        "required": true
       },
       {
         "default": {
@@ -122,18 +122,18 @@
     "steering": "external_chat_mcp_via_declared_live_input"
   },
   "starter_questions": [
-    "Do you see any person in the latest analyzed frame?",
-    "What happened in the latest monitoring run?",
-    "What warnings or review items need my attention?"
+    "Has the monitoring goal happened?",
+    "Summarize the video.",
+    "Change the monitoring goal."
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Would you like to start with the sample video stream or use your own? The sample uses the bundled video and default monitoring settings.",
+    "introduction": "Start with the warehouse recording or connect your approved camera stream.",
     "sample": {
       "available": true,
-      "title": "Bundled CCTV sample",
-      "description": "Monitor the bundled looping video with the default targets and reviewer notices. No camera URL is needed.",
-      "expected_output": "A live video preview, visual observations, and review reports.",
+      "title": "Warehouse video demo",
+      "description": "Loop the staged warehouse Camera.mp4 recording through Cosmos3. Recorded footage is labeled as demo evidence.",
+      "expected_output": "Live video, goal-match messages with event times and frames, and video summaries on request.",
       "values": {
         "video_source.profile": "bundled_demo"
       }
@@ -183,22 +183,12 @@
         "description": "Use an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address; 127.0.0.1 and localhost refer to the worker's own machine. The URL is stored securely."
       },
       {
-        "default": 20,
-        "description": "Seconds between baseline multimodal analyses; local scene scoring can trigger bounded bursts sooner.",
-        "label": "Baseline analysis interval",
-        "path": "sampling.baseline_interval_seconds",
-        "type": "domain_value",
-        "required": false
-      },
-      {
-        "default": [
-          "person"
-        ],
-        "description": "Subjects, objects, or activities to detect in recordings or the approved stream.",
-        "label": "Visual targets",
-        "path": "inputs.payload.visual_targets",
-        "type": "domain_value",
-        "required": false
+        "default": "A person is visible in the video.",
+        "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
+        "label": "Monitoring goal",
+        "path": "inputs.payload.monitoring_goal",
+        "type": "text",
+        "required": true
       },
       {
         "default": {
@@ -223,6 +213,19 @@
         "path_kind": "directory",
         "type": "local_path",
         "required": false
+      },
+      {
+        "path": "video_source.demo_file",
+        "label": "Demo video file",
+        "type": "file",
+        "path_kind": "file",
+        "required": true,
+        "active_when_any": [
+          {
+            "key": "video_source.profile",
+            "equals": "bundled_demo"
+          }
+        ]
       }
     ]
   }
