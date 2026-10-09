@@ -24,6 +24,8 @@ htmlcov/
 junit*.xml
 .tox/
 .nox/
+# Generated in-memory test sessions
+:memory:.ses
 
 # Virtual environments and local env files
 .venv/
