@@ -671,9 +671,9 @@
             },
             "environment": {
               "NIM_MODEL_SIZE": "nano",
-              "NIM_GPU_MEMORY_UTILIZATION": "0.7",
+              "NIM_GPU_MEMORY_UTILIZATION": "0.5",
               "NIM_MAX_MODEL_LEN": "32768",
-              "NIM_MAX_NUM_SEQS": "4",
+              "NIM_MAX_NUM_SEQS": "1",
               "NIM_DISABLE_CUDA_GRAPH": "1",
               "NIM_DISABLE_MM_PREPROCESSOR_CACHE": "1",
               "NIM_DELETE_LAST_FRAMES": "1",

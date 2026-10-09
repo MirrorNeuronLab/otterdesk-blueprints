@@ -58,3 +58,17 @@ def test_cosmos_recipe_belongs_to_the_blueprint_and_is_not_built_in():
     assert spec["input_modalities"] == ["text", "image", "video"]
     assert models["vision"]["customize_mode"] is True
     assert "NGC_API_KEY" not in spec["docker"]["environment"]
+
+
+def test_cosmos_budget_leaves_capacity_for_conversation_and_matches_caption_lane():
+    from mn_sdk.blueprints import resolve_config
+
+    package = read_blueprint(ROOT)
+    environment = blueprint_definition(package)["runtime"]["models"]["vision"][
+        "model_spec"
+    ]["docker"]["environment"]
+    config = resolve_config(package).data
+    assert float(environment["NIM_GPU_MEMORY_UTILIZATION"]) <= 0.5
+    assert int(environment["NIM_MAX_NUM_SEQS"]) == config["backpressure"][
+        "llm"
+    ]["max_concurrent_calls"]

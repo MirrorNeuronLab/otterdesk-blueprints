@@ -2,6 +2,7 @@
 
 import ast
 import json
+from importlib.metadata import version
 from pathlib import Path
 
 import pytest
@@ -42,7 +43,7 @@ def test_context_contract_and_effective_disabled_override(name):
     extras = [r for r in dependencies if r["name"] == "mirrorneuron-python-sdk"]
     assert len(extras) == 1
     supported = SpecifierSet(extras[0]["version"])
-    assert supported.contains("1.3.58.dev45")
+    assert supported.contains(version("mirrorneuron-python-sdk"))
     assert not supported.contains("1.3.57")
     assert not supported.contains("2.0")
     assert extras[0].get("extras", []) == (["context"] if name in ACTIVE | SOURCE_ACTIVE else [])

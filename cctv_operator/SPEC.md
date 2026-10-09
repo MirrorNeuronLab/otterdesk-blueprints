@@ -387,3 +387,10 @@ capture times and gaps remain in the prompt and memory. Only selected frames are
 encoded, with one thread and a ten-second bound. Camera decoding stays on CUDA;
 encoding does not create another inference request. The video skill minimum is
 `1.3.58.dev23`. Existing native pre-decoded support in the skill remains available.
+
+Version 2.0.2 requires SDK `1.3.58.dev59` for managed media admission and the
+bounded conversation model deadline, and MCP `1.3.58.dev57` for HTTP deadlines.
+The declared Cosmos recipe uses half the GPU memory and one concurrent sequence,
+matching the default caption concurrency and leaving DGX Spark capacity for
+RF-DETR and text chat. Runtime resource admission and model lifecycle remain
+SDK-owned; this policy is authored only in the blueprint's model definition.

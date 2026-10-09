@@ -165,13 +165,20 @@ excluded from memory. Missing, malformed or truncated final answers are explicit
 analysis failures, never fabricated clear-scene observations.
 
 Deploy the matching SDK and video-skill packages before launching this revision.
-The SDK, models and RAG component minima are `1.3.58.dev45`; the video skill
+The SDK minimum is `1.3.58.dev59`; models and RAG require `1.3.58.dev45`; the video skill
 minimum is `1.3.58.dev23`. These versions provide blueprint-owned model recipes,
 generic embeddings, and the temporal-frame contract.
-The MCP and Job response components require `1.3.58.dev43` or later for event
-images, newest-record cursors and complete bounded read summaries. These source
+MCP requires `1.3.58.dev57` to honor the configured HTTP operation deadline;
+Job response requires `1.3.58.dev44` for complete bounded read summaries.
+The SDK preserves managed media for NIM's joint context admission and allows
+up to 40 seconds for a conversation model request. These source
 changes must be included in the deployed SDK packages; older workers must be
 restarted with the updated blueprint and dependencies.
+
+The Cosmos recipe reserves half the GPU memory and admits one concurrent
+sequence, matching the caption lane's default concurrency. On DGX Spark this
+leaves memory for RF-DETR and the separately served text conversation model.
+The runtime still owns model admission and lifecycle.
 
 ## Web UI
 
