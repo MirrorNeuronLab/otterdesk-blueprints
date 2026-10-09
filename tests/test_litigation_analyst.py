@@ -419,6 +419,32 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     assert "SHA-256" in report
     assert (context["output_folder"] / "runs/run/case/sources.json").exists()
     assert (context["output_folder"] / "runs/run/final_report.md").exists()
+    sources = context["output_folder"] / "context_sources/outputs/run"
+    assert {p.name for p in sources.glob("*.md")} == {
+        "final_report.md.md", "evidence_appendix.md.md", "graph_appendix.md.md"
+    }
+    assert quotation in (sources / "final_report.md.md").read_text()
+    from domain.conversation_sources import publish_outputs
+    assert all(record["reused"] for record in publish_outputs(context))
+    assert not list(sources.rglob("*.sqlite3"))
+    assert not (sources / "case").exists()
+
+
+def test_conversation_publication_rejects_linked_report(modules, tmp_path):
+    from domain.conversation_sources import publish_outputs, REPORTS
+
+    run = tmp_path / "run"
+    run.mkdir()
+    for name in REPORTS:
+        (run / name).write_text("# Complete review draft\n\nEvidence remains qualified.\n")
+    external = tmp_path / "private.md"
+    external.write_text("Private unrelated material")
+    (run / REPORTS[0]).unlink()
+    (run / REPORTS[0]).symlink_to(external)
+    output = tmp_path / "output"
+    with pytest.raises(ValueError, match="regular output"):
+        publish_outputs({"run_dir": run, "output_folder": output})
+    assert not output.exists()
 
 
 def test_missing_hypotheses_are_reported_as_a_gap(modules, tmp_path):

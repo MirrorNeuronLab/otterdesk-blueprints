@@ -102,6 +102,8 @@ def write_review(context, *, llm_client=None):
     (run_dir / "review_index.json").write_text(
         json.dumps(index, indent=2), encoding="utf-8"
     )
+    from .conversation_sources import publish_outputs
+    publish_outputs(context)
     output = context.get("output_folder")
     if output:
         output = Path(output)

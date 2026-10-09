@@ -108,6 +108,16 @@ methodology, never evidence or an assumption of applicable jurisdiction.
 
 ## Artifacts and compatibility
 
+Version 2.7.3 publishes verified `final_report.md`, `evidence_appendix.md` and
+`graph_appendix.md` through the declared Docs to Markdown skill into the Job's
+`context_sources/outputs/<run-id>/` folder. SDK/Membrane own incremental ingestion,
+whole-source querying and citations. The blueprint owns this report allowlist;
+case audit files, originals and model receipts are not conversation subjects.
+Publication follows final citation verification and is required when the runtime
+provides a Job output folder. This adds prepared report outputs without changing
+investigation decisions or authorizing legal action. Existing frozen runs are
+unchanged.
+
 Version 2.7.1 corrects the index phase deadline for bounded sequential model
 extraction: `build_case_indexes` and `investigate_case_evidence` allow 99,999
 seconds. The 256-request default extraction budget, per-unit bounds and provider

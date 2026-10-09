@@ -190,6 +190,14 @@ $MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/
 host copy. `review_index.json` identifies `final_report.md`, `evidence_appendix.md`,
 `graph_appendix.md`, source/index receipts and the evidence database.
 
+Version 2.7.3 also publishes the three verified Markdown reports under the Job's
+`context_sources/outputs/<run-id>/`. The existing document skill preserves full
+report bodies and conversion hashes; repeated publication reuses unchanged files.
+The SDK Job responder ingests these prepared sources into Membrane and returns
+cited answers through `ask_job`. Case databases, originals, model requests and
+checkpoints are excluded. Report sources become queryable after publication;
+older completed runs retain their original output contract.
+
 `case/rounds/` preserves immutable planner proposals, committed task parameters,
 evidence observations, assessments, independent reviews, summaries and model
 receipts. `case/agent_checkpoint.json` is the final review projection, retaining
