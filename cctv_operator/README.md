@@ -46,50 +46,51 @@ used for local testing supports `-H 0.0.0.0`; verify the resulting LAN URL
 from the NVIDIA node before starting CCTV Operator. Mac-side launch validation
 rejects local-only external stream addresses before a workflow is submitted.
 
-## Independent detection and captioning
+## Person-gated understanding
 
-Version 2.0 uses one resident camera relay and three independent lanes:
+Version 2.1 uses RF-DETR as the fixed person-detection gate. Monitoring goals
+change only what Cosmos analyzes; they cannot change the detector or its person
+class. RF-DETR Small runs at a requested 5 FPS. Two consecutive confident
+person samples confirm a scene episode; sampled absence rearms it, while
+missing frames cannot prove exit. RF-DETR gate evidence stays out of Chat.
 
 ```mermaid
 flowchart LR
-  Camera[CUDA camera relay] --> Person[RF-DETR Small: person events]
-  Person --> Evidence[Durable frame evidence]
-  Evidence --> Notice[SDK notices and MCP Chat delivery]
-  Camera --> Windows[Independent video windows]
-  Windows --> Cosmos[Cosmos: captions and complex conditions]
-  Cosmos --> Memory[MN / Membrane caption memory]
-  Memory --> QA[Historical Q&A and summaries]
-  Cosmos --> Evidence
+  Camera[CUDA camera relay] --> Gate[Fixed RF-DETR person gate]
+  Camera --> Windows[Rolling video window]
+  Gate --> Windows
+  Windows --> Cosmos[Cosmos: helmets and scene understanding]
+  Cosmos --> Memory[MN / Membrane Markdown history]
+  Cosmos --> Match[Confirmed monitoring-goal match]
+  Match --> Notice[Evidence and Chat notice]
+  Memory --> QA[Historical questions and summaries]
 ```
 
-RF-DETR Small runs in the long-running video service at a requested 5 FPS. Two
-consecutive confident person samples start a scene-presence episode. Two seconds
-of sampled absence rearm it; missing frames cannot prove exit. The default
-presence goal publishes a notice directly from this detector, without waiting
-for Cosmos, memory or a workflow tick. Confidence and the 120-second notice
-cooldown still apply. This is scene presence, not person identity or tracking.
-Complex instructions such as a falling person or a blocked corridor use Cosmos.
+The default goal is a visible person not wearing a helmet. Cosmos describes
+visible people, helmet status, activity and uncertainty. Mere person presence,
+compliant helmets and uncertain helmet status do not create notices. A head
+that is distant or occluded is not proof of a violation. Confirmed matches
+include the detailed Cosmos account, capture time and an evidence frame.
 
-Caption sampling runs in a separate thread at 4 candidate FPS, with a rolling
-four-second window and a ten-second baseline cadence, including quiet scenes.
-Each admitted window selects at most twelve non-duplicate chronological frames.
-Core delivers durable batch references to the existing caption worker. There is
-one batch in flight and one latest pending window; replaced windows are counted.
-An on-demand instruction keeps its revision while waiting. Caption completion
-is durable, errors release admission, and missing completion is shown as stalled
-rather than starting overlapping requests. At most six admissions per minute
-and the existing single Cosmos slot bound model load.
+A separate 4 FPS sampler retains four seconds of frames. Person confirmation
+triggers two seconds of post-roll, including when a person leaves sooner.
+Each admitted sequence contains at most twelve chronological frames; automatic
+admission is limited to one window per ten seconds and six calls per minute.
+Quiet scenes do not start Cosmos. On-demand analysis also waits for the gate.
+Core receives durable batch references. One caption is in flight and one latest
+window is pending; skipped windows are counted, and requested revisions retain
+priority. Durable completion releases admission; missing completion is exposed
+as stalled without overlapping model requests.
 
-Slow or failed captioning leaves person detection running. A failed detector is
-reported separately and leaves caption sampling running. Person goals never
-produce a second notice from Cosmos; superseded complex-goal captions remain
-history but cannot notify under the new instruction. Playback does not wait for
-model readiness. `get_operator_status` exposes both lane states.
+Slow or failed Cosmos work leaves RF-DETR running. A failed detector cannot
+open new Cosmos admission or establish absence. Both lanes expose their health.
+Superseded Cosmos accounts remain in history but cannot notify under a newer
+goal. Playback does not wait for model readiness.
 
 ## Sampled understanding and risk memory
 
-Every scheduled caption sequence is analyzed, including quiet scenes and batches
-with no configured-target match. A condition check or approval does not block the
+Every person-gated sequence is analyzed, including compliant and uncertain
+helmet status and batches with no configured-target match. A condition check or approval does not block the
 scene account. Cosmos records observed activity separately from `risk_predictions`.
 Each prediction includes visible evidence, a qualitative time horizon, confidence,
 severity and recommended human review. Predictions are hypotheses, not observed
@@ -123,8 +124,8 @@ instruction revision so reports identify the instruction used for a batch.
 
 For example, send **“can you focus on find foreign object on the floor?”** in
 Chat. The monitoring action applies that goal and requests a fresh analysis.
-Subsequent vision prompts use that goal in place of the default people/activity
-targets. Ask to clear the monitoring instruction to restore configured targets.
+Subsequent Cosmos prompts use that goal in place of the default helmet
+condition; RF-DETR remains the person gate. Ask to clear the monitoring instruction to restore configured targets.
 A queued command is not yet an applied goal; an already-running analysis can
 still finish with its earlier instruction revision.
 
@@ -430,11 +431,11 @@ only when launching the external source.
 ## Conversation knowledge
 
 The saved `inputs.payload.monitoring_goal` defaults to
-`A person is visible in the video.` RF-DETR confirms sampled person presence
-for direct notices. Cosmos independently describes observed activity and writes
-the sampled activity account to Markdown context memory. A person alone meets
-the goal; standing together is not required. Questions use the saved history
-and do not change the watch.
+`A visible person is not wearing a helmet.` RF-DETR only gates person presence.
+Cosmos creates the detailed scene account and confirmed goal-match notices.
+Compliant and uncertain observations remain available in Markdown history.
+Questions such as “can you find if anyone didn't wear a helmet?” read that
+history; they never change the monitoring goal.
 
 Ask “Summarize the video” through `get_video_summary`, or ask a video question
 through `answer_video_question`. Both read complete authored Markdown accounts
@@ -443,8 +444,9 @@ understands independently sampled image sequences and creates those observations
 questions never retrieve images or initiate additional Cosmos calls. The
 correlated `get_video_answer` result updates the original turn when complete.
 Calls accept optional timezone-qualified capture-time bounds and never change
-the monitoring goal. Summary and question reads are scoped to this run;
-`get_video_history` reads up to twelve matching accounts across runs. Preserve
+the monitoring goal. Summaries use the SDK memory scope for the current workflow run. Questions
+and `get_video_history` read up to twelve matching accounts across Job runs for
+the same camera and source. Preserve
 citations, recording qualifications, omitted records and sampling gaps. Missing
 history never means zero people. Repeated observations cannot establish unique
 people or a cumulative count. One question is pending at a time, with a
@@ -484,7 +486,7 @@ legacy JSON observations require reviewed republication to adopt the new format.
 
 The `mn.context` descriptor enables Membrane runtime memory and declares `mirrorneuron-python-sdk[context]`. The detector queries the most recent three sampled observations for the same camera and source before candidate verification, then stores the new observation after analysis. Observations are job-scoped so history survives runs; each retains its run, timestamp, instruction revision, confidence, qualification and durable frame-batch reference. Camera credentials, source URLs, image bytes and external RAG passages are excluded from text memory. Historical screening-only records retain an unknown detection count. Historical text never establishes continuous coverage, identity, intent or an unobserved first appearance. The Markdown/DuckDB service runs on CPU; the configured vision route and CUDA media path retain their contracts. Query receipts and source handles stay in `runtime_memory/` sidecars; only whole bounded results reach the model. Missing history and insufficient capacity are explicit. Set `text_memory.enabled=false` to disable the consumer.
 
-A continuing person-presence episode is reported once. Sustained sampled absence rearms it; coverage gaps do not. Complex goals use confident Cosmos absence to rearm. Instruction changes rearm the goal, while cooldown still limits distinct repeated events.
+RF-DETR person episodes gate analysis and never create notices. Cosmos goal matches are reported once per episode; confident Cosmos absence rearms the goal. Instruction changes rearm the goal, while cooldown still limits distinct repeated events.
 
 ## Prepared person detector
 
@@ -501,7 +503,7 @@ Set `person_detector.model=medium` to compare Medium, or tune `fps`,
 `confidence_threshold`, `consecutive_hits`, `absence_seconds` and
 `max_gap_seconds`. Actual throughput depends on the worker and concurrent
 Cosmos load. MobileCLIP is no longer in the production admission path and its
-similarity cannot suppress captions or person alerts. Earlier adapter sources
+similarity cannot replace the RF-DETR person gate or create notices. Earlier adapter sources
 remain for historical experiments; the worker does not prepare their weights.
 
 ## Stage benchmarks

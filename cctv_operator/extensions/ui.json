@@ -65,7 +65,7 @@
         "description": "Staged from the submitting computer for warehouse demo playback."
       },
       {
-        "default": "A person is visible in the video.",
+        "default": "A visible person is not wearing a helmet.",
         "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
         "label": "Monitoring goal",
         "path": "inputs.payload.monitoring_goal",
@@ -78,7 +78,7 @@
           "min_confidence": 0.55,
           "mode": "human_notice_only",
           "notify_on": [
-            "person"
+            "person without a helmet"
           ]
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",
@@ -183,7 +183,7 @@
         "description": "Use an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address; 127.0.0.1 and localhost refer to the worker's own machine. The URL is stored securely."
       },
       {
-        "default": "A person is visible in the video.",
+        "default": "A visible person is not wearing a helmet.",
         "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
         "label": "Monitoring goal",
         "path": "inputs.payload.monitoring_goal",
@@ -196,7 +196,7 @@
           "min_confidence": 0.55,
           "mode": "human_notice_only",
           "notify_on": [
-            "person"
+            "person without a helmet"
           ]
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",

@@ -185,7 +185,7 @@
     },
     "monitoring_goal": {
       "description": "Visible event condition that triggers a chat report with capture time and a frame.",
-      "example": "A person is visible in the video.",
+      "example": "A visible person is not wearing a helmet.",
       "type": "domain_value",
       "required": true,
       "privacy": "internal"

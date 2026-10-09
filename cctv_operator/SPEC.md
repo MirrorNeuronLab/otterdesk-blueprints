@@ -55,7 +55,7 @@ The Core caption path retains the entrypoints `ingress → adaptive_frame_sample
 → visual_detector → report_writer`. Its sampler self-schedules caption claims
 and applies steering; there is no video-specific Core module. The resident
 Web UI service owns one persistent CUDA FFmpeg relay and two independent lanes:
-RF-DETR person events and periodic caption-window capture. Person inference
+RF-DETR person gating and person-triggered caption-window capture. Person inference
 does not depend on Core tick delivery or Cosmos. The generic live-video skill
 owns diverse-frame selection and durable batch persistence. The blueprint owns
 caption cadence, bounded admission, event policy, steering and product metadata;
@@ -85,11 +85,12 @@ instruction restores the saved monitoring goal. Command completion confirms the 
 applied the instruction, not that a new model observation has already completed.
 
 The saved `inputs.payload.monitoring_goal` defaults to
-`A person is visible in the video.` Resident RF-DETR confirms sampled person
-presence and publishes direct notices. Cosmos independently describes observable
-activity and writes that account to authored Markdown context memory. One visible person meets the
-goal; a group is not required. Shadows, reflections, signage and speech alone
-do not qualify. Conversation questions read saved Markdown history through the
+`A visible person is not wearing a helmet.` Resident RF-DETR is the fixed person
+gate, independent of configurable analysis goals, and never publishes Chat
+findings. Cosmos checks observable helmet status, describes activity, and writes
+the account to authored Markdown context memory. Only confirmed goal matches
+create notices; compliant or uncertain helmet status does not. An occluded or
+unclear head is not proof of a missing helmet. Conversation questions read saved Markdown history through the
 text model, without further image interpretation. A corridor obstruction
 request remains a sufficiently specific goal; a single frame cannot certify
 safe passage.
@@ -104,15 +105,15 @@ Steering state is stored in the adaptive sampler’s agent state with a monotoni
 - One CUDA camera relay feeds separate resident person-detection and caption-sampling threads.
 - RF-DETR Small, PyTorch FP16, requests 5 FPS; Medium is a prepared comparison alternative. The published package and checkpoint hashes are pinned. Runtime downloads and CPU fallback are prohibited.
 - Person presence requires two consecutive detections at confidence 0.55. Two seconds of sampled absence rearm the scene episode. A gap greater than two seconds resets persistence without proving exit or identity. Instruction revisions rearm evaluation.
-- Canonical simple person-presence goals use RF-DETR notices directly. Arbitrary person activity, zones and complex conditions use Cosmos reasoning; no substring classifier may treat “a person falling” as mere presence.
-- Caption admission has an independent ten-second baseline, even for empty scenes. A separate 4 FPS sampler retains a rolling four-second window, selects at most twelve unique chronological frames and persists each batch before Core delivery.
+- RF-DETR detects the person class only. Monitoring instructions change Cosmos analysis, never the gate. All findings and notices come from Cosmos understanding.
+- A separate 4 FPS sampler retains a rolling four-second window. Confirmed RF-DETR person samples trigger two seconds of post-roll and at most one window per ten seconds. Brief appearances retain their post-roll even if the person leaves. Empty scenes do not admit Cosmos work. Each window selects at most twelve unique chronological frames and is persisted before Core delivery. On-demand analysis also requires the person gate.
 - One caption is in flight and one latest window is pending, with six admissions/minute. Replaced windows are counted; requested goals retain their command/revision. Durable completion releases admission on success or error. Lost completion is exposed as stalled and must not cause overlapping model work.
-- Caption or memory latency cannot block person notices. Detector failure does not close caption sampling; each lane exposes its own health. No failure is an absent-person observation.
-- Cosmos captions person activity but cannot duplicate RF-DETR presence notices. A superseded complex-goal revision can enter history but cannot publish a notice under the new goal.
+- Caption or memory latency cannot block person detection. A detector failure closes new Cosmos admission; each lane exposes its own health. No failure is an absent-person observation.
+- Cosmos records person activity and helmet status, including compliant and uncertain observations. A superseded goal revision can enter history but cannot publish a notice under the new goal.
 
-Only goal matches passing confidence and cooldown create `human_notice` and
-optional configured Slack delivery. Person evidence is durable before the SDK
-human notice and MCP activity are published. Complex-goal evidence uses the
+Only Cosmos goal matches passing confidence and cooldown create `human_notice` and
+optional configured Slack delivery. RF-DETR gate evidence is retained without
+notifying. Cosmos evidence uses the
 validated model-selected frame index. Quiet and unrelated captions stay in
 history without notifying. Notices retain observation time, recording
 qualification and bounded immutable evidence. The workflow performs no physical
@@ -129,8 +130,9 @@ seconds and the text-model call is bounded to 60 seconds without retries.
 Capture-time bounds require a timezone. The twelve most recent matching complete
 accounts are admitted within the configured context-memory byte limit; omissions
 and insufficient capacity are explicit. Returned citation aliases must resolve
-to the hydrated Markdown revisions. Summary and question reads are current-run
-scoped; `get_video_history` spans runs for the same camera and source. Questions
+to the hydrated Markdown revisions. Summary reads use the SDK memory scope's
+underlying workflow run ID. Questions and `get_video_history` span Job runs for
+the same camera and source. Questions
 never change monitoring. Preserve forecasts, recording qualifications and
 sampling gaps. Missing history does not mean zero people. Do not sum repeated
 observation counts to claim unique people or cumulative appearances.
@@ -323,8 +325,8 @@ The `mn.context` descriptor enables Membrane runtime memory and declares `mirror
 
 ## Sampled understanding and risk memory
 
-Every scheduled caption sequence is analyzed, including quiet scenes and batches
-with no configured-target match. A condition check or approval does not block the
+Every person-gated sequence is analyzed, including compliant and uncertain
+helmet status and batches with no configured-target match. A condition check or approval does not block the
 scene account. Cosmos records observed activity separately from `risk_predictions`.
 Each prediction includes visible evidence, a qualitative time horizon, confidence,
 severity and recommended human review. Predictions are hypotheses, not observed
@@ -351,7 +353,7 @@ The design follows Spark VSS's short-sequence temporal analysis, while composing
 it with MirrorNeuron's existing sampler, memory and chat rather than deploying
 VSS's complete service stack. See the [NVIDIA Cosmos API](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
 
-A continuing person episode is reported once and rearms only after sustained sampled absence. Complex goals rearm after confident Cosmos absence. Instruction revisions rearm evaluation while cooldown limits repeated notices.
+RF-DETR episodes gate analysis without notices. Cosmos matches are reported once per episode and rearm after confident Cosmos absence. Instruction revisions rearm evaluation while cooldown limits repeated notices.
 
 ## Benchmark contract
 

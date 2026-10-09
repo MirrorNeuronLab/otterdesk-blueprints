@@ -119,6 +119,7 @@ def test_chat_tool_reads_saved_scene_and_forecast_across_runs(monkeypatch, tmp_p
         detection={"summary": "A cart approaches the crossing.", "scene_understanding": "A pedestrian approaches the same crossing.",
                    "risk_predictions": [PREDICTION], "uncertainties": ["Speed cannot be measured."]})
     monkeypatch.setenv("MN_RUN_ID", "chat-run")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "native-chat-run")
     service = cctv_web_ui.CCTVWebUIService(run_id="chat-run", run_dir=tmp_path / "chat", config=config, preview_stream=StubPreview())
 
     class Server:
@@ -145,7 +146,7 @@ def test_chat_tool_reads_saved_scene_and_forecast_across_runs(monkeypatch, tmp_p
     with pytest.raises(ValueError, match="precede"):
         server.tools["get_video_history"](after="2026-10-07T09:00:00Z", before="2026-10-06T09:00:00Z")
 
-    # The current-run question lane reuses context memory and the text model,
+    # Questions span camera history while summaries retain current-run scope,
     # with no frame retrieval or second vision pass.
     history_reader = cctv_web_ui._load_domain_function("runtime_memory", "CameraMemory")
     memory = history_reader(config, tmp_path / "chat", "warehouse",
@@ -154,13 +155,25 @@ def test_chat_tool_reads_saved_scene_and_forecast_across_runs(monkeypatch, tmp_p
         "observed_at": "2026-10-07T10:00:00Z", "summary": "One person crosses the aisle.",
         "condition_screening": {"route": "deep_analysis"}, "frame_batch_ref": "frame_batches/two/batch.json"})
     memory.close()
+    foreign = history_reader(config, tmp_path / "other", "other-camera",
+        hashlib.sha256(b"rtsp://camera.example/unit-test").hexdigest())
+    foreign.remember({"frame_seq": 3, "camera_id": "other-camera", "batch_id": "three",
+        "observed_at": "2026-10-07T10:00:01Z", "summary": "Different camera must not enter the answer.",
+        "condition_screening": {"route": "deep_analysis"}})
+    foreign.close()
     answer = cctv_web_ui._load_domain_function("video_questions", "answer_video")
     calls = []
     def text(system, user, **kwargs):
         prompt = json.loads(user)
         calls.append(prompt)
         assert "One person crosses the aisle" in user
-        assert PREDICTION["risk"] not in user  # earlier run remains history-only
+        assert "Different camera must not enter" not in user
+        if prompt["summarize"]:
+            assert PREDICTION["risk"] not in user
+            assert prompt["scope"] == "current_run"
+        else:
+            assert PREDICTION["risk"] in user
+            assert prompt["scope"] == "camera_history"
         return kwargs["validator"]({"summary": "One person crossed at 10:00; unique people so far cannot be determined.", "citations": ["m1"]})
     monkeypatch.setitem(answer.__globals__, "completion_json", text)
     class InlineThread:

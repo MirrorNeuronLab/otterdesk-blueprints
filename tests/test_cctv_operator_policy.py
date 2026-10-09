@@ -21,15 +21,15 @@ policy = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(policy)
 
 
-def test_demo_starts_with_person_goal_and_markdown_summary_contract():
+def test_demo_starts_with_missing_helmet_goal_and_markdown_summary_contract():
     blueprint = ROOT / "cctv_operator"
     config = json.loads((blueprint / "config/default.json").read_text())
     ui = json.loads((blueprint / "extensions/ui.json").read_text())
     payload = config["inputs"]["payload"]
-    assert payload["visual_targets"] == ["person"]
-    assert payload["alert_policy"]["notify_on"] == ["person"]
-    assert policy.configured_visual_targets({}) == ["person"]
-    assert payload["monitoring_goal"] == "A person is visible in the video."
+    assert payload["visual_targets"] == ["person without a helmet"]
+    assert payload["alert_policy"]["notify_on"] == ["person without a helmet"]
+    assert policy.configured_visual_targets({}) == payload["visual_targets"]
+    assert payload["monitoring_goal"] == "A visible person is not wearing a helmet."
     assert policy.configured_monitoring_goal({}) == payload["monitoring_goal"]
     assert ui["starter_questions"][0] == "Has the monitoring goal happened?"
     assert "Summarize the video." in ui["starter_questions"]

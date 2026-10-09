@@ -6,7 +6,7 @@
       "max_calls_per_minute": 6,
       "max_concurrent_calls": 1,
       "min_interval_seconds": 10.0,
-      "rationale": "Resident RF-DETR person events run independently. Periodic caption windows use one active Cosmos request and one latest pending window. Historical questions read MN caption memory with the text model."
+      "rationale": "RF-DETR is the fixed person gate. Gated windows use one active Cosmos request and one latest pending window. Historical questions read MN caption memory with the text model."
     },
     "max_concurrency": 1,
     "max_events_per_second": 25,
@@ -89,16 +89,16 @@
         "min_confidence": 0.55,
         "mode": "human_notice_only",
         "notify_on": [
-          "person"
+          "person without a helmet"
         ]
       },
       "output_folder": "~/Downloads/cctv-operator",
       "source_mode": "stream",
       "video_source": "bundled_demo",
       "visual_targets": [
-        "person"
+        "person without a helmet"
       ],
-      "monitoring_goal": "A person is visible in the video."
+      "monitoring_goal": "A visible person is not wearing a helmet."
     }
   },
   "interfaces": {
@@ -345,7 +345,7 @@
         "llm_config": "primary",
         "model": "nemotron-3.5-lightning:latest",
         "responsibilities": [
-          "Claim independent caption windows from the resident camera service.",
+          "Claim RF-DETR person-gated Cosmos windows from the resident camera service.",
           "Publish durable frame references through Core; keep caption admission bounded."
         ],
         "role": "Adaptive frame sampler"
@@ -394,7 +394,7 @@
         "llm_config": "vision",
         "model": "cosmos3-nano-reasoner:1.7",
         "responsibilities": [
-          "Caption scheduled video windows, including quiet scenes, and evaluate complex visual goals.",
+          "Analyze person-gated windows for helmets and scene understanding; retain compliant and uncertain observations.",
           "Publish authored captions through MN memory; preserve times, evidence and uncertainty."
         ],
         "role": "Visual target detector actor"
@@ -544,11 +544,11 @@
     "blueprint_revision": "v1",
     "category": "security",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker with resident RF-DETR person events, independent periodic Cosmos captions, MN caption memory and measured pipeline stages. It supports a staged demo recording or approved external RTSP/RTMP input.",
+    "description": "An NVIDIA-only CCTV co-worker with resident RF-DETR person events, person-gated Cosmos helmet and scene understanding, MN caption memory and measured pipeline stages. It supports a staged demo recording or approved external RTSP/RTMP input.",
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
     "problem_solved": "One NVIDIA-only workflow runs a self-contained CCTV demo or monitors an approved external RTSP/RTMP stream without sending the source frame rate to the model.",
-    "simulation_type": "Resident person events and independent caption sampling with review state.",
+    "simulation_type": "Fixed person gate and Cosmos scene understanding with review state.",
     "standard_version": "1.0",
     "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
@@ -669,7 +669,7 @@
     "scene_change_consecutive_samples": 2,
     "scene_change_threshold": 0.18,
     "sequence_triggers": [
-      "baseline",
+      "person_gate",
       "on_demand"
     ]
   },

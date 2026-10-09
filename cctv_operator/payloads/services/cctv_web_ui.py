@@ -765,13 +765,6 @@ def create_operator_mcp_server(
         finding = metrics["latest finding"]
         observed_at = metrics["last analyzed"]
         summary = f"{finding} Last analyzed: {observed_at}."
-        normalized_question = " ".join(str(question or "").casefold().split())[:500]
-        if any(word in normalized_question for word in ("person", "people", "anyone", "somebody")):
-            person_summary = _load_domain_function("pipeline_status", "person_status_summary")(state.get("pipeline", {}))
-            if person_summary:
-                summary = person_summary
-            else:
-                summary = f"No fresh person-detector result is available. Last saved caption: {summary}"
         return {
             "schema_version": "mn.cctv.operator_status.v1",
             "ready": True,  # Control availability does not depend on a first detection.

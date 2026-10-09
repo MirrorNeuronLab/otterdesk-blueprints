@@ -6,9 +6,9 @@ from typing import Any, Mapping
 
 
 DEFAULT_VISUAL_TARGETS = (
-    "person",
+    "person without a helmet",
 )
-DEFAULT_MONITORING_GOAL = "A person is visible in the video."
+DEFAULT_MONITORING_GOAL = "A visible person is not wearing a helmet."
 DEFAULT_ALERT_POLICY = {
     "mode": "human_notice_only",
     "min_confidence": 0.55,
@@ -188,11 +188,9 @@ def configured_target_notice(
     frame_seq = detection.get("frame_seq")
     matches = list(decision.get("matched_targets") or [])
     target_text = ", ".join(matches) or "configured target"
-    detail = str(
-        detection.get("detection_report")
-        or detection.get("summary")
-        or "A configured target was observed."
-    )[:700]
+    finding = str(detection.get("detection_report") or detection.get("summary") or "A configured target was observed.")
+    understanding = str(detection.get("scene_understanding") or "")
+    detail = (finding + (" " + understanding if understanding and understanding != finding else ""))[:700]
     qualification = " Recorded demo playback." if detection.get("source_profile") == "bundled_demo" else ""
     return {
         "type": "human_notice",

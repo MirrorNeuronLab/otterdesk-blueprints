@@ -85,10 +85,11 @@ def test_video_question_reads_complete_markdown_without_vision(monkeypatch, tmp_
         requests[0][2]['validator']({'summary': 'Invented', 'citations': ['m99']})
     with pytest.raises(ValueError, match='supporting observations'):
         requests[0][2]['validator']({'summary': 'Uncited', 'citations': []})
-    # The question path is scoped to this run, while the history tool spans runs.
+    # History questions span runs; the summary remains current-run scoped.
     monkeypatch.setenv('MN_RUN_ID', 'later')
-    assert video_questions.answer_video(config, tmp_path, 'later', 'How many people?')['history_status'] == 'no_evidence'
-    assert len(requests) == 1
+    assert video_questions.answer_video(config, tmp_path, 'later', 'How many people?')['history_status'] == 'ready'
+    assert video_questions.answer_video(config, tmp_path, 'later', 'Summarize', summarize=True)['history_status'] == 'no_evidence'
+    assert len(requests) == 2
 
 
 @pytest.mark.parametrize('status, enabled, message', [

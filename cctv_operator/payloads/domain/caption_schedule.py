@@ -1,4 +1,4 @@
-"""Independent caption cadence and bounded video admission, before Core delivery."""
+"""Fixed RF-DETR person gate and bounded Cosmos admission before Core delivery."""
 
 import hashlib
 import io
@@ -40,11 +40,40 @@ class CaptionSchedule:
         self.pending = None
         self.last_revision = None
         self.last_capture_at = None
+        self.person_gate = None
+        self.gate_window = None
+        self.gate_max_age = float((config.get("person_detector") or {}).get("max_gap_seconds", 2))
         try:
             self.state = json.loads((self.root / "caption_schedule.json").read_text())
         except FileNotFoundError:
             self.state = {"sequence": 0, "inflight": None, "skipped_windows": 0, "last_offered_at": None, "call_times": []}
         self.pending_requested_command = self.state.get("pending_requested_command")
+
+    def person_sample(self, timestamp, *, confirmed, episode):
+        # RF-DETR owns this signal. Monitoring goals cannot replace the gate.
+        # No image work, model call or durable write blocks person inference.
+        with self.lock:
+            prior = self.person_gate or {}
+            if timestamp <= prior.get("at", float("-inf")):
+                return
+            started = prior.get("started_at", timestamp)
+            if not confirmed or not prior.get("confirmed") or prior.get("episode") != episode:
+                started = timestamp
+            self.person_gate = {"at": timestamp, "confirmed": bool(confirmed),
+                                "started_at": started, "episode": episode}
+            last = self.state.get("last_offered_at")
+            if confirmed and self.gate_window is None and (
+                    last is None or timestamp - last >= max(0,
+                        self.policy.baseline_interval_seconds - self.policy.post_roll_seconds)):
+                # Preserve a brief confirmed appearance until its post-roll is
+                # captured, even if the person leaves before the window ends.
+                self.gate_window = dict(self.person_gate)
+
+    def _gate_open(self, timestamp):
+        gate = self.person_gate
+        return bool(gate and gate["confirmed"] and
+                    0 <= timestamp - gate["at"] <= self.gate_max_age and
+                    timestamp - gate["started_at"] >= self.policy.post_roll_seconds)
 
     def capture(self, revision, timestamp, jpeg, monitoring):
         with self.lock:
@@ -61,32 +90,41 @@ class CaptionSchedule:
             self.frames.append({"content": buffer.getvalue(), "timestamp": timestamp, "score": 0})
             while self.frames and timestamp - self.frames[0]["timestamp"] > self.window:
                 self.frames.popleft()
-            last = self.state.get("last_offered_at")
             requested = self.pending_requested_command
+            gate = self.gate_window
+            if gate is None or timestamp - gate["at"] < self.policy.post_roll_seconds:
+                return
+            self.gate_window = None
+            if timestamp - gate["at"] > self.window:
+                # The rolling images no longer contain the confirmed sample.
+                self.state["skipped_windows"] += 1
+                self._persist()
+                return
             if requested is not None:
                 self.pending_requested_command = None
-                self._offer(requested, timestamp, "on_demand")
-            elif last is None or timestamp - last >= self.policy.baseline_interval_seconds:
-                self._offer(monitoring, timestamp, "baseline")
+                self._offer(requested, timestamp, "on_demand", gate=gate)
+            else:
+                self._offer(monitoring, timestamp, "person_gate", gate=gate)
 
-    def _offer(self, monitoring, now, trigger):
+    def _offer(self, monitoring, now, trigger, *, gate=None):
         if not self.frames:
             return
         if self.pending is not None:
             if (int(self.pending["monitoring"].get("instruction_revision") or 0) >
                     int(monitoring.get("instruction_revision") or 0)):
                 monitoring = self.pending["monitoring"]
-            if (self.pending["trigger"] == "on_demand" and trigger == "baseline" and
+            if (self.pending["trigger"] == "on_demand" and trigger == "person_gate" and
                     int(self.pending["monitoring"].get("instruction_revision") or 0) >=
                     int(monitoring.get("instruction_revision") or 0)):
                 # Keep the requested revision, but refresh its images while a
-                # previous caption runs. A baseline cannot discard the command.
+                # previous caption runs. A person window cannot discard the command.
                 monitoring = self.pending["monitoring"]
                 trigger = "on_demand"
             self.state["skipped_windows"] += 1
-            self.benchmarks.record("caption.coverage", 0, variant="independent cadence", status="skipped",
+            self.benchmarks.record("caption.coverage", 0, variant="person-gated cadence", status="skipped",
                                    metadata={"skipped_windows": 1})
-        self.pending = {"frames": list(self.frames), "monitoring": dict(monitoring), "offered_at": now, "trigger": trigger}
+        self.pending = {"frames": list(self.frames), "monitoring": dict(monitoring), "offered_at": now,
+                        "trigger": trigger, "gate": dict(gate or self.person_gate)}
         self.state["last_offered_at"] = now
         self._persist()
 
@@ -95,7 +133,7 @@ class CaptionSchedule:
         if self.pending is not None and revision > int(self.pending["monitoring"].get("instruction_revision") or 0):
             # An already scheduled window follows the latest rule. A superseded
             # on-demand command cannot hold its old rule ahead of a newer one.
-            self.pending.update(monitoring=dict(monitoring), trigger="baseline")
+            self.pending.update(monitoring=dict(monitoring), trigger="person_gate")
         requested = self.pending_requested_command
         if requested is not None and revision > int(requested.get("instruction_revision") or 0):
             self.pending_requested_command = None
@@ -106,6 +144,7 @@ class CaptionSchedule:
     def snapshot(self):
         inflight = self.state.get("inflight")
         return {"schema": "otterdesk.cctv.caption_schedule.v1", **self.state, "pending_requested_command": self.pending_requested_command,
+                "gate": {"detector": "RF-DETR", "condition": "person", **(self.person_gate or {})},
                 "pending_windows": int(self.pending is not None),
                 "inflight_status": ("stalled" if inflight and time.time() - inflight["claimed_at"] > 300
                                     else "processing" if inflight else "idle"),
@@ -128,7 +167,7 @@ class CaptionSchedule:
                 elif invocation_id and inflight.get("invocation_id") == invocation_id:
                     return {"batch": inflight["message"], "state": self.snapshot()}
             if force:
-                if self.frames:
+                if self.frames and self._gate_open(now):
                     self._offer(monitoring or initial_monitoring_state(), now, "on_demand")
                 else:
                     self.pending_requested_command = monitoring or initial_monitoring_state()
@@ -153,6 +192,7 @@ class CaptionSchedule:
                 instruction_revision=int(instruction.get("instruction_revision") or 0),
                 candidates=pending["frames"], selected=selected, schema="otterdesk.cctv_operator.frame_batch.v2",
                 metadata={"camera_id": camera_id, "command_id": instruction.get("last_command_id"),
+                          "candidate_gate": {"detector": "RF-DETR", "condition": "person", **pending["gate"]},
                           "caption_offered_at": pending["offered_at"], "caption_claimed_at": now,
                           "timestamp_basis": "worker_frame_availability", "skipped_caption_windows": self.state["skipped_windows"]})
             message = {key: batch[key] for key in ("batch_id", "trigger", "instruction", "instruction_revision",

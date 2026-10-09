@@ -19,12 +19,12 @@
   ],
   "problem_solved": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
   "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-  "simulation_type": "Person presence alerts and independent sampled-video captions.",
+  "simulation_type": "Cosmos helmet findings and person-gated Cosmos understanding.",
   "runtime_features": [
     "Live camera review",
-    "Person presence alerts",
+    "Cosmos helmet findings",
     "Monitoring instructions in Chat",
-    "Independent video captions",
+    "Person-gated scene understanding",
     "Video preview",
     "NVIDIA GPU video processing",
     "Visual observations",
@@ -76,15 +76,15 @@
     "agent_role": "Co-worker for reviewing live camera activity and preparing alerts.",
     "benefit": "Focus your attention on the events you want to watch for, with times and frames you can review.",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "how_it_works": "RF-DETR detects person presence for direct notices. Cosmos independently captions sampled video into MN memory for questions and summaries. Per-stage benchmarks expose timing, failures and skipped coverage.",
+    "how_it_works": "RF-DETR is the fixed person-detection gate. Cosmos analyzes people and helmets, publishes confirmed goal findings, and writes Markdown into MN memory for questions and summaries. Per-stage benchmarks expose timing, failures and skipped coverage.",
     "input": "The included demo stream or one approved RTSP/RTMP camera stream, plus what to watch for and your alert settings.",
     "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
     "problem": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
     "runtime_features": [
       "Live camera review",
-      "Person presence alerts",
+      "Cosmos helmet findings",
       "Monitoring instructions in Chat",
-      "Independent video captions",
+      "Person-gated scene understanding",
       "Video preview",
       "NVIDIA GPU video processing",
       "Visual observations",
@@ -93,7 +93,7 @@
       "Past-video questions and summaries",
       "Saved reports"
     ],
-    "simulation_type": "Person presence alerts and independent sampled-video captions.",
+    "simulation_type": "Cosmos helmet findings and person-gated Cosmos understanding.",
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
   "overview": "Watches your monitoring goal and reports verified events with times and frames. Ask questions about retained sampled footage or request a video summary. Start with the warehouse demo or connect an approved camera stream. Requires an NVIDIA GPU."

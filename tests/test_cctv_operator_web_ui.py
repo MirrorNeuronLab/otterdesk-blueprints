@@ -454,13 +454,13 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert status["finding"] in status["summary"]
     assert status["observed_at"] in status["summary"]
     person_answer = server.tools["get_operator_status"]("Do you see any person?")
-    assert person_answer["summary"].startswith("No fresh person-detector result")
+    assert person_answer["summary"] == status["summary"]
     (tmp_path / "person_detector_state.json").write_text(json.dumps({
         "person_detector": "running", "last_person_frame_at": time.time(), "visible_people": 0,
         "captions": "running"}))
     current_person_answer = server.tools["get_operator_status"]("Do you see any person?")
-    assert "did not detect a person" in current_person_answer["summary"]
-    assert "visible near the center" not in current_person_answer["summary"]
+    assert current_person_answer["summary"] == status["summary"]
+    assert current_person_answer["pipeline"]["person_events"]["visible_people"] == 0
 
     activity = server.tools["get_operator_activity"]("0")
 

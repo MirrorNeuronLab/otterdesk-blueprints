@@ -96,6 +96,7 @@ def _run_detector(
                 }
             ],
             "metrics": {},
+            "candidate_gate": {"detector": "RF-DETR", "condition": "person", "confirmed": True},
         },
     )
     payload = {
@@ -158,8 +159,46 @@ def test_quiet_scene_is_analyzed_without_target_screening(monkeypatch, tmp_path,
     assert len(prompts) == 1
     observed = output["next_state"]["last_observation"]
     assert observed["scene_understanding"] == "A parked cart remains beside the aisle."
-    assert observed["condition_screening"]["mode"] == "independent_captioning"
+    assert observed["condition_screening"]["mode"] == "person_gated_cosmos"
     assert not any(event["type"] == "human_input_requested" for event in output["events"])
+
+
+@pytest.mark.parametrize("matched,confidence,understanding,expected", [
+    (False, .95, "Both visible workers wear helmets.", False),
+    (False, .3, "The person's head is occluded; helmet status is uncertain.", False),
+    (True, .9, "A worker on the left has a visibly uncovered head while carrying a box.", True),
+])
+def test_default_helmet_notices_use_cosmos_understanding_only(monkeypatch, tmp_path, capsys,
+                                                             matched, confidence, understanding, expected):
+    detector = _load_detector()
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1, "camera_id": "warehouse"},
+        detection={"detected_target": matched, "confidence": confidence,
+                   "summary": "Helmet review.", "scene_understanding": understanding,
+                   "detection_report": "A visible worker is not wearing a helmet." if matched else "No confirmed helmet violation."})
+    notices = [event for event in output["events"] if event["type"] == "human_notice"]
+    assert bool(notices) is expected
+    assert output["next_state"]["last_observation"]["scene_understanding"] == understanding
+    assert "A visible person is not wearing a helmet." in prompts[0]
+    assert "occluded, distant or unclear head is uncertain" in prompts[0]
+    if expected:
+        assert understanding in notices[0]["payload"]["message"]
+        assert notices[0]["payload"]["image"]
+
+
+def test_ungated_batch_is_rejected_before_cosmos_or_memory(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    original = detector.load_frame_batch
+    def ungated(reference):
+        batch, frames = original(reference)
+        batch.pop("candidate_gate")
+        return batch, frames
+    monkeypatch.setattr(detector, "load_frame_batch", ungated)
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1}, detection={"detected_target": True})
+    assert prompts == []
+    assert "confirmed RF-DETR person gate" in output["next_state"]["last_error"]
+    assert not any(event["type"] == "human_notice" for event in output["events"])
 
 
 def test_uncertain_scene_does_not_block_observation_for_approval(monkeypatch, tmp_path, capsys):
@@ -299,7 +338,7 @@ def test_monitoring_goal_match_emits_timed_chat_notice_with_frame(monkeypatch, t
 
 def test_continuing_goal_match_is_not_repeated_after_cooldown(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
-    state = {**detector.initial_state(), "notified_goal": "A person is visible in the video."}
+    state = {**detector.initial_state(), "notified_goal": "A visible person is not wearing a helmet."}
     output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={"tick_seq": 3}, state=state,
         detection={"detected_target": True, "confidence": .95, "summary": "The group is still standing together."})
@@ -309,7 +348,7 @@ def test_continuing_goal_match_is_not_repeated_after_cooldown(monkeypatch, tmp_p
 
 def test_confirmed_goal_absence_rearms_notifications(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
-    state = {**detector.initial_state(), "notified_goal": "A person is visible in the video."}
+    state = {**detector.initial_state(), "notified_goal": "A visible person is not wearing a helmet."}
     output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={"tick_seq": 3}, state=state,
         detection={"detected_target": False, "confidence": .95, "summary": "The group dispersed."})
@@ -326,7 +365,7 @@ def test_unrelated_low_confidence_and_repeated_activity_stay_quiet(monkeypatch, 
         detection={"detected_target": matched, "confidence": confidence,
                    "detections": [{"label": "person", "category": "person"}],
                    "summary": "People are visible.", "scene_understanding": "People are visible."})
-    assert "A person is visible in the video." in prompts[0]
+    assert "A visible person is not wearing a helmet." in prompts[0]
     assert not any(event["type"] == "human_notice" for event in output["events"])
     assert not (tmp_path / "run/web/conversation_media.json").exists()
 

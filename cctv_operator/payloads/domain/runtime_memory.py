@@ -109,7 +109,7 @@ class CameraMemory:
 
 
 def read_video_history(config, run_dir, *, query="Recent sampled camera observations",
-                       after="", before="", run_id=None, request_id="chat-history"):
+                       after="", before="", current_run=False, request_id="chat-history"):
     """Read complete authored Markdown accounts, never images or report projections."""
     bounds = []
     for value in (after, before):
@@ -124,10 +124,12 @@ def read_video_history(config, run_dir, *, query="Recent sampled camera observat
     source = config.get("video_source") or {}
     uri = os.environ.get("VIDEO_SOURCE_URI") or source.get("uri", "")
     source_key = hashlib.sha256(redact_source_uri(uri).encode()).hexdigest()
-    memory = CameraMemory(config, run_dir, source.get("camera_id") or "cctv", source_key)
+    camera_id = os.environ.get("VIDEO_SOURCE_CAMERA_ID") or source.get("camera_id") or "cctv"
+    memory = CameraMemory(config, run_dir, camera_id, source_key)
     try:
         packet = memory.recall(request_id, query=query, after=after, before=before,
-                               limit=12, run_id=run_id)
+                               limit=12, run_id=memory.memory.scope["run_id"]
+                               if current_run and memory.memory is not None else None)
         aliases = {row["citation"] for row in (packet or {}).get("evidence", [])}
         citations = {alias: handles for alias, handles in memory.last_recall_receipt.get("citations", {}).items()
                      if alias in aliases}

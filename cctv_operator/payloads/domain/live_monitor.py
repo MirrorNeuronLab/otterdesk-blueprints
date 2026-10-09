@@ -1,4 +1,4 @@
-"""Resident person detection and independent caption sampling for one camera."""
+"""Resident RF-DETR person gate and bounded Cosmos sampling for one camera."""
 
 import json
 import math
@@ -16,8 +16,7 @@ from .caption_schedule import BINDING_FILE, CaptionSchedule
 from .monitoring import load_monitoring_state
 from .person_detector import RFDETRPersonDetector
 from .person_events import PersonEpisodes
-from .person_notices import PersonNotices
-from .detection_policy import configured_alert_policy
+from .person_evidence import PersonEvidence
 
 
 class LiveMonitor:
@@ -38,7 +37,7 @@ class LiveMonitor:
         self.status = {"person_detector": "starting", "captions": "starting"}
         self.persist_lock = threading.Lock()
         self.caption_schedule = CaptionSchedule(run_dir, run_id, config, self.benchmarks)
-        self.notices = PersonNotices(run_dir, run_id, config, self.benchmarks, publish_activity)
+        self.person_evidence = PersonEvidence(run_dir, run_id, config, self.benchmarks)
         self.stop_event = threading.Event()
         self.threads = []
         self.service = None
@@ -57,7 +56,7 @@ class LiveMonitor:
             target()
         except Exception as exc:
             # The two lanes have explicit independent health. A failed detector
-            # never closes the caption path or makes an absence observation.
+            # never makes an absence observation or opens the Cosmos gate.
             self.status["person_detector" if stage == "person" else "captions"] = "failed"
             append_event(self.root, "cctv_operator_frame_analysis_failed", {"stage": stage,
                 "error": redact_source_urls(f"{type(exc).__name__}: {exc}")[:800],
@@ -80,16 +79,18 @@ class LiveMonitor:
                 if skipped:
                     self.benchmarks.record("person.coverage", 0, variant=self.detector.variant, status="skipped",
                                            metadata={**metadata, "skipped_frames": skipped})
-                people = [person for person in self.detector.detect(jpeg)
-                          if person["confidence"] >= configured_alert_policy(self.config)["min_confidence"]]
+                people = self.detector.detect(jpeg)
                 monitoring = load_monitoring_state(self.root)
                 with self.benchmarks.measure("person.policy", variant=self.detector.variant):
                     episode = self.episodes.update(people, timestamp,
                         revision=int(monitoring.get("instruction_revision") or 0))
+                self.caption_schedule.person_sample(timestamp,
+                    confirmed=bool(people) and self.episodes.state.get("hits", 0) >= self.episodes.hits_required,
+                    episode=int(self.episodes.state.get("episode", 0)))
                 self.status.update(person_detector="running", last_person_frame_at=timestamp, visible_people=len(people))
                 self._persist()
                 if episode:
-                    self.notices.publish(episode, jpeg, monitoring, self.detector.variant)
+                    self.person_evidence.record(episode, jpeg, monitoring, self.detector.variant)
             self.stop_event.wait(max(.01, 1 / self.fps - (time.monotonic() - started)))
 
     def _caption_loop(self):

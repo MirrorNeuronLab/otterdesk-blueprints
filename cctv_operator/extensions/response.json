@@ -34,7 +34,7 @@
               "type": "string"
             }
           },
-          "description": "Read separate person-detector and caption health, the latest sampled finding and its timestamp. Person presence uses resident RF-DETR; complex goals use Cosmos captions. Quiet scenes are captioned periodically. A question does not change monitoring."
+          "description": "Read the latest Cosmos scene understanding and its timestamp, plus separate RF-DETR person-gate and Cosmos health. RF-DETR only gates person presence; it never judges helmets or creates Chat findings. The gate cannot be changed. Questions do not change monitoring."
         },
         "get_operator_activity": {
           "effect": "read",
@@ -81,7 +81,7 @@
               ]
             }
           },
-          "description": "Change the active run's vision-model prompt and what it looks for. Direct requests such as \"change the goal to watch the corridor for obstructions\" and requests to focus on, find, look for, watch, or detect a visible condition are monitoring actions, including \"can you focus on find foreign object on the floor?\". Put the requested visual goal in instruction, clear=\"false\", analyze_now=\"true\". This replaces the default target focus for subsequent batches and requests an immediate analysis. To restore the saved monitoring goal use instruction=\"\", clear=\"true\", analyze_now=\"true\". Ask the operator to choose a specific visual goal when the request is vague. Report the goal applied only when command status is completed; acceptance alone means it is queued. Check analysis_ready before presenting a new finding."
+          "description": "Change the ongoing Cosmos analysis goal only when the operator explicitly asks to change the goal, keep watching, focus on, or alert about a future visible condition. Examples: \"change the goal to watch the corridor for obstructions\" and \"can you focus on find foreign object on the floor?\". A retrospective question such as \"can you find if anyone did not wear a helmet?\" is a history read: use answer_video_question, never this tool. RF-DETR remains the fixed person gate for every goal. Put the requested analysis goal in instruction, clear=\"false\", analyze_now=\"true\". A new analysis waits for the person gate. Restore the saved goal with instruction=\"\", clear=\"true\", analyze_now=\"true\". Report applied only after command status completed; acceptance means queued. Check analysis_ready before presenting a finding."
         },
         "acknowledge_operator_notice": {
           "effect": "acknowledgement",
@@ -138,7 +138,7 @@
               "type": "string"
             }
           },
-          "description": "Answer the actual question from this run\u2019s saved Markdown observations in context memory using the text model only. Never retrieve images or invoke Cosmos. This is an asynchronous read; poll get_video_answer for completion. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve evidence times and sampling limits. Missing history does not mean zero people; repeated observations cannot establish unique people or a cumulative total. Use get_video_history for accounts across runs. Does not change monitoring."
+          "description": "Answer the actual question from saved authored Markdown for this camera and source across Job runs, using Membrane context memory and the text model only. Use for retrospective questions, including \"can you find if anyone did not wear a helmet?\". Never change monitoring, retrieve images or invoke Cosmos. This is an asynchronous read; poll get_video_answer for completion. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve evidence times, citations, recording qualifications and sampling limits. Missing history does not mean zero people; repeated observations cannot establish unique people or a cumulative total."
         },
         "get_pipeline_benchmarks": {
           "effect": "read",

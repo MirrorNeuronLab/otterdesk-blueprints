@@ -17,7 +17,7 @@ def answer_video(config, run_dir, run_id, question, *, after="", before="", summ
     benchmarks = Benchmarks(run_dir, config)
     with benchmarks.measure("rag.retrieve", variant="MN / Membrane authored captions"):
         evidence = read_video_history(config, run_dir, query=question, after=after, before=before,
-                                      run_id=run_id, request_id=request_id)
+                                      current_run=summarize, request_id=request_id)
     packet = evidence["history"]
     qualification = evidence["qualification"]
     status = (packet or {}).get("status", "disabled")
@@ -65,7 +65,8 @@ def answer_video(config, run_dir, run_id, question, *, after="", before="", summ
         structured_output_options={"chat_template_kwargs": {"enable_thinking": False}})
     with benchmarks.measure("rag.answer", variant=selected.model):
         result = completion_json(system, json.dumps({"question": question, "summarize": summarize,
-            "run_id": run_id, "history": packet}, ensure_ascii=False), config=selected, validator=validate)
+            "run_id": run_id, "scope": "current_run" if summarize else "camera_history",
+            "history": packet}, ensure_ascii=False), config=selected, validator=validate)
     return {"summary": result["summary"] + "\n\n" + qualification,
             "citations": [{"citation": alias, "sources": aliases[alias]} for alias in result["citations"]], **common}
 

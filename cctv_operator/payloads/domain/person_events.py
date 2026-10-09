@@ -1,15 +1,6 @@
 """Scene-level person episodes; no identity or activity inference."""
 
 import math
-import re
-
-from .detection_policy import DEFAULT_MONITORING_GOAL
-
-
-def uses_person_events(goal):
-    normalized = re.sub(r"[^a-z0-9 ]", "", " ".join(str(goal).casefold().split()))
-    return normalized in {"a person is visible in the video", "a person is visible", "person",
-                          "a person is present", "notify me when a person is visible"}
 
 
 class PersonEpisodes:
@@ -55,8 +46,3 @@ class PersonEpisodes:
                 if timestamp - state["absent_since"] >= self.absence_seconds:
                     state.update(active=False, absent_since=None)
         return None
-
-
-def person_goal(config, monitoring):
-    from .detection_policy import configured_monitoring_goal
-    return str(monitoring.get("instruction") or configured_monitoring_goal(config) or DEFAULT_MONITORING_GOAL)

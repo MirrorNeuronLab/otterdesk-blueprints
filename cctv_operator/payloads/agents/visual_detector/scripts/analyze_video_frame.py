@@ -66,7 +66,6 @@ from domain.model_definitions import cosmos_model_spec
 from domain.benchmarks import Benchmarks
 from domain.caption_schedule import complete_caption
 from domain.monitoring import load_monitoring_state
-from domain.person_events import uses_person_events
 from domain.alert_delivery import post_slack
 
 
@@ -1056,6 +1055,10 @@ def main() -> None:
         if not batch_ref:
             raise ValueError("visual detector requires a persisted frame_batch_ref")
         batch, batch_frames = load_frame_batch(batch_ref)
+        person_gate = batch.get("candidate_gate") or {}
+        if not (person_gate.get("detector") == "RF-DETR" and
+                person_gate.get("condition") == "person" and person_gate.get("confirmed") is True):
+            raise ValueError("Cosmos analysis requires a confirmed RF-DETR person gate")
         if batch.get("caption_claimed_at"):
             benchmarks.record("caption.dispatch_wait", max(0, (time.time() - batch["caption_claimed_at"]) * 1000),
                               variant="Core caption dispatch", metadata={"frames": len(batch_frames)})
@@ -1104,7 +1107,7 @@ def main() -> None:
             )
         events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
             "camera_id": camera_id, "frame_seq": frame_seq, "frame_batch_ref": batch_ref,
-            "detected_target": detection["detected_target"], "analysis_mode": "independent_captioning",
+            "detected_target": detection["detected_target"], "analysis_mode": "person_gated_cosmos",
         }})
 
         detection_payload = {
@@ -1141,7 +1144,7 @@ def main() -> None:
             "model_latency_ms": model_latency_ms,
             "sampling_metrics": dict((batch or {}).get("metrics") or {}),
             "latest_analyzed_frame": latest_frame_metadata or None,
-            "condition_screening": {"route": "deep_analysis", "mode": "independent_captioning"},
+            "condition_screening": {"route": "deep_analysis", "mode": "person_gated_cosmos"},
             "configured_targets": visual_targets,
         }
         candidate = batch.get("candidate_gate") or {}
@@ -1156,9 +1159,7 @@ def main() -> None:
             active_goal=goal,
         )
         current_revision = int(load_monitoring_state(configured_run_dir()).get("instruction_revision") or 0)
-        if uses_person_events(goal):
-            alert_decision.update(notify=False, reason="dedicated_person_event_detector")
-        elif current_revision > detection_payload["instruction_revision"]:
+        if current_revision > detection_payload["instruction_revision"]:
             alert_decision.update(notify=False, reason="superseded_monitoring_instruction")
         detection_payload["matched_alert_targets"] = list(
             alert_decision["matched_targets"]
