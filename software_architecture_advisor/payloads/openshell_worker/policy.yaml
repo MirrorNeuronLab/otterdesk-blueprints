@@ -9,23 +9,22 @@ process:
   run_as_user: sandbox
   run_as_group: sandbox
 network_policies:
-  opencode_zen:
-    name: opencode-zen-model-api
+  mini_model_gateway:
+    name: mini-model-gateway
     endpoints:
-      - host: opencode.ai
-        port: 443
+      - host: ${config.opencode.gateway_hosts.mini}
+        port: 4000
         protocol: rest
         enforcement: enforce
         rules:
-          - allow: {method: POST, path: /zen/v1/responses}
-          - allow: {method: GET, path: /zen/v1/models}
+          - allow: {method: POST, path: /v1/chat/completions}
     binaries:
       - {path: /usr/local/bin/opencode}
-  local_spark:
-    name: local-spark-model-api
+  spark_model_gateway:
+    name: spark-model-gateway
     endpoints:
-      - host: 10.0.4.32
-        port: 8000
+      - host: ${config.opencode.gateway_hosts.spark}
+        port: 4000
         protocol: rest
         enforcement: enforce
         rules:

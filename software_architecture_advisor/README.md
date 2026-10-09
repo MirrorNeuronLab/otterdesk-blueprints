@@ -48,12 +48,13 @@ and build directories are excluded by `ingest.exclude`; this includes Elixir
 Only captured code enters source packets, retrieval and model review. Public Git
 clones retain the existing bounded, credential-free acquisition policy.
 
-Default model: **Muse Spark 1.3 FreeOpenCode Zen**
-(`opencode/muse-spark-1.3-contributor-free`). Override with
-`--set opencode.model=provider/model`; update the OpenShell provider/network
-policy for a different provider. There is no automatic paid-model fallback.
-Bounded source excerpts are sent to the selected provider. OpenCode public
-sharing, edits, shell execution, delegation and web tools are disabled for review.
+Default review model: **Runtime default** (`mn/default`). OpenCode remains the
+reviewer inside OpenShell. The SDK selects and prepares the runtime model, and
+all review requests go through its LiteLLM gateway. Use `mn/<catalog-id>` for a
+specific runtime model. An OpenCode provider/model choice must already be
+registered in the runtime catalog; unavailable routes fail before dispatch.
+There is no direct-provider or paid-model fallback. OpenCode public sharing,
+edits, shell execution, delegation and web tools are disabled for review.
 
 The platform prepares `mirror-neuron/software-architecture-advisor:local` from
 `payloads/docker_worker/Dockerfile` using the standard Python 3.11 base with
@@ -64,33 +65,34 @@ OpenCode 1.18.33, Python and `iproute2` for network isolation; the platform
 installs declared packages into that image. An existing Docker-worker image
 tag is not used for sandbox provisioning. The execution host needs Docker and a working OpenShell gateway.
 Do not launch the packet worker natively; live calls verify the OpenShell runtime.
-The sandbox policy permits OpenCode Zen and the configured Local Spark model endpoints. Model changes
-may require an explicit policy and credential-provider change.
+The sandbox policy allows only OpenCode's chat-completions requests to the
+Mini and Spark LiteLLM gateways. Deployments using other gateway hosts must
+set `opencode.gateway_hosts` to authorize those exact endpoints. SDK and CLI
+render the policy's configuration bindings before provisioning and staging.
 
 ## Choose the model
 
-The blueprint setup form includes **OpenCode review model** with two choices:
-
-| Choice | `opencode.model` |
-| --- | --- |
-| Muse Spark 1.3 FreeOpenCode Zen (default) | `opencode/muse-spark-1.3-contributor-free` |
-| Muse Glimmer 30BLocal Spark | `spark/muse-glimmer-30b` |
-
-Change `opencode.model` in `config/default.json`, or override it per run:
+The setup form offers Runtime default, Muse Spark 1.3 FreeOpenCode Zen and
+Muse Glimmer 30BLocal Spark. The Muse choices require registered runtime routes;
+upstream endpoint and credential configuration belongs to the runtime catalog.
+Their existing display labels normalize to the corresponding provider/model IDs.
+For example:
 
 ```bash
 mn blueprint run ./software_architecture_advisor \
-  --set opencode.model=spark/muse-glimmer-30b \
+  --set opencode.model=mn/default \
   --set inputs.payload.repository_url= \
   --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
-Both display labels are also accepted as configuration values. Local Spark uses
-`opencode.spark_base_url` (default `http://10.0.4.32:8000/v1`), matching this
-workstation's OpenCode provider configuration. The worker writes only the selected
-provider configuration inside the sandbox. Changing that endpoint also requires
-updating `payloads/openshell_worker/policy.yaml`; the sandbox must reach the local
-server. Model selection is frozen for the run; change it before starting a new run.
+Model selection and the SDK-prepared gateway route are frozen before review
+admission. No provider credentials are copied into frozen inputs or output
+artifacts. The old direct `opencode.spark_base_url` setting is rejected; register
+the upstream route in the runtime catalog instead. Start a new run after changing
+model configuration. OpenCode step receipts supply numeric cached-input and
+reasoning-output usage to the owner run's SDK ledger. Reconciliation retains
+stable call IDs, so interruption and replay do not count usage twice. Missing
+provider receipts remain unmeasured. No extra tokenization requests are made.
 
 ## Workflow
 

@@ -1,13 +1,15 @@
-"""Blueprint model choices and narrowly scoped Local Spark provider settings."""
-
+"""Architecture review model choices; SDK owns placement and gateway routes."""
+import os
 import re
-from urllib.parse import urlsplit
+from mn_opencode_skill import OpenCodeGateway
+from mn_sdk.model_access import ensure_runtime_model
+from mn_sdk.model_runtime import load_model_catalog, resolve_model_entry
 
-SPARK_MODEL = "spark/muse-glimmer-30b"
-SPARK_BASE_URL = "http://10.0.4.32:8000/v1"
+DEFAULT_MODEL = "mn/default"
 MODEL_LABELS = {
+    "Runtime default": DEFAULT_MODEL,
     "Muse Spark 1.3 FreeOpenCode Zen": "opencode/muse-spark-1.3-contributor-free",
-    "Muse Glimmer 30BLocal Spark": SPARK_MODEL,
+    "Muse Glimmer 30BLocal Spark": "spark/muse-glimmer-30b",
 }
 
 
@@ -22,37 +24,23 @@ def normalize_model(value):
     return model
 
 
-def validate_spark_url(value):
-    if not isinstance(value, str):
-        raise ValueError(
-            "opencode.spark_base_url must be an HTTP(S) endpoint ending in /v1"
-        )
-    url = urlsplit(value)
-    if (
-        url.scheme not in {"http", "https"}
-        or not url.hostname
-        or url.username
-        or url.password
-        or url.query
-        or url.fragment
-        or url.path != "/v1"
-    ):
-        raise ValueError(
-            "opencode.spark_base_url must be an HTTP(S) endpoint ending in /v1"
-        )
-    return value
+def prepare_gateway(settings):
+    selection = normalize_model(settings["model"])
+    catalog_id = selection.removeprefix("mn/") if selection.startswith("mn/") else selection
+    # Do not reinterpret an unavailable OpenCode provider as a model to download.
+    try:
+        resolve_model_entry(catalog_id, catalog=load_model_catalog())
+    except ValueError as exc:
+        raise ValueError("The selected review model must be registered in the runtime model catalog.") from exc
+    binding = ensure_runtime_model("llm", catalog_id, provider="docker_model_runner")
+    descriptor = {"api_base": binding.host_api_base, "model": binding.api_model,
+                  "catalog_id": binding.catalog_id, "node": binding.node}
+    gateway_binding(descriptor).provider(selection)
+    return descriptor
 
 
-def provider_config(settings):
-    if settings["model"] != SPARK_MODEL:
-        return {}
-    return {
-        "provider": {
-            "spark": {
-                "npm": "@ai-sdk/openai-compatible",
-                "name": "Local Spark",
-                "options": {"baseURL": settings["spark_base_url"], "apiKey": "dummy"},
-                "models": {"muse-glimmer-30b": {"name": "Muse Glimmer 30B"}},
-            }
-        }
-    }
+def gateway_binding(descriptor):
+    if not isinstance(descriptor, dict) or set(descriptor) != {"api_base", "model", "catalog_id", "node"}:
+        raise ValueError("Review requires a prepared runtime gateway descriptor")
+    return OpenCodeGateway(api_base=descriptor["api_base"], model=descriptor["model"],
+                           api_key=os.environ.get("MN_LLM_API_KEY") or "not-needed")

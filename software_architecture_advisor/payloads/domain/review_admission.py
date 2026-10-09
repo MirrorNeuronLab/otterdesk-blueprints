@@ -1,6 +1,7 @@
 """Owner-only task admission and reconciliation of Core-committed reviews."""
 import json
 from mn_sdk.artifact_handoff import publish_input, resolve_committed, store_root
+from mn_sdk.usage_ledger import model_usage_scope, record_model_usage
 from .catalog_store import fingerprint
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot
@@ -42,6 +43,7 @@ def admit(store, saved, plan, task, review, opener, *, run_id):
         return None
     frozen = {'task': task, 'request': request, 'request_hash': request_hash,
               'opencode': saved['request']['opencode'], 'offline': review['offline'],
+              'gateway': saved['gateway'],
               'deadline': saved['deadline'], 'walltime_seconds': saved['request']['review']['walltime_seconds']}
     ref = publish_input(frozen, run_id=run_id, kind='architecture_review_input')
     store.write(f'catalog/admissions/{task_id}.json', {'input': ref, 'runtime_run_id': run_id})
@@ -81,6 +83,15 @@ def reconcile(store):
         frozen = json.loads(resolve_committed(admission['input'], run_id=admission['runtime_run_id']).read_text())
         if candidate['request_hash'] != frozen['request_hash']:
             raise ValueError('Committed review request identity differs')
+        usage = candidate.get('model_usage', [])
+        if not isinstance(usage, list) or len(usage) > 1024:
+            raise ValueError('Invalid review usage receipts')
+        with model_usage_scope(store.root):
+            for receipt in usage:
+                if not isinstance(receipt, dict):
+                    raise ValueError('Invalid review usage receipt')
+                receipt_id = fingerprint([frozen['request_hash'], receipt.get('event_id')])
+                record_model_usage(receipt, event_id='opencode:' + receipt_id)
         request, task = frozen['request'], frozen['task']
         value = candidate['value']
         snapshot = load_snapshot(store.root)

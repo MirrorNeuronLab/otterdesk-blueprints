@@ -13,6 +13,7 @@ def test_reviewer_builds_explicit_sandbox_context_before_provisioning(tmp_path, 
     config = next(group["with"] for group in execution["workers"]["groups"]
                   if group["with"].get("runner_module") == "MirrorNeuron.Runner.OpenShell")
     context = root / "payloads" / config["custom_openshell_image"]
+    config["environment"]["MN_BLUEPRINT_CONFIG_JSON"] = (root / "config/default.json").read_text()
     assert "iproute2" in (context / "Dockerfile").read_text()
     assert config["environment"]["PYTHONPATH"] == "."
     order = []
@@ -69,3 +70,22 @@ def test_docker_worker_accepts_sdk_skill_preparation(tmp_path):
     prepared = payloads[config["dockerfile"]].decode()
     assert prepared.startswith("FROM python:3.11-slim-bookworm\n")
     assert "RUN echo skill-prepared" in prepared
+
+
+def test_compiled_review_policy_uses_resolved_config_and_ships_to_core():
+    from mn_sdk.blueprints import read_blueprint, resolve_config, compile_blueprint
+    from mn_sdk.openshell_policy import stage_worker_policies
+    from mn_sdk.submission_preparation import lower_manifest_topology_for_runtime_submission
+    root = Path(__file__).resolve().parents[2] / 'software_architecture_advisor'
+    package = read_blueprint(root)
+    manifest = compile_blueprint(package, resolve_config(package)).manifest
+    lower_manifest_topology_for_runtime_submission(manifest)
+    payloads = {}
+    stage_worker_policies(manifest, payloads, bundle_dir=root)
+    policy = payloads['openshell_worker/policy.yaml'].decode()
+    assert '${config.' not in policy
+    assert 'host: "10.0.4.27"' in policy and 'host: "10.0.4.32"' in policy
+    assert 'port: 4000' in policy
+    assert '/v1/chat/completions' in policy
+    assert 'enforcement: enforce' in policy
+    assert '${config.' in (root/'payloads/openshell_worker/policy.yaml').read_text()

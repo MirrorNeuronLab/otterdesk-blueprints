@@ -1,4 +1,4 @@
-# Architecture Advisor 3.6 specification
+# Architecture Advisor 3.8 specification
 
 ## Outcome
 
@@ -52,14 +52,26 @@ lines. A run can stop earlier for budgets and still publish a partial report.
 
 ## Model selection
 
-`opencode.model` is operator-configurable and exposed in the setup guide. Its
-default is `opencode/muse-spark-1.3-contributor-free` (Muse Spark 1.3 FreeOpenCode
-Zen). The alternate `spark/muse-glimmer-30b` (Muse Glimmer 30BLocal Spark) uses a
-sandbox-local OpenCode custom provider with the configured `opencode.spark_base_url`.
-Both display labels normalize to their provider/model IDs. The model and provider
-endpoint are pinned in the durable run context. The OpenShell policy admits the
-Zen API and the local Spark chat-completions endpoint; other endpoint changes
-require a corresponding policy change. No host OpenCode configuration is copied.
+`opencode.model` is operator-configurable and exposed in setup. Its default
+is `mn/default`, the runtime's local model selection. `mn/<catalog-id>` selects
+a particular runtime model. Existing Muse display labels normalize to their
+provider/model IDs, which must be registered in the runtime catalog before use.
+The SDK owns placement, model preparation and LiteLLM route resolution. The
+initializer freezes its non-secret gateway descriptor before admitting tasks;
+OpenCode uses that exact route inside OpenShell. No direct-provider or paid-model
+fallback is used. The old direct `opencode.spark_base_url` setting is rejected.
+The sandbox permits only OpenCode's chat-completions requests to the authorized
+Mini and Spark gateways. Other deployments require an exact endpoint policy
+change through `opencode.gateway_hosts`. SDK and CLI render the policy bindings
+before provisioning and staging. Host OpenCode configuration and credentials
+are never copied.
+
+OpenCode's numeric step receipts include cached input and reasoning output.
+Core commits them with the review artifact; owner reconciliation appends them
+to the SDK run ledger with stable call identities before finishing the domain
+receipt. Replayed commits count once in analysis. Invalid JSON does not discard
+measured model usage. Missing provider receipts remain unmeasured; accounting
+makes no extra tokenizer requests and does not certify missing coverage.
 
 ## Evidence and content
 

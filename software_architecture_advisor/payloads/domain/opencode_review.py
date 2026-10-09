@@ -6,7 +6,8 @@ from pathlib import Path
 from mn_opencode_skill import OpenCodeRequest, OpenCodeError, run_opencode
 from .catalog_store import CatalogStore, fingerprint
 from .catalog_planning import catalog_settings
-from .opencode_models import provider_config
+from .opencode_models import gateway_binding
+from mn_sdk.usage_ledger import model_usage_scope, record_model_usage
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot
 from .review_prompts import build_prompt, expand_evidence
@@ -116,8 +117,6 @@ def handle_task(context, work, *, llm_client=None):
                     )
                     folder.mkdir(parents=True, exist_ok=True)
                     (folder / "review-input.json").write_text(request["prompt"])
-                    provider_path = folder / "provider-config.json"
-                    provider_path.write_text(json.dumps(provider_config(opener)))
                     response = run_opencode(
                         OpenCodeRequest(
                             folder=str(folder),
@@ -133,9 +132,12 @@ def handle_task(context, work, *, llm_client=None):
                                 ),
                             ),
                             max_output_bytes=opener["max_output_bytes"],
+                            gateway=gateway_binding(saved['gateway']),
                         ),
-                        env={"OPENCODE_CONFIG": str(provider_path)},
                     )
+                    with model_usage_scope(store.root):
+                        for receipt in response.usage:
+                            record_model_usage(receipt, event_id='opencode:' + fingerprint([request_hash, receipt['event_id']]))
                     raw = response.text
                 else:
                     raw = llm_client(request["prompt"])

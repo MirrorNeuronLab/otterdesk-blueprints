@@ -41,7 +41,7 @@
       "min_gb": 8
     },
     "network": {
-      "egress": "Public GitHub for URL acquisition; OpenCode Zen opencode.ai:443 or Local Spark 10.0.4.32:8000 for the selected review model."
+      "egress": "Public GitHub for URL acquisition; the SDK-prepared LiteLLM gateway for the selected runtime review model."
     }
   },
   "workers": {
@@ -113,6 +113,7 @@
           "runner_module": "MirrorNeuron.Runner.OpenShell",
           "from": "openshell_worker",
           "policy": "openshell_worker/policy.yaml",
+          "policy_config_bindings": true,
           "sandbox_upload_path": "/sandbox/job",
           "reuse_shared_sandbox": true,
           "no_auto_providers": true,

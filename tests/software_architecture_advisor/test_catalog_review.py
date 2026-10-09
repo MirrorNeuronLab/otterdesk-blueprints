@@ -17,6 +17,9 @@ def run(tmp_path, monkeypatch, architecture_paths):
         monkeypatch.setattr("domain." + module + ".load_catalog", lambda: catalog)
     from domain.catalog_planning import initializer
 
+    monkeypatch.setattr("domain.catalog_planning.prepare_gateway", lambda settings: {
+        "api_base": "http://gateway:4000/v1", "model": "default", "catalog_id": "fixture-model", "node": "fixture"})
+
     cfg = json.loads(
         (
             Path(__file__).parents[2]
@@ -475,22 +478,18 @@ def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monke
 
 def test_model_choices_provider_settings_and_frozen_run(run):
     from domain.catalog_planning import catalog_settings, planner
-    from domain.opencode_models import provider_config
+    from domain.opencode_models import gateway_binding
     from domain.opencode_review import handle_task
 
     ctx, ref = run
     _, defaults = catalog_settings({})
-    assert defaults["model"] == "opencode/muse-spark-1.3-contributor-free"
-    assert provider_config(defaults) == {}
+    assert defaults["model"] == "mn/default"
     for choice in ["Muse Glimmer 30BLocal Spark", "spark/muse-glimmer-30b"]:
         _, settings = catalog_settings({"opencode": {"model": choice}})
         assert settings["model"] == "spark/muse-glimmer-30b"
-        provider = provider_config(settings)["provider"]["spark"]
-        assert provider["options"]["baseURL"] == "http://10.0.4.32:8000/v1"
-        assert provider["models"] == {"muse-glimmer-30b": {"name": "Muse Glimmer 30B"}}
     assert (
         catalog_settings({"opencode": {"model": "Muse Spark 1.3 FreeOpenCode Zen"}})[1]
-        == defaults
+        ["model"] == "opencode/muse-spark-1.3-contributor-free"
     )
     for url in [
         "file:///v1",
@@ -499,6 +498,8 @@ def test_model_choices_provider_settings_and_frozen_run(run):
     ]:
         with pytest.raises(ValueError, match="spark_base_url"):
             catalog_settings({"opencode": {"spark_base_url": url}})
+    with pytest.raises(ValueError, match="prepared runtime gateway"):
+        gateway_binding({"api_base":"http://gateway/v1", "model":"route", "api_key":"private"})
     node = planner(ctx, {"context": ref, "_child": {"revision": 0}})["child_plan"][
         "steps"
     ][0]
@@ -555,3 +556,68 @@ def test_immutable_review_input_integrity_failure_still_raises(run, monkeypatch)
     monkeypatch.setattr('domain.sandbox_review.resolve_input', corrupted)
     with pytest.raises(ValueError, match='artifact digest mismatch'):
         review_admitted(node['input']['review_input'], llm_client=fake)
+
+
+def test_prepared_gateway_uses_sdk_owner_route_without_persisting_credentials(architecture_paths, monkeypatch):
+    from types import SimpleNamespace
+    from domain.opencode_models import prepare_gateway
+    calls = []
+    monkeypatch.setattr('domain.opencode_models.resolve_model_entry', lambda model, **kwargs: {'id':model})
+    monkeypatch.setattr('domain.opencode_models.load_model_catalog', lambda: {'fixture':{}})
+    def prepare(purpose, model, **kwargs):
+        calls.append((purpose, model, kwargs))
+        return SimpleNamespace(host_api_base='http://owner:4000/v1', api_base='http://mn-litellm-proxy:4000/v1',
+            api_model='__mn_owner__/owner/exact-route', api_key='private-key', catalog_id='fixture', node='owner')
+    monkeypatch.setattr('domain.opencode_models.ensure_runtime_model', prepare)
+    descriptor = prepare_gateway({'model':'mn/default'})
+    assert calls == [('llm','default',{'provider':'docker_model_runner'})]
+    assert descriptor == {'api_base':'http://owner:4000/v1','model':'__mn_owner__/owner/exact-route',
+                          'catalog_id':'fixture','node':'owner'}
+    assert 'private-key' not in json.dumps(descriptor)
+    def missing(*args, **kwargs):
+        raise ValueError('unknown catalog model')
+    monkeypatch.setattr('domain.opencode_models.resolve_model_entry', missing)
+    with pytest.raises(ValueError,match='registered in the runtime model catalog'):
+        prepare_gateway({'model':'spark/muse-glimmer-30b'})
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize('invalid_json', [False, True])
+def test_sandbox_usage_is_published_by_owner_once_after_reconciliation_replay(run, monkeypatch, invalid_json):
+    from types import SimpleNamespace
+    from domain.catalog_planning import planner
+    from domain.catalog_store import CatalogStore
+    from handoff_test_support import review_task
+    from mn_sdk.job_analysis import usage_totals
+    ctx, ref = run
+    node = planner(ctx, {'context':ref,'_child':{'revision':0}})['child_plan']['steps'][0]
+    original_bytes = Path.read_bytes
+    monkeypatch.setattr(Path, 'read_bytes', lambda path: b'openshell-sandbox' if str(path)=='/proc/1/cmdline' else original_bytes(path))
+    calls = []
+    def invoke(request):
+        calls.append(request)
+        assert request.gateway.api_base == 'http://gateway:4000/v1'
+        assert request.gateway.model == 'default'
+        assert request.mode == 'review'
+        assert not (Path(request.folder)/'provider-config.json').exists()
+        return SimpleNamespace(text='not json' if invalid_json else fake(request.prompt), usage=[{
+            'event_id':'a'*64,'input_tokens':7,'output_tokens':3,'total_tokens':10,'estimated':False}])
+    monkeypatch.setattr('domain.sandbox_review.run_opencode', invoke)
+    finish = CatalogStore.finish
+    interrupted = []
+    def interrupt(store, task_id, value):
+        if not interrupted:
+            interrupted.append(True)
+            raise RuntimeError('interrupted after numeric measurement publication')
+        return finish(store,task_id,value)
+    monkeypatch.setattr(CatalogStore,'finish',interrupt)
+    with pytest.raises(RuntimeError,match='interrupted after'):
+        review_task(ctx,ref,{'id':node['id'],**node['input']},None)
+    review_task(ctx,ref,{'id':node['id'],**node['input']},None)
+    assert len(calls)==1
+    root = Path(ctx['run_dir'])
+    records = [json.loads(line) for line in (root/'model_usage.jsonl').read_text().splitlines()]
+    assert len(records)==2 and len({r['event_id'] for r in records})==1
+    assert usage_totals(records)['values']['total_tokens']==10
+    assert usage_totals(records)['records']==1
+    assert CatalogStore(root).result(node['id'])['status']==('blocked' if invalid_json else 'completed')

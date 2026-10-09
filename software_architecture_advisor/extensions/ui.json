@@ -35,6 +35,10 @@
         "required": true,
         "choices": [
           {
+            "label": "Runtime default",
+            "value": "mn/default"
+          },
+          {
             "label": "Muse Spark 1.3 FreeOpenCode Zen",
             "value": "opencode/muse-spark-1.3-contributor-free"
           },
@@ -43,7 +47,7 @@
             "value": "spark/muse-glimmer-30b"
           }
         ],
-        "description": "Choose the model used for every review task in this run."
+        "description": "Choose the runtime model used for every review task. Muse choices require a registered model route."
       },
       {
         "path": "inputs.payload.goal",

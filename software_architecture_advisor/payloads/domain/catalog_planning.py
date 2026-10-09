@@ -5,8 +5,7 @@ import os
 import time
 from mn_sdk.child_workflow import round_plan, stop_plan
 from mn_sdk.step_runtime import artifact_reference
-from mn_opencode_skill import DEFAULT_MODEL
-from .opencode_models import SPARK_BASE_URL, normalize_model, validate_spark_url
+from .opencode_models import DEFAULT_MODEL, normalize_model, prepare_gateway
 from .catalog_store import CatalogStore, fingerprint
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot, build_full_task_list
@@ -24,7 +23,7 @@ DEFAULTS = {
 }
 OPEN_DEFAULTS = {
     "model": DEFAULT_MODEL,
-    "spark_base_url": SPARK_BASE_URL,
+    "gateway_hosts": {},
     "timeout_seconds": 600,
     "max_output_bytes": 1048576,
     "sandbox_root": "/sandbox/job",
@@ -59,7 +58,8 @@ def catalog_settings(config):
     if type(review["offline"]) is not bool:
         raise ValueError("offline must be boolean")
     opener["model"] = normalize_model(opener["model"])
-    opener["spark_base_url"] = validate_spark_url(opener["spark_base_url"])
+    if "spark_base_url" in opener:
+        raise ValueError("Register the model in the runtime catalog; direct spark_base_url is no longer supported")
     for key, upper in [("timeout_seconds", 600), ("max_output_bytes", 8388608)]:
         if type(opener[key]) is not int or not 1 <= opener[key] <= upper:
             raise ValueError(f"opencode.{key} must be 1..{upper}")
@@ -131,6 +131,7 @@ def initializer(context, *, llm_client=None):
         "plan": plan_ref,
         "started": time.time(),
         "deadline": time.time() + review["walltime_seconds"],
+        "gateway": None if review["offline"] or llm_client is not None else prepare_gateway(opener),
     }
     ref = store.write("catalog/context.json", value)
     return {"context": ref, "status": "planning", "planned_tasks": len(tasks)}, [
