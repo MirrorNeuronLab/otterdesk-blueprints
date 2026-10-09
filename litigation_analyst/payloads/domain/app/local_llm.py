@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 import json
 from typing import Any
 
-from mn_sdk.llm import LLMClient, LLMError, completion_json_result
+from mn_sdk.llm import LLMClient, LLMError
 
 
 class InvestigationModelError(RuntimeError):
@@ -73,12 +73,11 @@ class SDKInvestigationModel:
                         config.max_tokens, self.context_session.policy.output_tokens,
                     ))
                 with turn:
-                    result = completion_json_result(
+                    result = self.client.completion_json_result(
                         messages[0]["content"], messages[1]["content"],
                         config=config,
                     )
                 content = result.content
-                self.client.last_usage = dict(result.usage)
             else:
                 # Injected offline test transport implements the same prompt contract.
                 content = self.client.completion_text(

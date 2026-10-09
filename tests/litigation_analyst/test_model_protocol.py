@@ -1,32 +1,59 @@
 from types import SimpleNamespace
 import json
+from mn_sdk import llm as llm_transport
 from test_litigation_analyst import modules, graph_engine_stub
 
 
 def test_production_transport_requests_json_without_hidden_model_retries(
-    modules, monkeypatch
+    modules, monkeypatch, tmp_path
 ):
     from domain.app import local_llm
     from mn_sdk.llm import LLMClient
+    from mn_sdk.usage_ledger import model_usage_scope
 
     captured = []
 
-    def complete(system, user, *, config):
+    def complete(system, user, *, config, **kwargs):
         captured.append(config)
         return SimpleNamespace(
             content=json.dumps({"name": "finish", "arguments": {}, "reason": "done"}),
-            usage={"provider_response_count": 1},
+            usage={"provider_response_count": 1, "input_tokens": 10, "output_tokens": 4, "total_tokens": 14},
         )
 
-    monkeypatch.setattr(local_llm, "completion_json_result", complete)
+    monkeypatch.setattr(llm_transport, "completion_json_result", complete)
     client = LLMClient(model="test", num_retries=9)
-    result = local_llm.SDKInvestigationModel(client).complete_json(
-        [{"role": "system", "content": "test"}, {"role": "user", "content": "{}"}]
-    )
+    with model_usage_scope(tmp_path):
+        result = local_llm.SDKInvestigationModel(client).complete_json(
+            [{"role": "system", "content": "test"}, {"role": "user", "content": "{}"}]
+        )
     assert captured[0].num_retries == 0
     assert result.value["name"] == "finish"
     assert result.usage["provider_response_count"] == 1
     assert client.num_retries == 9
+    assert client.calls == 1 and client.total_tokens == 14
+    records = [json.loads(line) for line in (tmp_path / "model_usage.jsonl").read_text().splitlines()]
+    assert len(records) == 1 and records[0]["payload"]["total_tokens"] == 14
+
+
+def test_invalid_provider_response_keeps_usage_without_retrying(modules, monkeypatch, tmp_path):
+    import pytest
+    from domain.app import local_llm
+    from mn_sdk.llm import LLMClient, LLMError
+    from mn_sdk.usage_ledger import model_usage_scope
+
+    def invalid(*args, **kwargs):
+        raise LLMError("invalid JSON", usage={"provider_response_count": 1, "input_tokens": 5, "output_tokens": 2, "total_tokens": 7})
+
+    monkeypatch.setattr(llm_transport, "completion_json_result", invalid)
+    client = LLMClient(model="test", strict=True)
+    with model_usage_scope(tmp_path), pytest.raises(local_llm.LLMResponseError):
+        local_llm.SDKInvestigationModel(client).complete_json([
+            {"role": "system", "content": "private source"}, {"role": "user", "content": "{}"}
+        ])
+    assert client.calls == 1 and client.total_tokens == 7
+    encoded = (tmp_path / "model_usage.jsonl").read_text()
+    assert "private source" not in encoded
+    assert len(encoded.splitlines()) == 1
 
 
 def test_managed_context_binds_each_litigation_decision_and_propagates_partition(modules, monkeypatch):
@@ -42,9 +69,9 @@ def test_managed_context_binds_each_litigation_decision_and_propagates_partition
         def turn(self, invocation, **kwargs):
             observed.append((invocation, kwargs))
             yield
-    def partition(system, user, *, config):
+    def partition(system, user, *, config, **kwargs):
         raise NeedsPartition({"reason":"irreducible_review_evidence"})
-    monkeypatch.setattr(local_llm, "completion_json_result", partition)
+    monkeypatch.setattr(llm_transport, "completion_json_result", partition)
     adapter = local_llm.SDKInvestigationModel(LLMClient(model="test"), context_session=Memory())
     with pytest.raises(NeedsPartition):
         adapter.complete_json([{"role":"system","content":"review"},{"role":"user","content":"{}"}], invocation_id="decision-17", focus="review exact sources", required_fields=["review_evidence"], final=True)
@@ -60,14 +87,14 @@ def test_context_output_budget_caps_provider_reserve(modules, monkeypatch):
     policy = ContextPolicy(window_tokens=16384, output_tokens=2048)
     memory = SimpleNamespace(policy=policy, turn=lambda *a, **k: nullcontext())
 
-    def complete(system, user, *, config):
+    def complete(system, user, *, config, **kwargs):
         captured.append(config.max_tokens)
         # The failed run required 9,698 input tokens. An 8,192-token
         # provider reserve incorrectly reduced the input budget to 7,680.
         assert policy.window_tokens - config.max_tokens - policy.safety_tokens >= 9698
         return SimpleNamespace(content='{"name":"list_skills","arguments":{}}', usage={})
 
-    monkeypatch.setattr(local_llm, 'completion_json_result', complete)
+    monkeypatch.setattr(llm_transport, 'completion_json_result', complete)
     for limit in (8192, 1024):
         client = LLMClient(model='test', max_tokens=limit)
         local_llm.SDKInvestigationModel(client, context_session=memory).complete_json(
@@ -138,10 +165,10 @@ def test_live_response_schema_uses_current_allowed_actions(modules, monkeypatch)
     from domain.app import local_llm
     from mn_sdk.llm import LLMClient
     captured = []
-    def complete(system, user, *, config):
+    def complete(system, user, *, config, **kwargs):
         captured.append(config.structured_output_options['response_format'])
         return SimpleNamespace(content='{"name":"read_skill","arguments":{},"reason":"inspect"}', usage={})
-    monkeypatch.setattr(local_llm, 'completion_json_result', complete)
+    monkeypatch.setattr(llm_transport, 'completion_json_result', complete)
     client = LLMClient(model='test')
     model = local_llm.SDKInvestigationModel(client)
     for allowed in (['read_skill', 'invoke_skill'], ['review_report']):

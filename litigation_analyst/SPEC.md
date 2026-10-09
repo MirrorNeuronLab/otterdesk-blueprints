@@ -115,6 +115,13 @@ deadlines still apply. This is an operationally compatible patch with unchanged
 inputs, artifacts and evidence policy. Previously accepted runs retain their
 frozen controls; Core checkpoint retry reuses validated run-local decisions.
 
+Version 2.7.2 removes worker deadline overrides so executable workers inherit
+their logical phase controls, including the long index deadline and bounded
+600-second child tasks. The supported investigation adapter uses the accounted
+SDK structured-result method, retaining provider error classification and exact
+usage on invalid responses. SDK dev52 or later is required. Inputs, evidence
+policy, model-request shape and artifacts remain unchanged.
+
 Version 2.0.2 sets the default host export to
 `~/Downloads/litigation-analyst`, matching the declared job name. Previously
 submitted jobs retain their configured destination.

@@ -79,7 +79,6 @@
           "dockerfile": "docker_worker/Dockerfile",
           "build_context": ".",
           "workdir": "/app",
-          "timeout_seconds": 3600,
           "upload_paths": [
             {
               "source": "domain",
@@ -115,7 +114,6 @@
           "dockerfile": "docker_worker/Dockerfile",
           "build_context": ".",
           "workdir": "/app",
-          "timeout_seconds": 99999,
           "upload_paths": [
             {
               "source": "domain",

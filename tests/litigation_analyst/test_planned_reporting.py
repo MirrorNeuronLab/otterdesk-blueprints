@@ -64,6 +64,10 @@ def test_large_deadline_survives_compilation(modules):
         "timeout_seconds" in step["control"]
         and step["control"]["timeout_seconds"] == 99999
     )
+    index_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "build_case_indexes__case_index_builder")
+    assert index_worker["config"]["timeout_seconds"] == 99999
+    preparation_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "prepare_case_sources__case_document_examiner")
+    assert preparation_worker["config"]["timeout_seconds"] == 3600
     serialized = json.dumps(compiled)
     assert "mn-python-sdk-rag" in serialized
 

@@ -115,6 +115,12 @@ and provider-request bounds remain the limits on individual work. Core checkpoin
 retry retains validated run-local decisions after an interruption. Existing frozen
 runs keep their accepted deadline.
 
+Version 2.7.2 also lets each worker inherit its phase's deadline. An explicit
+one-hour worker override no longer cuts index building short; child tasks keep
+their own 600-second limits. SDK dev52 or later accounts for structured model
+decisions, including invalid provider responses, in the numeric run ledger.
+Validated replay adds no model request or duplicate token measurement.
+
 ## Investigation rounds
 
 The four parent phases remain source preparation → index building → investigation
