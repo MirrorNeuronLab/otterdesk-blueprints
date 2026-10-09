@@ -4,12 +4,42 @@ import pytest
 
 from cctv_operator.payloads.domain.conversation_snapshot import event_snapshot
 from cctv_operator.payloads.domain.goal_events import goal_event
+from cctv_operator.payloads.domain.helmet_findings import validate_helmet_goal
+from cctv_operator.payloads.domain.detection_policy import DEFAULT_MONITORING_GOAL
 from cctv_operator.payloads.domain.video_summary import summarize_video
 
 
 def batch():
     return {"selected_frames": [{"path": f"frames/{index}.jpg", "timestamp": 1767225600 + index}
                                 for index in range(1, 4)]}
+
+
+@pytest.mark.parametrize("observation", [None,
+    {"helmet_status": "worn", "head_visible": True, "evidence_frame": 2, "visible_evidence": "Helmet visible."},
+    {"helmet_status": "uncertain", "head_visible": False, "evidence_frame": 2, "visible_evidence": "Head occluded."},
+    {"helmet_status": "not_worn", "head_visible": False, "evidence_frame": 2, "visible_evidence": "Head unclear."},
+    {"helmet_status": "not_worn", "head_visible": True, "evidence_frame": 1, "visible_evidence": "Uncovered head."},
+])
+def test_generic_person_or_unconfirmed_helmet_account_cannot_notify(observation):
+    result = {"detected_target": True, "summary": "A person is visible.",
+              "goal_event": {"start_frame": 1, "end_frame": 3, "evidence_frame": 2},
+              "helmet_observations": [observation] if observation else [], "uncertainties": []}
+    checked = validate_helmet_goal(result, DEFAULT_MONITORING_GOAL, batch())
+    assert checked["detected_target"] is False and checked["goal_event"] is None
+    assert checked["summary"] == result["summary"]  # Keep scene history.
+    assert checked["goal_validation"] == "missing_helmet_evidence_unavailable"
+    assert checked["uncertainties"]
+    assert validate_helmet_goal(result, "Watch the doorway", batch()) is result
+
+
+def test_missing_helmet_requires_a_visible_head_in_the_attached_frame():
+    result = {"detected_target": True,
+              "goal_event": {"start_frame": 1, "end_frame": 3, "evidence_frame": 2},
+              "helmet_observations": [{"helmet_status": "not_worn", "head_visible": True,
+                  "evidence_frame": 2, "visible_evidence": "Uncovered head visible beside the shelves."}]}
+    checked = validate_helmet_goal(result, DEFAULT_MONITORING_GOAL, batch())
+    assert checked["detected_target"] is True
+    assert goal_event(checked, batch())["frame_path"] == "frames/2.jpg"
 
 
 def test_goal_match_uses_model_selected_frame_and_capture_time(tmp_path):

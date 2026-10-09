@@ -71,6 +71,9 @@ visible people, helmet status, activity and uncertainty. Mere person presence,
 compliant helmets and uncertain helmet status do not create notices. A head
 that is distant or occluded is not proof of a violation. Confirmed matches
 include the detailed Cosmos account, capture time and an evidence frame.
+The missing-helmet decision must also include `helmet_observations`: a visible
+uncovered head in the same evidence frame. Unsupported match claims remain
+uncertain history and cannot notify or rearm an already reported goal.
 
 A separate 4 FPS sampler retains four seconds of frames. Person confirmation
 triggers two seconds of post-roll, including when a person leaves sooner.
@@ -166,7 +169,7 @@ excluded from memory. Missing, malformed or truncated final answers are explicit
 analysis failures, never fabricated clear-scene observations.
 
 Deploy the matching SDK and video-skill packages before launching this revision.
-The SDK minimum is `1.3.58.dev59`; models and RAG require `1.3.58.dev45`; the video skill
+The SDK minimum is `1.3.58.dev60`; models and RAG require `1.3.58.dev45`; the video skill
 minimum is `1.3.58.dev23`. These versions provide blueprint-owned model recipes,
 generic embeddings, and the temporal-frame contract.
 MCP requires `1.3.58.dev57` to honor the configured HTTP operation deadline;

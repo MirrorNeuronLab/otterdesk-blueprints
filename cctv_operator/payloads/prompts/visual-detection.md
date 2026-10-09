@@ -15,6 +15,7 @@ When an operator attention request is present, use it as the primary target goal
 - Count only real visible subjects or activity.
 - RF-DETR has already gated this sequence for person presence. Its signal is not a finding about helmets or any other condition. Independently inspect the people in this sequence. The default monitoring goal is a visible person not wearing a helmet. Mere person presence does not meet that goal. Confirm a missing helmet only when a person's head is sufficiently visible to establish they are not wearing one; an occluded, distant or unclear head is uncertain, not a violation. If everyone visibly wears a helmet or helmet status is uncertain, set detected_target=false and goal_event=null. An operator-supplied goal replaces the analysis condition but never changes the RF-DETR person gate.
 - Describe what each visible person is doing, where they are, their observable helmet status and any activity changes supported by the sequence. Preserve compliant and uncertain accounts as well as matches in scene_understanding and Markdown history. Text, speech, reflections and shadows alone do not qualify.
+- Return `helmet_observations` for visible people as objects with `helmet_status` (`worn`, `not_worn`, or `uncertain`), `head_visible` (boolean), `evidence_frame` (1-based selected frame), and `visible_evidence` (a short description). `not_worn` requires a clearly visible uncovered head, not mere person presence. If the head is unclear or occluded, use `uncertain`. A missing-helmet `goal_event.evidence_frame` must name a `not_worn` observation with `head_visible=true`. Use an empty list when no person's helmet status can be inspected.
 - For a confirmed match, return `goal_event` with 1-based `start_frame`, `end_frame`, and `evidence_frame` indices in the selected sequence. Choose a frame that visibly supports the match, within that interval. For no match return null. These indices bind the notification time and attached image; do not guess an unsampled onset.
 - Report each detection with observable label, category, useful visible color, position in the scene, activity, and confidence.
 - Keep uncertainty explicit and grounded in visible evidence.
@@ -36,5 +37,6 @@ Reason about the sequence, then return your final answer in `<answer>` tags as J
 `summary`, `detection_report`, and `activity_description` must be plain-language strings, not lists or objects. Keep confidence and risk in their separate JSON fields.
 
 Also return `goal_event` alongside the listed keys.
+Also return `helmet_observations` alongside the listed keys.
 
 `risk_level` must be one of: low, medium, high.

@@ -29,6 +29,16 @@ def temporal_prompt(prompt, context):
 
 
 def understanding_fields(result):
+    helmets = result.get("helmet_observations", [])
+    if not isinstance(helmets, list) or len(helmets) > 32:
+        raise ValueError("helmet_observations must contain at most 32 visible-person accounts")
+    for item in helmets:
+        if (not isinstance(item, dict) or item.get("helmet_status") not in {"worn", "not_worn", "uncertain"}
+                or type(item.get("head_visible")) is not bool
+                or type(item.get("evidence_frame")) is not int or item["evidence_frame"] < 1
+                or not isinstance(item.get("visible_evidence"), str)
+                or not 0 < len(item["visible_evidence"].strip()) <= 500):
+            raise ValueError("helmet observations require status, head visibility, frame and visible evidence")
     predictions = result.get("risk_predictions", [])
     if not isinstance(predictions, list) or len(predictions) > 8:
         raise ValueError("risk_predictions must be a list of at most eight qualified forecasts")
@@ -52,4 +62,5 @@ def understanding_fields(result):
     if not isinstance(uncertainties, list) or any(not isinstance(value, str) for value in uncertainties):
         raise ValueError("uncertainties must be a list of strings")
     return {"scene_understanding": str(result.get("scene_understanding") or result.get("summary") or ""),
-            "risk_predictions": qualified, "uncertainties": uncertainties}
+            "risk_predictions": qualified, "uncertainties": uncertainties,
+            "helmet_observations": helmets}

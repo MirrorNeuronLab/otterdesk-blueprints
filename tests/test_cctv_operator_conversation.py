@@ -175,6 +175,8 @@ def test_default_helmet_notices_use_cosmos_understanding_only(monkeypatch, tmp_p
         payload={"tick_seq": 1, "camera_id": "warehouse"},
         detection={"detected_target": matched, "confidence": confidence,
                    "summary": "Helmet review.", "scene_understanding": understanding,
+                   "helmet_observations": [{"helmet_status": "not_worn", "head_visible": True,
+                       "evidence_frame": 1, "visible_evidence": understanding}] if matched else [],
                    "detection_report": "A visible worker is not wearing a helmet." if matched else "No confirmed helmet violation."})
     notices = [event for event in output["events"] if event["type"] == "human_notice"]
     assert bool(notices) is expected
@@ -220,7 +222,8 @@ def test_cctv_operator_chat_context_answers_what_happened(monkeypatch, tmp_path,
         monkeypatch,
         tmp_path,
         capsys,
-        payload={"tick_seq": 9, "camera_id": "loading-dock"},
+        payload={"tick_seq": 9, "camera_id": "loading-dock", "instruction": "People entering the loading dock.",
+                 "instruction_revision": 1},
         detection={
             "detected": True,
             "detected_target": True,
@@ -341,7 +344,19 @@ def test_continuing_goal_match_is_not_repeated_after_cooldown(monkeypatch, tmp_p
     state = {**detector.initial_state(), "notified_goal": "A visible person is not wearing a helmet."}
     output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={"tick_seq": 3}, state=state,
-        detection={"detected_target": True, "confidence": .95, "summary": "The group is still standing together."})
+        detection={"detected_target": True, "confidence": .95, "summary": "The worker still has an uncovered head.",
+                   "helmet_observations": [{"helmet_status": "not_worn", "head_visible": True,
+                       "evidence_frame": 1, "visible_evidence": "The worker has an uncovered head."}]})
+    assert not any(event["type"] == "human_notice" for event in output["events"])
+    assert output["next_state"]["notified_goal"] == state["notified_goal"]
+
+
+def test_unconfirmed_helmet_claim_does_not_rearm_or_notify(monkeypatch, tmp_path, capsys):
+    detector = _load_detector()
+    state = {**detector.initial_state(), "notified_goal": "A visible person is not wearing a helmet."}
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 3}, state=state,
+        detection={"detected_target": True, "confidence": .95, "summary": "A person is visible."})
     assert not any(event["type"] == "human_notice" for event in output["events"])
     assert output["next_state"]["notified_goal"] == state["notified_goal"]
 

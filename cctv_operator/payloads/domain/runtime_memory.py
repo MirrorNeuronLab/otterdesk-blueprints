@@ -77,7 +77,7 @@ class CameraMemory:
                   "scene_understanding", "risk_predictions", "uncertainties",
                   "capture_started_at", "capture_ended_at", "frame_timestamps",
                   "timestamp_basis", "source_profile", "analyzed_at")
-        fields += ("goal_event", "monitoring_goal", "detected_target")
+        fields += ("goal_event", "monitoring_goal", "detected_target", "helmet_observations", "goal_validation")
         value = {key: observation.get(key) for key in fields}
         value.update(memory_family="cctv_observation", source_key=self.source_key,
                      observation_id=digest([self.memory.scope, observation.get("batch_id"), observation["frame_seq"]]),

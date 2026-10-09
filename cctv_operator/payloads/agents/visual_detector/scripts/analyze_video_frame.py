@@ -59,6 +59,7 @@ from domain.detection_policy import (
 from domain.screening import GATE_SCHEMA, approved, branch, normalize_gate, review_request
 from domain.conversation_snapshot import event_snapshot
 from domain.goal_events import goal_event
+from domain.helmet_findings import validate_helmet_goal
 from domain.runtime_memory import CameraMemory, with_history
 from domain.video_understanding import batch_context, temporal_prompt, understanding_fields
 from domain.cosmos_access import cosmos_slot
@@ -1095,6 +1096,7 @@ def main() -> None:
                     batch_frames,
                     with_history(temporal_prompt(detection_prompt(camera_id, goal, visual_targets), capture), history),
                 )
+        detection = validate_helmet_goal(detection, goal, batch)
         matched_event = goal_event(detection, batch)
         model_latency_ms = max(0, int((time.monotonic() - analysis_started) * 1000))
         latest_frame_metadata: dict[str, Any] = {}
@@ -1198,7 +1200,8 @@ def main() -> None:
                 alert_decision["evaluated_at"]
             )
             state["notified_goal"] = goal
-        elif not detection["detected_target"] and detection["confidence"] >= alert_policy["min_confidence"]:
+        elif (not detection["detected_target"] and detection["confidence"] >= alert_policy["min_confidence"]
+              and detection.get("goal_validation") != "missing_helmet_evidence_unavailable"):
             state["notified_goal"] = None
 
         slack_enabled = os.environ.get(

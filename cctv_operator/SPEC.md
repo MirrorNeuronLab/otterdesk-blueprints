@@ -396,3 +396,10 @@ The declared Cosmos recipe uses half the GPU memory and one concurrent sequence,
 matching the default caption concurrency and leaving DGX Spark capacity for
 RF-DETR and text chat. Runtime resource admission and model lifecycle remain
 SDK-owned; this policy is authored only in the blueprint's model definition.
+
+The default helmet alert requires Cosmos `helmet_observations` declaring a
+visible uncovered head (`not_worn`, `head_visible=true`) in the goal's evidence
+frame. Person presence alone cannot notify. Unsupported match claims remain
+uncertain Markdown observations and cannot rearm an already reported goal.
+Version 2.1.1 requires SDK `1.3.58.dev60`: bounded conversation tool planning
+precedes folder retrieval, so history growth cannot consume the planner budget.
