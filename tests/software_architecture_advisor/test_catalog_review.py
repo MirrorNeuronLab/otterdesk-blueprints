@@ -575,7 +575,7 @@ def test_prepared_gateway_uses_sdk_owner_route_without_persisting_credentials(ar
                           'catalog_id':'fixture','node':'owner'}
     assert 'private-key' not in json.dumps(descriptor)
     def missing(*args, **kwargs):
-        raise ValueError('unknown catalog model')
+        raise KeyError('unknown catalog model')
     monkeypatch.setattr('domain.opencode_models.resolve_model_entry', missing)
     with pytest.raises(ValueError,match='registered in the runtime model catalog'):
         prepare_gateway({'model':'spark/muse-glimmer-30b'})

@@ -30,7 +30,7 @@ def prepare_gateway(settings):
     # Do not reinterpret an unavailable OpenCode provider as a model to download.
     try:
         resolve_model_entry(catalog_id, catalog=load_model_catalog())
-    except ValueError as exc:
+    except (KeyError, ValueError) as exc:
         raise ValueError("The selected review model must be registered in the runtime model catalog.") from exc
     binding = ensure_runtime_model("llm", catalog_id, provider="docker_model_runner")
     descriptor = {"api_base": binding.host_api_base, "model": binding.api_model,
