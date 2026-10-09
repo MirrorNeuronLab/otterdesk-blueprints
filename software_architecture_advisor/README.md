@@ -53,6 +53,8 @@ reviewer inside OpenShell. The SDK selects and prepares the runtime model, and
 all review requests go through its LiteLLM gateway. Use `mn/<catalog-id>` for a
 specific runtime model. An OpenCode provider/model choice must already be
 registered in the runtime catalog; unavailable routes fail before dispatch.
+SDK `>=1.3.58.dev65` is required for bounded durable bundle submission; install
+the matching Core update for owner-forwarded creation and replacement.
 There is no direct-provider or paid-model fallback. OpenCode public sharing,
 edits, shell execution, delegation and web tools are disabled for review.
 

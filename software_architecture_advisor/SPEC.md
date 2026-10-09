@@ -52,6 +52,10 @@ lines. A run can stop earlier for budgets and still publish a partial report.
 
 ## Model selection
 
+SDK `>=1.3.58.dev65` is the minimum runtime contract. Definition creation and
+bundle replacement use its bounded submission deadline, with the matching Core
+owner-forwarding deadline. This does not change task or model-call allowances.
+
 `opencode.model` is operator-configurable and exposed in setup. Its default
 is `mn/default`, the runtime's local model selection. `mn/<catalog-id>` selects
 a particular runtime model. Existing Muse display labels normalize to their
