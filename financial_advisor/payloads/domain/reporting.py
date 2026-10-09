@@ -400,7 +400,8 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     )
     ctx["state"].setdefault("actor_findings", {})["financial_advice_reporter"] = finding
     final_artifact = build_final_artifact(ctx)
-    output_folder = ctx["output_folder"]
+    output_folder = ctx["run_dir"]
+    export_folder = ctx["output_folder"]
     artifacts = {
         "bank_statement_extraction.json": final_artifact["bank_statement_extraction"],
         "household_finance_summary.json": final_artifact["household_finance_summary"],
@@ -437,10 +438,15 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     for name, value in artifacts.items():
         path = output_folder / name
         write_json(path, value)
-        written.append(str(path))
+        written.append(name)
+        if export_folder.resolve() != output_folder.resolve():
+            write_json(export_folder / name, value)
     report_path = output_folder / "financial_advisor_report.md"
     write_text(report_path, markdown_report(final_artifact))
-    written.append(str(report_path))
+    written.append(report_path.name)
+    if export_folder.resolve() != output_folder.resolve():
+        write_text(export_folder / report_path.name, markdown_report(final_artifact))
+    final_artifact["output_files"] = [*written, "final_artifact.json"]
     return {
         "final_artifact": final_artifact,
         "output_files": written,

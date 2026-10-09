@@ -50,6 +50,9 @@ without erasing its supported behavior or previous reports.
 Membrane receives canonical authored assertion records with original locators,
 explicit principals and typed relations. Its native graph queries navigate only
 pinned scope/revision sources; graph support is resolved back to the ledger.
+Identical current authorized assertion records are reused across scans without
+unversioned overwrites. Reuse verifies complete text, provenance, event identity
+and access rules; changed or stale assertions remain errors.
 Existing graph-analysis traversal validates bounded temporal witness paths.
 Temporal matching precedes deterministic explanation. No inference model is
 needed. Limits expose incomplete evaluation; no exhaustive negative is inferred.

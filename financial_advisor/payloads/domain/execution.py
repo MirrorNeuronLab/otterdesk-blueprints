@@ -60,15 +60,10 @@ def finish_completed_run(ctx: dict[str, Any], final_output: dict[str, Any]) -> d
     final_artifact = final_output["final_artifact"]
     output_files = list(final_output.get("output_files") or [])
 
-    for name in ("action_ledger.json", "artifact_quality.json", "run_health.json"):
-        source_path = ctx["output_folder"] / name
-        if source_path.exists():
-            write_json(ctx["run_dir"] / name, read_json(source_path))
-
     final_artifact_path = ctx["output_folder"] / "final_artifact.json"
     result_path = ctx["output_folder"] / "result.json"
     for path in (final_artifact_path, result_path):
-        path_text = str(path)
+        path_text = path.name
         if path_text not in output_files:
             output_files.append(path_text)
     final_artifact["output_files"] = output_files

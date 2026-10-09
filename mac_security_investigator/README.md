@@ -2,7 +2,7 @@
 
 This co-worker reviews local Mac unified-log evidence across user-initiated
 runs and preserves source receipts, coverage and saved reports. It runs on the
-submitting Mac. Version 0.2.0 is a logs-only pilot; it does not inspect OS files
+submitting Mac. Version 0.2.1 is a logs-only pilot; it does not inspect OS files
 or certify that a Mac is safe.
 
 ## Setup
@@ -53,6 +53,11 @@ Membrane navigates normalized assertions with exact source locators. Temporal
 analysis uses deterministic witnesses. No inference model or reputation service
 is used. Context service errors fail explicitly.
 
+Unchanged authorized Job assertion records reuse their existing Membrane
+revision across scans. Changed content, provenance or access rules fail
+explicitly. SDK >=1.3.58.dev68 requires Membrane Python SDK >=2.1.1 for this
+contract and starts the native agent heartbeat during long analysis.
+
 Authoritative outputs include `final_artifact.json`, `report.md`, `evidence.json`,
 `analysis.json`, `context_graph.json` and sealed scan/revision artifacts.
 `web/index.html` is an optional inert preview. The runtime supplies run paths
@@ -80,7 +85,7 @@ the [acceptance matrix](docs/acceptance.md).
 specialists and generated control nodes to the submitting Mac. Hardware ranking
 cannot choose Spark. Windows/Linux/unknown local platforms, explicit remote
 assignments, and distributed placement fail before worker preparation.
-This requires SDK `>=1.3.58.dev46,<2`; editing the blueprint does not upgrade an
+This requires SDK `>=1.3.58.dev68,<2`; editing the blueprint does not upgrade an
 installed runtime.
 HostLocal Python runs through the Mac's native SDK service, including when Core
 runs in Docker. Both the native investigator and Core's supervision proxy have

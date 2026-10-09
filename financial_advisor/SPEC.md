@@ -38,6 +38,12 @@ the selected model.
 
 ## Outputs
 
+Authoritative reports and audit records live in the SDK-provided run directory,
+with run-relative paths recorded in `final_artifact.json`. Configured host
+output folders receive additional copies. A specialist publishes its packet
+before returning artifact references; the generated step sink retains logical
+completion ownership. Later runs must not overwrite prior run reports.
+
 Version 1.0.2 sets the default host output folder to
 `~/Downloads/financial-advisor`, matching the declared job name. Previously
 submitted jobs retain their configured destination.

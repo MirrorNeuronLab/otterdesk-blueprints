@@ -329,3 +329,55 @@ print(json.dumps({{
     assert "Schedule E" in result["top_action"]
     assert result["run_artifact_exists"] is True
     assert result["customer_report_exists"] is True
+
+
+def test_deployed_financial_report_is_run_scoped_and_discoverable_without_finalizing(tmp_path):
+    result = run_payload_script(
+        "financial_advisor",
+        f"""
+import hashlib
+import json
+from pathlib import Path
+from domain.composition import LOCAL_AGENT_SEQUENCE
+from domain.execution import execute_runtime_handler
+from mn_sdk.run_outputs import output_metadata
+
+root = Path({str(blueprint_path("financial_advisor"))!r})
+runs = Path({str(tmp_path / "runs")!r})
+exports = Path({str(tmp_path / "exports")!r})
+proofs = []
+for run_id in ('first-review', 'second-review'):
+    for agent_id, handler in LOCAL_AGENT_SEQUENCE:
+        result = execute_runtime_handler(
+            agent_id, handler,
+            inputs={{'document_folder': str(root / 'examples' / 'sample_inputs'),
+                    'output_folder': str(exports), 'quick_test': True}},
+            config={{'execution': {{'quick_test': True}}}},
+            runs_root=runs, run_id=run_id,
+        )
+    directory = runs / run_id
+    refs = output_metadata(directory)
+    proofs.append({{
+        'run_id': json.loads((directory / 'final_artifact.json').read_text())['run_id'],
+        'files': [ref['relative_path'] for ref in refs],
+        'all_contained': all(not ref['external'] for ref in refs),
+        'run_status': json.loads((directory / 'run.json').read_text())['status'],
+        'result_exists': (directory / 'result.json').exists(),
+        'report_hash': hashlib.sha256((directory / 'financial_advisor_report.md').read_bytes()).hexdigest(),
+    }})
+first = runs / 'first-review'
+print(json.dumps({{'proofs': proofs, 'first_hash_after_second': hashlib.sha256((first / 'financial_advisor_report.md').read_bytes()).hexdigest(),
+                  'export_exists': (exports / 'financial_advisor_report.md').exists()}}))
+""",
+    )
+    assert [proof["run_id"] for proof in result["proofs"]] == ["first-review", "second-review"]
+    for proof in result["proofs"]:
+        assert len(proof["files"]) == 14
+        assert "financial_advisor_report.md" in proof["files"]
+        assert "customer_report.json" in proof["files"]
+        assert "final_artifact.json" in proof["files"]
+        assert proof["all_contained"] is True
+        assert proof["run_status"] == "running"
+        assert proof["result_exists"] is False
+    assert result["proofs"][0]["report_hash"] == result["first_hash_after_second"]
+    assert result["export_exists"] is True

@@ -55,7 +55,7 @@ def test_catalog_compiles_four_bounded_host_specialists():
     assert package.extension("mn.storage")["resources"][0]["path"] == "state"
     assert package.extension("mn.context")["text_memory"]["enabled"]
     sdk = next(p for p in package.document("dependencies")["packages"] if p["name"] == "mirrorneuron-python-sdk")
-    assert sdk["version"] == ">=1.3.58.dev46,<2"
+    assert sdk["version"] == ">=1.3.58.dev68,<2"
     assert "mirrorneuron-macos-logs-skill" in {p["name"] for p in package.document("dependencies")["skills"]}
     assert all(n["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
                for n in manifest["agents"]["nodes"] if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_AGENT_ID") in package.document("execution")["agents"]["registry"])
@@ -382,6 +382,21 @@ def test_context_graph_is_local_scoped_and_replay_safe(domain, scans, config, st
     factory = text_memory_transport.client
     def graph_client(*args, **kwargs):
         client = factory(*args, **kwargs)
+        ingest = client.ingest_text
+        def create_only(text, *, record_id, namespace, **values):
+            # The real engine rejects unversioned overwrites even when bytes
+            # match. Its event journal is run-scoped; Job records outlive it.
+            import grpc
+            if namespace == "job" and values.get("expected_version") is None:
+                try:
+                    client.read_complete("job:" + record_id)
+                except grpc.RpcError as error:
+                    if error.code() != grpc.StatusCode.NOT_FOUND:
+                        raise
+                else:
+                    raise ValueError("stale Markdown revision")
+            return ingest(text, record_id=record_id, namespace=namespace, **values)
+        client.ingest_text = create_only
         def retrieve(request):
             facts = []
             for sid in request["sources"]:

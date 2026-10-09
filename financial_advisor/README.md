@@ -4,6 +4,12 @@ The generated `financial_advisor_report.md` and `customer_report.json` are
 customer-facing and prioritize evidence status, missing context, and a ranked
 action queue. The full JSON bundle remains the audit layer.
 
+Reports and audit records are published in the SDK-provided run directory.
+The final artifact records run-relative output paths so OtterDesk can discover
+them on either node. The configured output folder receives additional copies;
+later runs retain earlier run reports. Report publication does not complete
+the logical workflow; the generated step sink owns completion.
+
 `financial_advisor` is a unified review-only finance blueprint. Put bank statements, receipts, bills, income records, W-2s, 1099s, tax-form images with answer files, brokerage statements, portfolio files, and related finance documents in the input folder. It extracts bank-statement evidence, captures tax-form OCR fields for review, normalizes household cash flow, prepares draft tax workpapers, reviews portfolio risk, and writes an integrated advisor packet to the output folder.
 
 ## Run

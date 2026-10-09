@@ -235,7 +235,7 @@
       {
         "artifact_id": "review_packet_markdown",
         "mime_type": "text/markdown",
-        "path": "<outputs.folder_path>/financial_advisor_report.md",
+        "path": "financial_advisor_report.md",
         "producer": "workflow",
         "schema_version": "mn.blueprint.generated_report.v1",
         "source_refs": [
@@ -246,7 +246,7 @@
       {
         "artifact_id": "customer_report",
         "mime_type": "application/json",
-        "path": "<outputs.folder_path>/customer_report.json",
+        "path": "customer_report.json",
         "producer": "workflow",
         "schema_version": "mn.blueprint.financial_advisor.customer_report.v1",
         "source_refs": [
@@ -257,7 +257,7 @@
       {
         "artifact_id": "cash_flow_llm_review",
         "mime_type": "application/json",
-        "path": "<outputs.folder_path>/cash_flow_llm_review.json",
+        "path": "cash_flow_llm_review.json",
         "producer": "workflow",
         "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
         "source_refs": [
@@ -269,7 +269,7 @@
       {
         "artifact_id": "tax_form_ocr_capture",
         "mime_type": "application/json",
-        "path": "<outputs.folder_path>/tax_form_ocr_capture.json",
+        "path": "tax_form_ocr_capture.json",
         "producer": "workflow",
         "schema_version": "mn.blueprint.tax_form_capture.v1",
         "source_refs": [
@@ -280,7 +280,7 @@
       {
         "artifact_id": "tax_llm_review",
         "mime_type": "application/json",
-        "path": "<outputs.folder_path>/tax_llm_review.json",
+        "path": "tax_llm_review.json",
         "producer": "workflow",
         "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
         "source_refs": [
@@ -293,7 +293,7 @@
       {
         "artifact_id": "portfolio_llm_review",
         "mime_type": "application/json",
-        "path": "<outputs.folder_path>/portfolio_llm_review.json",
+        "path": "portfolio_llm_review.json",
         "producer": "workflow",
         "schema_version": "mn.blueprint.financial_advisor.llm_review.v1",
         "source_refs": [
