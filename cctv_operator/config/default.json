@@ -669,7 +669,7 @@
     "scene_change_consecutive_samples": 2,
     "scene_change_threshold": 0.18,
     "sequence_triggers": [
-      "person_gate",
+      "semantic_event",
       "on_demand"
     ]
   },

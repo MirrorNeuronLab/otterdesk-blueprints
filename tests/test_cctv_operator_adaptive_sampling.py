@@ -247,7 +247,10 @@ def test_frame_batch_is_durable_and_contains_only_artifact_metadata(tmp_path):
 def test_sampler_maps_resident_batch_to_cctv_message_without_image_blob(monkeypatch, tmp_path, capsys):
     sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_caption_sampler")
     monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
-    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", "{}")
+    # Exercise the shipped configuration against the shared skill contract.
+    # An unsupported sequence trigger prevents both the sampler and resident
+    # Web UI from starting, before any caption can be claimed.
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", (ROOT / "cctv_operator/config/default.json").read_text())
     monkeypatch.setattr(sampler, "load_json_env", lambda _name: {})
     monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a: None)
     monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
