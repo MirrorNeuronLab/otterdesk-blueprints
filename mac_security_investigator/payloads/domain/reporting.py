@@ -108,7 +108,14 @@ def publish_report(context):
             if fingerprint(saved) != binding:
                 raise ValueError("saved report has different semantic inputs")
             report = saved
-        refs = [save(context, "final_artifact.json", report), save(context, "evidence.json", evidence)]
+        # Keep the sealed ledger assessment independent of its run publication.
+        # Relative output paths remain usable after shared-tree replication.
+        published = {**report, "output_files": [
+            {"kind": "final_artifact", "path": "final_artifact.json"},
+            {"kind": "evidence", "path": "evidence.json"},
+            {"kind": "report", "path": "report.md"},
+        ]}
+        refs = [save(context, "final_artifact.json", published), save(context, "evidence.json", evidence)]
         (root / "report.md").write_text(report["report_text"], encoding="utf-8")
         refs.append(artifact_reference("report", "report.md"))
         # Result preview is optional. Failure never blocks the authoritative report.

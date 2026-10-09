@@ -2,7 +2,7 @@
 
 This co-worker reviews local Mac unified-log evidence across user-initiated
 runs and preserves source receipts, coverage and saved reports. It runs on the
-submitting Mac. Version 0.2.1 is a logs-only pilot; it does not inspect OS files
+submitting Mac. Version 0.2.2 is a logs-only pilot; it does not inspect OS files
 or certify that a Mac is safe.
 
 ## Setup
@@ -63,6 +63,9 @@ Authoritative outputs include `final_artifact.json`, `report.md`, `evidence.json
 `web/index.html` is an optional inert preview. The runtime supplies run paths
 and copies reports to the selected output folder in a run-specific subfolder.
 The persistent Job ledger is under `state/<epoch-digest>/history.sqlite3`.
+The final artifact catalogs the report, evidence and assessment with run-relative
+paths, so the runtime can list and open them after output replication. Publication
+metadata does not change the sealed historical assessment.
 The host/user log scope uses the Mac hostname and user identity without opening
 installation markers. A changed host/user selects another ledger; this cannot
 certify installation continuity across clones or restores. Logs-only history is

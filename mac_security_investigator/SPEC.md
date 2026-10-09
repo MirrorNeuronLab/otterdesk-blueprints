@@ -1,6 +1,6 @@
 # Mac security investigator — current product contract
 
-Version: 0.2.0 (logs-only pilot). Category: Security. User initiated batch co-worker.
+Version: 0.2.2 (logs-only pilot). Category: Security. User initiated batch co-worker.
 
 The design target is the supplied
 [Cross-run temporal behavioral graph specification](docs/temporal_behavior_contract.md).
@@ -62,6 +62,9 @@ coverage separately. Malicious intent and present runtime status remain unknown.
 Required source references resolve to retained records and acquisition receipts.
 Report replay uses immutable stored JSON and text. The optional preview escapes
 source values and blocks network/script content with CSP.
+The run's final artifact adds a relative output catalog for the assessment,
+evidence and Markdown report. Replicated runs resolve their own copies; this
+publication metadata remains separate from the sealed ledger assessment.
 
 ## Current limits and release gates
 

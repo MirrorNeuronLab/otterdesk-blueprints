@@ -355,6 +355,19 @@ def test_full_domain_pipeline_persists_reports_and_isolated_jobs(domain, scans, 
     report = json.loads(first)
     assert report["cases"][0]["review_state"] == "explained"
     assert len(report["cases"]) == 1
+    from mn_sdk.run_outputs import output_metadata
+    outputs = output_metadata(Path(context["run_dir"]))
+    assert {item["relative_path"] for item in outputs} == {
+        "final_artifact.json", "evidence.json", "report.md",
+    }
+    assert not any(item["external"] for item in outputs)
+    # A replicated run must resolve its own files without the writer's paths.
+    import shutil
+    replicated = tmp_path / "replicated-run"
+    shutil.copytree(context["run_dir"], replicated)
+    assert [(item["relative_path"], item["sha256"]) for item in output_metadata(replicated)] == [
+        (item["relative_path"], item["sha256"]) for item in outputs
+    ]
     assert (context["run_dir"] / "web/index.html").is_file()
     new = {**context, "job_data_dir": tmp_path / "different-job", "job_id": "job-b"}
     from domain.history import history
