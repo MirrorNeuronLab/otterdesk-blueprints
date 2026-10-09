@@ -94,6 +94,13 @@ def validate_result(
         claim_ids.add(ident)
         for k in ["statement", "rationale", "counterevidence"]:
             text(claim.get(k), k)
+        if 'architecture' in claim:
+            detail = claim['architecture']
+            if not isinstance(detail, dict):
+                raise ValueError('Invalid architecture finding detail')
+            for field in ('question', 'capability', 'mechanism', 'consequence',
+                          'priority_rationale', 'next_decision', 'closure_condition'):
+                text(detail.get(field), 'architecture.' + field, 2000)
         if (
             claim.get("claim_type") not in CLAIM_TYPES
             or claim.get("confidence") not in CONFIDENCE

@@ -23,6 +23,9 @@ def test_compiled_contract_and_docker_handlers(modules):
     package = read_blueprint(BLUEPRINT)
     source = blueprint_definition(package)
     compiled = compile_blueprint(package, resolve_config(package)).manifest
+    resources = {r['name']: r for r in compiled['metadata']['job_data']['resources']}
+    assert resources['architecture_results']['path'] == 'architecture_results'
+    assert resources['architecture_results']['access'] == 'read_write'
     fields = compiled['metadata']['run_retry']['configuration_fields']
     assert fields['catalog_review.walltime_seconds'] == {'type': 'integer', 'minimum': 1, 'maximum': 604800}
     assert fields['llm.max_calls']['maximum'] == 10000
@@ -64,9 +67,10 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     execution=json.loads((BLUEPRINT/'execution.json').read_text())
     assert 'output_folder' not in config
     assert config['inputs']['payload']['repository_url']=='https://github.com/MirrorNeuronLab/MirrorNeuron'
-    assert execution['job_name']=='architecture-advisor'
+    assert execution['job_name']=='software_architecture_advisor'
     assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
     assert config['outputs']['write_run_store'] is True
+    assert config['outputs']['job_files'] == ['data', 'web']
 
     monkeypatch.setenv('HOME',str(tmp_path))
     manifest={
@@ -79,8 +83,9 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     prepared=prepare_job_submission(manifest, {}, shared_storage_root=tmp_path/'shared',
                                     runtime_shared_storage_root='/remote/shared')
     copies=json.loads(prepared.manifest_json)['metadata']['mn_storage']['output_copy']
-    assert any(item['target_path']==str(tmp_path/'Downloads/architecture-advisor')
+    assert any(item['target_path']==str(tmp_path/'Downloads/software_architecture_advisor')
                for item in copies)
+    assert all({'data', 'web'} <= set(item['job_files']) for item in copies)
 
 
 def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modules, tmp_path):

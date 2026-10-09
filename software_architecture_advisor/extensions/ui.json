@@ -83,6 +83,14 @@
         "path_kind": "file",
         "role": "input",
         "description": "Optional evidence graph export file."
+      },
+      {
+        "path": "inputs.payload.review_file",
+        "label": "Review decisions",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input",
+        "description": "Optional architecture-reviews.json exported from the dashboard. Decisions are bound to repository and evidence identity."
       }
     ]
   },
@@ -90,5 +98,13 @@
     "Review the architecture of this GitHub repository.",
     "Investigate coupling and counter-evidence in my local source folder.",
     "Which characterization tests should precede a service boundary change?"
-  ]
+  ],
+  "web_ui": {
+    "data_source": "job_data_and_run_artifacts",
+    "preferred_adapter": "static_html",
+    "static_html": {
+      "artifact": "web/index.html",
+      "writes": "web_ui.json handle; offline page renders retained real snapshot data"
+    }
+  }
 }

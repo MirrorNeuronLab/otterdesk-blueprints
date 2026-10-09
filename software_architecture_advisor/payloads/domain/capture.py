@@ -94,11 +94,16 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
             modules[item["name"]] = {**item, "layer": item.get("layer", "unspecified"), "layer_basis": "supplied declaration"}
         from .records import validate_export
         validate_export(supplied, sources, modules)
-    anchor = None
+    anchor, worktree_state = None, 'unavailable'
     if (repository / ".git").exists():
         try:
-            anchor = subprocess.run(["git", "-C", str(repository), "-c", f"safe.directory={repository}", "rev-parse", "HEAD"],
+            git = ["git", "-C", str(repository), "-c", f"safe.directory={repository}",
+                   "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull]
+            anchor = subprocess.run([*git, "rev-parse", "HEAD"],
                                     capture_output=True, text=True, check=True, timeout=10).stdout.strip()
+            status = subprocess.run([*git, "status", "--porcelain", "--untracked-files=all"],
+                                    capture_output=True, text=True, check=True, timeout=10).stdout
+            worktree_state = 'dirty captured worktree' if status else 'clean worktree'
         except (OSError, subprocess.SubprocessError):
             warnings.append("Git HEAD could not be captured; history queries will report unavailable")
     previous, prior_manifest = None, {}
@@ -142,6 +147,7 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
     client.import_json(directory / "nodes.json", directory / "edges.json")
     client.check()
     manifest = {"id": identifier, "format_version": 2, "repository": str(repository), "git_anchor": anchor,
+                "worktree_state": worktree_state,
                 "input": {**(input_info or {"kind": "folder", "location": str(repository)}), "revision": anchor},
                 "extractor": "source-capture/4", "repository_id": repository_id,
                 "file_identity_version": registry.export()["version"],

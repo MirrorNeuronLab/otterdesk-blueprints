@@ -1,0 +1,10 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/storage.schema.json",
+  "resources": [
+    {
+      "name": "architecture_results",
+      "path": "architecture_results",
+      "access": "read_write"
+    }
+  ]
+}

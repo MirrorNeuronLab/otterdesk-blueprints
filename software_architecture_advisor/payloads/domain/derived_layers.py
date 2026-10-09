@@ -20,6 +20,7 @@ def history(records, manifest):
         raise LayerUnavailable("git requires a repository with a captured HEAD or an explicit git graph export; re-ingest when supplied")
     try:
         result = subprocess.run(["git", "-C", repository, "-c", f"safe.directory={repository}", "-c", "core.quotePath=false",
+                                 "-c", "core.fsmonitor=false", "-c", "core.hooksPath=/dev/null",
                                  "log", anchor, "--no-merges", f"-{manifest['ingest_config']['git_commits']}",
                                  "--format=@@%H|%cI", "--name-only", "--no-renames"],
                                 capture_output=True, text=True, timeout=20, check=True)
@@ -27,13 +28,17 @@ def history(records, manifest):
         raise LayerUnavailable("Anchored Git objects are unavailable; restore the captured repository or supply a graph export") from exc
     log_hash = digest(result.stdout.encode())
     by_path = {m["path"]: name for name, m in manifest["modules"].items()}
-    commit, count = None, 0
+    commit, count, change_sets = None, 0, []
     for line in result.stdout.splitlines():
         if line.startswith("@@"):
             sha, date = line[2:].split("|", 1)
             commit = records.node("commit:" + sha, "Commit", name=sha, date=date)
             count += 1
-        elif commit and line in by_path:
+            change_sets.append({"id": sha, "at": date, "paths": []})
+        elif commit and line in records.sources:
+            change_sets[-1]["paths"].append(line)
+            if line not in by_path:
+                continue
             eid = "G" + digest((sha + line + log_hash).encode())[:20]
             records.evidence[eid] = {"id": eid, "kind": "observed_history", "commit": sha, "path": line,
                                      "sha256": log_hash, "line_start": None, "line_end": None,
@@ -41,7 +46,8 @@ def history(records, manifest):
             records.edge(commit, "module:" + by_path[line], "CHANGES", eid, "observed_history")
     records.details.update(history={"status": "available", "anchor": anchor, "commits": count,
                                     "commit_limit": manifest["ingest_config"]["git_commits"], "scope": "current paths; no rename tracking; merges omitted"},
-                           raw_log=result.stdout, git_log_sha256=log_hash)
+                           raw_log=result.stdout, git_log_sha256=log_hash,
+                           change_sets=change_sets)
 
 
 def schema(records):

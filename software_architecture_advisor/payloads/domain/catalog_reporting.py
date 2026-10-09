@@ -85,6 +85,8 @@ def assemble(context, *, llm_client=None):
             }
             canonical["evidence_ids"] = eids
             canonical['counterevidence_ids'] = counter_ids
+            if 'architecture' in c:
+                canonical['architecture'] = c['architecture']
             cid = "C-" + fingerprint(canonical)[:16]
             claim_map[(ident, c["claim_id"])] = cid
             record = claims.setdefault(
@@ -116,6 +118,7 @@ def assemble(context, *, llm_client=None):
                         "counterevidence_ids": counter_ids,
                         "confidence": c["confidence"],
                         "confidence_rationale": c["rationale"],
+                        "architecture": c.get('architecture'),
                     },
                 )
                 if cid not in finding["claim_ids"]:

@@ -17,7 +17,7 @@ navigation; file scans, evidence lookups, and section/executive summaries use
 their explicit source and result packets. A globally enabled memory service does
 not cause recall on every model call.
 
-Architecture Advisor 3.5 reviews code repositories piece by piece with the
+Architecture Advisor 3.7 reviews code repositories piece by piece with the
 OpenCode skill inside OpenShell. It evaluates the supplied report library's
 **150 aspects in 23 sections**, including an independent counterevidence review
 for each aspect, and produces explicit coverage even when evidence is missing.
@@ -143,35 +143,139 @@ interruption; use a new run for an explicitly chosen retry.
 
 ## Results
 
-Authoritative artifacts remain in the SDK-provided shared run directory under
-`$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/`. The SDK
-handles the configured convenience copy to `~/Downloads/architecture-advisor`.
+The configured output folder defaults to `~/Downloads/software_architecture_advisor`.
+`data/` and `web/` are Job-level entries: each run adds an immutable snapshot
+and refreshes the latest dashboard. They are delivered by the SDK at the folder
+root, rather than inside `run_<timestamp>/`.
 
-- `report.md`, `report.json`, `review_index.json`: overview and navigation.
-- `sections/`: 23 reports with per-aspect requirements, conclusions and challenges.
-- `coverage.json`: all 150 applicability/coverage decisions and source packet scope.
-- `evidence.json`, `claims.json`, `findings.json`: immutable locators and traceability.
-- `recommendations.json`, `assumptions.json`, `verification_tasks.json`:
-  proposed decisions and the evidence still needed.
-- `roadmap.json`, `work_packages.json`, `work_packages/`: proposed migration
-  sequences and self-contained, evidence-linked coding-agent briefs.
-- `catalog/`: immutable plans, requests, attempt budget, results, receipts and
-  terminal reason. This audit data is confidential.
-- `analysis/dependencies.json` and optional `analysis/dependency-dsm.csv`:
-  deterministic structural evidence.
+```text
+software_architecture_advisor/
+  data/
+    index.json                 # All retained snapshots; immutable record digests
+    workspace.json             # Latest complete publication, including partial review status
+    snapshots/<publication-id>/
+      workspace.json           # Source identities, components, edges, findings and checks
+      report.md / report.json
+      sections/                # 23 Markdown sections
+      evidence.json / claims.json / findings.json
+      recommendations.json / verification_tasks.json / coverage.json
+      work_packages.json / work_packages/
+      improvement_prompts.md / improvement_prompts.json
+  web/
+    index.html                 # Offline dashboard for the latest retained snapshot
+    snapshots/<publication-id>.html
+  run_<timestamp>/              # Per-run audit, original source capture and runtime artifacts
+```
 
-Empty recommendation/work-package registers mean no supported proposal was
-produced. They do not mean the system is healthy. Runtime behavior, security,
-capacity, organizational ownership, history and business costs remain unknown
-unless supplied evidence supports a carefully scoped claim. Proposed work is
-never authorization to change source, production data or deployments.
+Open `web/index.html` directly or use the desktop's co-worker web view. No web
+service or CDN is required. The dashboard reads a projection of actual captured
+source and validated review registers; it does not contain Atlas Commerce or
+synthetic observations. JSON is authoritative and the page embeds the same
+record projection so local-file browsing works without a server. Web rendering
+is a required final deliverable; a rendering failure reports failure after
+preserving the already-written data and Markdown.
 
-The complete original specification library is bundled at `payloads/report_specs`
-with its manifest and hashes, so jobs do not depend on the author's host path.
+Views cover decisions, findings, a bounded directory-group dependency map,
+component/source details, exact dependency matrices and source sites, cyclic
+module groups, structural hotspots, Git co-change with exact commit drill-through,
+previous-snapshot source-hash changes and bounded reverse dependency paths,
+proposed validation, evidence gaps, review drafts and engineering work packages.
+Findings link supporting and contrary source excerpts, confidence, assessment,
+human review and resolution separately. New reviews request an explicit question,
+capability, trigger/mechanism, consequence, priority rationale, next decision and
+closure condition. Earlier records without that detail remain visibly incomplete.
+
+### From evidence to a useful change
+
+The overview leads with one grounded next step, its proposed benefit and what
+would count as a useful result. Work product provides copyable **Investigate**,
+**Plan**, **Implement** and **Verify** prompts for a coding tool. Each prompt
+retains the exact proposal or question, source/hash locators, counterevidence,
+scope, alternatives, acceptance conditions and an honest completion report.
+Implementation prompts require a source-supported, scoped work package; unresolved
+premises lead to investigation/planning and verification instead. A cycle gets
+an investigation prompt, not an automatic recommendation to split code.
+
+The same prompt text appears in the main `report.md`/`report.json`, a standalone
+`improvement_prompts.md`/`improvement_prompts.json`, work-package Markdown, the
+dashboard and exported briefings. Prompt documents also accumulate inside
+`data/snapshots/<publication-id>/`. Copy prompt uses the clipboard; when unavailable,
+the page selects the complete text for manual copying. Copying never executes
+the prompt or changes source. Proposed benefits are not measured savings.
+
+Handoffs are limited to 256 per publication. Prompt context keeps whole evidence
+records within a bounded allowance; omissions and the exact retained JSON artifact
+are disclosed. Oversized or incomplete contexts cannot produce implementation
+handoffs. Search, prompt-type and component filters help locate relevant actions;
+exports preserve all matching generated prompts.
+
+The model continues to produce the 150-aspect/23-section Markdown report.
+`report.md`, `report.json`, `review_index.json`, all linked registers and the
+confidential `catalog/` task audit also remain per-run outputs. SQLite budget
+ledgers are not exported as work product. Source originals stay in the restricted
+run audit; the web export includes exact cited excerpts, not all unrelated code.
+
+### Repeated reviews and saved decisions
+
+Persistent state uses the declared `architecture_results` resource under the
+SDK-provided Job data directory, isolated by stable Job identity. Publication is
+locked and atomic. Earlier JSON snapshots and pages are retained; replay cannot
+append a duplicate snapshot or roll the latest pointer backward. A run without a
+Job data directory says `Single run; Job history unavailable`.
+
+Snapshots compare only the same repository identity. Public Git origins provide
+stable identity. For a local source without a canonical origin, explicitly set
+`ingest.repository_id` to the same path-free logical name on each run; otherwise
+cross-run repository matching is unavailable. Comparisons use the previous saved
+Job snapshot, not an assumed PR parent or merge base. Scope and analysis setting
+changes are disclosed. A finding missing from a later review is **no longer
+evaluated**, rather than automatically resolved. Changed evidence requires
+reassessment; wording/path changes can require manual continuity reconciliation.
+
+Save view preserves the snapshot route, query, component filter and tab in this
+browser. Review drafts require a named reviewer and rationale and remain bound
+to the exact material digest. Export review decisions and supply the file on a
+later run to persist them in Job history:
+
+```bash
+mn blueprint run ./software_architecture_advisor \
+  --set inputs.payload.repository_url= \
+  --set inputs.payload.input_folder=/absolute/path/to/repository \
+  --set inputs.payload.review_file=/absolute/path/to/architecture-reviews.json
+```
+
+Review acceptance changes analysis state only. It does not modify source or mark
+remediation verified. Briefings and work-package Markdown retain evidence locators,
+qualifications and tests-not-run status.
+
+### Evidence boundaries
+
+Python and BEAM imports/references power the current structural map. Other
+languages receive source-text review and an explicit structural gap. Directory
+groupings are navigation aids, not confirmed logical components or deployed
+services. Static reachability is dependency context, not a reproduced failure.
+Git history is anchored, limited to non-merge commits and current captured paths;
+no rename tracking, PR normalization or automatic mechanical-change classification
+is asserted. The two directional co-change rates and union overlap expose their
+different denominators and exact commit sets.
+
+This version does not implement multi-repository bundles, semantic contract
+compatibility, authoritative runtime/test-result imports, approved rule/exception
+evaluation, deployment/state/workflow reconstruction, performance/capacity models,
+or web natural-language answers. Those require further typed evidence collectors
+and integrations; the dashboard shows the missing evidence instead of invented
+results. The existing Job conversation service remains available through OtterDesk.
+
+The full report specification library is bundled at `payloads/report_specs` with
+its manifest and hashes. Empty findings or proposals do not establish health.
+All proposed work remains subject to separately authorized implementation scope.
 
 ## Validation status
 
-The orchestration, evidence validation and report publication checks pass. The
+The 3.7 advisor/manifest suite passed 125 tests, with 34 Linux-dependent skips.
+The real-source dashboard and responsive browser checks passed. The full catalog
+gate remains unclean; successful live model execution and production deployment
+have not been verified for this update. The
 2026-09-28 live OpenShell check reached OpenCode Zen but the default free model
 returned HTTP 403. That run produced an explicitly blocked/partial report; it
 was not a completed architecture assessment. No alternative model was selected.

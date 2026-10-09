@@ -11,7 +11,7 @@
     "problem": "Teams need evidence from their codebase before deciding where to change software boundaries.",
     "benefit": "Understand proposed architecture improvements through code evidence and checks for alternative explanations.",
     "input": "A public GitHub repository URL or local source folder, with an optional review goal and graph export.",
-    "output": "A 23-section report, 150-aspect coverage matrix, evidence and findings registers, recommendations, verification tasks, migration roadmap and proposed coding-agent work packages.",
+    "output": "A cumulative, source-linked interactive architecture dashboard and snapshot data, plus 23-section Markdown reports, findings, counterevidence, validation plans and proposed engineering work packages.",
     "how_it_works": "Freezes source, partitions it into bounded tasks, runs OpenCode review inside OpenShell, challenges each aspect, adds evidence-driven follow-ups within budgets, and synthesizes sections before the executive brief.",
     "target_users": "Software architects and engineering teams."
   }

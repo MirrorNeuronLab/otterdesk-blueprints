@@ -8,6 +8,7 @@ from mn_sdk.step_runtime import artifact_reference
 
 from .config import validate_config, offline_config
 from .lazy import LayerManager
+from .catalog import LayerUnavailable
 
 
 def _components(adjacency):
@@ -189,6 +190,17 @@ def analyze_snapshot(context, *, llm_client=None):
     if result["dsm"]["status"] == "ready":
         _write_dsm(output / "dependency-dsm.csv", result["modules"], adjacency)
         refs.append(artifact_reference("dependency_dsm", "analysis/dependency-dsm.csv"))
+    # History is a separate evidence basis; absence cannot become a zero count.
+    try:
+        historical = manager.ensure(("git",))["entries"]["git:*"]["details"]
+        history = {**historical["history"], "change_sets": historical.get("change_sets", []),
+                   "git_log_sha256": historical.get("git_log_sha256"),
+                   "basis": "historical", "unit": "non-merge commits touching current captured paths"}
+    except LayerUnavailable as error:
+        history = {"status": "unavailable", "reason": str(error), "change_sets": None}
+    history['schema_version'] = 'mn.architecture.change_sets.v1'
+    (output / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
+    refs.append(artifact_reference("change_history", "analysis/history.json"))
     return {"analysis": refs[0], "modules": len(result["modules"]),
             "dependencies": len(result["dependencies"]), "cycles": len(result["strongly_connected_cycles"]),
             "dsm_status": result["dsm"]["status"]}, refs

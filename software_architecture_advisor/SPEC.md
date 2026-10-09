@@ -1,4 +1,4 @@
-# Architecture Advisor 3.5 specification
+# Architecture Advisor 3.6 specification
 
 ## Outcome
 
@@ -96,6 +96,80 @@ copy or native execution fallback is implemented by the blueprint.
 Malformed/model failures are blocked task results, while corrupted committed
 artifacts fail validation. Offline mode explicitly means not analyzed. Partial
 reports state the terminal reason, task status and source omissions.
+
+## Interactive workspace and cumulative output
+
+The final publication phase produces real source-linked JSON, Markdown and an
+offline interactive dashboard from the same validated records. `outputs.job_files`
+declares `data` and `web`; SDK host delivery places them at the configured Job
+folder root (`~/Downloads/software_architecture_advisor`) and leaves ordinary
+audit outputs in their standard run folders. The blueprint does not derive host
+paths or perform a separate data/web host copy.
+
+The declared mutable `architecture_results` Job resource owns append-only
+snapshot records and pages. An atomic latest index is separate from immutable
+publications. Same-run replay verifies its projection digest, cannot duplicate
+history, and cannot roll back a newer snapshot. Different Jobs remain isolated.
+UI composition belongs to focused domain modules and bundled local assets;
+there is no dashboard service, entrypoint or runtime health dependency. The web
+artifact is required by this product contract: failure remains explicit with
+already-published data/Markdown preserved.
+
+The webpage includes overview, findings, directory-based architecture groups,
+source evidence, dependency matrix, cyclic groups, Git co-change, structural
+hotspots, prior-snapshot hash changes, bounded reverse dependency paths, gaps,
+proposed checks, recommendations and engineering work packages. Every accepted
+structural edge is rejoined to frozen source hashes and valid physical spans.
+Counts disclose their units. Co-change selections expose the matching commit set,
+both directional denominators and union denominator. Missing history is unavailable,
+not zero. Graph tables provide an equivalent keyboard-operable access path.
+
+Model finding annotations request question, affected capability, mechanism,
+consequence, priority rationale, next decision and closure condition. Supplied
+annotations are bounded and validated, preserved in JSON and Markdown and shown
+alongside counterevidence. Missing older annotations are explicitly unavailable.
+Assessment, evidence basis, review and resolution remain separate dimensions.
+
+The overview must lead with a grounded next action, a proposed benefit and a clear
+desired result. Publish copyable coding-tool prompts in the main Markdown/JSON,
+standalone prompt artifacts, work-package Markdown and the dashboard. Generate
+investigation, planning and verification handoffs from real retained records.
+Implementation handoffs require a supported, scoped work package with resolved
+challenge gates; missing evidence cannot turn a structural clue into a refactor.
+Preserve baseline hashes, counterevidence, alternatives, constraints, checks,
+acceptance and stop conditions. Require reassessment against the current checkout,
+preserve unrelated edits and distinguish actual test outcomes from proposals.
+Expected benefits remain proposed, never invented measurements. Copy/export
+does not run a coding tool or authorize automatic implementation.
+
+Use one domain-owned prompt representation across all delivery formats. Keep
+source context whole and bounded; disclose omitted records and their retained
+artifact, and withhold implementation prompts when their context is incomplete.
+Retain prompt artifacts per snapshot. Browser clipboard failure must leave a
+selectable complete prompt, without remote clipboard services or page networking.
+
+Cross-run comparison requires the same repository identity; local repositories
+without a canonical origin need an explicit `ingest.repository_id`. Different
+capture exclusions or analysis settings invalidate direct metric comparability.
+A disappeared finding is not verified resolved. Conservative finding continuity
+uses wording, paths and aspects; rename or interpretation changes can need
+manual reconciliation. Before/after panels contain actual retained cited excerpts
+and source hashes, not reconstructed semantic diffs. Traversal is capped at
+100 changed roots, four hops and 128 nodes per root with an explicit frontier.
+
+Review drafts and saved views stay in browser storage. An explicit bounded
+`inputs.payload.review_file` imports attributable, revision-bound decisions into
+Job history. Changed material causes reassessment; conflicting reviewers remain
+visible. Source, deployments and remediation status do not change upon acceptance.
+Export is a local copy, not implicit publishing. CSP blocks page network access
+and active source content; data is JSON-escaped and excerpts render as text.
+
+Current limits: one repository per run; structural graph support is Python and
+BEAM, with text review for other languages. Semantic contract compatibility,
+PR baseline selection, imported runtime/check results, policy enforcement,
+deployment/state/workflow modeling, performance/capacity prediction, permission-
+filtered sharing and webpage natural-language answers are not implemented.
+Their absence must remain visible and cannot be represented by synthetic data.
 
 ## Deliverables and acceptance
 

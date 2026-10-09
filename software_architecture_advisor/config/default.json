@@ -111,9 +111,13 @@
   "outputs": {
     "adapter": "local_run_store",
     "artifact_contract": "Read-only architecture review, evidence audit, and copy-ready implementation prompts; no source changes.",
-    "folder_path": "~/Downloads/architecture-advisor",
+    "folder_path": "~/Downloads/software_architecture_advisor",
     "run_root": "~/.mn/runs",
-    "write_run_store": true
+    "write_run_store": true,
+    "job_files": [
+      "data",
+      "web"
+    ]
   },
   "offline": false,
   "skill_runtime": {
@@ -132,6 +136,17 @@
         "allowed_extensions": [
           "*"
         ]
+      }
+    ],
+    "files": [
+      {
+        "config_path": "inputs.payload.review_file",
+        "payload_path": "mn_local_inputs/architecture_reviews.json",
+        "runtime_path": "mn_local_inputs/architecture_reviews.json",
+        "allowed_extensions": [
+          ".json"
+        ],
+        "max_bytes": 2097152
       }
     ]
   },

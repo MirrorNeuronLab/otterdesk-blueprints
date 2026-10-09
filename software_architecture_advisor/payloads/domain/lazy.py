@@ -91,6 +91,8 @@ class LayerManager:
     def _fingerprint(self, layer, scope, dependencies):
         recipe = {"snapshot": self.manifest["id"], "collector": COLLECTOR_VERSION, "layer": layer, "scope": scope,
                   "dependencies": dependencies, "options": self.config.get("lazy", {})}
+        if layer == 'git':
+            recipe['history_records'] = 'captured-change-sets/1'
         if layer == "semantics":
             recipe["model"] = self.config["llm"]
         if layer == "embeddings":

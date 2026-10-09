@@ -33,6 +33,13 @@
       "required": false,
       "privacy": "confidential",
       "description": "Destination for reports and audit files."
+    },
+    "review_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Optional bounded JSON review export from the architecture dashboard. Does not authorize source edits."
     }
   },
   "input_validation": {
@@ -247,6 +254,86 @@
         "type": "work_package_documents",
         "producer": "workflow",
         "schema_version": "mn.architecture.catalog.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "change_history",
+        "path": "analysis/history.json",
+        "mime_type": "application/json",
+        "type": "change_history",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.change_sets.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_workspace",
+        "path": "data/workspace.json",
+        "mime_type": "application/json",
+        "type": "architecture_workspace",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.workspace.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_history",
+        "path": "data/index.json",
+        "mime_type": "application/json",
+        "type": "architecture_history",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.history.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "improvement_prompts",
+        "path": "improvement_prompts.md",
+        "mime_type": "text/markdown",
+        "type": "improvement_prompts",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.improvement_prompts.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "improvement_prompt_data",
+        "path": "improvement_prompts.json",
+        "mime_type": "application/json",
+        "type": "improvement_prompt_data",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.improvement_prompts.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_snapshots",
+        "path": "data/snapshots",
+        "mime_type": "application/octet-stream",
+        "type": "architecture_snapshots",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.workspace.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_dashboard",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "type": "architecture_dashboard",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.dashboard.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "web_ui_handle",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "type": "web_ui_handle",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.web_ui.v1",
         "privacy": "confidential",
         "required": true
       }

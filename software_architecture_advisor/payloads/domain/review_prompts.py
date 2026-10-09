@@ -84,6 +84,15 @@ def output_shape(task, required):
                 "counterevidence_status": "supplied|not_found_in_searched_scope|unknown",
                 "counterevidence_citations": ["S-available-id, or empty when unavailable"],
                 "evidence": ["S-available-id"],
+                "architecture": {
+                    "question": "Decision-relevant architecture question",
+                    "capability": "Affected capability, or explicitly unknown",
+                    "mechanism": "Source-backed mechanism and trigger; separate inference from observation",
+                    "consequence": "Scoped consequence; connected does not mean broken",
+                    "priority_rationale": "Why review this now under the goal; no invented risk score",
+                    "next_decision": "Smallest defensible next decision, including defer when justified",
+                    "closure_condition": "Source-matched mechanism and behavior checks needed to resolve this concern",
+                },
             }
         ],
         "recommendations": [
@@ -262,6 +271,10 @@ def build_prompt(task, catalog, snapshot, packets, results, budget, omitted, *, 
             "packet_targets": len(packets),
         },
     }
+    base['instructions'] += (' Explain each recommendation through a concrete user or engineering scenario: '
+        'what becomes easier or safer, why this matters now, the smallest useful change, '
+        'a keep-as-is alternative and observable acceptance conditions. Benefits are proposed until measured; '
+        'never invent cost savings, failure probabilities or delivery estimates.')
     base['instructions'] += (' Give every supplied counterexample exact counterevidence_citations. '
         'Use counterevidence_status unknown when it was unexamined; not_found_in_searched_scope '
         'describes a bounded completed search and never proves absence.')
