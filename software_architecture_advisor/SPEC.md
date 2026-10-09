@@ -220,6 +220,10 @@ The reviewer imports uploaded blueprint modules from its invocation workdir.
 Parent-phase Docker workers use a single-stage Python 3.11 image without
 `USER` instructions, allowing SDK skill-preparation hooks to add native tools.
 OpenCode and sandbox system setup belong to the separate OpenShell image.
+Docker workers inherit their logical step timeout instead of sharing a one-hour
+cap. Source initialization uses the seven-day investigation window; planner
+invocations retain their 300-second control and packet reviews their 720-second
+worker limit.
 
 ### Immutable review handoff
 

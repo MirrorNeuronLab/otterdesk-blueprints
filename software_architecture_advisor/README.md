@@ -114,7 +114,9 @@ are rejected. At most 64 dynamic follow-ups are admitted.
 
 The default ceiling is 1,024 tasks/calls, 20 rounds, 64 tasks per round and seven
 days (604,800 seconds). The parent investigation deadline and planner walltime
-budget both allow one week. A small repository still plans **324 catalog tasks
+budget both allow one week. Docker workers inherit each logical step’s timeout;
+source indexing can use the parent investigation window, while planning stays
+bounded to 300 seconds. A small repository still plans **324 catalog tasks
 plus source packets**.
 Each source packet is at most 24,000 UTF-8 bytes; each model prompt is at most
 60,000 bytes. Each call has a 600-second deadline and 1 MiB output ceiling.

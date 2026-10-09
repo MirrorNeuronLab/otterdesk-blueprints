@@ -65,7 +65,6 @@
           "dockerfile": "docker_worker/Dockerfile",
           "build_context": ".",
           "workdir": "/app",
-          "timeout_seconds": 3600,
           "idempotent": true,
           "side_effect": "internal_write",
           "upload_paths": [

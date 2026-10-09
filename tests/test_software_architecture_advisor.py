@@ -39,6 +39,9 @@ def test_compiled_contract_and_docker_handlers(modules):
     assert steps['investigate_architecture']['control']['timeout_seconds'] == 604800
     runtime_steps = {item['id']: item for item in compiled['flow']['steps']}
     assert runtime_steps['investigate_architecture']['control']['timeout_seconds'] == 604800
+    worker = next(node for node in compiled['agents']['nodes']
+                  if node['node_id'] == 'investigate_architecture__architecture_investigator')
+    assert worker['config']['timeout_seconds'] == 604800
     assert steps['publish_architecture_review']['needs'] == ['investigate_architecture']
     assert len(compiled['agents']['nodes']) >= 9
     assert source['response_service'] == {'enabled': True}
