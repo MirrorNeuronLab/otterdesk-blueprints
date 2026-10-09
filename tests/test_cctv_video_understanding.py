@@ -28,9 +28,17 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
             json.dumps({"summary": "A cart approaches the crossing.", "scene_understanding": "The pedestrian and cart approach each other.",
                         "risk_predictions": [PREDICTION], "uncertainties": ["Distance cannot be measured."]}) + '</answer>'}}]}
     monkeypatch.setattr(detector, "runtime_model_json_request", request)
+    from types import SimpleNamespace
+    def encode(command, **kwargs):
+        assert kwargs["input"] == b"firstsecond"
+        assert kwargs["timeout"] == 10
+        return SimpleNamespace(returncode=0, stdout=b"temporal-mp4", stderr=b"")
+    monkeypatch.setattr("mn_live_video_analysis_skill.video_content.shutil.which", lambda _: "ffmpeg")
+    monkeypatch.setattr("mn_live_video_analysis_skill.video_content.subprocess.run", encode)
     result = detector.call_ollama([b"first", b"second"], "Inspect the chronological sequence.")
     media = captured["payload"]["messages"][0]["content"]
-    assert media[1] == {"type": "video_frames", "video_frames": ["data:image/jpeg;base64,Zmlyc3Q=", "data:image/jpeg;base64,c2Vjb25k"]}
+    assert media[1] == {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dGVtcG9yYWwtbXA0"}}
+    assert captured["payload"]["media_io_kwargs"] == {"video": {"fps": 4.0}}
     assert captured["options"]["backend"] == "nim"
     assert captured["options"]["required_capabilities"] == ("image_input",)
     assert captured["payload"]["max_tokens"] == 4096

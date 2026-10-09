@@ -184,7 +184,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
             "messages": [
                 {
                     "role": "user",
-                    "content": model_user_content(model_prompt, frame, media_format="video_frames" if uses_nim else "image_url"),
+                    "content": model_user_content(model_prompt, frame, media_format="video_url" if uses_nim else "image_url"),
                 }
             ],
             "max_tokens": 80 if response_schema else int(os.environ.get("MN_VLM_MAX_TOKENS") or os.environ.get("MN_LLM_MAX_TOKENS") or os.environ.get("OLLAMA_NUM_PREDICT", "4096" if uses_nim else "900")),
@@ -198,6 +198,7 @@ def call_ollama(frame: bytes | list[bytes], prompt: str, *,
         if uses_nim:
             payload.pop("response_format")
             payload["chat_template_kwargs"] = {"enable_thinking": True}
+            payload["media_io_kwargs"] = {"video": {"fps": 4.0}}
         if uses_dmr:
             payload["chat_template_kwargs"] = {"enable_thinking": False}
             payload["thinking_budget_tokens"] = 0

@@ -178,7 +178,8 @@ installation commands. First installation requires `NGC_API_KEY` (or
 `NGC_CLI_API_KEY`) in the owning runtime's environment. Keep it out of blueprint
 config and chat. The existing `nemotron-3.5-lightning:latest` DMR model remains
 the text chat model and is reused when installed. Cosmos uses temporal
-`video_frames`, reasoning and a 4,096-token output budget; private reasoning is
+`video_url` containing an MP4 of the selected chronological JPEGs at 4 FPS,
+reasoning and a 4,096-token output budget; private reasoning is
 excluded from memory. Missing, malformed or truncated final answers are explicit
 analysis failures, never fabricated clear-scene observations.
 
@@ -378,3 +379,11 @@ GPU/model time. No live cameras, downloads or GPU requests occur in default
 tests. See [BENCHMARKS.md](BENCHMARKS.md). Alternative detector adapters must
 satisfy the same `load`/`detect` interface and measurement contract before their
 results can be compared. No unimplemented detector is claimed as supported.
+
+Version 2.0.1 uses the shared live-video skill's explicit MP4 transport for
+LiteLLM chat requests. The proxy can validate and forward `video_url` to NIM;
+its standard chat validation rejects NVIDIA's `video_frames` extension. Actual
+capture times and gaps remain in the prompt and memory. Only selected frames are
+encoded, with one thread and a ten-second bound. Camera decoding stays on CUDA;
+encoding does not create another inference request. The video skill minimum is
+`1.3.58.dev23`. Existing native pre-decoded support in the skill remains available.

@@ -159,13 +159,14 @@ installation commands. First installation requires `NGC_API_KEY` (or
 `NGC_CLI_API_KEY`) in the owning runtime's environment. Keep it out of blueprint
 config and chat. The existing `nemotron-3.5-lightning:latest` DMR model remains
 the text chat model and is reused when installed. Cosmos uses temporal
-`video_frames`, reasoning and a 4,096-token output budget; private reasoning is
+`video_url` containing an MP4 of the selected chronological JPEGs at 4 FPS,
+reasoning and a 4,096-token output budget; private reasoning is
 excluded from memory. Missing, malformed or truncated final answers are explicit
 analysis failures, never fabricated clear-scene observations.
 
 Deploy the matching SDK and video-skill packages before launching this revision.
 The SDK, models and RAG component minima are `1.3.58.dev45`; the video skill
-minimum is `1.3.58.dev12`. These versions provide blueprint-owned model recipes,
+minimum is `1.3.58.dev23`. These versions provide blueprint-owned model recipes,
 generic embeddings, and the temporal-frame contract.
 The MCP and Job response components require `1.3.58.dev43` or later for event
 images, newest-record cursors and complete bounded read summaries. These source
@@ -522,3 +523,11 @@ No accuracy or Spark throughput result is implied by the defaults. Compare
 Small and Medium on the same approved, labeled footage and keep missed events,
 false alerts and confirmation delay beside p50/p95 timing. Test under concurrent
 caption load before setting the production cadence.
+
+Version 2.0.1 uses the shared live-video skill's explicit MP4 transport for
+LiteLLM chat requests. The proxy can validate and forward `video_url` to NIM;
+its standard chat validation rejects NVIDIA's `video_frames` extension. Actual
+capture times and gaps remain in the prompt and memory. Only selected frames are
+encoded, with one thread and a ten-second bound. Camera decoding stays on CUDA;
+encoding does not create another inference request. The video skill minimum is
+`1.3.58.dev23`. Existing native pre-decoded support in the skill remains available.
