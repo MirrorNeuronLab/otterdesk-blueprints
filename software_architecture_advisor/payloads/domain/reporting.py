@@ -9,6 +9,7 @@ from .investigator import validate_assessment
 from .prompts import render_prompts
 from .rendering import render_markdown
 from .review_direction import publish_review_direction
+from .conversation_sources import publish_outputs
 
 
 def _slug(value):
@@ -178,6 +179,7 @@ def publish_review(context, *, llm_client=None):
             (output_folder / 'review_index.json').write_text(
                 json.dumps(index, indent=2), encoding='utf-8'
             )
+    publish_outputs(context)
     refs = [artifact_reference(name, path) for name, path in [('report','report.md'),
             ('suggestive_prompts','suggestive_prompts.md'), ('knowledge','knowledge.json'),
             ('report_data','report.json'), ('review_index','review_index.json')]]

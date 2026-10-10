@@ -100,6 +100,15 @@ from missing evidence, and suggest one focused follow-up question when context i
 incomplete. The workflow reviewers use the same source-grounded conversation
 guidance when preparing customer-facing findings.
 
+Version 1.1.3 publishes the complete finished `financial_advisor_report.md`
+through the document-conversion skill into run-keyed
+`context_sources/outputs/` under the SDK-provided Job output folder. Conversion
+receipts retain original and Markdown hashes; retries reuse unchanged reports
+and later runs retain earlier reports. The runtime responder uses Membrane source
+intelligence for these report questions. Raw financial inputs and JSON audit
+records are excluded. SDK >=1.3.58.dev86 is required for bounded whole-section
+selection; review and downstream approval requirements remain unchanged.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

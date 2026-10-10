@@ -272,6 +272,15 @@ or web natural-language answers. Those require further typed evidence collectors
 and integrations; the dashboard shows the missing evidence instead of invented
 results. The existing Job conversation service remains available through OtterDesk.
 
+Version 3.8.2 publishes the finished `report.md` and its explicitly published
+section Markdown through the document-conversion skill into run-keyed
+`context_sources/outputs/` at the Job output root. Original and converted hashes
+remain in conversion receipts; retries reuse unchanged files and later reviews
+retain earlier sources. The responder queries those complete reports through
+Membrane source intelligence. Captured code, unpublished drafts, task audits and
+budget ledgers are excluded. This requires SDK >=1.3.58.dev86; report queries
+never start a review or authorize proposed implementation work.
+
 The full report specification library is bundled at `payloads/report_specs` with
 its manifest and hashes. Empty findings or proposals do not establish health.
 All proposed work remains subject to separately authorized implementation scope.

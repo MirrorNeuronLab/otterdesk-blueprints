@@ -81,6 +81,15 @@ Customer-facing review language should lead with the supported answer, state
 material uncertainty plainly, and ask one focused follow-up question when
 evidence is incomplete.
 
+Version 1.1.3 makes the complete finished customer Markdown report an explicit
+conversation subject. The document skill publishes it with conversion receipts
+in run-keyed `context_sources/outputs/` under the SDK-provided Job output folder.
+Raw documents and JSON audit records remain outside that selection. Publication
+must succeed before the report specialist returns; no source is synthesized from
+status or a report preview. SDK >=1.3.58.dev86 and its Membrane source-selection
+contract preserve complete support groups and explicit omissions. Conversation
+does not authorize financial actions or external sharing.
+
 ## Non-Goals
 
 The blueprint does not file taxes, make trades, move money, pay bills, open accounts, or send reports externally. It prepares source-grounded review packets for humans.

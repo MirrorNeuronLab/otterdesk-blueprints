@@ -216,6 +216,11 @@ def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
     assert (exported / "review_index.json").is_file()
     assert list((exported / "catalog/results").glob("*.json"))
     assert not list(exported.rglob("*.sqlite*"))
+    prepared = list((exported / "context_sources" / "outputs").rglob("*.conversion.json"))
+    assert len(prepared) == 24
+    originals = [root / "report.md", *sorted((root / "sections").glob("*.md"))]
+    assert sorted(json.loads(path.read_text())["original_sha256"] for path in prepared) == sorted(
+        hashlib.sha256(path.read_bytes()).hexdigest() for path in originals)
     assert output["status"] == "partial"
     assert len(json.dumps(output)) < 2000
     assert all((root / r["path"]).exists() for r in refs)

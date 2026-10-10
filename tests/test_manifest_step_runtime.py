@@ -53,7 +53,11 @@ def _run_handler_workflow(
 ) -> dict:
     blueprint = blueprint_path(blueprint_id)
     payloads = blueprint / "payloads"
-    scripts = payloads
+    # Native dependencies can write process-local session metadata. Workers
+    # execute in their temporary workdir; the source package is read-only input.
+    scripts = tmp_path / "workspace"
+    scripts.mkdir(parents=True, exist_ok=True)
+    original_files = {path.relative_to(blueprint) for path in blueprint.rglob("*") if path.is_file()}
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     runtime_manifest = (
         expand_manifest_source(manifest, root_dir=blueprint)
@@ -133,6 +137,7 @@ def _run_handler_workflow(
                 "PYTHONPATH": os.pathsep.join(
                     value
                     for value in (
+                        str(payloads),
                         str(SDK_ROOT),
                         *(
                             str(path)
@@ -168,6 +173,9 @@ def _run_handler_workflow(
         assert result["workflow_step_id"] == step_id
         agent_outputs[agent_id] = dict(result.get("outputs") or {})
         executed_agents.append(agent_id)
+    assert {path.relative_to(blueprint) for path in blueprint.rglob("*")
+            if path.is_file() and "__pycache__" not in path.parts} == {
+        path for path in original_files if "__pycache__" not in path.parts}
     return {
         **dict(result.get("outputs") or {}),
         **{key: value for key, value in result.items() if key != "outputs"},

@@ -367,7 +367,9 @@ for run_id in ('first-review', 'second-review'):
     }})
 first = runs / 'first-review'
 print(json.dumps({{'proofs': proofs, 'first_hash_after_second': hashlib.sha256((first / 'financial_advisor_report.md').read_bytes()).hexdigest(),
-                  'export_exists': (exports / 'financial_advisor_report.md').exists()}}))
+                  'export_exists': (exports / 'financial_advisor_report.md').exists(),
+                  'prepared_report_hashes': sorted(json.loads(p.read_text())['original_sha256']
+                    for p in (exports / 'context_sources' / 'outputs').rglob('*.conversion.json'))}}))
 """,
     )
     assert [proof["run_id"] for proof in result["proofs"]] == ["first-review", "second-review"]
@@ -381,3 +383,4 @@ print(json.dumps({{'proofs': proofs, 'first_hash_after_second': hashlib.sha256((
         assert proof["result_exists"] is False
     assert result["proofs"][0]["report_hash"] == result["first_hash_after_second"]
     assert result["export_exists"] is True
+    assert result["prepared_report_hashes"] == sorted(proof["report_hash"] for proof in result["proofs"])

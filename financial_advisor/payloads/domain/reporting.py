@@ -1,6 +1,7 @@
 """Customer readiness, action queue, and financial packet publication."""
 
 from .common import *
+from .conversation_sources import publish_outputs
 from .knowledge import financial_knowledge_reference, load_prompt
 from .review_services import actor_review, effective_llm_usage, review_artifact
 from .source_ingestion import money
@@ -446,6 +447,7 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     written.append(report_path.name)
     if export_folder.resolve() != output_folder.resolve():
         write_text(export_folder / report_path.name, markdown_report(final_artifact))
+    publish_outputs(ctx)
     final_artifact["output_files"] = [*written, "final_artifact.json"]
     return {
         "final_artifact": final_artifact,

@@ -131,6 +131,15 @@ there is no dashboard service, entrypoint or runtime health dependency. The web
 artifact is required by this product contract: failure remains explicit with
 already-published data/Markdown preserved.
 
+Version 3.8.2 also selects the complete published `report.md` and the section
+Markdown produced by that publication as conversation sources. The declared
+document-conversion skill writes complete Markdown and provenance receipts in
+run-keyed `context_sources/outputs/` under the SDK-provided Job output folder.
+Captured originals, task audits, drafts and budget ledgers are not selected.
+Source publication is required before the report worker returns. SDK
+>=1.3.58.dev86 provides whole-section selection under the existing allowance;
+omissions remain explicit and chat cannot initiate reviews or implementation.
+
 The webpage includes overview, findings, directory-based architecture groups,
 source evidence, dependency matrix, cyclic groups, Git co-change, structural
 hotspots, prior-snapshot hash changes, bounded reverse dependency paths, gaps,

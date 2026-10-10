@@ -12,6 +12,7 @@ from .catalog_reporting import assemble
 from .workspace_web import publish as publish_workspace
 from .workspace_projection import project
 from .improvement_prompts import markdown as prompts_markdown
+from .conversation_sources import publish_outputs
 
 
 def publish(context, *, llm_client=None):
@@ -156,6 +157,7 @@ def publish(context, *, llm_client=None):
         names += [str(path.relative_to(root)) for path in sorted((root / "catalog").rglob("*.json"))]
         for name in dict.fromkeys([*names, "review_index.json"]):
             _export_file(root / name, Path(output_folder) / name)
+    publish_outputs(context, section_paths=[path for _, path in links])
     refs = [
         artifact_reference(key, path)
         for key, path in [

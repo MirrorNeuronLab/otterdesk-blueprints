@@ -47,6 +47,9 @@ python3.11 -m venv .venv
 .venv/bin/python -m pytest -q
 ```
 
+Handler contract tests import source payloads while executing in temporary
+workdirs. Dependency session files must remain outside catalog packages.
+
 See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
 event-driven, fork/join, service, and linear flow contracts.
 
