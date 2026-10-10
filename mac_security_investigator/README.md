@@ -2,7 +2,7 @@
 
 This co-worker reviews local Mac unified-log evidence across user-initiated
 runs and preserves source receipts, coverage and saved reports. It runs on the
-submitting Mac. Version 0.2.2 is a logs-only pilot; it does not inspect OS files
+submitting Mac. Version 0.2.3 is a logs-only pilot; it does not inspect OS files
 or certify that a Mac is safe.
 
 ## Setup
@@ -57,6 +57,10 @@ Unchanged authorized Job assertion records reuse their existing Membrane
 revision across scans. Changed content, provenance or access rules fail
 explicitly. SDK >=1.3.58.dev68 requires Membrane Python SDK >=2.1.1 for this
 contract and starts the native agent heartbeat during long analysis.
+Version 0.2.3 also requires SDK >=1.3.58.dev70, Membrane Python SDK >=2.1.2 and its matching engine.
+It publishes every retained assertion in bounded immutable batches, reusing
+unchanged records and reserving quota once per batch. Existing histories,
+evidence coverage and the workflow deadline remain unchanged.
 
 Authoritative outputs include `final_artifact.json`, `report.md`, `evidence.json`,
 `analysis.json`, `context_graph.json` and sealed scan/revision artifacts.

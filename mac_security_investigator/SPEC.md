@@ -1,6 +1,6 @@
 # Mac security investigator — current product contract
 
-Version: 0.2.2 (logs-only pilot). Category: Security. User initiated batch co-worker.
+Version: 0.2.3 (logs-only pilot). Category: Security. User initiated batch co-worker.
 
 The design target is the supplied
 [Cross-run temporal behavioral graph specification](docs/temporal_behavior_contract.md).
@@ -53,6 +53,10 @@ pinned scope/revision sources; graph support is resolved back to the ledger.
 Identical current authorized assertion records are reused across scans without
 unversioned overwrites. Reuse verifies complete text, provenance, event identity
 and access rules; changed or stale assertions remain errors.
+All retained assertions publish through Membrane's bounded immutable-registration
+API, which inventories quota once per batch. No evidence, historical revision or
+graph query is omitted. It requires the matching engine and Membrane Python SDK
+2.1.2; missing batch support fails explicitly.
 Existing graph-analysis traversal validates bounded temporal witness paths.
 Temporal matching precedes deterministic explanation. No inference model is
 needed. Limits expose incomplete evaluation; no exhaustive negative is inferred.

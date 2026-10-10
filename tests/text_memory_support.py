@@ -34,6 +34,27 @@ class MemoryService:
                 files, metadata = visible()
                 units = service.source_units.setdefault((job_id, principal), {})
                 service.calls.append((operation, request, self._scope))
+                if operation == 'register_records':
+                    records, saved = request['records'], []
+                    assert 1 <= len(records) <= 64
+                    for entry in records:
+                        source_id = entry['input']['namespace'] + ':' + entry['input']['id']
+                        if source_id in files:
+                            attributes = metadata[source_id]
+                            if (files[source_id] != entry['text'] or attributes.get('event_id') != entry['event_id']
+                                    or any(attributes.get(k, []) != entry['input'].get(k, [])
+                                           for k in ('upstream', 'allow', 'roles'))
+                                    or attributes.get('kind') != entry['input']['kind']):
+                                raise ValueError('registration differs from current authorized record')
+                    for entry in records:
+                        values = {k:v for k,v in entry['input'].items() if k not in {'id', 'namespace'}}
+                        source_id = entry['input']['namespace'] + ':' + entry['input']['id']
+                        if source_id in files:
+                            saved.append({'source_id':source_id, 'revision':digest(files[source_id]), 'reused':True})
+                        else:
+                            saved.append(self.ingest_text(entry['text'], record_id=entry['input']['id'],
+                                namespace=entry['input']['namespace'], event_id=entry['event_id'], **values))
+                    return {'version':'mn.context.text.v1', 'records':saved}
                 if operation == 'register_source_units':
                     source_id = request['source_id']
                     catalog_id = 'job:units-' + digest(source_id)

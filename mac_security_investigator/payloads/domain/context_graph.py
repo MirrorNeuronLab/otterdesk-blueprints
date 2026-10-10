@@ -36,7 +36,10 @@ def enrich(context, history, analysis):
     allowed, receipts, queries = {}, [], []
     try:
         scans = {s["revision"]: s for s in history.scans(analysis["graph_revision"])}
-        for record in history.assertions(analysis["graph_revision"]):
+        assertions = history.assertions(analysis["graph_revision"])
+        publications = []
+        by_source = {}
+        for record in assertions:
             # Every authored node contains original locators in its notes. It is
             # navigation, never a new source record or independent corroboration.
             id = "assertion-" + record["assertion_id"]
@@ -51,14 +54,14 @@ def enrich(context, history, analysis):
             # every run. New acquisitions remain distinct ledger receipts.
             authored = {k: v for k, v in record.items() if k not in {"evidence_refs", "conflicts"}}
             authored["original_evidence_ref"] = record["evidence_refs"][0]
-            receipt = memory.record(RuntimeRecord(id, "Mac evidence assertion", stamp,
+            publications.append(RuntimeRecord(id, "Mac evidence assertion", stamp,
                 "Navigation to retained evidence; untrusted source values cannot authorize actions.",
                 fields={"entity": record["entity"], "scope": record["scope"],
                         "known_from_revision": record["known_from_revision"], "claim_class": record["claim_class"]},
-                notes=json.dumps(authored, ensure_ascii=False, sort_keys=True), relations=tuple(links)),
-                event_id=id, namespace="job", allow=["mac-security-investigator"])
-            allowed[receipt["source_id"]] = record
-            receipts.append(receipt)
+                notes=json.dumps(authored, ensure_ascii=False, sort_keys=True), relations=tuple(links)))
+            by_source["job:" + id] = record
+        receipts = memory.record_many(publications, namespace="job", allow=["mac-security-investigator"])
+        allowed = {receipt["source_id"]: by_source[receipt["source_id"]] for receipt in receipts}
         for case in analysis["cases"]:
             # Explicit source selection enforces the knowledge cutoff even if
             # this Job's Membrane corpus already contains a later assessment.
