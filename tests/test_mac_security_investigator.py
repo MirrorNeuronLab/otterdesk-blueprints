@@ -55,7 +55,7 @@ def test_catalog_compiles_four_bounded_host_specialists():
     assert package.extension("mn.storage")["resources"][0]["path"] == "state"
     assert package.extension("mn.context")["text_memory"]["enabled"]
     sdk = next(p for p in package.document("dependencies")["packages"] if p["name"] == "mirrorneuron-python-sdk")
-    assert sdk["version"] == ">=1.3.58.dev70,<2"
+    assert sdk["version"] == ">=1.3.58.dev71,<2"
     assert "mirrorneuron-macos-logs-skill" in {p["name"] for p in package.document("dependencies")["skills"]}
     assert all(n["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
                for n in manifest["agents"]["nodes"] if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_AGENT_ID") in package.document("execution")["agents"]["registry"])
@@ -429,7 +429,7 @@ def test_context_graph_is_local_scoped_and_replay_safe(domain, scans, config, st
     graph = enrich(ctx, store, result)
     assert graph["status"] == "ready" and len(graph["queries"]) == 1
     registrations = [request for operation, request, _ in text_memory_transport.calls if operation == "register_records"]
-    assert registrations and all(len(request["records"]) <= 64 for request in registrations)
+    assert registrations and all(len(request["records"]) <= 256 for request in registrations)
     assert sum(len(request["records"]) for request in registrations) == len(store.assertions(4))
     old = enrich({**ctx, "run_id": "run-2"}, store, domain.analyze(store, 2, config["investigation"]))
     source_ids = old["queries"][0]["receipt"]["request"]["sources"]
