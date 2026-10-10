@@ -74,6 +74,14 @@ The top-level Job response service exposes bounded role, schedule, safe
 configuration, lifecycle, and latest-run context without an active workflow.
 It cannot launch tools, execute experiments, configure, or start the job.
 
+The report writer publishes the complete saved research brief, with the document
+skill's receipts, under `context_sources/outputs/<run-identity-hash>/`. Publication
+is stable across retries and preserves earlier runs. JSON ledgers, runtime traces
+and raw inputs are not extra conversation subjects. The runtime Job responder
+uses Membrane's source intelligence for exact, cited report sections, independently
+of this blueprint's disabled worker runtime-recall profile. Unavailable or oversized
+source evidence fails visibly; conversation does not substitute curated RAG.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

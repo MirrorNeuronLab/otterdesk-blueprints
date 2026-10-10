@@ -123,6 +123,12 @@ latest hypotheses, or evidence gaps through the stable Job response service even
 before its first run or while idle. Conversation never starts research or an
 experiment.
 
+Report publication preserves the complete saved brief in
+`context_sources/outputs/<run-identity-hash>/`. The document skill owns conversion
+and source receipts; the Job responder uses Membrane source intelligence for
+cited report questions. Curated capability RAG remains separate. Missing or
+oversized source evidence remains an explicit query failure.
+
 ## Validation
 
 ```bash

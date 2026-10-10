@@ -557,6 +557,9 @@ def write_research_outputs(
     paths["review_ledger"].write_text(json.dumps(review_ledger, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     paths["artifact_quality"].write_text(json.dumps(quality, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     paths["run_health"].write_text(json.dumps(health, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    from .conversation_sources import publish_outputs
+
+    publish_outputs(output_dir, packet["run_id"])
     return output_files
 
 
