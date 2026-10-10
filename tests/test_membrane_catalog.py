@@ -60,7 +60,8 @@ def test_all_catalog_context_consumers_resolve_the_v2_sdk_and_wire_protocol():
     dependency, = [Requirement(value) for value in project["project"]["optional-dependencies"]["context"]
                    if Requirement(value).name == "mirrorneuron-membrane-python-sdk"]
     assert dependency.extras == {"grpc"}
-    assert dependency.specifier.contains("2.1.0")
+    assert dependency.specifier.contains("2.1.2")
+    assert not dependency.specifier.contains("2.1.1")
     assert not dependency.specifier.contains("1.3.57")
     assert not dependency.specifier.contains("2.0.0")
     assert not dependency.specifier.contains("3.0.0")
