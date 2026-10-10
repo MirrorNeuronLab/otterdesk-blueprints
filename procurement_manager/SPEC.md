@@ -123,6 +123,15 @@ The stable job exposes bounded role, safe configuration, schedule, lifecycle,
 and latest-run context through the top-level Job response service. It requires no
 active workflow and cannot research, buy, book, configure, or start work.
 
+Version 1.2.2 publishes the complete saved Markdown report through the declared
+document-conversion skill into `context_sources/outputs/<hashed-run-id>/`.
+The native Job source contract owns ingestion, scoped retrieval, and citations.
+The report is the findings subject; JSON packets, raw quotes, and runtime logs
+are not additional conversation subjects. Skill receipts retain the original
+report hash and conversion completeness. A report exceeding the 4 MiB source
+limit fails explicitly. Review requests and their exact decision digests remain
+separate from source reads.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

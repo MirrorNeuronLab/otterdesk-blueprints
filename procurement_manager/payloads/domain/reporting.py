@@ -19,6 +19,7 @@ from .common import (
 )
 from .inputs import expand_runtime_path
 from .case_packet import emit_review_requests, render_case_packet
+from .conversation_sources import publish_outputs
 from .llm_analysis import (
     analysis_settings,
     analysis_validation_context,
@@ -110,6 +111,7 @@ def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], c
     if isinstance(case_packet, dict):
         paths["approval_packet_json"].write_text(json.dumps(case_packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         paths["approval_packet_md"].write_text(render_case_packet(case_packet), encoding="utf-8")
+    publish_outputs(output_dir, final_artifact["run_id"])
     return output_files
 
 

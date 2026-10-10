@@ -146,6 +146,13 @@ latest comparison, or unresolved evidence through the stable Job response servic
 even when it has never run or is idle. Conversation never starts research or a
 transaction.
 
+After report publication, the complete saved `purchasing_manager_report.md`
+is converted by the document skill into a run-scoped source under
+`context_sources/outputs/`. The SDK and Membrane use that source for cited
+questions about the saved comparison, costs, evidence gaps, and review gates.
+Retries reuse the same source; reports from other runs remain distinct.
+Conversation reads cannot approve a purchase or send supplier messages.
+
 ## Validation
 
 ```bash
