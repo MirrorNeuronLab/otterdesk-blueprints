@@ -189,9 +189,7 @@
   "mock_mode": "fake",
   "mode": "live",
   "model": "default",
-  "parameter_count_b": 31.58,
   "provider": "docker_model_runner",
-  "quantization": "MOSTLY_Q4_K_M",
   "quick_test_uses_fake": true,
   "require_live": true,
   "responsibilities": [

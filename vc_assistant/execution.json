@@ -136,10 +136,6 @@
     "disk": {
       "min_gb": 1
     },
-    "gpu": {
-      "min_count": 1,
-      "min_memory_mb": 16384
-    },
     "memory": {
       "min_gb": 2
     }

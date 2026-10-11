@@ -474,9 +474,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert "preferred_model" not in config["llm"]
     assert "live_model_profile" not in config["llm"]
     assert "large_model_profile" not in config["llm"]
-    assert config["resources"]["gpu"] == {"min_count": 1, "min_memory_mb": 16384}
-    assert manifest["requirements"]["gpu"] == config["resources"]["gpu"]
-    assert manifest["runtime"]["resources"]["gpu"] == config["resources"]["gpu"]
+    assert "gpu" not in config["resources"]
+    assert manifest["requirements"] == config["resources"]
+    assert manifest["runtime"]["resources"] == config["resources"]
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
         "backend": "llama.cpp",
@@ -620,7 +620,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         assert "preferred_model" not in embedded_config["llm"]
         assert "fallback_model" not in embedded_config["llm"]["configs"]["primary"]
         assert "model" not in embedded_config["llm"]["configs"]["primary"]
-        assert embedded_config["resources"]["gpu"] == config["resources"]["gpu"]
+        assert embedded_config["resources"] == config["resources"]
         assert embedded_config["llm"]["configs"]["primary"]["api_base"] == "auto"
         assert embedded_config["llm"]["quick_test_uses_fake"] is True
         assert embedded_config["execution"]["quick_test"] is False
@@ -1006,7 +1006,7 @@ def test_vc_assistant_is_daily_batch_folder_scan():
     assert entry["requirements"] == manifest["requirements"]
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["llm"]["model"] == "default"
-    assert manifest["requirements"]["gpu"] == {"min_count": 1, "min_memory_mb": 16384}
+    assert "gpu" not in manifest["requirements"]
     assert config["monitoring"]["max_cycles"] == 1
     assert config["triggers"]["schedule"] is None
     assert config["suggested_schedule"] == {

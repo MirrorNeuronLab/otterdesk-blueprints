@@ -12,10 +12,14 @@ This blueprint is a report-only early diligence assistant. It helps a reviewer i
 It does not decide whether to invest, pass, watch, or reject. It writes scores, evidence, assumptions, missing-evidence flags, and source references so the user can decide.
 
 All actor-style LLM analysis uses MirrorNeuron's logical `default` model. The
-bundled catalog normally resolves that default through adaptive local model
-selection, while an operator-selected provider model can replace it with `mn
-model add --file <definition.json> --default`. Numerical formulas and
+runtime automatically selects and prepares a compatible model on first use
+for the available hardware, including Gemma 4 on supported Macs and low-spec PCs.
+The blueprint does not require Nemotron, a fixed parameter count or quantization, or a
+dedicated GPU. Model selection stays with the runtime. Numerical formulas and
 missing-evidence gates remain deterministic.
+
+An operator-selected provider model can still replace the runtime default with
+`mn model add --file <definition.json> --default`.
 
 Startup packets use the shared `docs_to_markdown_skill` for document conversion and PDF extraction. MarkItDown converts office documents, spreadsheets, EPUB, RTF, and CSV files into Markdown; TXT, Markdown, and JSON remain direct reads. The OCR model is prepared lazily only when a PDF needs OCR, and PDF files must produce embedded or OCR text for the batch run to continue.
 

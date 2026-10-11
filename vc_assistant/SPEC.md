@@ -40,9 +40,13 @@ The workflow groups first-level input subfolders as companies. Loose files are g
 The online research layer uses `web_browser_skill` as its only browser capability. Standard mode performs provider discovery, readable plain-text extraction, bounded retries, throttling, and adaptive local engine selection; explicit deep mode renders JavaScript-heavy public sources such as Crunchbase through a deterministic, policy-governed `agent-browser` actuator. MirrorNeuron remains the planner. The browser layer owns session/domain policy, approval gates, per-run audit records, and bounded artifacts; it does not expose eval, arbitrary JavaScript, uploads, profiles, clipboard access, raw CDP, or agent-browser's autonomous chat loop. The workflow records source status, snippets, warnings, and blocked/login/robots outcomes rather than bypassing access controls. Changed company packets, per-company research agents, and numerical method scorers run with bounded parallel workers while outputs remain ordered by stable company slug.
 
 Actor-style LLM analysis uses MirrorNeuron's logical `default` model. The
-bundled catalog normally resolves it through adaptive local model selection;
-an operator-selected provider definition may replace it without changing the
-blueprint. Numerical scoring remains deterministic: formulas, weights,
+runtime automatically selects and prepares a compatible model on first use
+for the available hardware. Supported Macs and low-spec PCs can use Gemma 4; the blueprint has no
+Nemotron dependency, fixed parameter count or quantization, or dedicated-GPU
+requirement. Concrete model compatibility belongs to the runtime catalog.
+An operator-selected provider definition can replace the default without
+changing the blueprint.
+Numerical scoring remains deterministic: formulas, weights,
 scenario math, missing-evidence status, and audit checks are owned by
 deterministic workers. Non-substantive records such as research plans,
 configured references, disabled browser fallback notices, unavailable skills,

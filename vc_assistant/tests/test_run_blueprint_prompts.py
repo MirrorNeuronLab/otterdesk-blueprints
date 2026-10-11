@@ -347,12 +347,19 @@ def test_agent_invocation_replay_uses_durable_idempotency_record(tmp_path):
 
 
 def test_model_contract_uses_the_shared_adaptive_default():
-    llm = load_runtime_config(RUNTIME_PATH)["llm"]
+    config = load_runtime_config(RUNTIME_PATH)
+    llm = config["llm"]
 
     assert llm["model"] == "default"
     assert "model" not in llm["configs"]["primary"]
     assert "small_model_profile" not in llm
     assert "large_model_profile" not in llm
+    assert "gpu" not in config["resources"]
+    for declaration in (llm, *llm["configs"].values()):
+        assert "parameter_count_b" not in declaration
+        assert "quantization" not in declaration
+        assert "runtime_model" not in declaration
+        assert "fallback_model" not in declaration
 
 
 def test_valuation_methods_map_to_discoverable_specialist_agents():
