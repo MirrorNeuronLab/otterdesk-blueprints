@@ -12,12 +12,18 @@ does not declare a machine-specific model, endpoint, or placement. MirrorNeuron
 owns model selection and routing; the payload only calls the configured actor
 client supplied by the runtime.
 
+Version 1.2.3 removes the obsolete 48 GB GPU requirement and Nemotron-specific
+parameter and quantization hints. Workers have no GPU workload of their own;
+the runtime selects a compatible default model on the available hardware.
+Required live analysis, the 16,384-token context request and review boundaries
+are unchanged.
+
 It is inspired by the role separation in Google's AI co-scientist—not a reproduction of Google's system. The workflow uses an explicit evidence ledger and bounded review roles so that generated hypotheses remain hypotheses until a qualified person evaluates them.
 
 ## Quick Start
 
 ```bash
-mn run research_assistant
+mn blueprint run ./research_assistant
 ```
 
 The default output folder is `~/Downloads/research-assistant`. Run-store artifacts are also written under `~/.mn/runs/<run_id>/`.

@@ -24,6 +24,11 @@ The blueprint follows VC Assistant's model contract: `llm.model` is logical
 the concrete model, endpoint, preparation, and placement; blueprint code must
 not replace them with machine-specific choices.
 
+Version 1.2.3 removes the obsolete 48 GB GPU gate and concrete-model parameter
+and quantization hints from the logical default-model contract. Blueprint workers
+perform no native GPU processing. The selected model retains its runtime-owned
+hardware checks, and required live responses and evidence validation remain in force.
+
 ## Output Contract
 
 Version 1.1.1 sets the default host output folder to

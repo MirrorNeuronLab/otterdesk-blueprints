@@ -32,6 +32,10 @@ The original application loads MuJoCo and ONNX runtime WASM from jsDelivr, so th
 
 `payloads/web_app` is the readable simulator source. The identical, modified source, control manual, and service modules are also staged under `payloads/docker_worker` because the DockerWorker runtime deliberately builds only that directory as its image context. Both copies exclude local `node_modules` and generated `dist` output.
 
+Version 1.2.1 includes the conversation guide in the DockerWorker's knowledge
+folder and uses `@/examples/sample_inputs` for the bundled demo folder, so its
+path remains valid when the package is installed outside the source checkout.
+
 The service produces `web_ui.json`, `duck_service_state.json`, and `duck_command_history.json` in its run directory. The HostLocal sidecar uses `mn-python-sdk-web-ui` to publish the actual endpoint to the durable Job UI handle and forwards only `/health` and `/mcp` to the registered control service. See [SPEC.md](SPEC.md) and [TERM.md](TERM.md) for the exact control and safety contract.
 
 The default host output folder is `~/Downloads/microduck-controller`.

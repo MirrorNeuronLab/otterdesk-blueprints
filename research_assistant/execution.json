@@ -56,12 +56,6 @@
     "disk": {
       "min_gb": 1
     },
-    "gpu": {
-      "enforcement": "hard",
-      "memory_operator": ">=",
-      "min_count": 1,
-      "min_memory_mb": 49152
-    },
     "memory": {
       "min_gb": 2
     }

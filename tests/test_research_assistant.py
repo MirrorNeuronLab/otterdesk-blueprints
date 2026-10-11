@@ -86,8 +86,8 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     expanded = expanded_manifest("research_assistant")
     assert source["llm"]["require_live"] is True
     assert source["llm"]["context_size"] == 16384
-    assert source["llm"]["parameter_count_b"] == 31.58
-    assert source["llm"]["quantization"] == "MOSTLY_Q4_K_M"
+    assert "parameter_count_b" not in source["llm"]
+    assert "quantization" not in source["llm"]
     assert source["llm"]["model"] == "default"
     assert source["llm"]["provider"] == "docker_model_runner"
     assert source["agentic_research"]["allow_generated_code"] is False
@@ -100,13 +100,7 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
         "chat_template_kwargs": {"enable_thinking": False}
     }
     assert "runtime" not in source
-    assert source["requirements"]["gpu"] == {
-        "enforcement": "hard",
-        "memory_operator": ">=",
-        "min_count": 1,
-        "min_memory_mb": 49152,
-    }
-    assert "vendor" not in source["requirements"]["gpu"]
+    assert "gpu" not in source["requirements"]
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     steps = {step["id"]: step for step in source["workflow"]["steps"]}
     assert steps["assess_evidence_coverage"]["needs"] == ["build_research_evidence"]

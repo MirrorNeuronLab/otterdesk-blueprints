@@ -14,7 +14,7 @@
   "inputs": {
     "adapter": "mock",
     "payload": {
-      "input_folder": "microduck_controller/examples/sample_inputs",
+      "input_folder": "@/examples/sample_inputs",
       "output_folder": "~/Downloads/microduck-controller"
     }
   },

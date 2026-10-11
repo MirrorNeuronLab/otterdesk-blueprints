@@ -30,6 +30,10 @@ Compact state contains only connection/ready state, duck x/y/yaw/speed/mode/loco
 
 ## Conversation and manual contract
 
+Version 1.2.1 stages the conversation guide alongside the manual in the
+DockerWorker image. The default demo folder uses the SDK bundle-root reference
+`@/examples/sample_inputs`.
+
 `payloads/knowledge/microduck_user_manual.md` is the single human-readable control contract. MCP exposes it as `microduck://manual` and `get_user_manual`; Job RAG indexes the same file. The Job agent receives the manual, exact user-tool declarations, live Job context, and recent conversation before asking the default model for one strict JSON plan. A turn may answer, clarify, read one tool, invoke one effect, or make one explicit bounded memory change. Invalid model output or an unavailable model results in no tool call.
 
 Planner classification is semantic, not exact-match. Manual examples are non-exhaustive; polite/modal framing, suggestions such as “let's free play,” permission statements such as “you can free play,” synonyms, tense, word order, filler, capitalization, and punctuation do not change an otherwise clear supported intent. The LLM maps paraphrases across every declared tool, clarifies only material ambiguity, and emits one exact flat plan using declared enum values. For example, “Can you find the ball?”, “go over to the ball,” and “locate it for me” all produce `{"intent":"action","tool":"find_ball","arguments":{}}`; “free play now,” “let's free play,” and “you can free play” all produce `{"intent":"action","tool":"free_play","arguments":{}}`. The trusted runtime adds `command_id`. The primary LLM configuration forwards temperature zero through structured-output options so planner classification is repeatable on the default local route.
