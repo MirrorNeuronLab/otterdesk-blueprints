@@ -72,3 +72,16 @@ def test_cosmos_budget_leaves_capacity_for_conversation_and_matches_caption_lane
     assert int(environment["NIM_MAX_NUM_SEQS"]) == config["backpressure"][
         "llm"
     ]["max_concurrent_calls"]
+
+
+@pytest.mark.parametrize("timeout", [None, 450], ids=["default", "operator-override"])
+def test_caption_deadline_reaches_the_compiled_detector(monkeypatch, timeout):
+    from mn_sdk import submission_preparation
+
+    monkeypatch.setattr(submission_preparation, "ensure_runtime_modules_for_manifest", lambda *a, **k: {})
+    overrides = {"llm": {"configs": {"vision": {"timeout_seconds": timeout}}}} if timeout else None
+    prepared = prepare_manifest_for_submission(
+        ROOT, blueprint_definition(read_blueprint(ROOT)), config_overrides=overrides,
+    )
+    detector = next(node for node in manifest_nodes(prepared) if node.get("node_id") == "visual_detector")
+    assert detector["config"]["environment"]["MN_VLM_TIMEOUT_SECONDS"] == str(timeout or 300)

@@ -7,6 +7,12 @@ source-frame-rate video to the model.
 
 ## Consolidated behavior
 
+Version 2.1.3 sets the Cosmos caption request deadline to 300 seconds through
+`llm.configs.vision.timeout_seconds`. Submission binds that setting to the
+detector worker, so operator overrides take effect. The previous 120-second
+deadline expired during successful Spark inference. One active caption request
+and one latest pending window remain the admission bounds.
+
 The runtime accepts one live stream. Historical file and directory processing
 are outside this product contract.
 

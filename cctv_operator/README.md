@@ -188,6 +188,11 @@ sequence, matching the caption lane's default concurrency. On DGX Spark this
 leaves memory for RF-DETR and the separately served text conversation model.
 The runtime still owns model admission and lifecycle.
 
+Version 2.1.3 gives each Cosmos caption request a five-minute deadline. Spark
+verification found successful inference exceeding the previous two-minute
+limit. `llm.configs.vision.timeout_seconds` controls the detector deadline,
+including local overrides; RF-DETR continues while the caption lane waits.
+
 ## Web UI
 
 The blueprint owns a DockerWorker `cctv_web_ui` service and its browser page.

@@ -207,8 +207,7 @@
             "MN_VLM_BACKEND": "nim",
             "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
             "MN_VLM_PROVIDER": "docker_model_runner",
-            "MN_VLM_MAX_TOKENS": "4096",
-            "MN_VLM_TIMEOUT_SECONDS": "120"
+            "MN_VLM_MAX_TOKENS": "4096"
           },
           "from": "base",
           "gpus": "all",
@@ -948,8 +947,7 @@
             "MN_VLM_BACKEND": "nim",
             "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
             "MN_VLM_PROVIDER": "docker_model_runner",
-            "MN_VLM_MAX_TOKENS": "4096",
-            "MN_VLM_TIMEOUT_SECONDS": "120"
+            "MN_VLM_MAX_TOKENS": "4096"
           },
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",

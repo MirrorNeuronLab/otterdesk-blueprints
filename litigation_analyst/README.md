@@ -1,9 +1,8 @@
 # Litigation Analyst
 
-Version 2.7.4 corrects the graph analysis skill minimum to its published
-`1.3.49` release, whose runtime modules match the current source. The required
-temporal graph skill must also be published before release-mode API setup can
-resolve every dependency; source-mode verification alone does not establish that.
+Version 2.7.5 uses the published graph analysis skill `1.3.49` and temporal
+graph skill `1.3.60` releases. Their runtime modules match the verified source,
+so release-mode API setup can install both declared graph dependencies.
 
 Version 2.7 makes `web/index.html` the primary local investigation output, backed
 by `case/workspace.json`. Findings connect to exact supporting/contrary passages,

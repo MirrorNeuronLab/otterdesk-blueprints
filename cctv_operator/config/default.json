@@ -426,7 +426,7 @@
         "required_capabilities": [
           "image_input"
         ],
-        "timeout_seconds": 120,
+        "timeout_seconds": 300,
         "backend": "nim"
       }
     },
@@ -527,6 +527,11 @@
     }
   },
   "manifest_config_bindings": [
+    {
+      "config_path": "llm.configs.vision.timeout_seconds",
+      "manifest_path": "agents.nodes.visual_detector.config.environment.MN_VLM_TIMEOUT_SECONDS",
+      "stringify": true
+    },
     {
       "config_path": "identity.run_id",
       "manifest_path": "runtime.bindings.run_workflow.workers.visual_detector.with.environment.MN_RUN_ID",

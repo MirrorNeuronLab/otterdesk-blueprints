@@ -1,8 +1,8 @@
 # Litigation Analyst specification
 
-Version 2.7.4 accepts the published graph analysis skill `1.3.49`, whose runtime
-modules match the current source. Temporal graph capabilities remain required;
-their package must be available from the declared registry for release-mode setup.
+Version 2.7.5 requires the published graph analysis skill `1.3.49` and temporal
+graph skill `1.3.60`. The verified runtime modules are unchanged; release-mode
+setup resolves both capabilities through the declared package registry.
 
 ## Interactive investigation contract (2.7)
 
