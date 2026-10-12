@@ -436,7 +436,9 @@
   "llm": {
     "configs": {
       "primary": {
-        "max_tokens": 1200
+        "max_tokens": 1800,
+        "num_retries": 2,
+        "retry_backoff_seconds": 1.0
       }
     },
     "strict_json": true

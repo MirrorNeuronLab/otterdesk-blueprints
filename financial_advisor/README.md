@@ -73,6 +73,11 @@ Outputs are review-only. The blueprint does not file tax returns, make trades, m
 ## Model Profiles
 
 Normal runs request the Docker Model Runner proxy's managed `default` model.
+Version 1.1.4 uses the same model settings as VC Assistant: an 8,192-token
+context, a 1,800-token response limit, a 60-second timeout, and two retries
+with a one-second backoff. The context is declared explicitly so advisor
+reviews do not request the model catalog's larger default allocation.
+Financial Advisor retains strict JSON validation and requires live responses.
 The runtime selects and prepares the medium `nemotron3` catalog model when a
 capable endpoint is advertised, including a DGX Spark with 128 GB of unified
 memory. On smaller machines, the catalog may select the portable small model.

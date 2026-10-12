@@ -22,6 +22,8 @@ from mn_sdk.model_access.runtime import clear_runtime_model_cache, ensure_runtim
     ),
     [
         ("vc_assistant", "apple", 16384, None, "gemma4:e2b", "local"),
+        ("financial_advisor", "apple", 16384, None, "gemma4:e2b", "local"),
+        ("financial_advisor", "apple", 16384, 131072, "nemotron-3.5-lightning:latest", "remote"),
         ("vc_assistant", "nvidia", 8192, None, "gemma4:e2b", "local"),
         ("research_assistant", "apple", 24576, None, "gemma4:e2b", "local"),
         ("research_assistant", "nvidia", 8192, None, "gemma4:e2b", "local"),
@@ -86,6 +88,7 @@ def test_blueprint_model_selection_preserves_default_and_explicit_model_contract
     }
     monkeypatch.setattr(model_runtime, "load_model_catalog", lambda: catalog)
     prepared = []
+    prepared_contexts = []
 
     class Core:
         def get_resource(self):
@@ -146,6 +149,7 @@ def test_blueprint_model_selection_preserves_default_and_explicit_model_contract
 
         def prepare_runtime_model(self, request):
             prepared.append(request["id"])
+            prepared_contexts.append(request.get("context_size"))
             return {
                 "status": "already_installed" if installed else "installed",
                 "node": request["node"],
@@ -183,5 +187,7 @@ def test_blueprint_model_selection_preserves_default_and_explicit_model_contract
         assert binding.selection["installed"] is installed
         assert binding.status == ("already_installed" if installed else "installed")
         assert prepared == [expected]
+        if blueprint_id in {"financial_advisor", "vc_assistant"}:
+            assert prepared_contexts == [8192]
     finally:
         clear_runtime_model_cache()

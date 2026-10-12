@@ -60,10 +60,11 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert source["llm"]["strict_json"] is True
     assert "model" not in primary_llm
     assert "runtime_model" not in primary_llm
-    assert primary_llm["max_tokens"] == 10000
+    assert source["llm"]["context_size"] == 8192
+    assert primary_llm["max_tokens"] == 1200
     config = json.loads((blueprint_path("financial_advisor") / "config" / "default.json").read_text())
     assert config["llm"]["strict_json"] is True
-    assert config["llm"]["configs"]["primary"]["max_tokens"] == 1200
+    assert config["llm"]["configs"]["primary"]["max_tokens"] == 1800
     assert source["requirements"]["memory"]["min_gb"] == 2
     assert source["requirements"]["gpu"] == {"min_count": 0}
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
@@ -80,6 +81,37 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert "prepare_tax_review__capture" in node_ids
     assert "analyze_portfolio_risk__risk" in node_ids
     assert "publish_financial_review_packet__end" in node_ids
+
+
+def test_financial_model_settings_match_vc_in_the_runtime_client(monkeypatch):
+    from mn_sdk.blueprint_support import runtime as llm_runtime
+    from mn_sdk.blueprints import read_blueprint, resolve_config
+    from mn_sdk.llm import resolve_config as resolve_llm_config
+
+    # Keep operator registry and live endpoints outside this configuration test.
+    monkeypatch.setattr(llm_runtime, "select_default_model", lambda *_args, **_kwargs: {
+        "model": "default", "selected_model": "small",
+        "provider": "docker_model_runner",
+    })
+    monkeypatch.setattr(llm_runtime, "resolve_model_entry", lambda *_args, **_kwargs: {})
+    clients = {}
+    for blueprint_id in ("financial_advisor", "vc_assistant"):
+        config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
+        environment = llm_runtime.configured_llm_environment(
+            config, env={"MN_RUNTIME_MODEL_MANAGED": "1"},
+        )
+        clients[blueprint_id] = resolve_llm_config(environment)
+
+    financial = clients["financial_advisor"]
+    assert financial == clients["vc_assistant"]
+    assert financial.model == "default"
+    assert financial.provider == "docker_model_runner"
+    assert financial.backend == "llama.cpp"
+    assert financial.context_size == 8192
+    assert financial.max_tokens == 1800
+    assert financial.timeout_seconds == 60
+    assert financial.num_retries == 2
+    assert financial.retry_backoff_seconds == 1.0
 
 
 def test_financial_workers_stage_the_domain_package():
