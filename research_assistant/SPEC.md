@@ -28,6 +28,8 @@ Version 1.2.3 removes the obsolete 48 GB GPU gate and concrete-model parameter
 and quantization hints from the logical default-model contract. Blueprint workers
 perform no native GPU processing. The selected model retains its runtime-owned
 hardware checks, and required live responses and evidence validation remain in force.
+The public research orchestrator minimum is its published `1.3.49` release;
+the unavailable development-version constraint previously blocked API setup.
 
 ## Output Contract
 

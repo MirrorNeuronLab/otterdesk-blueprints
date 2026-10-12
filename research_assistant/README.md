@@ -17,6 +17,8 @@ parameter and quantization hints. Workers have no GPU workload of their own;
 the runtime selects a compatible default model on the available hardware.
 Required live analysis, the 16,384-token context request and review boundaries
 are unchanged.
+It also corrects the public research orchestrator minimum to the published
+`1.3.49` release, whose runtime modules match the current source.
 
 It is inspired by the role separation in Google's AI co-scientist—not a reproduction of Google's system. The workflow uses an explicit evidence ledger and bounded review roles so that generated hypotheses remain hypotheses until a qualified person evaluates them.
 

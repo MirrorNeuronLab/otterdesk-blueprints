@@ -403,3 +403,7 @@ frame. Person presence alone cannot notify. Unsupported match claims remain
 uncertain Markdown observations and cannot rearm an already reported goal.
 Version 2.1.1 requires SDK `1.3.58.dev60`: bounded conversation tool planning
 precedes folder retrieval, so history growth cannot consume the planner budget.
+
+Version 2.1.2 accepts live-video skill `1.3.49`, whose published runtime modules
+match the current source. It replaces the unavailable development-version
+minimum without changing the video, model or NVIDIA requirements.
