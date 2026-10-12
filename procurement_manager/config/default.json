@@ -24,7 +24,7 @@
       "estimated_token_reduction_ratio",
       "budget_violation_rate"
     ],
-    "schema_version": "mn.finance.purchasing_manager.v1"
+    "schema_version": "mn.finance.procurement_manager.v1"
   },
   "budgets": {
     "max_connector_reads": 500,
@@ -448,8 +448,8 @@
           "inputs.payload.input_folder",
           "state.input_folder"
         ],
-        "payload_path": "runtime/mn_local_inputs/purchasing_manager_documents",
-        "runtime_path": "mn_local_inputs/purchasing_manager_documents"
+        "payload_path": "runtime/mn_local_inputs/procurement_manager_documents",
+        "runtime_path": "mn_local_inputs/procurement_manager_documents"
       }
     ]
   },

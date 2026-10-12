@@ -248,7 +248,7 @@
         "type": "human_events"
       },
       {
-        "artifact_id": "purchasing_manager_report",
+        "artifact_id": "procurement_manager_report",
         "mime_type": "application/json",
         "path": "final_artifact.json",
         "producer": "workflow",
@@ -261,17 +261,17 @@
         "type": "generated_report"
       },
       {
-        "artifact_id": "purchasing_manager_bundle",
+        "artifact_id": "procurement_manager_bundle",
         "mime_type": "application/json",
-        "path": "purchasing_manager.json",
+        "path": "procurement_manager.json",
         "producer": "workflow",
-        "schema_version": "mn.blueprint.purchasing_manager.v1",
+        "schema_version": "mn.blueprint.procurement_manager.v1",
         "source_refs": [
           "inputs.json",
           "events.jsonl",
           "result.json"
         ],
-        "type": "purchasing_manager"
+        "type": "procurement_manager"
       },
       {
         "artifact_id": "research_sources",
@@ -316,7 +316,7 @@
         "producer": "workflow",
         "schema_version": "mn.blueprint.artifact_quality.v1",
         "source_refs": [
-          "purchasing_manager.json"
+          "procurement_manager.json"
         ],
         "type": "artifact_quality"
       },
@@ -327,7 +327,7 @@
         "producer": "workflow",
         "schema_version": "mn.blueprint.run_health.v1",
         "source_refs": [
-          "purchasing_manager.json"
+          "procurement_manager.json"
         ],
         "type": "run_health"
       },

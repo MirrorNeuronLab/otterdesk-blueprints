@@ -7,7 +7,7 @@ from mn_docs_to_markdown_skill import convert_documents
 
 
 def publish_outputs(output_dir: Path, run_id: str):
-    report = output_dir / "purchasing_manager_report.md"
+    report = output_dir / "procurement_manager_report.md"
     if report.is_symlink() or not report.is_file():
         raise ValueError("Conversation requires the complete saved procurement report")
     # Run identity names an isolated subject; it never selects a filesystem path.

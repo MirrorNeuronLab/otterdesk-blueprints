@@ -53,7 +53,7 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]],
         result = operation(
             context.to_mapping(), llm_client=prepared_llm or llm_client, **options
         )
-        ref = artifact_reference("purchasing_manager_state", "workflow_state/purchasing_manager_state.json")
+        ref = artifact_reference("procurement_manager_state", "workflow_state/procurement_manager_state.json")
         artifacts = [ref]
         if additional_artifact is not None and result.get("case_packet"):
             artifact_id, artifact_path = additional_artifact

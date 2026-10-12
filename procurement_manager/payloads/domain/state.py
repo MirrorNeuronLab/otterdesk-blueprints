@@ -9,7 +9,7 @@ from mn_sdk.blueprint_support import WorkflowStateStore
 
 from .inputs import normalize_inputs
 
-STATE_FILE = "purchasing_manager_state.json"
+STATE_FILE = "procurement_manager_state.json"
 
 
 def _inputs(ctx: dict[str, Any]) -> dict[str, Any]:

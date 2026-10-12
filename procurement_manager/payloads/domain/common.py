@@ -21,7 +21,7 @@ from mn_prototype_actor_review_agent.actors import get_actor_llm_client
 from mn_sdk.blueprint_support import default_config_path as sdk_default_config_path, source_manifest
 
 
-BLUEPRINT_ID = "purchasing_manager"
+BLUEPRINT_ID = "procurement_manager"
 
 
 BLUEPRINT_NAME = "Procurement Manager"
@@ -30,7 +30,7 @@ BLUEPRINT_NAME = "Procurement Manager"
 CATEGORY = "Finance"
 
 
-OUTPUT_TYPE = "purchasing_manager_report"
+OUTPUT_TYPE = "procurement_manager_report"
 
 
 DEFAULT_OUTPUT_FOLDER = "~/Downloads/purchasing-manager"

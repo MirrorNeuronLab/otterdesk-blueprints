@@ -1,5 +1,5 @@
 {
-  "blueprint_id": "purchasing_manager",
+  "blueprint_id": "procurement_manager",
   "name": "Procurement Manager",
   "category": "finance",
   "description": "A procurement-oriented purchasing co-worker for source-backed supplier, equipment, software, service, property, vehicle, trip, and heavy-asset lifecycle comparisons.",

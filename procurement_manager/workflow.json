@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "workflow_id": "purchasing_manager_v2",
+  "workflow_id": "procurement_manager_v2",
   "execution": {
     "strategy": "parallel"
   },

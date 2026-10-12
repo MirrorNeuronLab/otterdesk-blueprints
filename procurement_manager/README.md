@@ -1,6 +1,6 @@
 # Procurement Manager
 
-`Blueprint ID:` `purchasing_manager`
+`Blueprint ID:` `procurement_manager`
 `Category:` `Finance`
 
 Procurement Manager turns a business purchase request into a source-grounded,
@@ -108,8 +108,8 @@ outputs remain run-scoped.
 
 ## Outputs
 
-The output bundle contains `purchasing_manager.json`,
-`purchasing_manager_report.md`, `evidence.json`, `research_sources.json`,
+The output bundle contains `procurement_manager.json`,
+`procurement_manager_report.md`, `evidence.json`, `research_sources.json`,
 `knowledge_rag.json`, `action_ledger.json`, `artifact_quality.json`, and
 `run_health.json`. The packet includes a procurement decision summary, landed-
 budget position, candidate-comparison table, financial and risk-adjusted NPV
@@ -146,7 +146,7 @@ latest comparison, or unresolved evidence through the stable Job response servic
 even when it has never run or is idle. Conversation never starts research or a
 transaction.
 
-After report publication, the complete saved `purchasing_manager_report.md`
+After report publication, the complete saved `procurement_manager_report.md`
 is converted by the document skill into a run-scoped source under
 `context_sources/outputs/`. The SDK and Membrane use that source for cited
 questions about the saved comparison, costs, evidence gaps, and review gates.

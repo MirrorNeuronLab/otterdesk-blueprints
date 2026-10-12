@@ -32,7 +32,7 @@ LOCAL_OPERATIONS = (
 
 
 def run_blueprint(
-    blueprint_id: str = "purchasing_manager",
+    blueprint_id: str = "procurement_manager",
     *,
     inputs: dict[str, Any] | None = None,
     llm_client: Any | None = None,
@@ -43,8 +43,8 @@ def run_blueprint(
     runs_root: str | Path | None = None,
     **_options: Any,
 ) -> dict[str, Any]:
-    if blueprint_id != "purchasing_manager":
-        raise ValueError(f"this runner handles 'purchasing_manager', got {blueprint_id!r}")
+    if blueprint_id != "procurement_manager":
+        raise ValueError(f"this runner handles 'procurement_manager', got {blueprint_id!r}")
     if config_path is not None or config_json is not None:
         raise ValueError("The specialist sample runner accepts resolved config overlays only.")
     context = runtime_context_for_step(
@@ -61,7 +61,7 @@ def run_blueprint(
     )
     return {
         "run_id": context["run_id"],
-        "blueprint_id": "purchasing_manager",
+        "blueprint_id": "procurement_manager",
         "status": "completed_with_fallback"
         if generation_status == "completed_with_fallback"
         else "completed",

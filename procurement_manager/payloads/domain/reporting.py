@@ -36,7 +36,7 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
     item_description = str(inputs.get("item_description") or "unspecified item").rstrip(".")
     return {
         "type": OUTPUT_TYPE,
-        "schema_version": "mn.blueprint.purchasing_manager.v1",
+        "schema_version": "mn.blueprint.procurement_manager.v1",
         "blueprint_id": BLUEPRINT_ID,
         "run_id": run_id,
         "status": "review_ready",
@@ -85,8 +85,8 @@ def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], c
     final_artifact["action_ledger"] = ledger
     evidence = final_artifact.get("evidence") or {}
     paths = {
-        "purchasing_manager_json": output_dir / "purchasing_manager.json",
-        "report_markdown": output_dir / "purchasing_manager_report.md",
+        "procurement_manager_json": output_dir / "procurement_manager.json",
+        "report_markdown": output_dir / "procurement_manager_report.md",
         "evidence_json": output_dir / "evidence.json",
         "research_sources_json": output_dir / "research_sources.json",
         "knowledge_rag_json": output_dir / "knowledge_rag.json",
@@ -100,7 +100,7 @@ def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], c
         paths["approval_packet_md"] = output_dir / "approval-packet.md"
     output_files = [{"kind": kind, "path": str(path)} for kind, path in paths.items()]
     final_artifact["output_files"] = output_files
-    paths["purchasing_manager_json"].write_text(json.dumps(final_artifact, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    paths["procurement_manager_json"].write_text(json.dumps(final_artifact, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     paths["report_markdown"].write_text(render_markdown(final_artifact), encoding="utf-8")
     paths["evidence_json"].write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     paths["research_sources_json"].write_text(json.dumps(evidence.get("public_sources") or [], indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")

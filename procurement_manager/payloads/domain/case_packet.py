@@ -97,7 +97,7 @@ def emit_review_requests(ctx: dict[str, Any], packet: dict[str, Any]) -> list[st
         append_human_event(
             run_id, "human_input_requested",
             {"request_id": request_id, "prompt": prompt, "options": ["Approve", "Request changes", "Reject"], "decision_type": "procurement_review", "decision_digest": packet["decision_digest"], "case_id": packet["case_id"], "revision": packet["revision"], "reviewer": reviewer, "mode": packet["mode"]},
-            runs_root=runs_root, blueprint_id="purchasing_manager",
+            runs_root=runs_root, blueprint_id="procurement_manager",
         )
         emitted.append(request_id)
     return emitted

@@ -302,7 +302,7 @@ def _refresh_generation_summary(state: dict[str, Any]) -> None:
         status = "not_started"
     generation.update(
         {
-            "schema_version": "mn.blueprint.purchasing_manager.llm_generation.v1",
+            "schema_version": "mn.blueprint.procurement_manager.llm_generation.v1",
             "status": status,
             "max_calls_per_run": generation.get("max_calls_per_run") or MAX_LLM_CALLS,
             "calls_made": sum(int(item.get("calls") or 0) for item in records),
@@ -340,7 +340,7 @@ def generate_structured_analysis(
     generation = state.setdefault(
         "llm_generation",
         {
-            "schema_version": "mn.blueprint.purchasing_manager.llm_generation.v1",
+            "schema_version": "mn.blueprint.procurement_manager.llm_generation.v1",
             "status": "not_started",
             "max_calls_per_run": settings["max_calls_per_run"],
             "calls_made": 0,
