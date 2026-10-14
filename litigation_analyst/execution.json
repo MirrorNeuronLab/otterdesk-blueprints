@@ -53,6 +53,12 @@
     },
     "network": {
       "egress": "EMC2 GitHub download during preparation; configured local model only during analysis"
+    },
+    "gpu": {
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
     }
   },
   "workers": {

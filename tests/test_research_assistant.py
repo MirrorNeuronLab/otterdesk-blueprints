@@ -100,7 +100,12 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
         "chat_template_kwargs": {"enable_thinking": False}
     }
     assert "runtime" not in source
-    assert "gpu" not in source["requirements"]
+    assert source["requirements"]["gpu"] == {
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "memory_operator": ">=",
+        "enforcement": "hard",
+    }
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     steps = {step["id"]: step for step in source["workflow"]["steps"]}
     assert steps["assess_evidence_coverage"]["needs"] == ["build_research_evidence"]

@@ -1,5 +1,7 @@
 # Architecture Advisor
 
+This blueprint hard-requires at least one GPU with at least 49,152 MB of memory. MirrorNeuron validates this requirement before scheduling.
+
 Every captured code file now has a persistent UUIDv5 entity identity independent
 of its content and derived graphs. `File` nodes retain `node_id`, `repository_id`,
 `current_path`, SHA-256 `content_hash`, `previous_paths` and language. Modules link

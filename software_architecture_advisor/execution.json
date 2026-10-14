@@ -42,6 +42,12 @@
     },
     "network": {
       "egress": "Public GitHub for URL acquisition; the SDK-prepared LiteLLM gateway for the selected runtime review model."
+    },
+    "gpu": {
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
     }
   },
   "workers": {

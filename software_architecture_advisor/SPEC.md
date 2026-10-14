@@ -1,5 +1,7 @@
 # Architecture Advisor 3.8 specification
 
+This blueprint hard-requires at least one GPU with at least 49,152 MB of memory. MirrorNeuron validates this requirement before scheduling.
+
 ## Outcome
 
 Turn a captured repository into a traceable architecture review covering the

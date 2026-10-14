@@ -1,5 +1,7 @@
 # Litigation Analyst specification
 
+This blueprint hard-requires at least one GPU with at least 49,152 MB of memory. MirrorNeuron validates this requirement before scheduling.
+
 Version 2.7.5 requires the published graph analysis skill `1.3.49` and temporal
 graph skill `1.3.60`. The verified runtime modules are unchanged; release-mode
 setup resolves both capabilities through the declared package registry.
