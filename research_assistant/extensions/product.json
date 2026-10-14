@@ -10,7 +10,7 @@
     "Human review",
     "Research brief"
   ],
-  "category": "Science",
+  "category": "Research",
   "intent": {
     "problem": "Research teams need to explore many possible explanations while preserving evidence, exposing counterarguments, and keeping experiments and claims under human control.",
     "safety": {

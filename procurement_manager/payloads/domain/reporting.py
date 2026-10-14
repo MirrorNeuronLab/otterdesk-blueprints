@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import os
 import re
@@ -451,6 +453,7 @@ def render_markdown(artifact: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+@activity_operation('Writing the purchase report', completed='Writing the purchase report: completed')
 def publish_report(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:

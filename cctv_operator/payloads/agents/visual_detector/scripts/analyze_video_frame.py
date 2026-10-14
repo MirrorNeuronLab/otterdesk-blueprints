@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+from mn_sdk.agent_events import report_activity
+
 import base64
 import datetime as dt
 import hashlib
@@ -1087,6 +1089,7 @@ def main() -> None:
         capture = batch_context(batch)
         mock_mode = os.environ.get("MOCK_VLM_DETECTION", "false").strip().lower() in {"1", "true", "yes", "on"}
         analysis_started = time.monotonic()
+        report_activity("Analyzing the scene against your monitoring instructions", owner_blueprint="cctv_operator", step_id="detect_visual_targets", run_dir=configured_run_dir())
         with cosmos_slot(configured_run_dir()):
             benchmarks.record("caption.model_queue_wait", (time.monotonic() - analysis_started) * 1000,
                               variant=vision_variant)
@@ -1098,6 +1101,7 @@ def main() -> None:
                 )
         detection = validate_helmet_goal(detection, goal, batch)
         matched_event = goal_event(detection, batch)
+        report_activity(str(detection.get("summary") or "Scene analysis completed"), kind="finding" if matched_event else "result", owner_blueprint="cctv_operator", step_id="detect_visual_targets", run_dir=configured_run_dir())
         model_latency_ms = max(0, int((time.monotonic() - analysis_started) * 1000))
         latest_frame_metadata: dict[str, Any] = {}
         if batch is not None:

@@ -1,5 +1,7 @@
 """Render and publish verified architecture catalog artifacts."""
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import os
 import shutil
@@ -15,6 +17,7 @@ from .improvement_prompts import markdown as prompts_markdown
 from .conversation_sources import publish_outputs
 
 
+@activity_operation('Writing the architecture review', completed='Writing the architecture review: completed')
 def publish(context, *, llm_client=None):
     report, files, results = assemble(context)
     workspace_projection = project(context, report, files)

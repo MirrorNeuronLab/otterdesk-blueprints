@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Business Operations",
+  "category": "Business",
   "overview": "Studies Bibblio and proposes evidence-backed email campaigns for your approval.",
   "product": {
     "agent_role": "Bibblio marketing planner",

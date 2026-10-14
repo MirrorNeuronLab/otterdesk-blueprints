@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from .autonomous import _experiment_concepts
 from .state import _save, _state
 
 
+@activity_operation('Auditing the research packet', completed='Auditing the research packet: completed')
 def audit_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     autonomous = state.get("autonomous") or {}

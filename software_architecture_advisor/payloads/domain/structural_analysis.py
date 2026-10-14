@@ -1,5 +1,7 @@
 """Deterministic, source-linked dependency baseline for a frozen snapshot."""
 
+from mn_sdk.agent_events import activity_operation
+
 import csv
 import json
 from pathlib import Path
@@ -159,6 +161,7 @@ def _write_dsm(path, names, adjacency):
             writer.writerow([source, *(1 if target in adjacency[source] else 0 for target in names)])
 
 
+@activity_operation('Analyzing repository structure', completed='Analyzing repository structure: completed')
 def analyze_snapshot(context, *, llm_client=None):
     root = Path(context["run_dir"])
     snapshot = json.loads((root / "snapshot.json").read_text(encoding="utf-8"))

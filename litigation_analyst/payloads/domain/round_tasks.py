@@ -1,4 +1,6 @@
 """Bounded evidence collection and separate hypothesis/review specialists."""
+
+from mn_sdk.agent_events import activity_operation
 from dataclasses import asdict
 from copy import deepcopy
 import json
@@ -42,6 +44,7 @@ def assessment_schema(task, evidence_ids):
     return schema
 
 
+@activity_operation('Collecting investigation evidence', completed='Collecting investigation evidence: completed')
 def collect_evidence(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-evidence.json"
@@ -103,6 +106,7 @@ def collect_evidence(context, work, *, llm_client=None):
     return {"evidence": ref}
 
 
+@activity_operation('Assessing the investigation hypothesis', completed='Assessing the investigation hypothesis: completed')
 def assess_hypothesis(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-assessment.json"
@@ -183,6 +187,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
     return {"assessment": ref}
 
 
+@activity_operation('Reviewing an investigation finding', completed='Reviewing an investigation finding: completed')
 def review_finding(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-review.json"
@@ -214,6 +219,7 @@ def review_finding(context, work, *, llm_client=None):
     return {"review": save(root, name, value)}
 
 
+@activity_operation('Summarizing the investigation round', completed='Summarizing the investigation round: completed')
 def summarize_round(context, work, *, llm_client=None):
     root, frozen, task = task_input(context, work)
     state = checkpoint(root, frozen)

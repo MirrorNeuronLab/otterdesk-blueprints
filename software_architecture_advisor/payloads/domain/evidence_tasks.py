@@ -1,4 +1,6 @@
 """Bounded specialist operations for a committed architecture round."""
+
+from mn_sdk.agent_events import activity_operation
 from mn_sdk.context_session import NeedsPartition, ContextBudgetExceeded
 from .catalog import LayerUnavailable
 from .events import audit_scope
@@ -89,10 +91,12 @@ def collect(context, work, *, semantic=False, llm_client=None):
     return {"observation": store.write(path, record)}
 
 
+@activity_operation('Querying repository relationships', completed='Querying repository relationships: completed')
 def query_graph(context, work, *, llm_client=None):
     return collect(context, work, llm_client=llm_client)
 
 
+@activity_operation('Searching architecture evidence', completed='Searching architecture evidence: completed')
 def search_evidence(context, work, *, llm_client=None):
     return collect(context, work, semantic=True, llm_client=llm_client)
 
@@ -133,6 +137,7 @@ def verification_policy(value):
     return value
 
 
+@activity_operation('Assessing the investigation hypothesis', completed='Assessing the investigation hypothesis: completed')
 def assess_hypothesis(context, work, *, llm_client=None):
     store = InvestigationStore(context["run_dir"])
     work = task_input(store, work)
@@ -181,6 +186,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
     return {"finding": store.write(path, finding)}
 
 
+@activity_operation('Summarizing the investigation round', completed='Summarizing the investigation round: completed')
 def summarize_round(context, work, *, llm_client=None):
     store = InvestigationStore(context["run_dir"])
     work = task_input(store, work)

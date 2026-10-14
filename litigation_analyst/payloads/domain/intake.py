@@ -1,5 +1,7 @@
 """Source-selection policy, coverage accounting, and immutable review inventory."""
 
+from mn_sdk.agent_events import activity_operation
+
 from dataclasses import asdict
 import hashlib
 import json
@@ -11,6 +13,7 @@ from .ingestion.corpus import CaseCorpus
 from .sample_data import prepare_emc2
 
 
+@activity_operation('Examining case documents', completed='Examining case documents: completed')
 def prepare_sources(context, *, llm_client=None):
     run_dir = Path(context["run_dir"])
     payload = context["payload"]

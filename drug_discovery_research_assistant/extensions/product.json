@@ -22,7 +22,7 @@
   ],
   "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",
   "agent_role": "Co-worker for molecule candidate screening and research review.",
-  "category": "Science",
+  "category": "Research",
   "llm_agent_role": "AI assistant for organizing drug discovery candidate generation, filtering, and evidence review.",
   "intent": {
     "customizable_for": "Drug discovery, material search, assay planning, scientific literature review, and research pipeline support.",

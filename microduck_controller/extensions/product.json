@@ -11,7 +11,7 @@
     "Command history",
     "Built-in control guide"
   ],
-  "category": "Robotics",
+  "category": "Physical AI",
   "intent": {
     "problem": "A conversation agent needs a visible, auditable robot-simulation control surface that can complete one closed-loop goal without direct MuJoCo mutation, arbitrary browser automation, or cross-run command replay.",
     "target_users": "Robotics demonstrators, AI-agent developers, simulation researchers, and evaluators.",

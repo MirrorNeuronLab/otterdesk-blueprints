@@ -1,5 +1,7 @@
 """Domain policy for hundreds of Core-managed bounded architecture tasks."""
 
+from mn_sdk.agent_events import activity_operation
+
 import math
 import os
 import time
@@ -68,6 +70,7 @@ def catalog_settings(config):
     return review, opener
 
 
+@activity_operation('Preparing the architecture investigation', completed='Preparing the architecture investigation: completed')
 def initializer(context, *, llm_client=None):
     review, opener = catalog_settings(context["config"])
     store = CatalogStore(context["run_dir"])
@@ -202,6 +205,7 @@ def task_label(task):
     return (f'{action}: {subject}' if subject is not None else action)[:240]
 
 
+@activity_operation('Planning the architecture investigation', completed='Planning the architecture investigation: completed')
 def planner(context, work, *, llm_client=None):
     store = CatalogStore(context["run_dir"])
     saved = store.load_ref(work["context"])

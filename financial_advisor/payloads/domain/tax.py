@@ -1,10 +1,13 @@
 """Tax routing, capture, workpaper, and review operations."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .knowledge import load_prompt
 from .review_services import actor_review, review_artifact
 from .source_ingestion import *
 
+@activity_operation('Classifying tax documents', completed='Classifying tax documents: completed')
 def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
     tax_docs = [
@@ -35,6 +38,7 @@ def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
         "warnings": ["draft_review_only_not_for_filing"],
     }
 
+@activity_operation('Extracting text from tax forms', completed='Extracting text from tax forms: completed')
 def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
     label_docs = {
@@ -169,6 +173,7 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         "recommended_action": "review_captured_tax_form_fields_against_source_images_before_tax_use",
     }
 
+@activity_operation('Preparing tax workpapers', completed='Preparing tax workpapers: completed')
 def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
     router = ctx["state"]["workflow"]["tax_document_router"]
     tax_capture = ctx["state"]["workflow"]["tax_form_ocr_capturer"]
@@ -289,6 +294,7 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         "warnings": ["draft_tax_packet_not_ready_to_file"],
     }
 
+@activity_operation('Reviewing tax workpapers', completed='Reviewing tax workpapers: completed')
 def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     router = workflow["tax_document_router"]

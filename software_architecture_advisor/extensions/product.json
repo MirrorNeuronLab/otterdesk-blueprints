@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Software Engineering",
+  "category": "Engineering",
   "pricing": {
     "model": "subscription",
     "rate": 100,

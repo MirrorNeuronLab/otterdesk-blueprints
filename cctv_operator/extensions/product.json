@@ -36,7 +36,7 @@
   ],
   "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
   "agent_role": "Co-worker for reviewing live camera activity and preparing alerts.",
-  "category": "Security",
+  "category": "Physical AI",
   "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
   "intent": {
     "problem": "Monitor a live CCTV stream without sending its native frame rate to the model.",

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
@@ -23,6 +25,7 @@ from domain.research_policy import build_adaptive_research_plan
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Planning company research', completed='Planning company research: completed')
 def run_research_planner(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:

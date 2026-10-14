@@ -264,7 +264,7 @@ def main() -> int:
         write_sampling_state(artifact_dir, state)
         if result["batch"]:
             batch_ref = str(result["batch"]["frame_batch_ref"])
-            events.append({"type": "cctv_operator_frame_batch_ready", "payload": result["batch"]})
+            events.append({"type": "cctv_operator_frame_batch_ready", "payload": {**result["batch"], "summary": "Selected evidence frames for scene analysis", "activity_kind": "milestone", "owner_blueprint": "cctv_operator"}})
             emit_messages.append(
                 {
                     "type": "cctv_operator_frame_batch_ready",

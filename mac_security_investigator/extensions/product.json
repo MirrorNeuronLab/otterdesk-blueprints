@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Security",
+  "category": "Engineering",
   "intent": {
     "problem": "Separate scans miss changes and recurrence across time.",
     "target_users": "Mac owners and local security reviewers.",

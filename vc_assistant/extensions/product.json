@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Finance",
+  "category": "Business",
   "intent": {
     "problem": "Early startup packets are noisy and inconsistent; analysts need quick heuristic reports with evidence, assumptions, and missing-information flags while retaining the final decision.",
     "safety": {

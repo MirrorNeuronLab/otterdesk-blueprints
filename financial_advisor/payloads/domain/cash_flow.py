@@ -1,9 +1,12 @@
 """Cash-flow normalization and source-grounded household review."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .review_services import review_artifact
 from .source_ingestion import classify_cash_transaction, money
 
+@activity_operation('Normalizing cash flow records', completed='Normalizing cash flow records: completed')
 def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
     bank = ctx["state"]["workflow"]["bank_statement_extractor"]
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
@@ -41,6 +44,7 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
         "summary": f"Detected {money(income)} income-like deposits and {money(expenses)} expenses/fees.",
     }
 
+@activity_operation('Analyzing cash flow', completed='Analyzing cash flow: completed')
 def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     cash_flow = workflow["cash_flow_normalizer"]

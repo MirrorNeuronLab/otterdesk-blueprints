@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Business Operations",
+  "category": "Business",
   "overview": "Drafts campaigns and replies, then sends only the exact emails and recipients you approve.",
   "product": {
     "agent_role": "Bibblio marketing executor",

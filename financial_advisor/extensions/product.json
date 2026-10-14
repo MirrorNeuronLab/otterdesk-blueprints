@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Finance",
+  "category": "Business",
   "intent": {
     "problem": "Personal finance work is split across statement review, tax preparation, household planning, and portfolio risk checks; users need one review-only local assistant that keeps evidence, calculations, and next steps together.",
     "safety": {

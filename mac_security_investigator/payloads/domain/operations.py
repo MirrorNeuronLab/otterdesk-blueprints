@@ -1,4 +1,6 @@
 """Bounded specialists; Core owns routing, retries and step completion."""
+
+from mn_sdk.agent_events import activity_operation
 from pathlib import Path
 
 from .acquisition import acquire_mac
@@ -7,6 +9,7 @@ from .history import history, read, save
 from .patterns import analyze
 
 
+@activity_operation('Collecting Mac security evidence', completed='Collecting Mac security evidence: completed')
 def capture(context, **_):
     marker = Path(context["run_dir"]) / "scan_batch.json"
     if marker.exists():
@@ -19,6 +22,7 @@ def capture(context, **_):
     return {"scan_count": len(scans), "scan_batch": ref}, [ref]
 
 
+@activity_operation('Reconciling temporal security history', completed='Reconciling temporal security history: completed')
 def reconcile(context, **_):
     store = history(context)
     try:
@@ -33,6 +37,7 @@ def reconcile(context, **_):
         store.close()
 
 
+@activity_operation('Investigating temporal behavior', completed='Investigating temporal behavior: completed')
 def investigate(context, **_):
     from .context_graph import enrich
     store = history(context)
@@ -47,6 +52,7 @@ def investigate(context, **_):
         store.close()
 
 
+@activity_operation('Writing the security evidence report', completed='Writing the security evidence report: completed')
 def publish(context, **_):
     from .reporting import publish_report
     return publish_report(context)

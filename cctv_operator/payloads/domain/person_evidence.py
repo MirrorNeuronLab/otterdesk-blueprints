@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mn_live_video_analysis_skill import write_frame_batch
+from mn_sdk.agent_events import report_activity
 from mn_sdk.blueprint_support import write_json
 from mn_sdk.blueprint_support.step_execution import append_event
 
@@ -36,3 +37,4 @@ class PersonEvidence:
             write_json(self.root / "person_events" / f"{identifier}.json",
                        {"schema": "otterdesk.cctv.person_event.v1", **detection})
         append_event(self.root, "cctv_operator_person_event", detection)
+        report_activity("Person presence confirmed", kind="finding", owner_blueprint="cctv_operator", step_id="adaptively_sample_video", run_dir=self.root, details={"confidence": episode["confidence"], "episode": episode["episode"]})

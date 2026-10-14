@@ -1,8 +1,11 @@
 """Public financial-guidance source register."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .review_services import listify
 
+@activity_operation('Researching public finance evidence', completed='Researching public finance evidence: completed')
 def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     cash_flow = workflow["cash_flow_normalizer"]

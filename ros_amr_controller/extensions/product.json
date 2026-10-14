@@ -7,7 +7,7 @@
     "Live video and robot status",
     "Navigation progress tracking"
   ],
-  "category": "Robotics",
+  "category": "Physical AI",
   "product": {
     "agent_role": "Warehouse robot simulation assistant.",
     "benefit": "Practice robot operation and demonstrate warehouse navigation from one workspace.",

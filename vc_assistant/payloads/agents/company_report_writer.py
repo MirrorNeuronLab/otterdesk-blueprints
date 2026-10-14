@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
@@ -12,6 +14,7 @@ from domain.runtime_tools import append_event
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Writing company reports', completed='Writing company reports: completed')
 def run_company_report_writer(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:

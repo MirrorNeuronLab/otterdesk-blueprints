@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from pathlib import Path
 from typing import Any
 
@@ -42,6 +44,7 @@ def _validate_intake_plan(
     return normalized, []
 
 
+@activity_operation('Collecting purchase requirements', completed='Collecting purchase requirements: completed')
 def collect_context(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:
@@ -96,6 +99,7 @@ def collect_context(
     }
 
 
+@activity_operation('Retrieving purchase policy and evidence', completed='Retrieving purchase policy and evidence: completed')
 def retrieve_knowledge(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     inputs = state.get("inputs") or _inputs(ctx)

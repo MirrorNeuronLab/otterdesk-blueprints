@@ -1,5 +1,7 @@
 """Portfolio context, deterministic market scenarios, risk, and bounded review."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .knowledge import load_prompt
 from .review_services import actor_review, review_artifact
@@ -19,6 +21,7 @@ def load_portfolio_from_documents(ctx: dict[str, Any]) -> dict[str, Any]:
         "decision_constraints": copy.deepcopy(payload.get("decision_constraints") or {}),
     }
 
+@activity_operation('Loading portfolio context', completed='Loading portfolio context: completed')
 def step_portfolio_context_loader(ctx: dict[str, Any]) -> dict[str, Any]:
     loaded = load_portfolio_from_documents(ctx)
     portfolio = loaded.get("portfolio") if isinstance(loaded.get("portfolio"), dict) else {}
@@ -72,6 +75,7 @@ def deterministic_price(symbol: str) -> float:
         return DEFAULT_MARKET_PRICES[symbol]
     return 25.0 + (sum(ord(char) for char in symbol) % 200)
 
+@activity_operation('Loading portfolio market data', completed='Loading portfolio market data: completed')
 def step_portfolio_market_data_loader(ctx: dict[str, Any]) -> dict[str, Any]:
     context = ctx["state"]["workflow"]["portfolio_context_loader"]
     series = {}
@@ -91,6 +95,7 @@ def step_portfolio_market_data_loader(ctx: dict[str, Any]) -> dict[str, Any]:
         "warnings": ["market_data_is_fixture_for_local_review"],
     }
 
+@activity_operation('Calculating portfolio risk', completed='Calculating portfolio risk: completed')
 def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
     context = ctx["state"]["workflow"]["portfolio_context_loader"]
     market = ctx["state"]["workflow"]["portfolio_market_data_loader"]
@@ -291,6 +296,7 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
         "warnings": ["risk_metrics_are_review_estimates_not_trade_instructions"],
     }
 
+@activity_operation('Reviewing portfolio findings', completed='Reviewing portfolio findings: completed')
 def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     context = workflow["portfolio_context_loader"]

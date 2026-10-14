@@ -1,5 +1,7 @@
 """Customer readiness, action queue, and financial packet publication."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .conversation_sources import publish_outputs
 from .knowledge import financial_knowledge_reference, load_prompt
@@ -361,6 +363,7 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
     ])
     return "\n".join(lines) + "\n"
 
+@activity_operation('Writing financial advice', completed='Writing financial advice: completed')
 def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     review_briefs = {

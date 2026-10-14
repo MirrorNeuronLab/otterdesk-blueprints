@@ -28,9 +28,12 @@ PDFs and document images use `mirrorneuron-docs-to-markdown-skill`. Embedded PDF
 ## Model selection
 
 Actor-style LLM analysis requests the Docker Model Runner proxy's managed
-`default` model. Version 1.1.4 explicitly requests an 8,192-token context
-and uses VC Assistant's 1,800-token response limit, 60-second timeout, and
-two retries with a one-second backoff. Strict JSON validation and required
+`default` model. Version 1.1.5 explicitly requests an 8,192-token context
+and a 1,800-token response limit, with a 300-second request deadline and
+two retries with a one-second backoff. The request deadline includes gateway
+queueing and generation and is tunable through
+`llm.configs.primary.timeout_seconds` in the default or invocation config.
+Model preparation has its own budget. Strict JSON validation and required
 live responses remain Financial Advisor policy. Runtime model preparation
 maps that default to the medium
 `nemotron3` catalog model on a qualifying high-memory endpoint, including a

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_prototype_actor_review_agent.actors import llm_usage
@@ -59,6 +61,7 @@ from domain.runtime_tools import (
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Writing the batch index', completed='Writing the batch index: completed')
 def run_batch_index_writer(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:

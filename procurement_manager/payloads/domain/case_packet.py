@@ -1,6 +1,8 @@
 """Versioned procurement case evaluation from a selected local case document."""
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 from pathlib import Path
 from typing import Any
@@ -46,6 +48,7 @@ def selected_case_mode(documents: list[dict[str, Any]]) -> str | None:
     return None
 
 
+@activity_operation('Assessing the procurement case', completed='Assessing the procurement case: completed')
 def assess_procurement_case(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     documents = _state(ctx).get("documents") or []
     selected = [item for item in documents if Path(str(item.get("name") or "")).name == "procurement_case.json"]

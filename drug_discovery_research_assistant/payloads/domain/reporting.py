@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 from pathlib import Path
 from typing import Any
@@ -20,6 +22,7 @@ def _publish_static_dashboard(ctx: dict[str, Any]) -> dict[str, Any]:
     return publish_static_dashboard(ctx)
 
 
+@activity_operation('Writing the discovery ranking', completed='Writing the discovery ranking: completed')
 def publish_ranking(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     result = run_stage_script(

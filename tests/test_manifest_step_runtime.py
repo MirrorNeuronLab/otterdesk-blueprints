@@ -169,7 +169,7 @@ def _run_handler_workflow(
             timeout=30,
         )
         assert completed.returncode == 0, completed.stderr
-        result = json.loads(completed.stdout)
+        result = json.loads("\n".join(line for line in completed.stdout.splitlines() if not line.startswith("__MN_EVENT__")))
         assert result["workflow_step_id"] == step_id
         agent_outputs[agent_id] = dict(result.get("outputs") or {})
         executed_agents.append(agent_id)

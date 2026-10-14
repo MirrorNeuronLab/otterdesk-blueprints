@@ -1,5 +1,7 @@
 """Deterministic materialization and verification of frozen evidence indexes."""
 
+from mn_sdk.agent_events import activity_operation
+
 import hashlib
 import json
 import shutil
@@ -49,6 +51,7 @@ def validate_indexes(case, scope):
     return corpus, receipt
 
 
+@activity_operation('Indexing case evidence', completed='Indexing case evidence: completed')
 def build_indexes(context, *, llm_client=None):
     case = Path(context["run_dir"]) / "case"
     scope = context["config"]["investigation"]["access_scope"]

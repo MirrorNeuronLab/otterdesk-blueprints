@@ -1,4 +1,6 @@
 """Select and capture the repository for this architecture investigation."""
+
+from mn_sdk.agent_events import activity_operation
 import json
 from pathlib import Path
 from mn_sdk.step_runtime import artifact_reference
@@ -15,6 +17,7 @@ def policy(context):
     return offline_config(config) if config['offline'] else config
 
 
+@activity_operation('Examining repository inputs', completed='Examining repository inputs: completed')
 def capture_input(context, *, llm_client=None):
     source = source_input(context['payload'])
     run_dir = Path(context['run_dir'])

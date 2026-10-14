@@ -6,6 +6,7 @@ import threading
 import time
 from pathlib import Path
 
+from mn_sdk.agent_events import report_activity
 from mn_sdk.blueprint_support import write_json
 from mn_sdk.blueprint_support.step_execution import append_event
 from mn_sdk_models.local_service import LocalModelService
@@ -66,6 +67,7 @@ class LiveMonitor:
     def _person_loop(self):
         self.detector.load()
         self.status["person_detector"] = "ready"
+        report_activity("Checking frames for people", owner_blueprint="cctv_operator", step_id="adaptively_sample_video", run_dir=self.root)
         last_revision = 0
         while not self.stop_event.is_set():
             started = time.monotonic()
@@ -81,9 +83,14 @@ class LiveMonitor:
                                            metadata={**metadata, "skipped_frames": skipped})
                 people = self.detector.detect(jpeg)
                 monitoring = load_monitoring_state(self.root)
+                was_active = bool(self.episodes.state.get("active"))
+                previous_instruction = self.episodes.state.get("instruction_revision")
+                instruction_revision = int(monitoring.get("instruction_revision") or 0)
                 with self.benchmarks.measure("person.policy", variant=self.detector.variant):
                     episode = self.episodes.update(people, timestamp,
                         revision=int(monitoring.get("instruction_revision") or 0))
+                if was_active and not self.episodes.state.get("active") and not people and previous_instruction == instruction_revision:
+                    report_activity(f"No person detected in sampled frames for {self.episodes.absence_seconds:g} seconds", kind="finding", owner_blueprint="cctv_operator", step_id="adaptively_sample_video", run_dir=self.root, details={"episode": self.episodes.state["episode"], "qualification": "sampled_scene_absence_not_identity"})
                 self.caption_schedule.person_sample(timestamp,
                     confirmed=bool(people) and self.episodes.state.get("hits", 0) >= self.episodes.hits_required,
                     episode=int(self.episodes.state.get("episode", 0)))

@@ -1,36 +1,24 @@
 {
   "categories": [
     {
-      "name": "Finance",
-      "slug": "finance"
-    },
-    {
       "name": "Business",
       "slug": "business"
     },
     {
-      "name": "Science",
-      "slug": "science"
-    },
-    {
-      "name": "Security",
-      "slug": "security"
+      "name": "Research",
+      "slug": "research"
     },
     {
       "name": "Engineering",
       "slug": "engineering"
     },
     {
-      "name": "Robotics",
-      "slug": "robotics"
+      "name": "Physical AI",
+      "slug": "physical-ai"
     },
     {
-      "name": "Legal",
-      "slug": "legal"
-    },
-    {
-      "name": "Healthcare",
-      "slug": "healthcare"
+      "name": "Other",
+      "slug": "other"
     }
   ]
 }

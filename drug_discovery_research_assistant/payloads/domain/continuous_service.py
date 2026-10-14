@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 from pathlib import Path
 from typing import Any
@@ -19,6 +21,7 @@ from .native_stages import (
 )
 
 
+@activity_operation('Processing discovery requests', completed='Processing discovery requests: completed')
 def run_discovery_service(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     service = create_supervised_service(

@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "category": "Finance",
+  "category": "Business",
   "intent": {
     "problem": "Purchase review depends on older broker, lender, rent, insurance, and diligence details that are easy to lose in noisy pipelines.",
     "safety": {

@@ -1,9 +1,12 @@
 """Cross-lane evidence reconciliation and review audit."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .knowledge import load_prompt
 from .review_services import actor_review, review_artifact
 
+@activity_operation('Reconciling financial evidence', completed='Reconciling financial evidence: completed')
 def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     warnings = []
@@ -89,6 +92,7 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
         ],
     }
 
+@activity_operation('Auditing financial advice', completed='Auditing financial advice: completed')
 def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
     workflow = ctx["state"]["workflow"]
     reconciler = workflow["advisor_evidence_reconciler"]

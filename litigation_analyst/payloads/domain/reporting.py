@@ -1,5 +1,7 @@
 """Verify exact evidence before writing the customer-facing draft and review index."""
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import shutil
 from pathlib import Path
@@ -12,6 +14,7 @@ from .app.findings import evidence_appendix
 from .app.report_sections import graph_exhibits
 
 
+@activity_operation('Writing the litigation review', completed='Writing the litigation review: completed')
 def write_review(context, *, llm_client=None):
     run_dir = Path(context["run_dir"])
     case = run_dir / "case"

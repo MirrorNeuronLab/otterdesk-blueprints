@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import copy
 import json
 import os
@@ -107,6 +109,7 @@ def run_stage_script(
     raise RuntimeError(f"{script} completed without a JSON result")
 
 
+@activity_operation('Researching target biology', completed='Researching target biology: completed')
 def discover_targets(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     inputs = _resolved_inputs(ctx)
@@ -137,6 +140,7 @@ def discover_targets(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     return {"target_count": len(state["targets"])}
 
 
+@activity_operation('Generating candidate structures', completed='Generating candidate structures: completed')
 def generate_structures(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     result = run_stage_script(
@@ -153,6 +157,7 @@ def generate_structures(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     return {"structure_count": len(state["structures"])}
 
 
+@activity_operation('Evaluating binding evidence', completed='Evaluating binding evidence: completed')
 def evaluate_binding(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = read_discovery_state(ctx)
     result = run_stage_script(

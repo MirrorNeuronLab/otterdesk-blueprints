@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import slugify, write_workflow_state
@@ -16,6 +18,7 @@ from domain.valuation import METHOD_SCORER_FUNCTIONS
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Calculating company valuations', completed='Calculating company valuations: completed')
 def run_valuation_scorer(
     ctx: dict[str, Any],
     *,

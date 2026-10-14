@@ -1,4 +1,6 @@
 """LLM-directed litigation enquiries compiled into admitted child tasks."""
+
+from mn_sdk.agent_events import activity_operation
 import time
 from mn_sdk.child_workflow import round_plan, stop_plan
 from .app.planning import object_schema, validate
@@ -17,6 +19,7 @@ ENQUIRY = object_schema({
 })
 
 
+@activity_operation('Planning the investigation round', completed='Planning the investigation round: completed')
 def plan_round(context, work, *, llm_client=None):
     root, frozen = open_round(context, work)
     revision = work["_child"]["revision"]

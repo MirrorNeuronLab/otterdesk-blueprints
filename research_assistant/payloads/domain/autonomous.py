@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import os
 from pathlib import Path
@@ -1061,6 +1063,7 @@ def _experiment_concepts(hypotheses: list[dict[str, Any]], inputs: dict[str, Any
     return concepts
 
 
+@activity_operation('Investigating the research question', completed='Investigating the research question: completed')
 def autonomous_research(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:

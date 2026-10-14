@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import hashlib
 from pathlib import Path
@@ -563,6 +565,7 @@ def write_research_outputs(
     return output_files
 
 
+@activity_operation('Writing the research report', completed='Writing the research report: completed')
 def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     inputs = _inputs(ctx)

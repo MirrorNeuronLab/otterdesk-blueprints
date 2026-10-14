@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import csv
 import io
 import os
@@ -251,6 +253,7 @@ def deterministic_research_posture(evidence: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+@activity_operation('Preparing source evidence', completed='Preparing source evidence: completed')
 def prepare_evidence(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     inputs = _inputs(ctx)

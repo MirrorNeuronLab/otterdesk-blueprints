@@ -476,6 +476,9 @@ def test_shared_sdk_agent_handlers_run_end_to_end_without_live_services(config, 
         completed = subprocess.run([sys.executable, "-m", "mn_sdk.step_runtime", "--handler", agent["handler"]],
             cwd=ROOT / "payloads", env=environment, capture_output=True, text=True, timeout=30)
         assert completed.returncode == 0, completed.stderr
-        assert json.loads(completed.stdout)["status"] == "completed"
+        records = [json.loads(line.removeprefix("__MN_EVENT__")) for line in completed.stdout.splitlines() if line.startswith("__MN_EVENT__")]
+        assert records and all(record["schema"] == "mn.runtime.event.v1" for record in records)
+        assert any(record["owner_blueprint"] == "mac_security_investigator" for record in records)
+        assert json.loads("\n".join(line for line in completed.stdout.splitlines() if not line.startswith("__MN_EVENT__")))["status"] == "completed"
     artifact = json.loads((tmp_path / "run/final_artifact.json").read_text())
     assert artifact["cases"][0]["distinct_execution_count"] == 2

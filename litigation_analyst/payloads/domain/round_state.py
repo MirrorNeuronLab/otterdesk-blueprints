@@ -1,4 +1,6 @@
 """Immutable litigation round artifacts and the existing review projection."""
+
+from mn_sdk.agent_events import activity_operation
 import json
 import os
 import time
@@ -60,6 +62,7 @@ def task_input(context, work):
     return root, frozen, load(root, work["task"])
 
 
+@activity_operation('Preparing the case investigation', completed='Preparing the case investigation: completed')
 def initialize(context, *, llm_client=None):
     root = Path(context["run_dir"])
     case = root / "case"

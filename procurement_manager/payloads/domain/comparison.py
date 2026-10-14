@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import re
 from typing import Any
@@ -22,6 +24,7 @@ from .research import deterministic_evidence, deterministic_recommendation, rese
 from .case_packet import selected_case_mode
 from .state import _inputs, _save, _state
 
+@activity_operation('Researching market options', completed='Researching market options: completed')
 def research_market(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     inputs = state.get("inputs") or _inputs(ctx)
@@ -653,6 +656,7 @@ def build_candidate_comparisons(
     return comparisons
 
 
+@activity_operation('Calculating total purchase cost', completed='Calculating total purchase cost: completed')
 def analyze_total_cost(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:
@@ -854,6 +858,7 @@ def _build_commercial_risk_review(
     }
 
 
+@activity_operation('Reviewing purchase risks', completed='Reviewing purchase risks: completed')
 def review_purchase_risks(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:
@@ -945,6 +950,7 @@ def review_purchase_risks(
     return {"risk_count": len(review["risk_flags"]), "evidence_gap_count": len(review["evidence_gaps"])}
 
 
+@activity_operation('Auditing the purchase recommendation', completed='Auditing the purchase recommendation: completed')
 def audit_recommendation(
     ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
 ) -> dict[str, Any]:

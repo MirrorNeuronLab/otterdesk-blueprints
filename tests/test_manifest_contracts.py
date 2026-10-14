@@ -114,3 +114,31 @@ def test_cctv_synthetic_knowledge_uses_runtime_rag_seed():
     for document in documents:
         if document.name.startswith("synthetic-"):
             assert "SYNTHETIC EXAMPLE ONLY" in document.read_text()
+
+
+def test_catalog_categories_use_five_supervisory_groups():
+    root = Path(__file__).resolve().parents[1]
+    categories = json.loads((root / "category.json").read_text())["categories"]
+    assert categories == [
+        {"name": "Business", "slug": "business"},
+        {"name": "Research", "slug": "research"},
+        {"name": "Engineering", "slug": "engineering"},
+        {"name": "Physical AI", "slug": "physical-ai"},
+        {"name": "Other", "slug": "other"},
+    ]
+    expected = {
+        "Business": {"financial_advisor", "vc_assistant", "litigation_analyst", "procurement_manager", "gtm_planner", "gtm_executor"},
+        "Research": {"research_assistant", "drug_discovery_research_assistant"},
+        "Engineering": {"software_architecture_advisor", "mac_security_investigator"},
+        "Physical AI": {"cctv_operator", "microduck_controller", "ros_amr_controller"},
+    }
+    allowed = {item["name"] for item in categories}
+    for entry in read_catalog(root / "index.json"):
+        assert entry["category"] in allowed, entry["id"]
+    for category, packages in expected.items():
+        for package in packages:
+            manifest = json.loads((root / package / "manifest.json").read_text())
+            assert "category" not in manifest
+            product_path = manifest["extensions"]["mn.product"]["file"]
+            product = json.loads((root / package / product_path).read_text())
+            assert product["category"] == category, package

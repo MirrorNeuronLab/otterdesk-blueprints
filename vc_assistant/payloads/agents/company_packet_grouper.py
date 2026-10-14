@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import (
@@ -12,6 +14,7 @@ from domain.intake import group_document_file_records
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Grouping company documents', completed='Grouping company documents: completed')
 def run_company_packet_grouper(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:

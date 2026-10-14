@@ -72,21 +72,26 @@ helpers and render shared agent templates.
 
 ## Catalog
 
+Categories are Business (finance, legal, procurement, and office work), Research
+(scientific research), Engineering (software and cybersecurity), Physical AI
+(cameras and robots), and Other (miscellaneous). `category.json` defines the
+ordered taxonomy; each manifest references its category in `extensions/product.json`.
+
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
 | [`gtm_planner`](gtm_planner/README.md) | Business | Plans marketing work and publishes bounded collaboration packets. |
 | [`gtm_executor`](gtm_executor/README.md) | Business | Executes approved marketing work through declared tools and Job collaboration. |
-| [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Science | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to `~/Downloads/drug-discovery-research-assistant`, and completes. |
-| [`research_assistant`](research_assistant/README.md) | Science | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
+| [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Research | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to `~/Downloads/drug-discovery-research-assistant`, and completes. |
+| [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
-| [`procurement_manager`](procurement_manager/README.md) | Finance | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
-| [`mac_security_investigator`](mac_security_investigator/README.md) | Security | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
-| [`cctv_operator`](cctv_operator/README.md) | Security | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
-| [`microduck_controller`](microduck_controller/README.md) | Robotics | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
-| [`litigation_analyst`](litigation_analyst/README.md) | Legal | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
-| [`financial_advisor`](financial_advisor/README.md) | Finance | Reviews financial documents and prepares a grounded advisory packet. |
-| [`vc_assistant`](vc_assistant/README.md) | Finance | Produces early diligence reports from startup document packets. |
-| [`ros_amr_controller`](ros_amr_controller/README.md) | Robotics | Operates the warehouse robot simulation through bounded MCP controls. |
+| [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
+| [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
+| [`cctv_operator`](cctv_operator/README.md) | Physical AI | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
+| [`microduck_controller`](microduck_controller/README.md) | Physical AI | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
+| [`litigation_analyst`](litigation_analyst/README.md) | Business | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
+| [`financial_advisor`](financial_advisor/README.md) | Business | Reviews financial documents and prepares a grounded advisory packet. |
+| [`vc_assistant`](vc_assistant/README.md) | Business | Produces early diligence reports from startup document packets. |
+| [`ros_amr_controller`](ros_amr_controller/README.md) | Physical AI | Operates the warehouse robot simulation through bounded MCP controls. |
 
 ## Folder Contract
 
@@ -201,3 +206,18 @@ versions and container image digests remain concrete artifact identities.
 ## Bibblio marketing services
 
 [`gtm_planner`](gtm_planner/README.md) and [`gtm_executor`](gtm_executor/README.md) form a local MCP-connected marketing pair. Ideas and final emails require separate human approvals. Contacts and AgentMail credentials stay private to the executor. Hire and configure both, then explicitly start them when ready.
+
+## Runtime activity
+
+Use `mn_sdk.report_activity(message, kind="action", level="info",
+owner_blueprint=..., step_id=..., run_dir=...)` for actual domain work and
+observed findings. `kind` is `action`, `result`, `finding`, `milestone`, or
+`diagnostic`; `level` is `debug`, `info`, `warning`, or `error`.
+Use `mn_sdk.activity_operation(message, completed=...)` around a synchronous
+domain operation when action/result reporting is sufficient. Do not define
+blueprint-local formatters, publishers, stdout prefixes, or event clocks.
+The SDK supplies the canonical `mn.runtime.event.v1` envelope with identity,
+UTC timestamp, blueprint owner, run, step, and agent attribution. Existing
+shell/native protocol records are normalized by Core at publication.
+Only report observed facts; unchanged frame sampling and model bookkeeping
+belong in diagnostics. Full outputs remain in artifacts.

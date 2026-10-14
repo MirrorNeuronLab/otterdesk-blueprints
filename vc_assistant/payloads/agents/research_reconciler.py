@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import slugify, write_workflow_state
@@ -18,6 +20,7 @@ from domain.research_orchestration import (
 from ._shared import agent_output, create_agent_handler, durable_artifact, input_artifact
 
 
+@activity_operation('Reconciling company research', completed='Reconciling company research: completed')
 def run_research_reconciler(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:

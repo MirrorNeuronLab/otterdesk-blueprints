@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.11
 from __future__ import annotations
 
+from mn_sdk.agent_events import report_activity
+
 import json
 import os
 import sys
@@ -300,6 +302,7 @@ def main() -> int:
         json.dumps(artifact, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    report_activity("Report updated", kind="result", owner_blueprint="cctv_operator", step_id="write_cctv_report", run_dir=configured_run_dir())
     emit_result({"report": report, "final_artifact": artifact})
     return 0
 

@@ -1,8 +1,11 @@
 """Financial document inventory, extraction, and statement packet operations."""
 
+from mn_sdk.agent_events import activity_operation
+
 from .common import *
 from .source_ingestion import *
 
+@activity_operation('Checking financial folders for changes', completed='Checking financial folders for changes: completed')
 def step_financial_folder_watcher(ctx: dict[str, Any]) -> dict[str, Any]:
     files = iter_input_files(ctx["document_folder"])
     result = {
@@ -15,6 +18,7 @@ def step_financial_folder_watcher(ctx: dict[str, Any]) -> dict[str, Any]:
     }
     return result
 
+@activity_operation('Reading financial documents', completed='Reading financial documents: completed')
 def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
     ocr_client, ocr_status = build_ocr_runtime(ctx)
     docs = [read_document(path, ocr_client=ocr_client) for path in iter_input_files(ctx["document_folder"])]
@@ -32,6 +36,7 @@ def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
         "ocr_required_count": len([doc for doc in docs if doc.get("ocr_required")]),
     }
 
+@activity_operation('Extracting bank transactions', completed='Extracting bank transactions: completed')
 def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
     docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
     statements = [doc for doc in docs if doc["kind"] == "bank_statement"]

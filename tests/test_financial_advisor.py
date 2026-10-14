@@ -83,7 +83,9 @@ def test_financial_manifest_compiles_ordered_regulated_state_pipeline():
     assert "publish_financial_review_packet__end" in node_ids
 
 
-def test_financial_model_settings_match_vc_in_the_runtime_client(monkeypatch):
+def test_financial_model_settings_allow_local_review_time_in_the_runtime_client(monkeypatch):
+    from dataclasses import replace
+
     from mn_sdk.blueprint_support import runtime as llm_runtime
     from mn_sdk.blueprints import read_blueprint, resolve_config
     from mn_sdk.llm import resolve_config as resolve_llm_config
@@ -103,15 +105,23 @@ def test_financial_model_settings_match_vc_in_the_runtime_client(monkeypatch):
         clients[blueprint_id] = resolve_llm_config(environment)
 
     financial = clients["financial_advisor"]
-    assert financial == clients["vc_assistant"]
+    assert financial == replace(clients["vc_assistant"], timeout_seconds=300)
     assert financial.model == "default"
     assert financial.provider == "docker_model_runner"
     assert financial.backend == "llama.cpp"
     assert financial.context_size == 8192
     assert financial.max_tokens == 1800
-    assert financial.timeout_seconds == 60
+    assert financial.timeout_seconds == 300
     assert financial.num_retries == 2
     assert financial.retry_backoff_seconds == 1.0
+
+    # A run-specific deadline must still override the operator default.
+    config = resolve_config(read_blueprint(blueprint_path("financial_advisor"))).data
+    config["llm"]["configs"]["primary"]["timeout_seconds"] = 45
+    environment = llm_runtime.configured_llm_environment(
+        config, env={"MN_RUNTIME_MODEL_MANAGED": "1"},
+    )
+    assert resolve_llm_config(environment).timeout_seconds == 45
 
 
 def test_financial_workers_stage_the_domain_package():

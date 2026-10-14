@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 import json
 import os
 from pathlib import Path
@@ -20,6 +22,7 @@ def _write(ctx: dict[str, Any], name: str, assessment: dict[str, Any]) -> dict[s
     return {"branch_artifact": {"name": name, "path": f"workflow_state/{name}.json"}, "status": assessment["status"]}
 
 
+@activity_operation('Checking evidence coverage', completed='Checking evidence coverage: completed')
 def assess_evidence_coverage(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     evidence = (_state(ctx).get("evidence") or {})
     refs = sorted(set(evidence.get("source_refs") or []))
@@ -36,6 +39,7 @@ def assess_evidence_coverage(ctx: dict[str, Any], **_options: Any) -> dict[str, 
     return _write(ctx, "evidence_coverage", assessment)
 
 
+@activity_operation('Checking experiment readiness', completed='Checking experiment readiness: completed')
 def assess_experiment_readiness(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     state = _state(ctx)
     inputs = state.get("inputs") or {}

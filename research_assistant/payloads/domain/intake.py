@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_autonomous_research_skill import create_research_goal
 
 from .state import _inputs, _save
 
+@activity_operation('Clarifying the research goal', completed='Clarifying the research goal: completed')
 def frame_goal(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     inputs = _inputs(ctx)
     goal = create_research_goal(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from mn_sdk.agent_events import activity_operation
+
 from typing import Any
 
 from mn_sdk.blueprint_support import write_workflow_state
@@ -16,6 +18,7 @@ from domain.runtime_tools import (
 from ._shared import agent_output, create_agent_handler, durable_artifact
 
 
+@activity_operation('Checking startup folders for changes', completed='Checking startup folders for changes: completed')
 def run_startup_folder_watcher(
     ctx: dict[str, Any], *, llm_client: Any | None = None
 ) -> dict[str, Any]:
