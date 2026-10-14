@@ -1,0 +1,129 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "mode": "compiled",
+  "job_name": "ct-scan-reader",
+  "requirements": {
+    "cpu": {
+      "min_cores": 2
+    },
+    "memory": {
+      "min_gb": 8
+    },
+    "disk": {
+      "min_gb": 30
+    },
+    "gpu": {
+      "min_count": 1,
+      "vendor": "nvidia",
+      "driver": "cuda",
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "required"
+    },
+    "network": {
+      "egress": "Model download from Hugging Face on first use; CT inference uses the selected runtime node."
+    }
+  },
+  "runtime": {
+    "models": {
+      "ct": {
+        "model": "nv-reason-ct:0.1.0",
+        "provider": "docker_model_runner",
+        "backend": "nim",
+        "type": "vlm",
+        "required": true,
+        "customize_mode": true,
+        "model_spec": {
+          "id": "nv-reason-ct:0.1.0",
+          "model": "nv-reason-ct:0.1.0",
+          "name": "NV-Reason-CT (research only)",
+          "description": "Blueprint-owned NVIDIA 3D CT model, not for real diagnosis.",
+          "source": "docker",
+          "provider": "docker_model_runner",
+          "api_model": "nvidia/NV-Reason-CT",
+          "backend": "nim",
+          "backends": [
+            "nim"
+          ],
+          "model_type": "multimodal",
+          "input_modalities": [
+            "text",
+            "image"
+          ],
+          "context_size": 32768,
+          "requirements": {
+            "min_vram_gb": 48,
+            "required_capabilities": [
+              "cuda"
+            ]
+          },
+          "docker": {
+            "image": "docker.io/homerquan/nv-reason-ct@sha256:981c8278e77d55524490800c7528f0fbae93e06d6aab52f9c180c614cd6946a7",
+            "port": 30083,
+            "container_port": 8000,
+            "gpus": "all",
+            "shm_size": "8g",
+            "api_path": "/v1",
+            "ready_path": "/health",
+            "ready_timeout": 3600,
+            "cache_path": "/cache",
+            "environment": {
+              "HF_HOME": "/cache",
+              "HF_HUB_DISABLE_TELEMETRY": "1",
+              "DO_NOT_TRACK": "1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "agents": {
+    "registry": {
+      "ct_research_specialist": {
+        "handler": "agents.ct_research_specialist",
+        "role": "Experimental CT report specialist"
+      }
+    }
+  },
+  "workers": {
+    "groups": [
+      {
+        "steps": [
+          "read_ct_volume"
+        ],
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "docker_worker_image": "docker_worker",
+          "image": "mirror-neuron/ct-scan-reader:0.1.0",
+          "dockerfile": "docker_worker/Dockerfile",
+          "build_context": ".",
+          "workdir": "/app",
+          "timeout_seconds": 900,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "agents",
+              "target": "agents"
+            },
+            {
+              "source": "runtime",
+              "target": "runtime"
+            },
+            {
+              "source": "steps",
+              "target": "steps"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

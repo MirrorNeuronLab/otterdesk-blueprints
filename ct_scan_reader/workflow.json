@@ -1,0 +1,30 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "ct_scan_reader_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "dynamic": {
+    "enabled": false
+  },
+  "steps": [
+    {
+      "id": "read_ct_volume",
+      "kind": "source",
+      "label": "Read CT for research",
+      "goal": "Validate one 3D CT volume, request NV-Reason-CT inference, and publish an experimental review with explicit limits.",
+      "needs": [],
+      "run": {
+        "definition": "steps.read_ct_volume"
+      },
+      "control": {
+        "timeout_seconds": 900,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}

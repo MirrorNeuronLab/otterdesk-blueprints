@@ -1,0 +1,21 @@
+{
+  "inputs": {
+    "payload": {
+      "ct_file": "",
+      "region": "",
+      "prompt": ""
+    }
+  },
+  "local_inputs": {
+    "files": [
+      {
+        "config_path": "inputs.payload.ct_file",
+        "payload_path": "mn_local_inputs/ct/volume.nii",
+        "runtime_path": "mn_local_inputs/ct/volume.nii"
+      }
+    ]
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/ct-scan-reader"
+  }
+}

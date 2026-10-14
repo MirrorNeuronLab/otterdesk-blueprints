@@ -1,0 +1,13 @@
+transformers==5.19.0
+accelerate==1.13.0
+monai==1.5.1
+nibabel==5.3.3
+dynamic-network-architectures==0.4.3
+numpy>=2.3.5,<3
+scipy
+Pillow
+timm
+einops
+safetensors
+fastapi==0.135.1
+uvicorn==0.41.0

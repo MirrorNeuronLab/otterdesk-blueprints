@@ -1,0 +1,51 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Experimental CT review; never real diagnosis.",
+  "inputs": {
+    "ct_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": true,
+      "description": "De-identified single-channel 3D CT in .nii or .nii.gz format with Hounsfield units."
+    },
+    "region": {
+      "type": "string",
+      "required": true,
+      "description": "chest or abdomen; must match the scan."
+    },
+    "prompt": {
+      "type": "string",
+      "required": false,
+      "description": "Optional bounded research question."
+    },
+    "output_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "example": "~/Downloads/ct-scan-reader",
+      "description": "An additional copy of the experimental report."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "ct_research_report",
+      "path": "final_artifact.json",
+      "schema_version": "mn.ct.research_report.v1",
+      "type": "review_packet"
+    },
+    "artifacts": [
+      {
+        "artifact_id": "report",
+        "path": "report.md",
+        "schema_version": "mn.ct.report.v1"
+      }
+    ]
+  },
+  "status": {
+    "heartbeat": true
+  },
+  "privacy": {
+    "classification": "confidential"
+  }
+}

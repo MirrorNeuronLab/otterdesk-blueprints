@@ -1,0 +1,53 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Please upload a de-identified CT file (.nii or .nii.gz) using Upload CT below. This co-worker is for research and education only, not for real diagnosis or treatment.",
+    "sample": {
+      "available": false
+    },
+    "real": {
+      "introduction": "Upload a CT volume, then choose the anatomy present in the scan.",
+      "values": {}
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.ct_file",
+        "label": "CT file",
+        "description": "Upload a de-identified 3D .nii or .nii.gz CT with Hounsfield units (64 MiB compressed, 256 MiB expanded maximum). Not for real diagnosis.",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input",
+        "required": true
+      },
+      {
+        "path": "inputs.payload.region",
+        "label": "Anatomy region",
+        "description": "Choose the region present in the uploaded CT.",
+        "type": "text",
+        "required": true,
+        "choices": [
+          {
+            "label": "Chest",
+            "value": "chest"
+          },
+          {
+            "label": "Abdomen",
+            "value": "abdomen"
+          }
+        ]
+      },
+      {
+        "path": "inputs.payload.prompt",
+        "label": "Research question",
+        "type": "textarea",
+        "required": false
+      }
+    ]
+  },
+  "starter_questions": [
+    "How do I upload a CT scan?",
+    "What are this model\u2019s limitations?",
+    "Explain the research report and its uncertainty."
+  ]
+}

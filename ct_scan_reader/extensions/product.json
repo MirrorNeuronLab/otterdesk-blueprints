@@ -1,0 +1,35 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Research",
+  "overview": "Explore chest or abdominal CT scans with NVIDIA NV-Reason-CT. Research and education only \u2014 not for real diagnosis, treatment, or clinical decisions. Upload a .nii or .nii.gz volume in Chat and review the experimental report alongside a local CT preview.",
+  "capabilities": [
+    "conversation_file_upload:nifti"
+  ],
+  "intent": {
+    "problem": "Explore experimental 3D CT model output with inspectable source volumes.",
+    "target_users": "Researchers, educators, and model evaluators.",
+    "safety": {
+      "enabled": true,
+      "mode": "review_only",
+      "reason": "Not for real diagnosis or treatment.",
+      "blocked_actions": [
+        "clinical_diagnosis",
+        "treatment_decisions",
+        "patient_triage"
+      ]
+    }
+  },
+  "product": {
+    "agent_role": "CT research co-worker",
+    "benefit": "Compare experimental model output with a preview of the uploaded volume.",
+    "input": "Upload a de-identified .nii or .nii.gz CT and select chest or abdomen.",
+    "output": "Experimental report with model revision, input hash, anatomy, and limitations.",
+    "how_it_works": "Runs blueprint-owned NV-Reason-CT in Docker on an NVIDIA GPU with at least 48 GB memory.",
+    "runtime_features": [
+      "Experimental CT interpretation",
+      "Local CT preview in Chat",
+      "NVIDIA GPU with 48 GB memory required",
+      "Not for real diagnosis"
+    ]
+  }
+}
