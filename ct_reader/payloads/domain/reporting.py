@@ -13,8 +13,16 @@ NOTICE = 'Research and education only. Not for real diagnosis, treatment, or cli
 MAX_CT_BYTES = 64 * 1024 * 1024
 
 
+def request_ct(model, volume, region, prompt):
+    return runtime_model_json_request('inference', model['model'], '/ct',
+        {'volume_base64': base64.b64encode(volume).decode('ascii'),
+         'region': region, 'prompt': prompt},
+        provider=model['provider'], backend=model['backend'],
+        model_spec=model['model_spec'], timeout_seconds=600, num_retries=0)
+
+
 @activity_operation('Reading CT for research', completed='Experimental CT report saved for review')
-def review_ct(context, request=runtime_model_json_request):
+def review_ct(context, request=request_ct):
     run_dir = Path(context['run_dir'])
     inputs = context.get('payload') or context.get('inputs') or context.get('config', {}).get('inputs', {}).get('payload', {})
     source = Path(inputs.get('ct_file') or '')
@@ -34,10 +42,7 @@ def review_ct(context, request=runtime_model_json_request):
         if saved.get('input_sha256') != digest or saved.get('region') != region or saved.get('prompt') != prompt:
             raise ValueError('This invocation already has a result for different inputs.')
     else:
-        result = request('vlm', model['model'], '/ct', {
-            'volume_base64': base64.b64encode(data).decode('ascii'), 'region': region, 'prompt': prompt,
-        }, provider=model['provider'], backend=model['backend'], model_spec=model['model_spec'],
-            timeout_seconds=600, num_retries=0)
+        result = request(model, data, region, prompt)
         answer = result.get('answer')
         if not isinstance(answer, str) or not 0 < len(answer.strip()) <= 32000 or result.get('research_only') is not True:
             raise ValueError('NV-Reason-CT did not return a valid experimental report.')

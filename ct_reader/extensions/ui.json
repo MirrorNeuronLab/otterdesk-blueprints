@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Please upload a de-identified CT file (.nii or .nii.gz) using Upload CT below. This co-worker is for research and education only, not for real diagnosis or treatment.",
+    "introduction": "Please upload a de-identified CT file (.nii or .nii.gz) with the + button below, then choose chest or abdomen. Work starts when those inputs are ready. This co-worker is for research and education only, not for real diagnosis or treatment.",
     "sample": {
       "available": false
     },

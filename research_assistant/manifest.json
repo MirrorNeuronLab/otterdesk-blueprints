@@ -3,7 +3,7 @@
   "id": "research_assistant",
   "name": "Research Assistant",
   "version": "1.3.0",
-  "description": "Turns your research question and source material into a brief with competing explanations, supporting evidence, and ideas for further investigation. Review the findings before planning experiments or making claims.",
+  "description": "Explore a research question and decide what to investigate next. Get a brief comparing possible explanations, the evidence for and against them, unanswered questions, and ideas for experiments to review.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

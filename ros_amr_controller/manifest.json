@@ -3,7 +3,7 @@
   "id": "ros_amr_controller",
   "name": "ROS AMR Controller",
   "version": "1.2.0",
-  "description": "Control a simulated warehouse robot through chat. Send it to designated zones, stop movement, and monitor live video and navigation progress.",
+  "description": "Practice operating a warehouse robot in a simulation using everyday chat. Send it to designated areas, watch its progress through live video, and stop movement when you need to.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

@@ -3,7 +3,7 @@
   "id": "litigation_analyst",
   "name": "Litigation Analyst",
   "version": "2.8.0",
-  "description": "Builds a local interactive investigation with source-linked findings, counterevidence, temporal relationship paths, snapshot changes and reviewable work product. Every model finding remains a human-review draft.",
+  "description": "Make sense of a large collection of case documents. Find important facts, timelines, connections, and conflicting evidence, with links to the original sources. Get draft findings for legal review.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

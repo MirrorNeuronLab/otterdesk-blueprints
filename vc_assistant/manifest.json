@@ -3,7 +3,7 @@
   "id": "vc_assistant",
   "name": "VC Assistant",
   "version": "1.2.2",
-  "description": "Reviews startup documents and public sources to prepare company screening reports. Compare scores from seven early-stage investment methods, check assumptions, and see where evidence is missing. Scores are not valuations or investment recommendations.",
+  "description": "Review startups before deciding which deserve a closer look. Get company summaries, screening scores, key risks, and unanswered questions backed by documents and public research. Scores are not company valuations or investment recommendations.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

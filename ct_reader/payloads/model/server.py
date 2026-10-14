@@ -100,6 +100,8 @@ async def ct(request: Request):
                 raise HTTPException(413, 'CT request exceeds bounds.')
         try:
             payload = json.loads(body)
+            if not isinstance(payload, dict):
+                raise ValueError('A CT request is required.')
             region, prompt = payload.get('region'), payload.get('prompt')
             if region not in ('chest', 'abdomen') or not isinstance(prompt, str) or not 0 < len(prompt) <= 2000:
                 raise ValueError('Invalid research question or anatomy.')

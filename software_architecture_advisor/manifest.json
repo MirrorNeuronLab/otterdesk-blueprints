@@ -3,7 +3,7 @@
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
   "version": "3.9.0",
-  "description": "Reviews real source with evidence and counterevidence; publishes cumulative Job data, an offline architecture dashboard, Markdown reports and bounded work packages.",
+  "description": "Understand how your software is organized, where changes may cause problems, and what to improve first. Get a report with supporting examples, an interactive overview, and suggested tasks for your development team.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

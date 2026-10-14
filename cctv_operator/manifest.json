@@ -3,7 +3,7 @@
   "id": "cctv_operator",
   "name": "CCTV Operator",
   "version": "2.1.3",
-  "description": "Fixed RF-DETR person gate, Cosmos helmet and scene understanding, MN caption memory and historical Q&A. Requires NVIDIA CUDA.",
+  "description": "Tell it what to watch for on your camera feed. Get alerts with images and times you can review, and ask questions about previously reviewed footage.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

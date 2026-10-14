@@ -3,7 +3,7 @@
   "id": "mac_security_investigator",
   "name": "Mac security investigator",
   "version": "0.2.4",
-  "description": "Reviews local Mac unified-log evidence across user-initiated scans and preserves source receipts, explicit coverage limits and saved reports without inspecting OS files.",
+  "description": "Review recent security-related activity recorded by your Mac and compare it with earlier scans. Get a saved report with supporting records and clear limits on what was checked. This early version reviews logs only and cannot confirm that your Mac is safe.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

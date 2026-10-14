@@ -1,4 +1,8 @@
 {
+  "skill_runtime": {
+    "driver": "docker_worker",
+    "enabled": true
+  },
   "inputs": {
     "payload": {
       "ct_file": "",

@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "ct_scan_reader",
-  "name": "CT research reader",
-  "version": "0.1.0",
-  "description": "Explore chest or abdominal CT scans with NVIDIA NV-Reason-CT. Research and education only \u2014 not for real diagnosis, treatment, or clinical decisions. Upload a .nii or .nii.gz volume in Chat and review the experimental report alongside a local CT preview.",
+  "name": "CT reader",
+  "version": "0.1.1",
+  "description": "Explore chest or abdominal CT scans for research and learning. Upload a scan in Chat, view its images, and read an experimental report. Research and education only; not for real diagnosis, treatment, or clinical decisions.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

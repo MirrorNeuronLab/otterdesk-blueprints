@@ -3,7 +3,7 @@
   "id": "drug_discovery_research_assistant",
   "name": "Drug Discovery Research Assistant",
   "version": "1.2.0",
-  "description": "Generates and evaluates five computational molecule candidates in one research run. Review screening results, simulations, molecule previews, and supporting evidence before deciding on further research.",
+  "description": "Explore possible starting points for drug research. Get five proposed molecules, a comparison of their computer-based screening results, and supporting evidence to help plan further study. Results are research ideas, not proven treatments.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

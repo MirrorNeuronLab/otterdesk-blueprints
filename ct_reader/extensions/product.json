@@ -3,7 +3,8 @@
   "category": "Research",
   "overview": "Explore chest or abdominal CT scans with NVIDIA NV-Reason-CT. Research and education only \u2014 not for real diagnosis, treatment, or clinical decisions. Upload a .nii or .nii.gz volume in Chat and review the experimental report alongside a local CT preview.",
   "capabilities": [
-    "conversation_file_upload:nifti"
+    "conversation_file_upload:nifti",
+    "conversation_result_text:report.md"
   ],
   "intent": {
     "problem": "Explore experimental 3D CT model output with inspectable source volumes.",

@@ -3,7 +3,7 @@
   "id": "financial_advisor",
   "name": "Financial Advisor",
   "version": "1.1.5",
-  "description": "Organizes your financial documents into a review of household cash flow, tax records, and portfolio risk. Produces draft summaries with supporting evidence for you or your advisor to check.",
+  "description": "Understand your income, spending, tax paperwork, and investment risks in one place. Get draft summaries with supporting evidence and a list of issues to review with your financial or tax advisor.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

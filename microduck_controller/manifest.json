@@ -3,7 +3,7 @@
   "id": "microduck_controller",
   "name": "Microduck Controller",
   "version": "1.2.1",
-  "description": "Control a simulated Microduck robot through Chat. Ask it to move, approach a ball, or keep finding and kicking the ball while you watch. You can stop play at any time.",
+  "description": "Explore robot movement and ball play in a live simulation using everyday language. Ask the Microduck robot to move, approach a ball, or keep finding and kicking it while you watch. Stop play at any time.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
