@@ -62,3 +62,7 @@ are stored under the group ID; restarting a peer does not reset other peers.
 Only approved-brief packets initiate executor drafting, with idempotency scoped
 to publisher and packet ID. Final email approval remains mandatory. Existing
 pairs read the legacy scalar peer until an explicit board change upgrades them.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

@@ -65,7 +65,7 @@ def _knowledge_source_dir(
     )
     seed = str(knowledge.get("seed") or "")
     assert seed.startswith("@/"), blueprint_dir.name
-    return blueprint_dir / seed.removeprefix("@/")
+    return blueprint_dir / ("knowledge" if seed == "@/payloads/runtime/blueprint_knowledge" else seed.removeprefix("@/"))
 
 
 def test_non_vc_blueprints_declare_grounded_rag_and_agentic_tool_contracts():

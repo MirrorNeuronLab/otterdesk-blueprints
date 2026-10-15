@@ -130,7 +130,7 @@ observations in context memory and answer with the configured primary text
 model. Cosmos understands independently sampled image sequences and create
 that Markdown history; history questions never retrieve frames or invoke Cosmos.
 Both are asynchronous read operations: a UUID receipt returns immediately,
-`get_video_answer` reports the result, and the Job response service updates the
+`get_operation_status` reports the result, and the Job response service updates the
 original turn. One request is pending at a time; the completion timeout is 90
 seconds and the text-model call is bounded to 60 seconds without retries.
 Capture-time bounds require a timezone. The twelve most recent matching complete
@@ -265,7 +265,7 @@ video worker does not compete with the runtime port broker and the sidecar does
 not require a prepared Python environment. The MCP agent owns the bounded
 status, activity watch, monitoring-instruction, and notice-acknowledgement tools;
 the Job response agent resolves exactly one passing service for the active run.
-It uses `watch_operator_activity` to receive the same sanitized event projection
+It uses `watch_job_activity` to receive the same sanitized event projection
 shown in the Web UI through protocol `2026-07-28` MRTR, then relays that activity
 through the chat-facing Job MCP. An MRTR delivery receipt is transport-only and
 must not acknowledge a durable operator notice. The response path never exposes
@@ -413,3 +413,7 @@ precedes folder retrieval, so history growth cannot consume the planner budget.
 Version 2.1.2 accepts live-video skill `1.3.49`, whose published runtime modules
 match the current source. It replaces the unavailable development-version
 minimum without changing the video, model or NVIDIA requirements.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

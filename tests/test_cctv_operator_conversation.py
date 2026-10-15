@@ -581,7 +581,8 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
 
     source = json.loads((ROOT / "cctv_operator/extensions/response.json").read_text())
     source.pop("$schema")
-    declaration = normalize_response_service({"response_service": source})["agent"]
+    from mn_sdk.blueprints import read_blueprint, blueprint_definition
+    declaration = blueprint_definition(read_blueprint(ROOT / "cctv_operator"))["response_service"]["agent"]
     store = AgentStore(tmp_path / "conversation.sqlite3", "cctv-test")
     memory = AgentMemory(declaration=declaration, store=store,
                          job_data_dir=tmp_path, rag_refresh=lambda: None)
@@ -591,13 +592,14 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
     tools = prompt["allowed_user_tools"]
     assert question in tools["set_monitoring_instruction"]["description"]
     assert "change the goal to watch the corridor" in tools["set_monitoring_instruction"]["description"]
-    assert "Quiet and unrelated activity produce no chat messages" in tools["watch_operator_activity"]["description"]
+    assert declaration["activity"]["tool"] == "watch_job_activity"
+    assert "watch_job_activity" not in tools
     assert 'Never use "latest"' in tools["get_operator_activity"]["description"]
     assert "command_id" not in tools["set_monitoring_instruction"]["arguments"]
     assert "action" in prompt["turn_contract"]["allowed_intents"]
     plan = planner.validate_plan({
         "intent": "action", "tool": "set_monitoring_instruction",
-        "arguments": {"instruction": question, "clear": "false", "analyze_now": "true"},
+        "arguments": {"instruction": question, "clear": False, "analyze_now": True},
     }, question)
     assert plan["arguments"]["instruction"] == question
     assert plan["arguments"]["command_id"]

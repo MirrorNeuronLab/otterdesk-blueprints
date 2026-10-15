@@ -1,0 +1,248 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/mcp.schema.json",
+  "profile": "mn.mcp.supervision.v1",
+  "manual": "@/knowledge/user_manual.md",
+  "tools": {
+    "get_robot_status": {
+      "description": "Read current simulated robot status and pose without changing motion.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "object"
+          },
+          "navigation_status": {
+            "type": "string"
+          },
+          "pose": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "navigate_to_zone": {
+      "description": "Move the simulated robot to a named zone. Interpret move to zone A, go to A, or please navigate to Zone A as zone=zone_a; likewise B and C. Use only the declared zones. Acceptance means navigation was requested; report arrival only from the correlated operation.",
+      "effect": "motion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "zone": {
+            "type": "string",
+            "enum": [
+              "zone_a",
+              "zone_b",
+              "zone_c"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "zone",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "operation_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 180
+      }
+    },
+    "cancel_navigation": {
+      "description": "Stop the simulated robot: interpret stop, halt, cancel navigation, or stop the robot as this tool with no arguments. Cancel navigation and send a bounded zero-velocity burst. Keep the simulation service running. This stop effect does not require a motion status preflight.",
+      "effect": "stop",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "adjust_robot": {
+      "description": "Apply one short forward, left, or right fine-adjustment pulse only when requested. Never expand zone navigation into repeated adjustments.",
+      "effect": "motion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "left",
+              "right"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "direction",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "command": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "service": {
+    "name": "ros-amr-controller-mcp",
+    "path": "/mcp",
+    "required_tags": [
+      "mcp",
+      "robot-control",
+      "ros-amr-controller"
+    ]
+  },
+  "preflight": {
+    "required_for_effects": [
+      "motion"
+    ],
+    "tool": "get_robot_status",
+    "arguments": {},
+    "required_result": {
+      "connected": true
+    }
+  }
+}

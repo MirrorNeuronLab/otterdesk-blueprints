@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "procurement_manager",
   "name": "Procurement Manager",
-  "version": "1.2.2",
+  "version": "2.0.0",
   "description": "Compare purchase options and see what they may cost over time. Get a side-by-side review of supplier quotes, suitability, risks, and missing information to help you decide what to buy. Prepares recommendations for your review without contacting suppliers or placing orders.",
   "workflow": "workflow.json",
   "execution": "execution.json",
@@ -46,6 +46,10 @@
     },
     "mn.context": {
       "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
       "required": true
     }
   }

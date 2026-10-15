@@ -1,0 +1,738 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/mcp.schema.json",
+  "profile": "mn.mcp.supervision.v1",
+  "manual": "@/knowledge/user_manual.md",
+  "tools": {
+    "get_duck_state": {
+      "description": "Get duck state.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          },
+          "connection": {
+            "type": "object"
+          },
+          "duck": {
+            "type": "object"
+          },
+          "ball": {
+            "type": "object"
+          },
+          "active_command": {
+            "type": "object"
+          },
+          "recent_command": {
+            "type": "object"
+          }
+        }
+      }
+    },
+    "move_duck": {
+      "description": "Move briefly in one fixed direction for 250, 500, or 1000 ms. Use only for an untargeted step or turn. Never use this for a destination such as the ball; use find_ball for that goal.",
+      "effect": "motion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "direction": {
+            "type": "string",
+            "enum": [
+              "forward",
+              "backward",
+              "turn_left",
+              "turn_right"
+            ],
+            "maxLength": 512
+          },
+          "duration": {
+            "type": "string",
+            "enum": [
+              "short",
+              "medium",
+              "long"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "direction",
+          "duration",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "perform_routine": {
+      "description": "Perform routine.",
+      "effect": "motion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "routine": {
+            "type": "string",
+            "enum": [
+              "showcase",
+              "spin_left",
+              "spin_right",
+              "zigzag"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "routine",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "find_ball": {
+      "description": "Navigate continuously to the active ball using closed-loop position feedback, turning and advancing until the duck reaches it and stops. Use for 'move the duck to the ball', 'go to the ball', 'approach the ball', or 'find the ball'. A single move_duck step does not fulfill this goal.",
+      "effect": "navigation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 40
+      }
+    },
+    "start_free_play": {
+      "description": "Start free play.",
+      "effect": "play",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 40
+      }
+    },
+    "stop_duck": {
+      "description": "Stop duck.",
+      "effect": "stop",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 10
+      }
+    },
+    "set_locomotion": {
+      "description": "Set locomotion.",
+      "effect": "locomotion",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "locomotion": {
+            "type": "string",
+            "enum": [
+              "legs",
+              "rollers"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "locomotion",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "set_posture": {
+      "description": "Sit down or stand up using the simulator's legged posture policy. Use sit for sit down, sit, take a seat, or seat down; use stand to get up or stand up.",
+      "effect": "posture",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "posture": {
+            "type": "string",
+            "enum": [
+              "sit",
+              "stand"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "posture",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "play_ball_action": {
+      "description": "Play ball action.",
+      "effect": "ball",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "spawn_ball",
+              "kick_left",
+              "kick_right"
+            ],
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "action",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    },
+    "reset_simulation": {
+      "description": "Reset simulation.",
+      "effect": "simulation",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "ok": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "progress": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object"
+          },
+          "confirmation": {
+            "type": "object"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 20
+      }
+    }
+  },
+  "service": {
+    "name": "microduck-controller-mcp",
+    "path": "/mcp",
+    "required_tags": [
+      "mcp",
+      "robot-control",
+      "microduck-controller"
+    ]
+  },
+  "preflight": {
+    "required_for_effects": [
+      "motion",
+      "navigation",
+      "play",
+      "locomotion",
+      "posture",
+      "ball",
+      "simulation"
+    ],
+    "tool": "get_duck_state",
+    "arguments": {},
+    "required_result": {
+      "connected": true,
+      "ready": true
+    }
+  }
+}

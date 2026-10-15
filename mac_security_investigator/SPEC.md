@@ -100,3 +100,7 @@ Live macOS compatibility, local runtime launch, no-replication deployment
 and empirical precision/false-positive rates need pilot validation. Passing the
 synthetic tests does not satisfy all T01–T34 gates or certify the complete MVP.
 No accuracy percentage, forensic authenticity or tamper-proof claim is made.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

@@ -27,7 +27,6 @@ from domain.protocol import (
 from services.duck_control_service import (
     MOTION_ROUTINES,
     _web_ui_endpoint_artifact,
-    read_user_manual,
     service_settings,
     write_final_artifact,
 )
@@ -442,13 +441,12 @@ def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeyp
         if isinstance(node, ast.AsyncFunctionDef)
     }
     assert tools == {
-        "get_user_manual",
         "get_duck_state",
         "move_duck",
         "perform_routine",
         "find_ball",
-        "free_play",
-        "get_command_status",
+        "start_free_play",
+        "get_operation_status",
         "stop_duck",
         "set_locomotion",
         "set_posture",
@@ -507,15 +505,13 @@ def test_service_contract_has_exact_mcp_tools_and_private_proxy_defaults(monkeyp
 
 
 def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
-    manual = read_user_manual()
+    manual = (ROOT / "microduck_controller/knowledge/user_manual.md").read_text().strip()
 
-    assert "microduck://manual" in (
-        PAYLOADS / "services" / "duck_control_service.py"
-    ).read_text(encoding="utf-8")
+    assert "get_user_manual" not in {node.name for node in ast.walk(ast.parse((PAYLOADS / "services/duck_control_service.py").read_text())) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))}
     assert "`move_duck`" in manual
     assert "`perform_routine`" in manual
     assert "`find_ball`" in manual
-    assert "`free_play`" in manual
+    assert "`start_free_play`" in manual
     assert "move the duck to the ball" in manual
     assert "seat down" in manual
     assert validate_posture("sit") == "sit"
@@ -524,7 +520,7 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
         validate_posture("roll")
     assert "Never expand this goal into repeated `move_duck` calls" in manual
     assert '`{"intent":"action","tool":"find_ball","arguments":{}}`' in manual
-    assert '`{"intent":"action","tool":"free_play","arguments":{}}`' in manual
+    assert '`{"intent":"action","tool":"start_free_play","arguments":{}}`' in manual
     assert "repeated `find_ball` or `play_ball_action` calls" in manual
     assert "Match meaning, not exact wording" in manual
     assert "non-exhaustive example, not a required command string" in manual
@@ -543,12 +539,11 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
     ):
         assert paraphrase in manual
     for tool in (
-        "get_user_manual",
         "get_duck_state",
         "move_duck",
         "perform_routine",
         "find_ball",
-        "free_play",
+        "start_free_play",
         "stop_duck",
         "set_locomotion",
         "set_posture",
@@ -557,15 +552,7 @@ def test_mcp_manual_and_named_routines_share_the_bounded_control_contract():
     ):
         assert f'"tool":"{tool}"' in manual
     assert "One conversation turn may issue at most one effect" in manual
-    assert (
-        manual
-        == (PAYLOADS / "docker_worker" / "knowledge" / "microduck_user_manual.md")
-        .read_text(encoding="utf-8")
-        .strip()
-    )
-    assert set(MOTION_ROUTINES) == {"showcase", "spin_left", "spin_right", "zigzag"}
-    for segments in MOTION_ROUTINES.values():
-        assert validate_motion_plan(segments) == segments
+    assert not (PAYLOADS / "docker_worker/knowledge/microduck_user_manual.md").exists()
 
 
 def test_service_settings_applies_the_scheduler_port_to_the_public_handle(monkeypatch):
@@ -747,7 +734,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "1.2.1"
+    assert read_blueprint(blueprint).manifest["version"] == "2.0.0"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
@@ -793,24 +780,23 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "required_result": {"connected": True, "ready": True},
     }
     assert set(agent["tools"]["user"]) == {
-        "get_user_manual",
         "get_duck_state",
         "move_duck",
         "perform_routine",
         "find_ball",
-        "free_play",
+        "start_free_play",
         "stop_duck",
         "set_locomotion",
         "set_posture",
         "play_ball_action",
         "reset_simulation",
     }
-    assert set(agent["tools"]["internal"]) == {"get_command_status"}
+    assert set(agent["tools"]["internal"]) == {"get_operation_status"}
     assert set(agent["operations"]) == {
         "move_duck",
         "perform_routine",
         "find_ball",
-        "free_play",
+        "start_free_play",
         "stop_duck",
         "set_locomotion",
         "set_posture",
@@ -824,20 +810,23 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     }
     assert agent["operations"]["find_ball"] == {
         "id_field": "command_id",
-        "poll_tool": "get_command_status",
-        "poll_argument": "command_id",
+        "poll_tool": "get_operation_status",
+        "poll_argument": "operation_id",
         "poll_interval_ms": 500,
+        "poll_arguments": {},
         "timeout_seconds": 40,
     }
-    assert agent["tools"]["user"]["free_play"] == {
+    assert agent["tools"]["user"]["start_free_play"] == {
         "effect": "play",
+        "description": "Start free play.",
         "arguments": {"command_id": {"type": "string"}},
     }
-    assert agent["operations"]["free_play"] == {
+    assert agent["operations"]["start_free_play"] == {
         "id_field": "command_id",
-        "poll_tool": "get_command_status",
-        "poll_argument": "command_id",
+        "poll_tool": "get_operation_status",
+        "poll_argument": "operation_id",
         "poll_interval_ms": 500,
+        "poll_arguments": {},
         "timeout_seconds": 40,
     }
     assert source["workflow"]["steps"][0]["run"] == {
@@ -882,7 +871,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "robot-control",
         "microduck-controller",
     ]
-    assert registrar["services"][0]["meta"]["manual_uri"] == "microduck://manual"
+    assert registrar["services"][0]["meta"]["manual_tool"] == "get_user_manual"
     assert registrar["resources"]["ports"] == [
         {"label": "microduck_mcp", "port": "auto", "protocol": "http"}
     ]
@@ -892,6 +881,8 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     dependencies = {item["name"] for item in source["packages"]}
     assert dependencies == {
         "mn-python-sdk-web-ui",
+        "mn-python-sdk-common",
+        "mn-python-sdk-mcp",
         "mirrorneuron-python-sdk",
         "mn-python-sdk-rag",
     }

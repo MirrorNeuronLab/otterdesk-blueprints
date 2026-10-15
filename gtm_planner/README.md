@@ -72,3 +72,7 @@ Group packets carry the board identity and exact member list. Each peer keeps
 an independent cursor; a peer restart resets only that cursor. Packets from
 another board or membership are rejected before consumption. Peer data never
 grants approval, and each executor still requires review of its exact delivery.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

@@ -89,7 +89,7 @@ It does not bypass the planner or stop the co-worker's Compose service.
 Use OtterDesk's pause/stop service control to shut down the simulation.
 
 Navigation replies are correlated. Chat receives an immediate accepted reply
-with a turn to poll; the Job agent then reads `get_navigation_operation` once
+with a turn to poll; the Job agent then reads `get_operation_status` once
 per second for up to 180 seconds and reports only observed progress and a
 terminal arrival, failure, cancellation, supersession, or timeout.
 
@@ -121,3 +121,7 @@ configuration are resolved by the SDK before launch.
 ## Context engine contract
 
 The `mn.context` descriptor explicitly disables Membrane runtime recall for this blueprint: its payload does not call TextMemory. Existing domain knowledge/RAG, live status, MCP controls, and Core coordination retain their own contracts. The retired conversation-memory declaration is removed, so this workflow does not start a context compressor or require a Membrane SDK merely to launch. Any future runtime-memory consumer must declare `mirrorneuron-python-sdk[context]`, ingest complete preprocessed text under trusted job/run scope, and use the Markdown/DuckDB CPU service.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

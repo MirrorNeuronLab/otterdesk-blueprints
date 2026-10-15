@@ -55,7 +55,7 @@ def test_catalog_compiles_four_bounded_host_specialists():
     assert package.extension("mn.storage")["resources"][0]["path"] == "state"
     assert package.extension("mn.context")["text_memory"]["enabled"]
     sdk = next(p for p in package.document("dependencies")["packages"] if p["name"] == "mirrorneuron-python-sdk")
-    assert sdk["version"] == ">=1.3.58.dev71,<2"
+    assert sdk["version"] == ">=1.3.62.dev0,<2"
     assert "mirrorneuron-macos-logs-skill" in {p["name"] for p in package.document("dependencies")["skills"]}
     assert all(n["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
                for n in manifest["agents"]["nodes"] if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_AGENT_ID") in package.document("execution")["agents"]["registry"])

@@ -40,7 +40,6 @@ COMMAND_HISTORY_ARTIFACT = "duck_command_history.json"
 # registrar then publishes the resolved endpoint to MirrorNeuron's job-scoped
 # proxy; no end user needs to know this port.
 DEFAULT_PORT = 0
-MANUAL_PATH = SERVICE_ROOT / "knowledge" / "microduck_user_manual.md"
 MOVE_DURATIONS_MS = {"short": 250, "medium": 500, "long": 1_000}
 MOTION_ROUTINES = {
     "showcase": [
@@ -293,18 +292,6 @@ def write_final_artifact(run_dir: Path) -> dict[str, Any]:
     return artifact
 
 
-def read_user_manual() -> str:
-    """Read the authoritative manual shared by MCP and Job RAG."""
-
-    try:
-        manual = MANUAL_PATH.read_text(encoding="utf-8").strip()
-    except OSError as error:
-        raise RuntimeError("Microduck MCP user manual is unavailable") from error
-    if not manual:
-        raise RuntimeError("Microduck MCP user manual is empty")
-    return manual
-
-
 def _state_summary(state: Mapping[str, Any]) -> str:
     connection = state.get("connection") if isinstance(state.get("connection"), Mapping) else {}
     if connection.get("connected") is not True:
@@ -319,12 +306,13 @@ def _state_summary(state: Mapping[str, Any]) -> str:
 def create_mcp_server(hub: BridgeHub):
     """Create the MCP projection without importing server packages during tests."""
 
-    from mcp.server.fastmcp import FastMCP
+    from mcp.server import MCPServer
+    from mn_sdk_mcp import domain_tool
 
-    mcp = FastMCP(
+    mcp = MCPServer(
         "Microduck Controller",
         instructions=(
-            "Read the microduck://manual resource or call get_user_manual for the "
+            "Read the installed manual through the stable Job MCP for the "
             "authoritative control contract. Control only the connected browser-based "
             "Microduck simulation. Call get_duck_state before an effect, use a fresh UUID "
             "for each effect, and call stop_duck if the operator asks to stop. Never infer "
@@ -335,31 +323,13 @@ def create_mcp_server(hub: BridgeHub):
             "locomotion, ball actions, reset, stop, state, and the manual to their declared tools. "
             "Map requests to move the duck to the ball, find, seek, approach, or go to the ball to find_ball, and never "
             "expand that goal into repeated move_duck calls. Map free-play requests, including "
-            "'free play now', 'let's free play', and 'you can free play', to one free_play call; "
+            "'free play now', 'let's free play', and 'you can free play', to one start_free_play call; "
             "it keeps finding and kicking until stop_duck is called. Map sit or seat down "
             "to set_posture(sit), and get up or stand up to set_posture(stand)."
         ),
-        stateless_http=True,
-        json_response=True,
     )
 
-    @mcp.resource("microduck://manual")
-    def microduck_user_manual_resource() -> str:
-        """Return the authoritative natural-language and tool-use manual."""
-
-        return read_user_manual()
-
-    @mcp.tool()
-    async def get_user_manual() -> dict[str, Any]:
-        """Read capabilities, limits, safety rules, and language-to-tool examples."""
-
-        return {
-            "schema_version": "mn.microduck.user_manual.v1",
-            "summary": "Microduck supports bounded movement, goal-directed ball navigation, continuous free play, routines, locomotion, ball actions, reset, stop, and live state inspection.",
-            "manual": read_user_manual(),
-        }
-
-    @mcp.tool()
+    @domain_tool(mcp)
     async def get_duck_state() -> dict[str, Any]:
         """Read compact, fresh simulator state without changing the duck."""
 
@@ -370,7 +340,7 @@ def create_mcp_server(hub: BridgeHub):
             "summary": _state_summary(state),
         }
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def move_duck(
         command_id: str,
         direction: Literal["forward", "backward", "turn_left", "turn_right"],
@@ -391,7 +361,7 @@ def create_mcp_server(hub: BridgeHub):
             },
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def perform_routine(
         command_id: str,
         routine: Literal["showcase", "spin_left", "spin_right", "zigzag"],
@@ -409,7 +379,7 @@ def create_mcp_server(hub: BridgeHub):
             },
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def find_ball(command_id: str) -> dict[str, Any]:
         """Move the duck continuously to the active ball with bounded closed-loop navigation."""
 
@@ -421,8 +391,8 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {},
         )
 
-    @mcp.tool()
-    async def free_play(command_id: str) -> dict[str, Any]:
+    @domain_tool(mcp)
+    async def start_free_play(command_id: str) -> dict[str, Any]:
         """Keep finding and alternately kicking the active ball until stop_duck is called."""
 
         return await _enqueue(
@@ -433,16 +403,16 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {},
         )
 
-    @mcp.tool()
-    async def get_command_status(command_id: str) -> dict[str, Any]:
+    @domain_tool(mcp)
+    async def get_operation_status(operation_id: str) -> dict[str, Any]:
         """Read the latest receipt for one MCP command UUID."""
 
         try:
-            return await hub.command_status(validate_command_id(command_id))
+            return await hub.command_status(validate_command_id(operation_id))
         except ProtocolError as error:
-            return _invalid_receipt(command_id, "unknown", str(error))
+            return _invalid_receipt(operation_id, "unknown", str(error))
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def stop_duck(command_id: str) -> dict[str, Any]:
         """Cancel all remote movement, free play, and any in-progress remote kick."""
 
@@ -454,7 +424,7 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {},
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def set_locomotion(
         command_id: str, locomotion: Literal["legs", "rollers"]
     ) -> dict[str, Any]:
@@ -468,7 +438,7 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {"locomotion": validate_locomotion(locomotion)},
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def set_posture(
         command_id: str, posture: Literal["sit", "stand"]
     ) -> dict[str, Any]:
@@ -482,7 +452,7 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {"posture": validate_posture(posture)},
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def play_ball_action(
         command_id: str,
         action: Literal["spawn_ball", "kick_left", "kick_right"],
@@ -497,7 +467,7 @@ def create_mcp_server(hub: BridgeHub):
             validate=lambda: {"action": validate_ball_action(action)},
         )
 
-    @mcp.tool()
+    @domain_tool(mcp)
     async def reset_simulation(command_id: str) -> dict[str, Any]:
         """Reset the connected browser simulation to its deterministic initial state."""
 
@@ -568,7 +538,7 @@ def create_app(
     )
     bridge = hub or BridgeHub(on_change=state_writer)
     mcp = create_mcp_server(bridge)
-    app = mcp.streamable_http_app()
+    app = mcp.streamable_http_app(stateless_http=True, json_response=True)
 
     async def health(_request):
         snapshot = await bridge.state()

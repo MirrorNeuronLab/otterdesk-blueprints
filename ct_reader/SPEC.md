@@ -35,3 +35,7 @@ negation and uncertainty, and distinguish the saved model text from general
 background. Include traceable primary-source links, model-revision context, and
 labeled fictional examples. Do not fabricate missing findings or replace
 qualified clinical review. Explaining a saved result does not launch inference.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

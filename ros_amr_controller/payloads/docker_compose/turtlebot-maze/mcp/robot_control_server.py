@@ -17,6 +17,7 @@ from collections import OrderedDict
 from typing import Literal, TypedDict
 
 from mcp.server import MCPServer
+from mn_sdk_mcp import domain_tool
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -287,35 +288,35 @@ def control() -> RosControlBridge:
     return _control
 
 
-@mcp.tool()
+@domain_tool(mcp)
 def get_robot_status() -> RobotStatus:
     """Read the current Nav2 status and latest simulated robot pose without changing motion."""
 
     return control().status()
 
 
-@mcp.tool()
+@domain_tool(mcp)
 def navigate_to_zone(zone: Zone) -> NavigationReceipt:
     """Navigate the simulated robot to one allowlisted warehouse zone: zone_a, zone_b, or zone_c."""
 
     return control().navigate(zone)
 
 
-@mcp.tool()
-def get_navigation_operation(operation_id: str) -> NavigationOperation:
+@domain_tool(mcp)
+def get_operation_status(operation_id: str) -> NavigationOperation:
     """Read observed progress for one correlated navigation operation returned by navigate_to_zone."""
 
     return control().navigation_operation(operation_id)
 
 
-@mcp.tool()
+@domain_tool(mcp)
 def cancel_navigation() -> CommandReceipt:
     """Cancel autonomous navigation and issue a bounded zero-velocity stop burst."""
 
     return control().cancel()
 
 
-@mcp.tool()
+@domain_tool(mcp)
 def adjust_robot(direction: Direction) -> CommandReceipt:
     """Apply one 0.5 second watchdog-limited forward, left, or right adjustment pulse."""
 

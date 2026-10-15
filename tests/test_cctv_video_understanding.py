@@ -127,7 +127,7 @@ def test_chat_tool_reads_saved_scene_and_forecast_across_runs(monkeypatch, tmp_p
             self.tools = {}
         def tool(self, name=None, **kwargs):
             def register(function):
-                self.tools[name or function.__name__] = function
+                self.tools[name or function.__name__] = function.__wrapped__
                 return function
             return register
         def resource(self, *args, **kwargs):
@@ -184,12 +184,12 @@ def test_chat_tool_reads_saved_scene_and_forecast_across_runs(monkeypatch, tmp_p
     monkeypatch.setattr(answer.__globals__["threading"], "Thread", InlineThread)
     command = "11111111-1111-4111-8111-111111111111"
     assert server.tools["answer_video_question"](command, "How many people appeared so far?")["state"] == "accepted"
-    result = server.tools["get_video_answer"](command)
+    result = server.tools["get_operation_status"](command, kind="video")
     assert result["state"] == "completed" and "cannot be determined" in result["summary"]
     assert result["evidence"]["citations"][0]["sources"]
     summary_command = "22222222-2222-4222-8222-222222222222"
     assert server.tools["get_video_summary"](summary_command)["state"] == "accepted"
-    assert server.tools["get_video_answer"](summary_command)["state"] == "completed"
+    assert server.tools["get_operation_status"](summary_command, kind="video")["state"] == "completed"
     assert len(calls) == 2 and calls[1]["summarize"] is True
 
 

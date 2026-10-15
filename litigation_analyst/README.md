@@ -373,3 +373,7 @@ The retained explorer exposes case-scoped `otterdesk.litigation.evidence` search
 verified-passage and frozen-PDF operations alongside the graph skill. Retired
 index transformations are no longer offered. Existing staged runs retain their
 implementation; new code does not resume or migrate their index/derivation audit.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

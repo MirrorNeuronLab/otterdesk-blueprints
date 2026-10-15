@@ -62,13 +62,13 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-job-response",
-            "version": ">=1.3.47",
+            "version": ">=1.3.62.dev0,<2",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-mcp",
-            "version": ">=1.3.47",
+            "version": ">=1.3.62.dev0,<2",
         },
         {
             "type": "pip",
@@ -80,9 +80,10 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-python-sdk",
-            "version": ">=1.3.58.dev0,<2",
+            "version": ">=1.3.62.dev0,<2",
             "extras": ["context"],
         },
+        {"type": "pip", "source": "gar", "name": "mn-python-sdk-common", "version": ">=1.3.62.dev0,<2"},
     ]
     assert (
         manifest["config"]["data"]["interfaces"]["input_contract"]
@@ -90,7 +91,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "1.2.0"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "2.0.0"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]

@@ -1669,11 +1669,12 @@ def test_vc_knowledge_excludes_stale_non_domain_terms():
 
     assert knowledge["path"] == "knowledge"
     assert Path(knowledge["resolved_path"]).parent == (
-        BLUEPRINT_DIR / "payloads" / "knowledge"
+        BLUEPRINT_DIR / "knowledge"
     )
     assert [item["path"] for item in knowledge["documents"]] == [
         "knowledge/conversation_guide.md",
         "knowledge/startup_research_playbook.md",
+        "knowledge/user_manual.md",
     ]
     assert "Berkus Method" in playbook
     assert "Scorecard / Bill Payne Method" in playbook

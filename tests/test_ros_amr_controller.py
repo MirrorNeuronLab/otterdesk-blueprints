@@ -162,7 +162,7 @@ def test_ros_amr_declares_job_scoped_bounded_response_agent():
         "get_robot_status",
         "navigate_to_zone",
     }
-    assert set(agent["tools"]["internal"]) == {"get_navigation_operation"}
+    assert set(agent["tools"]["internal"]) == {"get_operation_status"}
     assert agent["operations"]["navigate_to_zone"]["timeout_seconds"] == 180
     assert agent["memory"]["types"] == [
         "zone_alias",
@@ -200,7 +200,7 @@ def test_ros_amr_navigation_is_correlated_without_breaking_dashboard_commands():
     assert '"kind": "navigate"' in server
     assert '"operation_id": operation_id' in server
     assert '"/warehouse/navigation_operation"' in server
-    assert "def get_navigation_operation(operation_id: str)" in server
+    assert "def get_operation_status(operation_id: str)" in server
     assert "json.loads(raw_command)" in gateway
     assert "command = raw_command.lower()" in gateway
     assert '"completed", zone=route, progress="arrived"' in gateway
@@ -215,10 +215,8 @@ def test_ros_amr_robot_mcp_exposes_exact_bounded_tool_set():
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
         if any(
             isinstance(decorator, ast.Call)
-            and isinstance(decorator.func, ast.Attribute)
-            and isinstance(decorator.func.value, ast.Name)
-            and decorator.func.value.id == "mcp"
-            and decorator.func.attr == "tool"
+            and isinstance(decorator.func, ast.Name)
+            and decorator.func.id == "domain_tool"
             for decorator in node.decorator_list
         )
     }
@@ -226,7 +224,7 @@ def test_ros_amr_robot_mcp_exposes_exact_bounded_tool_set():
     assert tools == {
         "adjust_robot",
         "cancel_navigation",
-        "get_navigation_operation",
+        "get_operation_status",
         "get_robot_status",
         "navigate_to_zone",
     }
@@ -294,7 +292,7 @@ def test_chat_commands_use_current_response_engine(tmp_path):
                 result = {"connected": self.connected}
             elif tool == "navigate_to_zone":
                 result["operation_id"] = "ba72a876-3b23-4206-91d4-f8286b885999"
-            elif tool == "get_navigation_operation":
+            elif tool == "get_operation_status":
                 result = {"state": "completed", **arguments}
             return {"status": "ok", "result": {"structuredContent": result}}
 
@@ -337,7 +335,7 @@ def test_chat_uses_resolved_model_and_declared_command_descriptions():
 
     llm = json.loads((BLUEPRINT / "extensions/llm.json").read_text())
     config = json.loads((BLUEPRINT / "config/default.json").read_text())
-    response = json.loads((BLUEPRINT / "extensions/response.json").read_text())
+    response = blueprint_definition(read_blueprint(BLUEPRINT))["response_service"]
     assert llm["configs"]["primary"]["provider"] == "openai_compatible"
     assert llm["configs"]["primary"]["api_base"] == "auto"
     assert "llm" not in config
@@ -356,7 +354,7 @@ def test_mcp_server_schemas_match_chat_declaration(monkeypatch):
     monkeypatch.setitem(sys.modules, spec.name, module)
     spec.loader.exec_module(module)
     published = {tool.name: tool for tool in asyncio.run(module.mcp.list_tools())}
-    declaration = json.loads((BLUEPRINT / "extensions/response.json").read_text())["agent"]
+    declaration = blueprint_definition(read_blueprint(BLUEPRINT))["response_service"]["agent"]
     expected = {name: tool for group in declaration["tools"].values() for name, tool in group.items()}
     assert published.keys() == expected.keys()
     for name, tool in published.items():

@@ -4,8 +4,7 @@
     {
       "name": "knowledge",
       "path": "knowledge",
-      "access": "read_write",
-      "seed": "@/payloads/knowledge"
+      "access": "read_write"
     },
     {
       "name": "rag",

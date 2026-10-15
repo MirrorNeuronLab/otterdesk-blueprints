@@ -64,8 +64,8 @@
             ],
             "meta": {
               "path": "/mcp",
-              "manual_uri": "microduck://manual",
-              "schema_version": "mn.microduck.mcp.v1"
+              "schema_version": "mn.microduck.mcp.v1",
+              "manual_tool": "get_user_manual"
             },
             "checks": [
               {

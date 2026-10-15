@@ -392,7 +392,7 @@ monitoring-instruction, and acknowledgement tools to the Job response agent.
 Natural-language requests such as “find foreign objects on the floor” select
 `set_monitoring_instruction`, which sends Core's declared `steer_monitoring`
 live input and requests an immediate analysis. The chat-facing Job MCP keeps a bounded
-`watch_operator_activity` request active and relays observations and findings
+`watch_job_activity` request active and relays observations and findings
 through protocol `2026-07-28` Multi Round-Trip Requests (MRTR); OtterDesk then
 persists each update as a co-worker conversation message. Transport receipt is automatic,
 but it never acknowledges a review notice. Durable `human_notice` records remain
@@ -454,7 +454,7 @@ through `answer_video_question`. Both read complete authored Markdown accounts
 from context memory and answer with the configured primary text model. Cosmos
 understands independently sampled image sequences and creates those observations;
 questions never retrieve images or initiate additional Cosmos calls. The
-correlated `get_video_answer` result updates the original turn when complete.
+correlated `get_operation_status` result updates the original turn when complete.
 Calls accept optional timezone-qualified capture-time bounds and never change
 the monitoring goal. Summaries use the SDK memory scope for the current workflow run. Questions
 and `get_video_history` read up to twelve matching accounts across Job runs for
@@ -552,3 +552,7 @@ capture times and gaps remain in the prompt and memory. Only selected frames are
 encoded, with one thread and a ten-second bound. Camera decoding stays on CUDA;
 encoding does not create another inference request. The video skill minimum is
 `1.3.58.dev23`. Existing native pre-decoded support in the skill remains available.
+
+## Standard MCP supervision
+
+This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.

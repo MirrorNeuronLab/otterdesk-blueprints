@@ -440,7 +440,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
             {
                 "tools": {},
                 "resources": {},
-                "tool": lambda self, name=None, **_kw: lambda fn: self.tools.setdefault(name or fn.__name__, fn) or fn,
+                "tool": lambda self, name=None, **_kw: lambda fn: self.tools.setdefault(name or fn.__name__, getattr(fn, "__wrapped__", fn)) or fn,
                 "resource": lambda self, uri, **_kw: lambda fn: self.resources.setdefault(uri, fn) or fn,
             },
         )(),
@@ -462,26 +462,26 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert current_person_answer["summary"] == status["summary"]
     assert current_person_answer["pipeline"]["person_events"]["visible_people"] == 0
 
-    activity = server.tools["get_operator_activity"]("0")
+    activity = server.tools["get_operator_activity"](0)
 
     assert set(server.tools) == {
         "acknowledge_operator_notice",
-        "get_command_status",
+        "get_operation_status",
         "get_operator_activity",
         "get_operator_status",
         "get_pipeline_benchmarks",
         "get_video_history",
         "get_video_summary",
         "answer_video_question",
-        "get_video_answer",
+        "get_operation_status",
         "set_monitoring_instruction",
-        "watch_operator_activity",
+        "watch_job_activity",
     }
     receipt = server.tools["set_monitoring_instruction"](
         "11111111-1111-4111-8111-111111111111",
         "Find foreign objects on the floor.",
-        "false",
-        "true",
+        False,
+        True,
     )
     assert receipt["state"] == "accepted"
     assert receipt["command_id"] == "11111111-1111-4111-8111-111111111111"
@@ -495,7 +495,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         ),
         encoding="utf-8",
     )
-    command_status = server.tools["get_command_status"](
+    command_status = server.tools["get_operation_status"](
         "11111111-1111-4111-8111-111111111111"
     )
     assert command_status["state"] == "completed"
@@ -505,7 +505,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         handle.write(json.dumps({"type": "cctv_operator_detection", "payload": {
             "instruction_revision": 2, "summary": "A foreign object is visible on the floor."
         }}) + "\n")
-    updated_status = server.tools["get_command_status"](
+    updated_status = server.tools["get_operation_status"](
         "11111111-1111-4111-8111-111111111111"
     )
     assert updated_status["analysis_ready"] is True
@@ -541,7 +541,7 @@ def test_activity_watch_delivers_image_and_advances_beyond_200_events(tmp_path):
             self.tools = {}
         def tool(self, name=None, **kwargs):
             def register(fn):
-                self.tools[name or fn.__name__] = fn
+                self.tools[name or fn.__name__] = getattr(fn, "__wrapped__", fn)
                 return fn
             return register
         def resource(self, *args, **kwargs):
@@ -556,18 +556,18 @@ def test_activity_watch_delivers_image_and_advances_beyond_200_events(tmp_path):
         event_id = f"event-{index}"
         store.publish_result(event_id, {"event_id": event_id, "message": "Group standing together.", "notice_id": f"notice-{index}",
                               "image": image, "requires_review": True}, stage="goal_event", idempotency_key=event_id, publication_state="final")
-    watched = asyncio.run(server.tools["watch_operator_activity"]("event-239", "0"))
+    watched = asyncio.run(server.tools["watch_job_activity"]("event-239", 0))
     request = next(iter(watched.input_requests.values()))
     event = json.loads(request.params.requested_schema["properties"]["mn_activity"]["default"])
     assert event["event_id"] == "event-240"
     assert event["image"] == image
     assert event["notice_id"] == "notice-240"
-    idle = asyncio.run(server.tools["watch_operator_activity"]("event-240", "0"))
+    idle = asyncio.run(server.tools["watch_job_activity"]("event-240", 0))
     assert idle["delivered"] is False
     assert idle["cursor"] == "event-240"
-    newest = asyncio.run(server.tools["watch_operator_activity"]("", "0"))
+    newest = asyncio.run(server.tools["watch_job_activity"]("", 0))
     assert json.loads(newest.request_state)["activity"]["event_id"] == "event-240"
-    history = server.tools["get_operator_activity"]("0")
+    history = server.tools["get_operator_activity"](0)
     assert len(history["updates"]) == 20
     assert all("image" not in update["payload"] for update in history["updates"])
 

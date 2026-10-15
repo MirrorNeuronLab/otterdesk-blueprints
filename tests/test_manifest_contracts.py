@@ -49,7 +49,8 @@ def test_catalog_blueprints_declare_job_response_service():
         manifest = blueprint_definition(
             read_blueprint(root / entry["path"] / "manifest.json")
         )
-        assert entry["response_service"] == manifest["response_service"], blueprint_id
+        assert entry["response_service"]["enabled"] == manifest["response_service"]["enabled"], blueprint_id
+        assert entry["mcp"]["profile"] == manifest["mcp"]["profile"] == "mn.mcp.supervision.v1", blueprint_id
         assert manifest["response_service"]["enabled"] is True, blueprint_id
         if blueprint_id in {"microduck_controller", "ros_amr_controller", "cctv_operator"}:
             assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"

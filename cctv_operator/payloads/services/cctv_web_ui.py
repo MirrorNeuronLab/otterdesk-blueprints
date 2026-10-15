@@ -722,6 +722,7 @@ def create_operator_mcp_server(
     from mn_sdk.blueprint_support import acknowledge_human_notice
     from mn_sdk_mcp import (
         JobExchangeStore,
+        domain_tool,
         create_mrtr_mcp_server,
         job_activity_input_required,
         resolve_job_activity_receipt,
@@ -758,7 +759,7 @@ def create_operator_mcp_server(
         server_factory=server_factory,
     )
 
-    @server.tool(name="get_operator_status", structured_output=True)
+    @domain_tool(server, name="get_operator_status", structured_output=True)
     def get_operator_status(question: str = "") -> dict[str, Any]:
         state = service.ui_state()
         metrics = state["metrics"]
@@ -779,18 +780,18 @@ def create_operator_mcp_server(
             "warning": state.get("warning"),
         }
 
-    @server.tool(name="get_pipeline_benchmarks", structured_output=True)
+    @domain_tool(server, name="get_pipeline_benchmarks", structured_output=True)
     def get_pipeline_benchmarks() -> dict[str, Any]:
         benchmarks = _load_domain_function("benchmarks", "Benchmarks")
         return benchmarks(run_dir, service.config).summary()
 
-    @server.tool(name="get_operator_activity", structured_output=True)
-    def get_operator_activity(after_revision: str = "0") -> dict[str, Any]:
+    @domain_tool(server, name="get_operator_activity", structured_output=True)
+    def get_operator_activity(after_revision: int = 0) -> dict[str, Any]:
         service.ui_state()
         try:
             cursor = max(int(after_revision or 0), 0)
         except (TypeError, ValueError) as error:
-            raise ValueError("after_revision must be a non-negative integer string") from error
+            raise ValueError("after_revision must be a non-negative integer") from error
         result = store.updates(after_revision=cursor, kinds=["result"], limit=20)
         # Tool-planning history carries captions; evidence previews travel with
         # the single-event watch and never accumulate in a large tool response.
@@ -798,28 +799,24 @@ def create_operator_mcp_server(
             update["payload"].pop("image", None)
         return result
 
-    @server.tool(name="get_video_history", structured_output=True)
+    @domain_tool(server, name="get_video_history", structured_output=True)
     def get_video_history(after: str = "", before: str = "") -> dict[str, Any]:
         read_history = _load_domain_function("runtime_memory", "read_video_history")
         return read_history(service.config, run_dir, after=after, before=before)
 
-    @server.tool(name="get_video_summary", structured_output=True)
+    @domain_tool(server, name="get_video_summary", structured_output=True)
     def get_video_summary(command_id: str, after: str = "", before: str = "") -> dict[str, Any]:
         return video_questions.submit(command_id, "Summarize what happened in the video, with capture times and uncertainty.",
                                       after=after, before=before, summarize=True)
 
-    @server.tool(name="answer_video_question", structured_output=True)
+    @domain_tool(server, name="answer_video_question", structured_output=True)
     def answer_video_question(command_id: str, question: str, after: str = "", before: str = "") -> dict[str, Any]:
         return video_questions.submit(command_id, question, after=after, before=before)
 
-    @server.tool(name="get_video_answer", structured_output=True)
-    def get_video_answer(command_id: str) -> dict[str, Any]:
-        return video_questions.status(command_id)
-
-    @server.tool(name="watch_operator_activity", structured_output=True)
-    async def watch_operator_activity(
+    @domain_tool(server, name="watch_job_activity", structured_output=True)
+    async def watch_job_activity(
         after_event_id: str = "",
-        wait_seconds: str = "20",
+        wait_seconds: float = 20,
         ctx: Context = None,
     ) -> dict[str, Any] | InputRequiredResult:
         if ctx is not None:
@@ -852,7 +849,7 @@ def create_operator_mcp_server(
                 }
             await __import__("asyncio").sleep(min(0.5, max(0.0, deadline - time.monotonic())))
 
-    @server.tool(name="acknowledge_operator_notice", structured_output=True)
+    @domain_tool(server, name="acknowledge_operator_notice", structured_output=True)
     def acknowledge_operator_notice(command_id: str, notice_id: str) -> dict[str, Any]:
         resolved_command_id = str(command_id or "").strip()[:128]
         resolved_notice_id = str(notice_id or "").strip()[:256]
@@ -879,24 +876,19 @@ def create_operator_mcp_server(
             "state": "completed",
         }
 
-    @server.tool(name="set_monitoring_instruction", structured_output=True)
+    @domain_tool(server, name="set_monitoring_instruction", structured_output=True)
     def set_monitoring_instruction(
         command_id: str,
         instruction: str = "",
-        clear: Literal["true", "false"] = "false",
-        analyze_now: Literal["true", "false"] = "true",
+        clear: bool = False,
+        analyze_now: bool = True,
     ) -> dict[str, Any]:
         resolved_command_id = str(command_id or "").strip()
         resolved_instruction = " ".join(str(instruction or "").split())[:500]
-        resolved_clear = str(clear or "false").strip().lower()
-        resolved_analyze_now = str(analyze_now or "true").strip().lower()
-        if resolved_clear not in {"true", "false"} or resolved_analyze_now not in {
-            "true",
-            "false",
-        }:
-            raise ValueError("clear and analyze_now must be true or false")
-        clear_enabled = resolved_clear == "true"
-        analyze_now_enabled = resolved_analyze_now == "true"
+        if not isinstance(clear, bool) or not isinstance(analyze_now, bool):
+            raise ValueError("clear and analyze_now must be booleans")
+        clear_enabled = clear
+        analyze_now_enabled = analyze_now
         if not resolved_command_id:
             raise ValueError("command_id is required")
         if not clear_enabled and not resolved_instruction:
@@ -950,9 +942,11 @@ def create_operator_mcp_server(
             "input_id": "steer_monitoring",
         }
 
-    @server.tool(name="get_command_status", structured_output=True)
-    def get_command_status(command_id: str) -> dict[str, Any]:
-        resolved_command_id = str(command_id or "").strip()[:128]
+    @domain_tool(server, name="get_operation_status", structured_output=True)
+    def get_operation_status(operation_id: str, kind: Literal["command", "video"] = "command") -> dict[str, Any]:
+        if kind == "video":
+            return video_questions.status(operation_id)
+        resolved_command_id = str(operation_id or "").strip()[:128]
         record = store.get_record("status", resolved_command_id, include_staged=True)
         monitoring = read_monitoring_state(run_dir / "monitoring_state.json")
         state = str((record or {}).get("payload", {}).get("status") or "unknown")

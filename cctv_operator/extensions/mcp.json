@@ -1,0 +1,459 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/mcp.schema.json",
+  "profile": "mn.mcp.supervision.v1",
+  "manual": "@/knowledge/user_manual.md",
+  "tools": {
+    "get_operator_status": {
+      "description": "Read the latest Cosmos scene understanding and its timestamp, plus separate RF-DETR person-gate and Cosmos health. RF-DETR only gates person presence; it never judges helmets or creates Chat findings. The gate cannot be changed. Questions do not change monitoring.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 8000
+          }
+        },
+        "required": [
+          "question"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "connected": {
+            "type": "boolean"
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "status": {
+            "type": "string"
+          },
+          "finding": {
+            "type": "string"
+          },
+          "observed_at": {
+            "type": "string"
+          },
+          "metrics": {
+            "type": "object"
+          },
+          "details": {
+            "type": "array"
+          },
+          "understanding": {
+            "type": "object"
+          },
+          "pipeline": {
+            "type": "object"
+          },
+          "warning": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "get_operator_activity": {
+      "description": "Read existing observations only; this does not change what the vision model looks for. after_revision must be a non-negative integer: use 0 for available history or a returned revision for subsequent updates. Never use \"latest\".",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after_revision": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "after_revision"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          },
+          "current_revision": {
+            "type": "integer"
+          },
+          "updates": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "set_monitoring_instruction": {
+      "description": "Change the ongoing Cosmos analysis goal only when the operator explicitly asks to change the goal, keep watching, focus on, or alert about a future visible condition. Examples: \"change the goal to watch the corridor for obstructions\" and \"can you focus on find foreign object on the floor?\". A retrospective question such as \"can you find if anyone did not wear a helmet?\" is a history read: use answer_video_question, never this tool. RF-DETR remains the fixed person gate for every goal. Put the requested analysis goal in instruction, clear=false, analyze_now=true. A new analysis waits for the person gate. Restore the saved goal with instruction=\"\", clear=true, analyze_now=true. Report applied only after command status completed; acceptance means queued. Check analysis_ready before presenting a finding.",
+      "effect": "monitoring",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "instruction": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "clear": {
+            "type": "boolean"
+          },
+          "analyze_now": {
+            "type": "boolean"
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "instruction",
+          "clear",
+          "analyze_now",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 30,
+        "arguments": {
+          "kind": "command"
+        }
+      }
+    },
+    "acknowledge_operator_notice": {
+      "description": "Mark a specific notice reviewed only when the operator requests acknowledgement. This does not change monitoring focus.",
+      "effect": "acknowledgement",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "notice_id": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "notice_id",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 500,
+        "timeout_seconds": 10,
+        "arguments": {
+          "kind": "command"
+        }
+      }
+    },
+    "get_video_history": {
+      "description": "Read up to twelve latest matching authored Markdown camera accounts from job-scoped context memory, including previous runs. Use for what happened and predicted-risk history. after and before are optional ISO 8601 times with timezone, or empty strings. Preserve citations, camera, capture times, source_profile and prediction qualifications; the result is bounded, not exhaustive.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "before": {
+            "type": "string",
+            "maxLength": 512
+          }
+        },
+        "required": [
+          "after",
+          "before"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "get_video_summary": {
+      "description": "Summarize this run\u2019s saved Markdown observations in context memory using the text model only. Never retrieve images or invoke Cosmos. This is an asynchronous read; report completion after get_operation_status returns completed. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve citations, sampled coverage, recording qualifications and omitted history. Does not change monitoring.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "after": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "before": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "after",
+          "before",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 90,
+        "arguments": {
+          "kind": "video"
+        }
+      }
+    },
+    "answer_video_question": {
+      "description": "Answer the actual question from saved authored Markdown for this camera and source across Job runs, using Membrane context memory and the text model only. Use for retrospective questions, including \"can you find if anyone did not wear a helmet?\". Never change monitoring, retrieve images or invoke Cosmos. This is an asynchronous read; poll get_operation_status for completion. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve evidence times, citations, recording qualifications and sampling limits. Missing history does not mean zero people; repeated observations cannot establish unique people or a cumulative total.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "after": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "before": {
+            "type": "string",
+            "maxLength": 512
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "question",
+          "after",
+          "before",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "poll_interval_ms": 1000,
+        "timeout_seconds": 90,
+        "arguments": {
+          "kind": "video"
+        }
+      }
+    },
+    "get_pipeline_benchmarks": {
+      "description": "Read retained per-stage timing, p50/p95, errors and skipped coverage for RF-DETR person events, Cosmos captioning, MN memory and historical Q&A. Cold starts and hardware/model cohorts are separate. Notice latency ends at SDK/MCP publication, not desktop receipt.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  },
+  "service": {
+    "name": "cctv-operator-mcp",
+    "path": "/mcp",
+    "required_tags": [
+      "mcp",
+      "video-analysis",
+      "cctv-operator"
+    ]
+  },
+  "preflight": {
+    "required_for_effects": [
+      "acknowledgement",
+      "monitoring"
+    ],
+    "tool": "get_operator_status",
+    "arguments": {
+      "question": "Check operator readiness."
+    },
+    "required_result": {
+      "ready": true
+    }
+  },
+  "activity": {
+    "tool": "watch_job_activity"
+  }
+}

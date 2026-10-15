@@ -220,3 +220,69 @@ UTC timestamp, blueprint owner, run, step, and agent attribution. Existing
 shell/native protocol records are normalized by Core at publication.
 Only report observed facts; unchanged frame sampling and model bookkeeping
 belong in diagnostics. Full outputs remain in artifacts.
+
+
+## Standard Job MCP supervision
+
+Every blueprint declares the required `mn.mcp` extension independently of
+`mn.response`. The versioned profile is `mn.mcp.supervision.v1`; the public
+endpoint is `/api/v1/jobs/{job_id}/mcp`. The prepared Job stores the installed
+manual from `knowledge/user_manual.md`, its SHA-256, and its declared tool
+schemas. Discovery works before a run and while a domain service is offline.
+
+The SDK MCP component owns these common tools: `get_user_manual`,
+`get_capabilities`, `get_job_profile`, `get_job_context`, `get_run_status`,
+`get_run_results`, `start_run`, `pause_run`, `resume_run`, `stop_run`,
+`watch_job_activity`, and `get_operation_status`. `ask_job` and `get_job_turn`
+are optional conversation tools. Asking never starts or resumes work. Reads
+without a run ID select the latest run and return an explicit empty run when
+work has never started. Pause preserves resumability; stop cancels execution.
+Run controls accept only runtime-issued execution IDs belonging to the bound
+Job. Output IDs remain distinct from Job and execution IDs.
+
+Domain tools use unprefixed verb-resource `lower_snake_case` names, descriptions,
+native JSON argument types, input/output schemas, and effect annotations.
+Shared names are reserved. Readiness, service selection, activity, and async
+completion bindings belong in the declaration. The SDK stages the manual and
+registers, validates, and wraps declared tools; blueprints implement domain
+behavior. Domain polling uses the same `get_operation_status` public surface.
+
+Every ordinary result uses `mn.mcp.tool_result.v1` in `structuredContent`, with
+`tool`, `request_id`, `job_id`, `blueprint_id`, `run_id`, `status`,
+`operation_id`, typed `data`, and structured `error`. Operation states are
+`accepted`, `running`, `completed`, `failed`, `cancelled`, `superseded`, and
+`timed_out`; actual workflow state stays in `data`. Acceptance is not observed
+completion. Mutations require caller-generated request IDs; durable Job-scoped
+claims deduplicate identical retries and reject conflicting reuse. Operation
+polling stays bound to its original Job and run. MCP input-required responses
+continue to use the existing MRTR protocol.
+
+Launch credentials travel only in authenticated, main-process-supplied
+`_meta["mn.launch"]` request metadata, validated through the existing launch
+contract. They are excluded from advertised arguments, tool results, logs,
+conversation history, and durable operation records. REST and MCP transitions
+use the same SDK integration helper; Core owns actual execution state. The API
+owns authentication, endpoint identity, and owner routing.
+
+This is a coordinated replacement with no public compatibility aliases.
+`get_latest_run` is replaced by `get_run_status`; `free_play` is renamed
+`start_free_play`. Configuration, scheduling, approvals, retries, and destructive
+data management retain their existing APIs. GTM peer collaboration retains its
+separate read-only capability and gains no lifecycle authority.
+
+## MCP Skills
+
+The supervision server implements the stable
+[`io.modelcontextprotocol/skills` extension](https://skills.extensions.modelcontextprotocol.io/specification/stable/skills)
+on MCP 2026-07-28 and later. `server/discover` advertises the extension and
+resources support. `skills/list` and `skills/get` return a complete, private
+cacheable manifest; `resources/read` serves exactly its declared files. Optional
+`resources/directory/read` supports bounded directory exploration. Unknown skill
+URIs, cursors, and resource paths return `-32602`.
+
+The SDK generates one `skill://<blueprint-name>/SKILL.md`, the installed
+`references/user_manual.md`, and `references/tools.json`. Each manifest entry
+includes its exact UTF-8 byte size and SHA-256 digest. The prepared Job's blueprint
+revision and manual remain authoritative even when the catalog changes or a
+worker is offline. Loading a skill grants no action permission. Live readiness
+still comes from `get_capabilities`; runtime receipts establish completion.
