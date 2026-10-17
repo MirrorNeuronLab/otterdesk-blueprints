@@ -17,13 +17,7 @@ WORKSPACE = companion_workspace(ROOT)
 
 
 def blueprint_path(blueprint_id: str) -> Path:
-    if blueprint_id == "purchasing_manager":
-        return ROOT / "procurement_manager"
-    return (
-        ROOT / blueprint_id
-        if (ROOT / blueprint_id).is_dir()
-        else WORKSPACE / "mn-blueprints" / blueprint_id
-    )
+    return ROOT / blueprint_id
 
 
 def source_manifest(blueprint_id: str) -> dict[str, Any]:

@@ -32,7 +32,8 @@ RUN apt-get update \
         swig \
     && rm -rf /var/lib/apt/lists/*
 
-RUN python3 -m venv /opt/mn-venv
+RUN python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), sys.version' \
+    && python3 -m venv /opt/mn-venv
 ENV PATH="/opt/mn-venv/bin:${PATH}" \
     LD_LIBRARY_PATH="/opt/mn-venv/lib/python3.12/site-packages/torch/lib:${LD_LIBRARY_PATH}"
 

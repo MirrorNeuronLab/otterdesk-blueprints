@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """Continuous, review-only discovery service with native-worker dispatch contracts.
 
 Live runs deliberately require configured external scientific adapters.  Fake mode

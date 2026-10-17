@@ -10,6 +10,20 @@ from mn_sdk.blueprints import (
     read_catalog,
 )
 
+
+def test_catalog_json_artifacts_declare_json_media_types():
+    root = Path(__file__).resolve().parents[1]
+    for entry in read_catalog(root / "index.json"):
+        package = read_blueprint(root / entry["path"])
+        for artifact in package.document("contracts").get("outputs", {}).get("artifacts", []):
+            media_type = artifact.get("mime_type")
+            if Path(artifact["path"]).suffix != ".json" or media_type is None:
+                continue
+            assert media_type == "application/json" or (
+                media_type.startswith("application/") and media_type.endswith("+json")
+            ), (entry["id"], artifact["artifact_id"], media_type)
+
+
 def test_indexed_blueprints_leave_host_output_copy_to_runtime():
     root = Path(__file__).resolve().parents[1]
     for name in json.loads((root / "index.json").read_text(encoding="utf-8")):

@@ -61,7 +61,7 @@ There is no direct-provider or paid-model fallback. OpenCode public sharing,
 edits, shell execution, delegation and web tools are disabled for review.
 
 The platform prepares `mirror-neuron/software-architecture-advisor:local` from
-`payloads/docker_worker/Dockerfile` using the standard Python 3.11 base with
+`payloads/docker_worker/Dockerfile` using the standard Python 3.12 base with
 the declared SDK, agent and skill packages. This single-stage Dockerfile has no
 `USER` instruction, as required by the SDK skill-preparation hook contract. The OpenShell reviewer builds its own declared context at
 `payloads/openshell_worker/Dockerfile` before sandbox creation. It includes

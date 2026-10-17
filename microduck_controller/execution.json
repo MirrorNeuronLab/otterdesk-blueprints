@@ -85,7 +85,7 @@
         ],
         "config": {
           "command": [
-            "python3.11",
+            "python3.12",
             "microduck_web_ui_registrar.py"
           ],
           "environment": {},

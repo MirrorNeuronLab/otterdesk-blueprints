@@ -1,4 +1,4 @@
-FROM python:3.11-slim-bookworm
+FROM python:3.12-slim-bookworm
 WORKDIR /app
 RUN pip install --no-cache-dir torch==2.14.1 --index-url https://download.pytorch.org/whl/cu130
 COPY requirements.txt /app/requirements.txt

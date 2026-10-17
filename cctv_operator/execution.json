@@ -366,7 +366,7 @@
           "command": [
             "sh",
             "-lc",
-            "exec python3.11 cctv_operator_mcp.py"
+            "exec python3.12 cctv_operator_mcp.py"
           ],
           "environment": {},
           "from": "base",

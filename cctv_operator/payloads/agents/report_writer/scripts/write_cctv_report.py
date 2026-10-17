@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 from __future__ import annotations
 
 from mn_sdk.agent_events import report_activity

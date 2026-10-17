@@ -1,4 +1,12 @@
-FROM pytorch/pytorch:2.7.1-cuda12.8-cudnn9-runtime
+FROM python:3.12-slim-bookworm
+
+# Keep the detector's PyTorch/CUDA versions while using the runtime Python minor.
+# CUDA runtime libraries are supplied by the matching PyTorch wheels.
+RUN python -m pip install --no-cache-dir \
+    torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 \
+    --index-url https://download.pytorch.org/whl/cu128 \
+    && python -c 'import sys, torch; assert sys.version_info[:2] == (3, 12); assert torch.version.cuda == "12.8"'
+ENV NVIDIA_VISIBLE_DEVICES=all NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 ARG USERNAME=vscode
 ARG USER_UID=1001

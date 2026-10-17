@@ -5,7 +5,7 @@ RUN npm ci
 COPY web_app/ ./
 RUN npm run build
 
-FROM python:3.11-slim
+FROM python:3.12-slim
 WORKDIR /app
 COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt
@@ -16,4 +16,4 @@ COPY services/ /app/services/
 COPY --from=web-build /build/dist/ /app/web_dist/
 ENV MICRODUCK_STATIC_DIR=/app/web_dist
 EXPOSE 8080
-CMD ["python3.11", "services/duck_control_service.py"]
+CMD ["python3.12", "services/duck_control_service.py"]

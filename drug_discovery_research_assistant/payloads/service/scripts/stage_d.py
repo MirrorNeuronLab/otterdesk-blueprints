@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """Convert continuous-service cycle output into a bounded review handoff.
 
 Simulation is performed inside the continuous service through configured native

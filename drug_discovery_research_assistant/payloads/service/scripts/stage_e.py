@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """Write a review-only summary after the continuous service is stopped."""
 from __future__ import annotations
 

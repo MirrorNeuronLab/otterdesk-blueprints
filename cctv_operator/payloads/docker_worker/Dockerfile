@@ -4,6 +4,8 @@ FROM nvcr.io/nvidia/pytorch:25.11-py3@sha256:417cbf33f87b5378849df37983552cd1f8b
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), sys.version'
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     ffmpeg \

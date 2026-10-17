@@ -210,7 +210,7 @@ def _run_handler_workflow(
             },
         ),
         (
-            "purchasing_manager",
+            "procurement_manager",
             {
                 "input_folder": str(
                     ROOT / "procurement_manager" / "examples" / "sample_inputs"
@@ -221,19 +221,6 @@ def _run_handler_workflow(
                 "llm": {"mode": "fake", "require_live": False},
                 "knowledge_rag": {"enabled": False, "required": False},
                 "internet_research": {"enabled": False},
-            },
-        ),
-        (
-            "legal_assistant",
-            {
-                "document_folder": str(
-                    ROOT / "legal_assistant" / "examples" / "sample_inputs"
-                )
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
             },
         ),
         (
@@ -283,28 +270,6 @@ def _run_handler_workflow(
                 "analysis": {"max_files": 100, "large_module_line_threshold": 2},
             },
         ),
-        (
-            "gtm_assistant",
-            {
-                "input_folder": str(
-                    ROOT / "gtm_assistant" / "examples" / "sample_inputs"
-                ),
-                "customer_feedback_file": str(
-                    ROOT
-                    / "gtm_assistant"
-                    / "examples"
-                    / "sample_inputs"
-                    / "parent_feedback.csv"
-                ),
-                "business_goal": "Build a successful business for Bibblio.",
-                "goal_id": "bibblio-business-success",
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-            },
-        ),
     ],
 )
 def test_manifest_handlers_execute_as_message_chained_workflows(
@@ -332,38 +297,3 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     assert final_ref["kind"] == "final_artifact"
     final_path = Path(result["run_dir"]) / final_ref["path"]
     assert final_path.exists()
-    if manifest["metadata"].get("collaboration_group") == "business-success-team":
-        final_artifact = json.loads(final_path.read_text(encoding="utf-8"))
-        assert final_artifact["schema_version"] == "mn.business_success.role_brief.v1"
-        assert (
-            final_artifact["type"]
-            == manifest["contracts"]["outputs"]["artifacts"][1]["type"]
-        )
-        assert final_artifact["business_name"] == "Bibblio"
-        assert (
-            final_artifact["business_goal"]
-            == "Build a successful business for Bibblio."
-        )
-        assert final_artifact["planning_horizon_days"] == 90
-        assert final_artifact["role_contribution"]
-        assert final_artifact["north_star_question"]
-        assert len(final_artifact["role_scorecard"]) >= 4
-        assert len(final_artifact["founder_decisions"]) >= 3
-        assert len(final_artifact["ninety_day_plan"]) == 3
-        assert len(final_artifact["cross_functional_handoffs"]) == 4
-        assert final_artifact["job_context"]["goal_work_packet"]
-        assert "team_synthesis" in final_artifact["job_context"]
-        assert (
-            len(
-                final_artifact["job_context"]["team_synthesis"][
-                    "unresolved_evidence_requests"
-                ]
-            )
-            == 4
-        )
-        if blueprint_id == "gtm_assistant":
-            delivery = final_artifact["evidence"]["development_email_delivery"]
-            assert delivery["status"] == "not_sent"
-            assert delivery["recipient_count"] == 0
-            assert delivery["customer_addresses_used"] is False
-            assert delivery["customer_specific_data_used"] is False

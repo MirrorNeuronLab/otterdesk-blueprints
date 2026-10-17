@@ -228,7 +228,7 @@ The packet reviewer uses an explicitly built OpenShell image context at
 SDK image preparation installs declared dependencies before sandbox creation.
 The reviewer imports uploaded blueprint modules from its invocation workdir.
 
-Parent-phase Docker workers use a single-stage Python 3.11 image without
+Parent-phase Docker workers use a single-stage Python 3.12 image without
 `USER` instructions, allowing SDK skill-preparation hooks to add native tools.
 OpenCode and sandbox system setup belong to the separate OpenShell image.
 Docker workers inherit their logical step timeout instead of sharing a one-hour

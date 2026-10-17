@@ -32,8 +32,7 @@ if str(SUPPORT_SRC) not in sys.path:
 FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
     "financial_advisor": {"document_folder", "input_folder", "output_folder"},
-    "legal_assistant": {"document_folder", "input_folder", "output_folder"},
-    "purchasing_manager": {"input_folder", "output_folder"},
+    "procurement_manager": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "cctv_operator": {"input_folder", "output_folder"},
 }
@@ -585,56 +584,6 @@ def test_otterdesk_topology_metadata_matches_runtime_nodes():
         assert set(metadata_nodes) == runtime_nodes, blueprint_id
 
 
-def test_gtm_ai_workflow_uses_current_flow_runtime_graph():
-    pytest.skip("gtm_ai_workflow is not part of the current blueprint catalog")
-    manifest = blueprint_definition(
-        read_blueprint(ROOT / "gtm_ai_workflow" / "manifest.json")
-    )
-    nodes = _flow_nodes(manifest)
-    edges = _flow_edges(manifest)
-    node_ids = {node["node_id"] for node in nodes}
-
-    assert "nodes" not in manifest
-    assert "edges" not in manifest
-    assert "entrypoints" not in manifest
-    assert _agent_entrypoints(manifest) == ["ingress"]
-    assert manifest["workflow"]["entrypoint"] == "load_inputs"
-    assert "ingress" in node_ids
-    assert len(nodes) == 10
-    assert len(edges) == 10
-    assert all(
-        edge["from_node"] in node_ids and edge["to_node"] in node_ids for edge in edges
-    )
-    assert {edge["edge_id"] for edge in edges} >= {
-        "ingress_to_monitor_scheduler",
-        "ingress_to_inbox_poller",
-    }
-
-    ingress_node = next(node for node in nodes if node["node_id"] == "ingress")
-    assert ingress_node["type"] == "map"
-    assert ingress_node["agent_type"] == "router"
-    assert "uses" not in ingress_node and "with" not in ingress_node
-
-    ingress_template = next(
-        node for node in _template_nodes(manifest) if node["node_id"] == "ingress"
-    )
-    assert ingress_template["uses"] == "mn-agents.control_router@1"
-    assert "node_type" not in ingress_template.get("with", {})
-
-    monitor_config = _node_config(
-        next(node for node in nodes if node["node_id"] == "monitor_scheduler_agent")
-    )
-    assert monitor_config["module"] == "Synaptic.MonitorScheduler"
-    assert (
-        monitor_config["module_source"]
-        == "monitor_scheduler/beam_modules/monitor_scheduler.ex"
-    )
-
-    poller_config = _node_config(
-        next(node for node in nodes if node["node_id"] == "inbox_poller_agent")
-    )
-    assert poller_config["module"] == "Synaptic.InboxPoller"
-    assert poller_config["module_source"] == "inbox_poller/beam_modules/inbox_poller.ex"
 
 
 def test_otterdesk_completion_contract_is_explicit_and_terminal_sinks_are_reachable():
@@ -875,9 +824,8 @@ def test_otterdesk_blueprints_declare_product_experience_contracts():
     expected_modes = {
         "drug_discovery_research_assistant": "approval_required",
         "financial_advisor": "approval_required",
-        "purchasing_manager": "approval_required",
+        "procurement_manager": "approval_required",
         "cctv_operator": "notice_only",
-        "legal_assistant": "approval_required",
         "vc_assistant": "approval_required",
     }
     required_schema_keys = {
@@ -1227,8 +1175,7 @@ def test_indexed_non_vc_blueprints_have_non_trivial_rag_knowledge():
 def test_product_ready_llm_configs_use_manifest_owned_default_route():
     targets = {
         "drug_discovery_research_assistant",
-        "legal_assistant",
-        "purchasing_manager",
+        "procurement_manager",
     }
     for blueprint_id in sorted(targets):
         manifest = blueprint_definition(
@@ -1313,8 +1260,7 @@ def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized()
 EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
-    "legal_assistant": {"cron": "0 8 * * 1-5", "cadence": "weekday_daily"},
-    "purchasing_manager": {"cron": "0 8 * * 1", "cadence": "weekly"},
+    "procurement_manager": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }
 
@@ -1398,11 +1344,11 @@ def test_index_entries_point_to_loadable_blueprint_folders():
         assert manifest["job_name"] == entry["job_name"]
 
 
-def test_purchasing_manager_final_artifact_uses_product_output_fields(tmp_path):
+def test_procurement_manager_final_artifact_uses_product_output_fields(tmp_path):
     from blueprint_modernization_support import run_payload_script
 
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -1756,7 +1702,7 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert mcp_node["config"]["command"] == [
         "sh",
         "-lc",
-        "exec python3.11 cctv_operator_mcp.py",
+        "exec python3.12 cctv_operator_mcp.py",
     ]
     assert mcp_node["config"]["upload_path"] == "services"
     assert "python_environment" not in mcp_node["config"]

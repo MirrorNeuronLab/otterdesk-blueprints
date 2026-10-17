@@ -1,4 +1,4 @@
-FROM debian:bookworm-slim
+FROM python:3.12-slim-bookworm
 
 ARG DEBIAN_MIRROR=http://mirror.csclub.uwaterloo.ca
 
@@ -6,9 +6,6 @@ ARG DEBIAN_MIRROR=http://mirror.csclub.uwaterloo.ca
 RUN sed -i "s|http://deb.debian.org|${DEBIAN_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
     && apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    python3 \
-    python3-pip \
-    python3-venv \
     w3m \
     && rm -rf /var/lib/apt/lists/*
 

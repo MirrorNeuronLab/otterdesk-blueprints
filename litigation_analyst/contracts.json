@@ -110,7 +110,7 @@
       {
         "artifact_id": "document_index",
         "path": "case/source-query.json",
-        "mime_type": "application/vnd.sqlite3",
+        "mime_type": "application/json",
         "type": "document_index",
         "producer": "workflow",
         "schema_version": "mn.litigation.document_index.v1",

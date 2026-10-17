@@ -1,5 +1,7 @@
 # OtterDesk Blueprints
 
+Python workers use Python 3.12, matching the MirrorNeuron runtime and SDK. Python base images select 3.12; CUDA, ROS Jazzy, and OpenShell images verify that minor during their build. The ROS detector retains PyTorch 2.7.1 and CUDA 12.8 through matching Python 3.12 wheels.
+
 `otterdesk-blueprints` is a self-contained OtterDesk-facing worker blueprint catalog. Each blueprint folder includes
 its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 
@@ -42,13 +44,18 @@ mn blueprint run --folder .
 Run repository tests:
 
 ```bash
-python3.11 -m venv .venv
+python3.12 -m venv .venv
 .venv/bin/python -m pip install -r requirements-test.txt
 .venv/bin/python -m pytest -q
 ```
 
 Handler contract tests import source payloads while executing in temporary
 workdirs. Dependency session files must remain outside catalog packages.
+Test subjects resolve only inside this catalog checkout. Retired Legal Assistant,
+Purchasing Manager, and SMTP GTM identities are checked for absence rather than
+borrowed from sibling packages. Procurement checks use `procurement_manager`;
+the local, unpublished GTM pair has synthetic AgentMail approval, replay, draft
+integrity, stop, suppression, and uncertain-send coverage.
 
 See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
 event-driven, fork/join, service, and linear flow contracts.
@@ -317,3 +324,5 @@ Each package has its own `tests/test_mcp_<blueprint>.py` module. These validate
 the installed manual and Skill digests, advertised schemas, never-run behavior,
 run controls, deduplication and identity checks. The three domain packages also
 exercise forwarding, asynchronous completion and their real worker registries.
+
+The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.

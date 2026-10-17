@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """JSON adapter for the local BioTarget + homerquan/DrugClip implementation.
 
 This runs as a native DockerWorker or cross-box dispatched process.  It deliberately

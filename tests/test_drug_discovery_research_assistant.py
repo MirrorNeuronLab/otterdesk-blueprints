@@ -62,13 +62,13 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-job-response",
-            "version": ">=1.3.62.dev0,<2",
+            "version": ">=1.3.61.dev12,<2",
         },
         {
             "type": "pip",
             "source": "gar",
             "name": "mn-python-sdk-mcp",
-            "version": ">=1.3.62.dev0,<2",
+            "version": ">=1.3.61.dev12,<2",
         },
         {
             "type": "pip",
@@ -80,10 +80,10 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-python-sdk",
-            "version": ">=1.3.62.dev0,<2",
+            "version": ">=1.3.61.dev12,<2",
             "extras": ["context"],
         },
-        {"type": "pip", "source": "gar", "name": "mn-python-sdk-common", "version": ">=1.3.62.dev0,<2"},
+        {"type": "pip", "source": "gar", "name": "mn-python-sdk-common", "version": ">=1.3.61.dev12,<2"},
     ]
     assert (
         manifest["config"]["data"]["interfaces"]["input_contract"]

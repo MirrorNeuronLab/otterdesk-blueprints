@@ -68,7 +68,7 @@ def test_docker_worker_accepts_sdk_skill_preparation(tmp_path):
         resolver=lambda *_: ("fixture_hook:prepare", tmp_path),
     )
     prepared = payloads[config["dockerfile"]].decode()
-    assert prepared.startswith("FROM python:3.11-slim-bookworm\n")
+    assert prepared.startswith("FROM python:3.12-slim-bookworm\n")
     assert "RUN echo skill-prepared" in prepared
 
 

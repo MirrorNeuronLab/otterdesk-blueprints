@@ -73,7 +73,7 @@
         ],
         "config": {
           "command": [
-            "python3.11",
+            "python3.12",
             "marketing_exchange.py"
           ],
           "environment": {},
@@ -119,7 +119,7 @@
         "upload_path": "runtime",
         "upload_as": "runtime",
         "command": [
-          "python3.11",
+          "python3.12",
           "-m",
           "mn_sdk.step_runtime"
         ],

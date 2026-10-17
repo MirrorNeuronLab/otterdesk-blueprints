@@ -25,7 +25,8 @@ from mn_sdk.model_access.runtime import clear_runtime_model_cache, ensure_runtim
         ("financial_advisor", "apple", 16384, None, "gemma4:e2b", "local"),
         ("financial_advisor", "apple", 16384, 131072, "nemotron-3.5-lightning:latest", "remote"),
         ("vc_assistant", "nvidia", 8192, None, "gemma4:e2b", "local"),
-        ("research_assistant", "apple", 24576, None, "gemma4:e2b", "local"),
+        ("research_assistant", "apple", 23552, None, "gemma4:e2b", "local"),
+        ("research_assistant", "apple", 24576, None, "bonsai2:ptq1_0", "local"),
         ("research_assistant", "nvidia", 8192, None, "gemma4:e2b", "local"),
         (
             "research_assistant",

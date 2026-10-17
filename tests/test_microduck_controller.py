@@ -860,7 +860,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     )
     assert registrar["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert registrar["config"]["command"] == [
-        "python3.11",
+        "python3.12",
         "microduck_web_ui_registrar.py",
     ]
     assert registrar["config"]["upload_path"] == "services"

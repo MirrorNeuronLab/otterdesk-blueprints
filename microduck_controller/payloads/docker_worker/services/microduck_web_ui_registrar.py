@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """Register Microduck's OS-selected listener with the job-scoped Web UI proxy."""
 
 from __future__ import annotations

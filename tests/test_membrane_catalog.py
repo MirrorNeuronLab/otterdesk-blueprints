@@ -43,7 +43,7 @@ def test_context_contract_and_effective_disabled_override(name):
     extras = [r for r in dependencies if r["name"] == "mirrorneuron-python-sdk"]
     assert len(extras) == 1
     supported = SpecifierSet(extras[0]["version"])
-    assert supported.contains("1.3.62.dev0")
+    assert supported.contains("1.3.61.dev12")
     assert not supported.contains("1.3.57")
     assert not supported.contains("2.0")
     assert extras[0].get("extras", []) == (["context"] if name in ACTIVE | SOURCE_ACTIVE else [])

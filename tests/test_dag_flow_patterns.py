@@ -38,7 +38,7 @@ def _is_acyclic(step_ids: set[str], edges: list[dict]) -> bool:
 
 
 def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag():
-    manifest_paths = sorted(ROOT.glob("*/manifest.json"))
+    manifest_paths = [ROOT / name / "manifest.json" for name in json.loads((ROOT / "index.json").read_text())]
     assert manifest_paths
 
     for path in manifest_paths:
@@ -65,7 +65,7 @@ def test_every_catalog_blueprint_lowers_its_declared_workflow_into_the_core_dag(
 
 def test_migrated_vc_blueprint_compiles_step_local_redis_fork_join_graphs():
     manifest = _runtime_manifest(
-        ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+        ROOT / "vc_assistant" / "manifest.json"
     )
     edges = manifest["agents"]["edges"]
 
@@ -91,7 +91,7 @@ def test_migrated_vc_blueprint_compiles_step_local_redis_fork_join_graphs():
 
 def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other():
     manifest = _runtime_manifest(
-        ROOT.parent / "mn-blueprints" / "vc_assistant" / "manifest.json"
+        ROOT / "vc_assistant" / "manifest.json"
     )
     edges = manifest["agents"]["edges"]
     scorer_ids = {
@@ -121,11 +121,11 @@ def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other()
 def test_default_llm_blueprints_keep_model_routing_logical():
     for blueprint_id in (
         "vc_assistant",
-        "legal_assistant",
         "financial_advisor",
-        "gtm_assistant",
+        "gtm_planner",
+        "gtm_executor",
         "research_assistant",
-        "purchasing_manager",
+        "procurement_manager",
     ):
         config = resolve_config(read_blueprint(blueprint_path(blueprint_id))).data
         manifest = blueprint_definition(
@@ -135,7 +135,7 @@ def test_default_llm_blueprints_keep_model_routing_logical():
         assert config["llm"]["model"] == "default", blueprint_id
 
 
-def test_purchasing_manager_uses_manifest_owned_logical_default_model():
+def test_procurement_manager_uses_manifest_owned_logical_default_model():
     blueprint = ROOT / "procurement_manager"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data

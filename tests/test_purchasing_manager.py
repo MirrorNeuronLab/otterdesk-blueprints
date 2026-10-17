@@ -27,7 +27,7 @@ EXPECTED_STEPS = [
 
 def test_procurement_preserves_ocr_text_and_structured_rag_citations(tmp_path):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -64,9 +64,9 @@ print(json.dumps({{'text': documents[0]['text'],
     }
 
 
-def test_purchasing_manager_manifest_compiles_logical_steps_and_specialist_graphs():
-    source = source_manifest("purchasing_manager")
-    expanded = expanded_manifest("purchasing_manager")
+def test_procurement_manager_manifest_compiles_logical_steps_and_specialist_graphs():
+    source = source_manifest("procurement_manager")
+    expanded = expanded_manifest("procurement_manager")
     assert source["apiVersion"] == "mn.workflow/v1"
     assert [step["id"] for step in source["workflow"]["steps"]] == EXPECTED_STEPS
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
@@ -84,14 +84,14 @@ def test_purchasing_manager_manifest_compiles_logical_steps_and_specialist_graph
     assert "publish_purchase_decision_packet__end" in node_ids
 
 
-def test_purchasing_manager_payload_is_modular_and_handlers_resolve():
-    assert_modular_payload("purchasing_manager")
-    assert_registry_handlers_import("purchasing_manager")
+def test_procurement_manager_payload_is_modular_and_handlers_resolve():
+    assert_modular_payload("procurement_manager")
+    assert_registry_handlers_import("procurement_manager")
 
 
 def test_procurement_case_sample_joins_existing_report_without_live_research(tmp_path):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -104,7 +104,7 @@ run = run_blueprint(
     runs_root=out / 'runs', run_id='procurement-sample',
 )
 packet = run['final_artifact']['procurement_case']
-report = (out / 'purchasing_manager_report.md').read_text()
+report = (out / 'procurement_manager_report.md').read_text()
 human_events = [json.loads(line) for line in (out / 'runs' / 'procurement-sample' / 'human.jsonl').read_text().splitlines()]
 print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supplier_id'], 'delta': packet['quote_outcomes'][2]['outcome'], 'mode': packet['mode'], 'report_has_simulation': 'Simulation values are fictional.' in report, 'public_sources': len(run['final_artifact']['evidence'].get('public_sources') or []), 'approval_packet': (out / 'approval-packet.json').exists(), 'draft_label': 'draft for review' in (out / 'approval-packet.md').read_text(), 'review_requests': len([event for event in human_events if event['type'] == 'human_input_requested'])}}))
 """,
@@ -117,9 +117,9 @@ print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supp
     }
 
 
-def test_purchasing_manager_compiled_docker_workers_ship_their_build_context():
+def test_procurement_manager_compiled_docker_workers_ship_their_build_context():
     blueprint = ROOT / "procurement_manager"
-    expanded = expanded_manifest("purchasing_manager")
+    expanded = expanded_manifest("procurement_manager")
     worker_nodes = [
         node
         for node in expanded["agents"]["nodes"]
@@ -139,11 +139,11 @@ def test_purchasing_manager_compiled_docker_workers_ship_their_build_context():
     assert "docker_worker/Dockerfile" in payloads
 
 
-def test_purchasing_manager_sample_produces_a_procurement_ready_ai_workstation_comparison(
+def test_procurement_manager_sample_produces_a_procurement_ready_ai_workstation_comparison(
     tmp_path,
 ):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -163,7 +163,7 @@ comparisons = artifact["candidate_comparisons"]
 parsed_request = parse_plain_text_purchase_request(
     (root / "examples" / "sample_inputs" / "purchase_request.txt").read_text()
 )
-report = (out / "purchasing_manager_report.md").read_text()
+report = (out / "procurement_manager_report.md").read_text()
 print(json.dumps({{
     "status": run["status"],
     "action": artifact["recommended_action"],
@@ -185,7 +185,7 @@ print(json.dumps({{
     "gap_count": len(artifact["evidence_gaps"]),
     "rag_status": artifact["knowledge_rag"]["status"],
     "run_artifact_exists": (out / "runs" / "purchase-quality" / "final_artifact.json").exists(),
-    "report_exists": (out / "purchasing_manager_report.md").exists(),
+    "report_exists": (out / "procurement_manager_report.md").exists(),
     "purchase_type": artifact["purchase_type"],
     "item_description": artifact["item_description"],
     "request_source_ref": artifact["request_source"]["source_ref"],
@@ -254,9 +254,9 @@ print(json.dumps({{
     }
 
 
-def test_purchasing_manager_models_real_finance_and_lease_terms_when_supplied():
+def test_procurement_manager_models_real_finance_and_lease_terms_when_supplied():
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         """
 import json
 from domain.comparison import build_candidate_comparisons
@@ -316,7 +316,7 @@ print(json.dumps({
     assert result["lease"]["incremental_present_value_vs_cash"] == 5848.97
 
 
-def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descriptors():
+def test_procurement_manager_config_uses_bundle_paths_and_manifest_owned_descriptors():
     config = resolve_config(read_blueprint(ROOT / "procurement_manager")).data
     manifest = blueprint_definition(
         read_blueprint(ROOT / "procurement_manager" / "manifest.json")
@@ -339,7 +339,7 @@ def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descript
         "respect_robots": True,
         "per_host_delay_seconds": 1,
     }
-    assert config["identity"]["blueprint_id"] == "purchasing_manager"
+    assert config["identity"]["blueprint_id"] == "procurement_manager"
     assert set(config["llm"]["agents"]) == set(manifest["llm"]["agents"])
     assert config["budgets"]["max_llm_calls"] == 5
     assert config["llm"]["strict_json"] is True
@@ -366,7 +366,7 @@ def test_purchasing_manager_config_uses_bundle_paths_and_manifest_owned_descript
     assert llm_agents["purchase_knowledge_retriever"]["enabled"] is False
 
 
-def test_purchasing_manager_sample_market_observations_are_source_backed():
+def test_procurement_manager_sample_market_observations_are_source_backed():
     sample_root = ROOT / "procurement_manager" / "examples" / "sample_inputs"
     observations = json.loads((sample_root / "observed_ai_systems.json").read_text())
     combined = "\n".join(
@@ -391,9 +391,8 @@ def test_purchasing_manager_sample_market_observations_are_source_backed():
     assert "sample_ai_workstation_quotes" not in combined
 
 
-def test_purchasing_manager_default_edge_ai_sample_names_three_real_options():
+def test_procurement_manager_default_edge_ai_sample_names_three_real_options():
     sample_root = ROOT / "procurement_manager" / "examples" / "edge_ai_workstation"
-    config = json.loads((ROOT / "procurement_manager" / "config" / "default.json").read_text())
     guide = json.loads((ROOT / "procurement_manager" / "extensions" / "ui.json").read_text())["setup_guide"]
     request = (sample_root / "purchase_request.txt").read_text()
     observations = json.loads((sample_root / "observed_workstations.json").read_text())
@@ -411,7 +410,7 @@ def test_purchasing_manager_default_edge_ai_sample_names_three_real_options():
     assert "Mac Studio" in request and "DGX Spark" in request and "AMD" in request
 
 
-def test_purchasing_manager_merged_config_stages_the_bundled_plain_text_request():
+def test_procurement_manager_merged_config_stages_the_bundled_plain_text_request():
     blueprint = ROOT / "procurement_manager"
     config = load_blueprint_config(blueprint)
     assert config is not None
@@ -423,21 +422,21 @@ def test_purchasing_manager_merged_config_stages_the_bundled_plain_text_request(
     assert summary["folders"][0]["config_path"] == "inputs.payload.input_folder"
     assert (
         config["inputs"]["payload"]["input_folder"]
-        == "mn_local_inputs/purchasing_manager_documents"
+        == "mn_local_inputs/procurement_manager_documents"
     )
     assert (
         config["state"]["input_folder"]
-        == "mn_local_inputs/purchasing_manager_documents"
+        == "mn_local_inputs/procurement_manager_documents"
     )
     assert (
-        "runtime/mn_local_inputs/purchasing_manager_documents/purchase_request.txt"
+        "runtime/mn_local_inputs/procurement_manager_documents/purchase_request.txt"
         in payloads
     )
 
 
-def test_purchasing_manager_uses_unified_browser_for_supplied_links_before_queries():
+def test_procurement_manager_uses_unified_browser_for_supplied_links_before_queries():
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         """
 import json
 from domain import research
@@ -489,9 +488,9 @@ print(json.dumps({
     }
 
 
-def test_purchasing_manager_public_queries_are_concise_and_procurement_specific():
+def test_procurement_manager_public_queries_are_concise_and_procurement_specific():
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         """
 import json
 from domain.research import build_public_queries
@@ -520,9 +519,9 @@ print(json.dumps({"queries": queries, "lengths": [len(query) for query in querie
     assert max(result["lengths"]) <= 240
 
 
-def test_purchasing_manager_skips_generic_search_when_seed_sources_are_sufficient():
+def test_procurement_manager_skips_generic_search_when_seed_sources_are_sufficient():
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         """
 import json
 from domain import research
@@ -560,9 +559,9 @@ print(json.dumps({"calls": calls, "source_count": len(sources), "warnings": warn
     assert [call[0] for call in result["calls"]] == ["browse"] * 4
 
 
-def test_purchasing_manager_plain_text_request_overrides_fallbacks_and_rejects_private_links():
+def test_procurement_manager_plain_text_request_overrides_fallbacks_and_rejects_private_links():
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         """
 import json
 from domain.inputs import resolve_request_from_documents
@@ -604,11 +603,11 @@ print(json.dumps({
     }
 
 
-def test_purchasing_manager_uses_five_bounded_llm_narrative_calls_without_changing_economics(
+def test_procurement_manager_uses_five_bounded_llm_narrative_calls_without_changing_economics(
     tmp_path,
 ):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -655,7 +654,7 @@ run = run_blueprint(
     run_id="purchase-llm-narrative",
 )
 artifact = run["final_artifact"]
-report = (out / "purchasing_manager_report.md").read_text()
+report = (out / "procurement_manager_report.md").read_text()
 print(json.dumps({{
     "run_status": run["status"],
     "calls": llm.calls,
@@ -704,9 +703,9 @@ print(json.dumps({{
     assert result["executive_heading_count"] == 1
 
 
-def test_purchasing_manager_rejects_invented_numbers_and_unknown_references(tmp_path):
+def test_procurement_manager_rejects_invented_numbers_and_unknown_references(tmp_path):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -783,11 +782,11 @@ print(json.dumps({{
     }
 
 
-def test_purchasing_manager_model_failure_completes_with_visible_deterministic_fallback(
+def test_procurement_manager_model_failure_completes_with_visible_deterministic_fallback(
     tmp_path,
 ):
     result = run_payload_script(
-        "purchasing_manager",
+        "procurement_manager",
         f"""
 import json
 from pathlib import Path
@@ -822,7 +821,7 @@ run = run_blueprint(
     run_id="purchase-llm-failure",
 )
 artifact = run["final_artifact"]
-report = (out / "purchasing_manager_report.md").read_text()
+report = (out / "procurement_manager_report.md").read_text()
 print(json.dumps({{
     "run_status": run["status"],
     "calls": llm.calls,
@@ -831,7 +830,7 @@ print(json.dumps({{
     "warning_count": len([item for item in artifact["warnings"] if item.get("kind") == "llm_analysis"]),
     "action": artifact["recommended_action"],
     "preferred": artifact["preferred_candidate"],
-    "report_exists": (out / "purchasing_manager_report.md").exists(),
+    "report_exists": (out / "procurement_manager_report.md").exists(),
     "visible_warning": "LLM fallback warning" in report,
 }}))
 """,

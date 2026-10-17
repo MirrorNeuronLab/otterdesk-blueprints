@@ -14,6 +14,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  curl git libcanberra-gtk-module libcanberra-gtk3-module fuse3 libfuse2 libqt5svg5-dev \
  python3-pip python3-opencv python3-tk python3-pyqt5.qtwebengine
 
+RUN python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), sys.version'
+
 
 # Use Cyclone DDS as middleware
 RUN apt-get update && apt-get install -y --no-install-recommends \

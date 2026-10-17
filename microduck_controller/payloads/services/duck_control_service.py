@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.11
+#!/usr/bin/env python3.12
 """Serve the bundled simulator, browser lease bridge, and bounded MCP tools."""
 
 from __future__ import annotations

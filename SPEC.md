@@ -1,5 +1,7 @@
 # OtterDesk Blueprint Catalog Specification
 
+Python workers use Python 3.12, matching the MirrorNeuron runtime and SDK. Python base images select 3.12; CUDA, ROS Jazzy, and OpenShell images verify that minor during their build. The ROS detector retains PyTorch 2.7.1 and CUDA 12.8 through matching Python 3.12 wheels.
+
 ## Output folders and conversation sources
 
 For a configured host output folder such as `~/Downloads/<job name>`, batch
@@ -286,3 +288,5 @@ includes its exact UTF-8 byte size and SHA-256 digest. The prepared Job's bluepr
 revision and manual remain authoritative even when the catalog changes or a
 worker is offline. Loading a skill grants no action permission. Live readiness
 still comes from `get_capabilities`; runtime receipts establish completion.
+
+The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.
