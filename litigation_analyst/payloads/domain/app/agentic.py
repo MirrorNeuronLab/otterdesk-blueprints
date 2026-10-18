@@ -17,6 +17,8 @@ from .skill_bindings import bind_skills
 from .activity import observe_action
 from .prompt_context import investigation_history
 from ..evidence.store import EvidenceStore
+from ..handling import review_flags
+from ..matter_intake import load as load_matter
 
 
 def run_investigation(case, corpus, receipt, context, llm_client=None, *, declared):
@@ -97,23 +99,7 @@ def _run_investigation(
     cycle = PhaseCycle(data)
     data.setdefault("hypotheses", {})
     data.setdefault("model_interactions", [])
-    data.setdefault(
-        "source_review_flags",
-        {
-            d.source_id: "Potential privileged material; human handling decision required."
-            for d in corpus.scan()
-            if d.text
-            and any(
-                term in d.text.lower()
-                for term in (
-                    "attorney-client privileged",
-                    "seeking legal representation",
-                    "seeking legal advice",
-                    "request for legal representation",
-                )
-            )
-        },
-    )
+    data.setdefault("source_review_flags", review_flags(corpus.scan(), load_matter(case.parent)["exclusions"]))
     data["investigation_id"] = investigation_id
     for record in loop.state["records"]:
         if (

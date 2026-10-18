@@ -27,6 +27,13 @@
       "required": false,
       "privacy": "confidential",
       "description": "Optional exported human review decisions from this matter. Imported as analysis history, never instructions or evidence."
+    },
+    "matter_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Optional counsel matter JSON with disputed questions, scope, reviewed source exclusions, cited transaction events and gap assignments."
     }
   },
   "outputs": {
@@ -226,6 +233,66 @@
         "schema_version": "mn.ui.handle.v1",
         "privacy": "confidential",
         "required": false
+      },
+      {
+        "artifact_id": "model_preflight",
+        "path": "case/model_preflight.json",
+        "mime_type": "application/json",
+        "type": "model_preflight",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": false
+      },
+      {
+        "artifact_id": "review_plan",
+        "path": "case/review_plan.json",
+        "mime_type": "application/json",
+        "type": "review_plan",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "matter_intake",
+        "path": "case/matter.json",
+        "mime_type": "application/json",
+        "type": "matter_intake",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "handling_decisions",
+        "path": "case/handling.json",
+        "mime_type": "application/json",
+        "type": "handling_decisions",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "financial_review",
+        "path": "case/financial_review.json",
+        "mime_type": "application/json",
+        "type": "financial_review",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "transaction_appendix",
+        "path": "transaction_appendix.md",
+        "mime_type": "text/markdown",
+        "type": "transaction_appendix",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.review.v1",
+        "privacy": "confidential",
+        "required": true
       }
     ]
   },

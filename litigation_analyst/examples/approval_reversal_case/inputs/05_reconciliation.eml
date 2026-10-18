@@ -1,0 +1,8 @@
+From: Omar Reed <omar@northstar.example>
+To: Maya Chen <maya@northstar.example>
+Date: Fri, 10 Jan 2025 14:00:00 +0000
+Subject: TX-104 reconciliation and missing bank confirmation
+Message-ID: <reconcile-tx104@northstar.example>
+Content-Type: text/plain; charset=utf-8
+
+The ledger records a USD 12,500 posting on 8 January and its full reversal on 9 January. Its net balance for TX-104 is zero. These are accounting records: we have not supplied a bank statement or bank confirmation. The present materials do not resolve whether funds settled externally before reversal. No separate USD 12,500 approval or signed emergency exception record is attached to this reconciliation.

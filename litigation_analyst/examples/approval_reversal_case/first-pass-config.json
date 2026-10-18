@@ -1,0 +1,34 @@
+{
+  "dynamic_investigation": {
+    "max_rounds": 1,
+    "hypotheses_per_round": 1
+  },
+  "source_relationships": {
+    "mode": "structural"
+  },
+  "context_memory": {
+    "policy": {
+      "window_tokens": 32768,
+      "output_tokens": 8192
+    }
+  },
+  "workspace": {
+    "matter_name": "Synthetic TX-104 authorization and reversal review"
+  },
+  "inputs": {
+    "payload": {
+      "input_folder": "@/examples/approval_reversal_case/inputs",
+      "goal": "Assess what the supplied records support about whether TX-104 exceeded its written authorization and caused an unreversed USD 12,500 loss. Distinguish request, approval, posting, reversal, and external settlement. Test the reversal and reported telephone approval as counterevidence, identify missing records, cite exact authorized passages, exclude privileged material, and avoid conclusions about intent, fraud, or legal liability.",
+      "matter_file": "@/examples/approval_reversal_case/matter.json"
+    }
+  },
+  "llm": {
+    "context_size": 32768
+  },
+  "investigation": {
+    "max_investigation_seconds": 1800
+  },
+  "review": {
+    "profile": "first_pass"
+  }
+}

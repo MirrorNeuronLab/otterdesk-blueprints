@@ -1,0 +1,4 @@
+record_id,date,reference,event,amount_usd,currency,description
+L-101,2025-01-08,TX-104,posting,12500.00,USD,Initial transfer posting to Harbor Supply
+L-102,2025-01-09,TX-104,reversal,-12500.00,USD,Full reversal of posting L-101
+L-103,2025-01-10,TX-104,net_balance,0.00,USD,Net amount remaining after the recorded reversal

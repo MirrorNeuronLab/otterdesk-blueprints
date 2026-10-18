@@ -20,7 +20,7 @@ class RoundModel:
             if r:
                 assert data['prior_findings'][0]['outstanding_enquiries']
             return json.dumps({'decision':'execute','rationale':'Test the notice and ordinary explanations.','hypotheses':[{
-                'id':'H01','question':'Does the notice establish approval?',
+                'id':'H01','question':'Does the notice establish approval?', 'counsel_issue_ids':[],
                 'support_query':'approval' if not r else 'notice', 'counter_query':'routine',
                 'graph_tools':[], 'expected_information':'Distinguish approval from routine correspondence.'}]})
         if data['stage'] == 'assess':
@@ -31,7 +31,7 @@ class RoundModel:
                 'outstanding_enquiries':['Verify identity and surrounding correspondence.'],'parent_id':None},
                 'report':{'findings':[{'id':data['finding_id'],'section':'findings','title':'Approval notice',
                 'assessment':'The notice mentions approval; identity remains unresolved.','evidence_ids':ids,
-                'limitations':'Ranked retrieval is incomplete.'}], 'conclusion_ids':[data['finding_id']], 'follow_up':['Verify identity.']}})
+                'limitations':'Ranked retrieval is incomplete.'}], 'conclusion_ids':[data['finding_id']], 'follow_up':['Verify identity.']}, 'work_items': []})
         assert data['stage'] == 'review'
         assert data['evidence']
         return json.dumps({'accepted_ids':[f['id'] for f in data['report']['findings']], 'issues':['Authenticity remains unverified.']})

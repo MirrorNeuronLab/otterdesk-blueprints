@@ -17,6 +17,13 @@ from .sample_data import prepare_emc2
 def prepare_sources(context, *, llm_client=None):
     run_dir = Path(context["run_dir"])
     payload = context["payload"]
+    from .matter_intake import prepare as prepare_matter
+    from .model_preflight import check as check_model
+    from .review_scope import limits
+    matter = prepare_matter(context)
+    review_plan = limits(context["config"])
+    (run_dir / "case/review_plan.json").write_text(json.dumps(review_plan, indent=2))
+    check_model(context, llm_client)
     folder = payload.get("input_folder")
     # The desktop setup form submits an empty optional path as an empty string.
     # It has the same meaning as omitting the field: use the public sample.
@@ -62,12 +69,22 @@ def prepare_sources(context, *, llm_client=None):
         if hashlib.sha256(content).hexdigest() != expected:
             raise ValueError("source changed before original snapshot was frozen")
         (originals / expected).write_bytes(content)
+    from .handling import review_flags
+    from .matter_intake import digest as matter_digest
+    from .financial_review import build as reconcile
+    flags = review_flags(documents, matter["exclusions"])
+    (case / "handling.json").write_text(json.dumps({"flags": flags, "reviewed_exclusions": matter["exclusions"],
+        "qualification": "Conservative handling decisions, not legal privilege determinations. Original audit retention is not a cleared sharing package."}, indent=2))
+    # Validate every user-supplied quotation before any case-model call.
+    reconcile(matter, documents, flags)
     records = [asdict(d) for d in documents]
     # Exact normalized text is durable and authoritative for cited character spans.
     corpus_path = case / "sources.json"
     corpus_path.write_text(json.dumps(records, ensure_ascii=False), encoding="utf-8")
     inventory = {
         "source_root": str(source),
+        "matter_sha256": matter_digest(run_dir),
+        "handling_sha256": hashlib.sha256((case / "handling.json").read_bytes()).hexdigest(),
         "sample": folder is None,
         "document_count": len(records),
         "readable_count": sum(d.text is not None for d in documents),
@@ -98,6 +115,9 @@ def prepare_sources(context, *, llm_client=None):
         artifact_reference("source_inventory", "case/source_inventory.json"),
         artifact_reference("normalized_sources", "case/sources.json"),
         artifact_reference("original_sources", "case/originals"),
+        artifact_reference("matter_intake", "case/matter.json"),
+        artifact_reference("handling_decisions", "case/handling.json"),
+        artifact_reference("review_plan", "case/review_plan.json"),
     ]
     return {
         "source_inventory": refs[0],
@@ -117,6 +137,9 @@ class PreparedCorpus:
         inventory = json.loads((case_dir / "source_inventory.json").read_text())
         if hashlib.sha256(content).hexdigest() != inventory["sources_sha256"]:
             raise ValueError("prepared source snapshot hash mismatch")
+        for name, key in (("matter.json", "matter_sha256"), ("handling.json", "handling_sha256")):
+            if key in inventory and hashlib.sha256((case_dir / name).read_bytes()).hexdigest() != inventory[key]:
+                raise ValueError("prepared matter handling binding changed")
         self.root = Path(inventory["source_root"])
         self.access_scope = access_scope
         self.documents = tuple(CaseDocument(**r) for r in json.loads(content))

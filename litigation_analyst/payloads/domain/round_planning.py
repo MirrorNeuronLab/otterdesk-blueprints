@@ -2,10 +2,13 @@
 
 from mn_sdk.agent_events import activity_operation
 import time
+from copy import deepcopy
 from mn_sdk.child_workflow import round_plan, stop_plan
 from .app.planning import object_schema, validate
 from .round_state import open_round, read, save, checkpoint, finish
 from .round_model import complete
+from .review_scope import limits
+from .matter_intake import prompt_scope
 from .graph_queries import QUERIES
 from .source_graph import VIEWS
 from .temporal_evidence import VIEWS as TEMPORAL_VIEWS
@@ -15,6 +18,7 @@ ENQUIRY = object_schema({
     "id": {"type": "string", "pattern": "^H[0-9]{2}$"},
     "question": TEXT, "support_query": TEXT, "counter_query": TEXT,
     "expected_information": TEXT,
+    "counsel_issue_ids": {"type": "array", "maxItems": 20, "uniqueItems": True, "items": {"type": "string"}},
     "graph_tools": {"type": "array", "maxItems": 2, "uniqueItems": True, "items": {"enum": sorted({**QUERIES, **VIEWS, **TEMPORAL_VIEWS})}},
 })
 
@@ -26,7 +30,7 @@ def plan_round(context, work, *, llm_client=None):
     name = f"case/rounds/plan-{revision:02d}.json"
     if (root / name).exists():
         return read(root / name)
-    cfg = frozen["config"]["dynamic_investigation"]
+    cfg = limits(frozen["config"])
     reason = None
     if (root / "case/cancel.request").exists():
         reason = "cancelled"
@@ -38,7 +42,13 @@ def plan_round(context, work, *, llm_client=None):
         value = {"decision": "stop", "rationale": reason, "hypotheses": []}
     else:
         schema = object_schema({"decision": {"enum": ["execute", "stop"]}, "rationale": TEXT,
-            "hypotheses": {"type": "array", "maxItems": cfg["hypotheses_per_round"], "items": ENQUIRY}})
+            "hypotheses": {"type": "array", "maxItems": cfg["hypotheses_per_round"], "items": deepcopy(ENQUIRY)}})
+        issue_ids = [i["id"] for i in frozen.get("matter", {}).get("issues", [])]
+        field = schema["properties"]["hypotheses"]["items"]["properties"]["counsel_issue_ids"]
+        if issue_ids:
+            field["items"] = {"enum": issue_ids}
+        else:
+            field["maxItems"] = 0
         previous = [] if not revision else read(root / f"case/rounds/summary-{revision:02d}.json")["findings"]
         value = complete(root, frozen, f"plan-{revision:02d}", "plan", 
             "Choose execute or stop. Execute selects concrete falsifiable enquiries with distinct support and counter searches. "
@@ -49,8 +59,11 @@ def plan_round(context, work, *, llm_client=None):
             "Use temporal_communication_paths to test strict chronology of top-level addressing; unknown clocks/identity "
             "and rejected paths remain explicit. Addressing does not prove delivery, knowledge, material transfer or continuous roles. "
             "Use stable Hnn IDs when revising earlier enquiries. Change searches based on prior evidence and unresolved issues. "
+            "Tag each enquiry with its supplied counsel_issue_ids, or [] when no counsel issue matches. "
+            "Prioritize the supplied counsel questions and intended decision; counsel scope is review direction, not source evidence or verified law. "
+            "Track distinct issues; do not silently equate approval, posting, reversal, bank settlement and loss. "
             "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. ",
-            {"goal": frozen["payload"]["goal"], "revision": revision, "prior_findings": previous,
+            {"goal": frozen["payload"]["goal"], "counsel_scope": prompt_scope(frozen.get("matter", {})) if frozen.get("matter") else {}, "revision": revision, "prior_findings": previous,
              "remaining_rounds": cfg["max_rounds"] - revision, "graph_views": {**QUERIES, **VIEWS, **TEMPORAL_VIEWS}}, schema, llm_client)
         if value["decision"] == "execute" and not value["hypotheses"]:
             if not revision:

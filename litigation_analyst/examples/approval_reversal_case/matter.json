@@ -1,0 +1,87 @@
+{
+  "version": "mn.litigation.matter.v1",
+  "title": "Synthetic TX-104 review; not a real matter",
+  "intended_decision": "Determine what the supplied records support and which records counsel should obtain next. Do not infer intent, fraud or liability.",
+  "parties": [
+    "Northstar Components",
+    "Harbor Supply"
+  ],
+  "transaction_refs": [
+    "TX-104"
+  ],
+  "issues": [
+    {
+      "id": "Q_AUTH",
+      "question": "What written authorization supports the amount requested or recorded for TX-104?",
+      "legal_framework": "Factual authorization review only; no applicable-law conclusion requested."
+    },
+    {
+      "id": "Q_LOSS",
+      "question": "Do the records support an unreversed loss, and what remains unresolved about external settlement?"
+    }
+  ],
+  "exclusions": [
+    {
+      "source_id": "case:07_privileged_advice.txt",
+      "reason": "Synthetic counsel-only handling test; not cleared as substantive evidence.",
+      "reviewer": "Synthetic fixture annotation — not an attorney review",
+      "reviewed_at": "2025-01-11T12:00:00Z"
+    }
+  ],
+  "financial_events": [
+    {
+      "source_id": "case:02_transfer_request.eml",
+      "quote": "I request a transfer of USD 12,500 to Harbor Supply under reference TX-104.",
+      "event_type": "requested",
+      "amount": "12500.00",
+      "currency": "USD",
+      "transaction_ref": "TX-104",
+      "ledger_id": "Synthetic TX-104 record group",
+      "record_id": "request"
+    },
+    {
+      "source_id": "case:03_limited_approval.eml",
+      "quote": "As finance director, I approve USD 8,000 only for TX-104.",
+      "event_type": "approved",
+      "amount": "8000.00",
+      "currency": "USD",
+      "transaction_ref": "TX-104",
+      "ledger_id": "Synthetic TX-104 record group",
+      "record_id": "approval"
+    },
+    {
+      "source_id": "case:04_accounting_ledger.csv",
+      "quote": "L-101,2025-01-08,TX-104,posting,12500.00,USD,Initial transfer posting to Harbor Supply",
+      "event_type": "posting",
+      "amount": "12500.00",
+      "currency": "USD",
+      "transaction_ref": "TX-104",
+      "ledger_id": "Synthetic TX-104 record group",
+      "record_id": "L-101",
+      "event_date": "2025-01-08"
+    },
+    {
+      "source_id": "case:04_accounting_ledger.csv",
+      "quote": "L-102,2025-01-09,TX-104,reversal,-12500.00,USD,Full reversal of posting L-101",
+      "event_type": "reversal",
+      "amount": "-12500.00",
+      "currency": "USD",
+      "transaction_ref": "TX-104",
+      "ledger_id": "Synthetic TX-104 record group",
+      "record_id": "L-102",
+      "event_date": "2025-01-09"
+    },
+    {
+      "source_id": "case:04_accounting_ledger.csv",
+      "quote": "L-103,2025-01-10,TX-104,net_balance,0.00,USD,Net amount remaining after the recorded reversal",
+      "event_type": "net_balance",
+      "amount": "0.00",
+      "currency": "USD",
+      "transaction_ref": "TX-104",
+      "ledger_id": "Synthetic TX-104 record group",
+      "record_id": "L-103",
+      "event_date": "2025-01-10"
+    }
+  ],
+  "gap_assignments": []
+}

@@ -3,7 +3,8 @@
     "adapter": "json",
     "payload": {
       "goal": "Investigate financially relevant events and competing explanations in the supplied materials. Cite the evidence and state limitations.",
-      "review_file": ""
+      "review_file": "",
+      "matter_file": ""
     }
   },
   "investigation": {
@@ -49,7 +50,7 @@
   },
   "source_relationships": {
     "mode": "hybrid",
-    "model": "docker.io/ai/nemotron-3.5-lightning:latest",
+    "model": "default",
     "context_tokens": 131072,
     "max_calls": 256,
     "max_unit_bytes": 24000,
@@ -73,6 +74,15 @@
         "config_path": "inputs.payload.review_file",
         "payload_path": "mn_local_inputs/review-decisions.json",
         "runtime_path": "mn_local_inputs/review-decisions.json"
+      },
+      {
+        "config_path": "inputs.payload.matter_file",
+        "payload_path": "mn_local_inputs/matter.json",
+        "runtime_path": "mn_local_inputs/matter.json",
+        "allowed_extensions": [
+          ".json"
+        ],
+        "max_bytes": 262144
       }
     ]
   },
@@ -80,5 +90,12 @@
     "matter_name": "Litigation investigation",
     "authorized_source_ids": null,
     "max_page_bytes": 33554432
+  },
+  "review": {
+    "profile": "first_pass"
+  },
+  "model_preflight": {
+    "enabled": true,
+    "timeout_seconds": 10
   }
 }

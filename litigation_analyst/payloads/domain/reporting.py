@@ -46,7 +46,10 @@ def write_review(context, *, llm_client=None):
     if state["data"].get("derivations"):
         raise ValueError("Retired document-index derivations require their original staged implementation")
     (run_dir / "evidence_appendix.md").write_text(
-        evidence_appendix(evidence, state["data"].get("derivations", [])),
+        evidence_appendix(
+            [e for e in evidence if e.source_id not in state["data"].get("source_review_flags", {})],
+            state["data"].get("derivations", []),
+        ),
         encoding="utf-8",
     )
     (run_dir / "graph_appendix.md").write_text(
@@ -75,6 +78,11 @@ def write_review(context, *, llm_client=None):
     workspace = build_workspace(context, tuple(documents.values()), evidence, state, inventory)
     workspace = attach_graph(workspace, case, context["config"].get("workspace", {}))
     workspace = publish_history(context, workspace)
+    from .review_products import report_sections, transaction_appendix
+    (case / "financial_review.json").write_text(json.dumps(workspace["financial_review"], ensure_ascii=False), encoding="utf-8")
+    (run_dir / "transaction_appendix.md").write_text(transaction_appendix(workspace["financial_review"]), encoding="utf-8")
+    text += "\n\n" + report_sections(workspace)
+    (run_dir / "final_report.md").write_text(text, encoding="utf-8")
     # Memory locators refer to a durable authoritative snapshot, never a cached
     # narrative. Context-service failure is an explicit navigation limitation.
     (case / "workspace.json").write_text(json.dumps(workspace, ensure_ascii=False), encoding="utf-8")
@@ -89,6 +97,10 @@ def write_review(context, *, llm_client=None):
         "report": "final_report.md",
         "evidence_appendix": "evidence_appendix.md",
         "graph_appendix": "graph_appendix.md",
+        "transaction_appendix": "transaction_appendix.md",
+        "financial_review": "case/financial_review.json",
+        "matter_intake": "case/matter.json",
+        "review_plan": "case/review_plan.json",
         "audit_database": "case/evidence.sqlite3",
         "source_inventory": "case/source_inventory.json",
         "normalized_sources": "case/sources.json",
@@ -120,7 +132,7 @@ def write_review(context, *, llm_client=None):
         notice = f"Audit paths below are relative to `runs/{run_dir.name}/`.\n\n"
         linked_text = text.replace(
             "](evidence_appendix.md", f"](runs/{run_dir.name}/evidence_appendix.md"
-        ).replace("](graph_appendix.md", f"](runs/{run_dir.name}/graph_appendix.md")
+        ).replace("](graph_appendix.md", f"](runs/{run_dir.name}/graph_appendix.md").replace("](transaction_appendix.md", f"](runs/{run_dir.name}/transaction_appendix.md")
         (output / "final_report.md").write_text(notice + linked_text, encoding="utf-8")
         exported_index = {**index, "audit_root": f"runs/{run_dir.name}"}
         (output / "review_index.json").write_text(
@@ -131,6 +143,8 @@ def write_review(context, *, llm_client=None):
         artifact_reference("review_index", "review_index.json"),
         artifact_reference("evidence_appendix", "evidence_appendix.md"),
         artifact_reference("graph_appendix", "graph_appendix.md"),
+        artifact_reference("transaction_appendix", "transaction_appendix.md"),
+        artifact_reference("financial_review", "case/financial_review.json"),
     ] + workspace_refs + [artifact_reference("workspace_status", "workspace_status.json")]
     return {
         "review_draft": refs[0],

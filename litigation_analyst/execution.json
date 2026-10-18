@@ -52,7 +52,7 @@
       "min_gb": 8
     },
     "network": {
-      "egress": "EMC2 GitHub download during preparation; configured local model only during analysis"
+      "egress": "Optional pinned sample download during preparation; the SDK-managed gateway for the configured default model provider during analysis."
     },
     "gpu": {
       "min_count": 1,
@@ -141,5 +141,17 @@
         }
       }
     ]
+  },
+  "remote_model_requirements": {
+    "config_path": "llm.model",
+    "requirements": {
+      "memory": {
+        "min_gb": 16
+      },
+      "gpu": {
+        "min_count": 1,
+        "enforcement": "hard"
+      }
+    }
   }
 }

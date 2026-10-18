@@ -6,6 +6,8 @@ from pathlib import PurePosixPath
 
 from mn_sdk.source_query import source_text_query
 from .round_state import read, save
+from .matter_intake import load as load_matter
+from .handling import review_flags
 
 PRINCIPAL = 'round-specialists'
 VERSION = 'litigation.original_sources.v2'
@@ -14,7 +16,8 @@ VERSION = 'litigation.original_sources.v2'
 def _binding(case, scope, documents):
     inventory = read(case / 'source_inventory.json')
     return {'version': VERSION, 'scope': scope, 'sources_sha256': inventory['sources_sha256'],
-            'access_scopes': sorted({d.access_scope for d in documents})}
+            'access_scopes': sorted({d.access_scope for d in documents}),
+            'matter_sha256': inventory.get('matter_sha256'), 'handling_sha256': inventory.get('handling_sha256')}
 
 
 def _adapters(documents):
@@ -37,7 +40,8 @@ def publish(context, documents, scope):
                 raise ValueError('Original case source publication binding changed')
             session.restore(existing['catalog'], adapters=_adapters(documents))
             return
-        readable = [d for d in documents if d.text is not None]
+        flags = review_flags(documents, load_matter(root)["exclusions"])
+        readable = [d for d in documents if d.text is not None and d.source_id not in flags]
         originals = {entry['path']:entry['sha256']
                      for entry in read(case/'source_inventory.json')['files']}
         receipts = session.ingest([{'source_ref': d.relative_path, 'text': d.text,
@@ -71,7 +75,7 @@ def search(case, corpus, config, scope, query, top_k, *, source_names=()):
         from mn_sdk.memory_quality import context_requirements
         result = session.corpus.search(query, limit=top_k, source_names=source_names,
             requirements=context_requirements(config,required_checks=('source_binding','support_complete')))
-        mapping = {ref['source_id']: (d, ref) for d in documents if d.text is not None
+        mapping = {ref['source_id']: (d, ref) for d in documents if d.source_id in manifest['source_records']
                    for ref in [manifest['source_records'][d.source_id]]}
         passages, seen, spans = [], set(), []
         for bundle in result.get('bundles', []):

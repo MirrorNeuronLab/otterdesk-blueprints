@@ -4,10 +4,10 @@
   "product": {
     "agent_role": "Co-worker for legal evidence review and investigation.",
     "problem": "Legal teams need to connect findings across documents and emails while keeping every claim traceable.",
-    "benefit": "Trace each finding back to the exact source passage and review the investigation history.",
-    "input": "An optional folder of legal documents and an investigation goal. Uses the public EMC2 sample when no folder is provided.",
+    "benefit": "Review disputed questions with source-backed support, counterevidence, transaction reconciliation and specific next evidence requests.",
+    "input": "Legal sources, an investigation goal and optional counsel matter intake with issues, exclusions and source-cited transaction records.",
     "output": "A draft for human review, source inventory, searchable evidence records, and an index of findings.",
     "how_it_works": "Preserves a copy of the sources, searches for relevant evidence, investigates possible explanations, checks cited findings independently, and prepares a draft.",
-    "target_users": "Legal and investigation teams."
+    "target_users": "Litigation attorneys reviewing a case."
   }
 }

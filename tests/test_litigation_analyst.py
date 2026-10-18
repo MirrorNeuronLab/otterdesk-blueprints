@@ -44,6 +44,8 @@ def modules(monkeypatch, text_memory_transport):
 def make_context(tmp_path, folder=None):
     config = resolve_config(read_blueprint(BLUEPRINT)).data
     config["investigation"].update(top_k=1, max_model_decisions=30)
+    config["review"]["profile"] = "standard"
+    config["model_preflight"]["enabled"] = False
     # Ordinary deterministic tests do not exercise the optional live extractor.
     config['source_relationships']['mode'] = 'structural'
     payload = dict(config["inputs"]["payload"])
@@ -421,7 +423,7 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     assert (context["output_folder"] / "runs/run/final_report.md").exists()
     sources = context["output_folder"] / "context_sources/outputs/run"
     assert {p.name for p in sources.glob("*.md")} == {
-        "final_report.md.md", "evidence_appendix.md.md", "graph_appendix.md.md"
+        "final_report.md.md", "evidence_appendix.md.md", "graph_appendix.md.md", "transaction_appendix.md.md"
     }
     assert quotation in (sources / "final_report.md.md").read_text()
     from domain.conversation_sources import publish_outputs

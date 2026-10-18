@@ -1,0 +1,197 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "const": "mn.litigation.matter.v1"
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 200
+    },
+    "intended_decision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "parties": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "transaction_refs": {
+      "type": "array",
+      "maxItems": 40,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      }
+    },
+    "issues": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,40}$"
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "legal_framework": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        },
+        "required": [
+          "id",
+          "question"
+        ]
+      }
+    },
+    "exclusions": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reviewer": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "reviewed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "source_id",
+          "reason",
+          "reviewer",
+          "reviewed_at"
+        ]
+      }
+    },
+    "financial_events": {
+      "type": "array",
+      "maxItems": 500,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "source_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "quote": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          },
+          "event_type": {
+            "enum": [
+              "requested",
+              "approved",
+              "posting",
+              "reversal",
+              "net_balance",
+              "settlement"
+            ]
+          },
+          "amount": {
+            "type": "string",
+            "pattern": "^-?\\d+(?:\\.\\d{1,2})?$",
+            "maxLength": 32
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "transaction_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "ledger_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "event_date": {
+            "type": "string",
+            "format": "date"
+          },
+          "record_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "source_id",
+          "quote",
+          "event_type",
+          "amount",
+          "currency",
+          "transaction_ref",
+          "ledger_id",
+          "record_id"
+        ]
+      }
+    },
+    "gap_assignments": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "owner": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "internal_target": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "required": [
+          "question",
+          "owner"
+        ]
+      }
+    }
+  },
+  "required": [
+    "version"
+  ]
+}

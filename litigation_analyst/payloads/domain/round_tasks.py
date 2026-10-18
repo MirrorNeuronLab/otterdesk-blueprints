@@ -9,6 +9,7 @@ from mn_sdk.blueprint_support import source_manifest
 from mn_graph_analysis_skill import ensure_bounded_readonly_rgql
 from .round_state import task_input, read, save, checkpoint
 from .round_model import complete, evidence_room
+from .handling import cleared_observation
 from .graph_queries import QUERIES
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
@@ -24,7 +25,16 @@ def validate_graph_query(query):
 
 
 def assessment_schema(task, evidence_ids):
-    schema = deepcopy(object_schema({"hypothesis": HYPOTHESIS, "report": REPORT}))
+    work_item = object_schema({"question": {"type": "string", "minLength": 1, "maxLength": 500},
+        "requested_record": {"type": "string", "minLength": 1, "maxLength": 500},
+        "why_it_matters": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "closure_condition": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "priority": {"enum": ["High", "Medium", "Low"]},
+        "priority_basis": {"type": "string", "minLength": 1, "maxLength": 1000},
+        "evidence_ids": {"type": "array", "maxItems": 10, "minItems": 1,
+                         "items": {"enum": sorted(evidence_ids)} if evidence_ids else {"type": "string"}}})
+    schema = deepcopy(object_schema({"hypothesis": HYPOTHESIS, "report": REPORT,
+        "work_items": {"type": "array", "maxItems": 5 if evidence_ids else 0, "items": work_item}}))
     hypothesis = schema["properties"]["hypothesis"]["properties"]
     report = schema["properties"]["report"]["properties"]
     hypothesis["id"] = {"const": task["hypothesis"]["id"]}
@@ -76,6 +86,7 @@ def collect_evidence(context, work, *, llm_client=None):
             except Exception as exc:
                 save(root, action_path, {"action": action, "result": {"error": str(exc)}, "purpose": purpose})
                 raise
+            result = cleared_observation(result, frozen["source_review_flags"])
             record = {"action": action, "result": result, "purpose": purpose}
             save(root, action_path, record)
         records.append(record)
@@ -95,6 +106,7 @@ def collect_evidence(context, work, *, llm_client=None):
             record = {'action':{'view':view}, 'purpose':'graph', 'result':result}
             save(root,path,record)
         documents = {d.source_id:d for d in corpus.scan()}
+        record['result'] = cleared_observation(record['result'], frozen['source_review_flags'])
         for passage in record['result']['passages']:
             evidence = EvidenceSpan(**passage, provenance_kind='observed')
             EvidenceAssistant._validate_evidence(evidence, documents)
@@ -137,7 +149,11 @@ def assess_hypothesis(context, work, *, llm_client=None):
         "With no visible evidence, return inconclusive and an empty findings list. "
         "Propose at most one concise report finding; use the supplied finding_id. Findings are inferred assessments. "
         "A proposed finding may cite at most 2000 UTF-8 bytes of complete passages; seeing additional passages does not waive that limit. "
-        "Graph observations are navigation aids, not proof. State unexamined/omitted evidence limits.")
+        "Graph observations are navigation aids, not proof. State unexamined/omitted evidence limits. "
+        "Return work_items for decisive missing records or interviews: a specific requested_record, question, "
+        "why_it_matters, closure_condition, priority and priority_basis plus current evidence_ids. "
+        "These are suggestions for attorney review. Do not invent a custodian, owner, deadline or completed collection. "
+        "Preserve distinctions between requested/approved/posted/reversed/settled amounts and loss; no intent or liability follows from arithmetic.")
     from .evidence_admission import admit, coverage, assess_admitted
     data = {"enquiry": task["hypothesis"], "finding_id": task["prefix"], "evidence": [],
          "omitted_passages": len(allowed - visible),
@@ -166,7 +182,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
             'alternatives':['The available packet cannot resolve the enquiry.'],
             'assessment':'Insufficient evidence; no factual finding was generated.',
             'outstanding_enquiries':gaps},
-            'report':{'findings':[],'conclusion_ids':[],'follow_up':gaps}}
+            'report':{'findings':[],'conclusion_ids':[],'follow_up':gaps}, 'work_items': []}
         validate(schema,value)
     else:
         value = complete(root, frozen, task["prefix"] + "-assess", "assess", instruction, data, schema, llm_client)
@@ -181,6 +197,7 @@ def assess_hypothesis(context, work, *, llm_client=None):
         raise ValueError("Finding identity must match committed task")
     data = {"source_review_flags": frozen["source_review_flags"]}
     submit_report(data, value["report"], store, frozen["investigation_id"])
+    value["counsel_issue_ids"] = task["hypothesis"].get("counsel_issue_ids", [])
     ref = save(root, name, value)
     from .claim_memory import publish
     publish(root, frozen, task['prefix'], value)

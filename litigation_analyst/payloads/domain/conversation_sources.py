@@ -9,7 +9,7 @@ from pathlib import Path
 from mn_docs_to_markdown_skill import convert_documents
 
 
-REPORTS = ("final_report.md", "evidence_appendix.md", "graph_appendix.md")
+REPORTS = ("final_report.md", "evidence_appendix.md", "graph_appendix.md", "transaction_appendix.md")
 
 
 def publish_outputs(context):

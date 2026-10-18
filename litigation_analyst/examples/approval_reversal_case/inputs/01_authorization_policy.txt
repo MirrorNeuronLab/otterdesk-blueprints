@@ -1,0 +1,6 @@
+SYNTHETIC TEST MATTER — Northstar Components / Harbor Supply
+Internal transfer authorization policy, effective 1 January 2025.
+1. A transfer above USD 10,000 requires prior written approval from the finance director.
+2. An approval is limited to the amount stated in that approval. A request is not an approval.
+3. An emergency exception requires a signed exception record from the finance director within two business days. No exception record is attached to this policy.
+4. Accounting postings may be reversed. A posting by itself does not establish an unreversed loss.

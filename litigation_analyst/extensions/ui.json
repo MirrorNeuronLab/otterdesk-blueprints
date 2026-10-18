@@ -13,13 +13,15 @@
       "description": "Download the pinned public EMC-2 repository from GitHub and analyze its synthetic documents.",
       "expected_output": "A local interactive investigation with cited findings, counterevidence, relationship paths and a human-review audit.",
       "values": {
-        "inputs.payload.input_folder": ""
+        "inputs.payload.input_folder": "",
+        "review.profile": "first_pass"
       }
     },
     "real": {
       "introduction": "Choose the legal-document folder to investigate.",
       "values": {
-        "inputs.payload.input_folder": ""
+        "inputs.payload.input_folder": "",
+        "review.profile": "first_pass"
       }
     },
     "fields": [
@@ -30,6 +32,30 @@
         "type": "local_path",
         "path_kind": "directory",
         "role": "input"
+      },
+      {
+        "path": "inputs.payload.matter_file",
+        "label": "Counsel matter intake",
+        "description": "Optional matter.json containing your questions, scope, exclusions and source-cited transaction records.",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input"
+      },
+      {
+        "path": "review.profile",
+        "label": "Review scope",
+        "description": "First pass returns a bounded, partial review; standard permits deeper relationship extraction and more investigation rounds.",
+        "type": "select",
+        "choices": [
+          {
+            "label": "First pass",
+            "value": "first_pass"
+          },
+          {
+            "label": "Standard review",
+            "value": "standard"
+          }
+        ]
       },
       {
         "path": "outputs.folder_path",

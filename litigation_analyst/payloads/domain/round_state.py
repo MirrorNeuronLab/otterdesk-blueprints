@@ -18,6 +18,9 @@ from mn_sdk.committed_artifacts import (
 from mn_sdk.step_runtime import artifact_reference
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
+from .handling import review_flags
+from .matter_intake import load as load_matter
+from .review_scope import limits
 
 
 def read(path):
@@ -68,7 +71,7 @@ def initialize(context, *, llm_client=None):
     case = root / "case"
     corpus, receipt = validate_indexes(case, context["config"]["investigation"]["access_scope"])
     descriptor = source_manifest(__file__)["workflow"]["child_workflows"]["investigate_case_evidence"]
-    cfg = context["config"]["dynamic_investigation"]
+    cfg = limits(context["config"])
     if not 1 <= cfg["max_rounds"] <= descriptor["max_rounds"] or not 1 <= cfg["hypotheses_per_round"] <= 2:
         raise ValueError("Dynamic investigation exceeds the admitted workflow bounds")
     store = EvidenceStore(case / "evidence.sqlite3")
@@ -82,10 +85,8 @@ def initialize(context, *, llm_client=None):
             "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
                              "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
             "investigation_id": identifier, "indexes": receipt,
-            "deadline": time.time() + context["config"]["investigation"]["max_investigation_seconds"],
-            "source_review_flags": {d.source_id: "Potential privileged material; human handling review required."
-                for d in corpus.scan() if d.text and any(t in d.text.lower() for t in (
-                    "attorney-client privileged", "seeking legal representation", "seeking legal advice", "request for legal representation"))}})
+            "deadline": time.time() + cfg["seconds"], "review_plan": cfg, "matter": load_matter(root),
+            "source_review_flags": review_flags(corpus.scan(), load_matter(root)["exclusions"])})
     frozen = read(root / name)
     if frozen["indexes"] != receipt or frozen["config"] != context["config"] or frozen["payload"] != context["payload"]:
         raise ValueError("Investigation binding changed")
@@ -102,7 +103,7 @@ def checkpoint(root, frozen):
         value = read(path)
         latest[value["hypothesis"]["id"]] = value
     for value in latest.values():
-        hypotheses[value["hypothesis"]["id"]] = value["hypothesis"]
+        hypotheses[value["hypothesis"]["id"]] = {**value["hypothesis"], "work_items": value["work_items"], "counsel_issue_ids": value.get("counsel_issue_ids", [])}
         for f in value["report"]["findings"]:
             findings[f["id"]] = f
         follow.extend(value["report"]["follow_up"])

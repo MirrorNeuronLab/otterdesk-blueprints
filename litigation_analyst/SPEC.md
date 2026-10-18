@@ -1,6 +1,6 @@
 # Litigation Analyst specification
 
-This blueprint hard-requires at least one GPU with at least 49,152 MB of memory. MirrorNeuron validates this requirement before scheduling.
+Local models require at least one GPU with 49,152 MB of memory. When the selected default LLM is a registered remote provider, admission requires any GPU and 16 GB RAM; local-model VRAM constraints are removed through the existing SDK resource profile.
 
 Version 2.7.5 requires the published graph analysis skill `1.3.49` and temporal
 graph skill `1.3.60`. The verified runtime modules are unchanged; release-mode
@@ -281,7 +281,7 @@ never promote these proposals to observed facts or established legal effect.
 The graph projection keeps observed structure, proposals and investigator claims
 distinct. The existing document/email graph and graph backend remain in use.
 
-Extraction uses a dedicated 128K-token Nemotron context with no historical recall.
+Extraction uses the configured default LLM in a dedicated 128K-token context with no historical recall; an explicit `source_relationships.model` overrides that selection.
 Default bounds are 256 index-time requests, 512 units per document and 24,000
 UTF-8 bytes per unit. Capacity, malformed extraction and unresolved targets mark
 incomplete coverage. Structural mode explicitly disables extraction. Cache keys
@@ -334,3 +334,108 @@ implementation; new code does not resume or migrate their index/derivation audit
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+Version 3.0.1 follows the registered default provider for both investigation and relationship extraction, applies the remote-provider hardware profile, and honors the configured investigation output reserve consistently during admission and dispatch. These are blueprint changes; no runtime upgrade or model-registry mutation is required. Normal run preparation remains SDK-owned and can prepare the selected gateway route. A bounded first-pass run may explicitly select structural relationships and one investigation round; its omitted extraction and investigation scope must remain visible.
+
+Potential privilege labels (including “privileged and confidential”, attorney-client
+communications and attorney work product) create conservative handling-review
+flags. They are not a determination of legal privilege, and unlabeled material
+still needs counsel review. Flagged content is withheld from relationship-model
+extraction, substantive findings, the published evidence appendix and the offline
+workspace. Frozen originals and internal audit records remain retained for the
+authorized matter owner; they are not a cleared sharing package.
+
+Remote-provider admission does not imply that the installed SDK supports that
+provider’s serving-tokenizer protocol. Evidence decisions retain verified context
+admission and fail explicitly when a verified counter is unavailable; the
+blueprint never replaces a registered remote default with a local model. The
+2026-10-18 mini trial is blocked at that prerequisite in the installed SDK; no
+remote-model report or factual-accuracy result is claimed from that attempt.
+
+
+## Version 3.1: counsel-directed first review
+
+The default `review.profile=first_pass` performs one round (up to two enquiries),
+uses observed structural relationships, and limits investigation decisions to six.
+A separate harmless readiness decision checks the selected model before source
+acquisition or case inference. It sends no case material, preserves the configured
+provider, and fails with `case/model_preflight.json` when verified-context admission
+is unsupported. The 10-second setting bounds the model request after readiness;
+SDK preparation can take longer. Platform input staging occurs before this check.
+No local-model fallback is used. The installed remote serving-tokenizer prerequisite
+still applies; this release does not change the SDK or runtime.
+
+First-pass planning checks a 600-second allowance between rounds; it does not
+interrupt in-flight work, cap total wall time, or promise a dollar cost. Provider
+transport/repair attempts are separate from decision counts. `standard` permits up
+to three rounds and sixteen investigation decisions, with configured relationship
+extraction (up to 256 separate calls). Retrieval is ranked, not exhaustive. Every
+report/workspace discloses the effective plan and unexamined counsel questions.
+
+Optional `inputs.payload.matter_file` accepts the bounded JSON contract in
+`payloads/domain/matter.schema.json`. It is staged and frozen as `case/matter.json`,
+with its hash and reviewed exclusions bound to the source inventory. Supply the
+intended decision, parties, transaction references and numbered counsel questions;
+legal framework text is counsel direction, not verified applicable law. Explicit
+exclusions require source ID, reviewer, ISO review time and reason; mailbox-container
+exclusions propagate to contained messages. Conservative automatic handling flags
+remain in force. A new scope/handling decision requires a new run.
+
+Optional financial-event annotations require one unique exact quotation, recorded
+signed amount, explicit currency, transaction reference, ledger group and stable
+record ID. Classifications/grouping are counsel annotations. Decimal arithmetic
+sums posting and reversal records separately from requests, approvals and recorded
+net balances. Repeated record IDs do not double-count; conflicting annotations fail.
+The appendix and Chronology view expose quotations, exact offsets and hashes.
+Accounting net, bank settlement, damages, intent and liability remain distinct.
+Dates not literally quoted remain annotations; timezones are unresolved.
+
+The counsel issue matrix shows linked hypotheses, support, counterevidence, unknowns
+and unexamined questions. Structured follow-up drafts specify the requested record,
+why it affects a decision, closure test and suggested priority with cited basis.
+Owners/internal targets come only from counsel's `gap_assignments`, matched by exact
+question. No records are collected and no communications are sent. The reviewed
+briefing export omits unreviewed counsel intake, work requests and financial exhibits.
+
+Authoritative additions: `case/review_plan.json`, `case/handling.json`,
+`case/financial_review.json` and `transaction_appendix.md`. They are written before
+the optional preview; the four published Markdown reports remain available when UI
+rendering fails. Human review remains required for substantive findings.
+
+### Manual test on mini with a registered remote default
+
+The Nemotron JSON is a model-registration file, not a CLI `--config` flag. Once its model is registered as default, use the normal default route. From the repository root:
+
+```bash
+mn blueprint run ./litigation_analyst --node mirror_neuron@10.0.4.27 \
+  --set llm.model=default \
+  --set inputs.payload.input_folder=./litigation_analyst/examples/approval_reversal_case/inputs \
+  --set inputs.payload.matter_file=./litigation_analyst/examples/approval_reversal_case/matter.json \
+  --set context_memory.policy.window_tokens=32768 \
+  --set context_memory.policy.output_tokens=8192 \
+  --set llm.context_size=32768
+```
+
+Use the UI's optional matter input for real case annotations. The synthetic example
+is `examples/approval_reversal_case/matter.json`; its answer key `expected.json`
+remains outside `inputs/` and must never be supplied as case evidence. This example
+is not attorney-reviewed customer evidence or a legal conclusion.
+
+After a completed run, check exact spans and typed known facts offline:
+
+```bash
+python litigation_analyst/evaluate.py /absolute/path/to/run \
+  --expected litigation_analyst/examples/approval_reversal_case/expected.json
+```
+
+This command never calls a model. Without `--human-review review.json`, acceptance
+stays `pending_attorney_review`. A human review must name `reviewer`, ISO
+`reviewed_at`, and exact `snapshot_id`; `finding_reviews` must cover every finding
+once with `finding_id`, boolean `supported`, `evidence_ids` and `rationale`.
+`criteria` must cover every expected qualification, counterevidence and gap once,
+with exact `criterion`, boolean `retained` and `rationale`; also record
+`unsupported_material_allegations` as a count. This is self-attributed review,
+not authenticated attorney approval. No keyword score stands in for accuracy.
+Validate on a representative set of at least 25 genuinely attorney-reviewed matters
+before customer accuracy or readiness claims; the synthetic fixture is only a
+mechanical regression. Do not fabricate that acceptance evidence.

@@ -4,10 +4,14 @@ import hashlib
 
 from mn_temporal_graph_skill import fingerprint
 from .temporal_evidence import project
+from .matter_intake import load as load_matter
+from .gap_work import project as project_gaps
+from .review_scope import limits
 
 
 def build(context, documents, evidence, state, inventory):
     settings = context["config"].get("workspace", {})
+    matter = load_matter(context["run_dir"])
     requested = settings.get("authorized_source_ids")
     all_ids = {d.source_id for d in documents}
     if requested is not None and (not isinstance(requested, list) or not set(requested) <= all_ids):
@@ -56,14 +60,9 @@ def build(context, documents, evidence, state, inventory):
         question_id = "Q-" + fingerprint(h["question"].casefold())[:16]
         item = {**h, "id": question_id, "origin": "Model enquiry", "mode": "Investigation question",
             "definition": "Factual enquiry; no counsel-defined legal test supplied", "gap_ids": []}
-        for question in h["outstanding_enquiries"]:
-            gid = "G-" + fingerprint([question_id, question])[:16]
-            item["gap_ids"].append(gid)
-            gaps[gid] = {"id": gid, "question": question, "issue_id": question_id,
-                "finding_ids": [], "source_evidence_ids": ids, "origin": "AI suggestion",
-                "priority_basis": "Unresolved enquiry; importance requires reviewer decision",
-                "closure_condition": "Obtain source-backed resolution or record a reviewed limitation",
-                "status": "Open", "owner": "Unassigned", "internal_target": None}
+        for gap in project_gaps(question_id, h, spans, matter["gap_assignments"]):
+            item["gap_ids"].append(gap["id"])
+            gaps[gap["id"]] = gap
         hypotheses.append(item)
     by_hypothesis = {h["question"]: h for h in hypotheses}
     for f in state["data"].get("report_draft", {}).get("findings", []):
@@ -98,7 +97,7 @@ def build(context, documents, evidence, state, inventory):
     # Keep source/path locators out of overview metadata and never reveal excluded counts.
     snapshot = fingerprint({"sources": [(d.source_id, d.content_sha256) for d in documents],
                             "findings": [f["material_digest"] for f in findings]})
-    return {"version": "mn.litigation.workspace.v1", "snapshot_id": snapshot,
+    workspace = {"version": "mn.litigation.workspace.v1", "snapshot_id": snapshot,
         "matter_id": inventory["repository_id"], "title": settings.get("matter_name", "Litigation investigation"),
         "goal": context["payload"]["goal"], "access_scope": context["config"]["investigation"]["access_scope"],
         "audience": "Authorized local matter owner", "sample": bool(inventory.get("sample")),
@@ -119,3 +118,6 @@ def build(context, documents, evidence, state, inventory):
             "legal_elements": "Unavailable: counsel-defined framework not supplied",
             "case_qa": "Use the co-worker chat for Membrane-backed questions; webpage search is a literal record filter",
             "identity_corrections": "Person identity is unresolved; address nodes are never silently merged"}}
+
+    from .review_products import attach
+    return attach(workspace, context, matter, documents, spans, limits(context["config"]))
