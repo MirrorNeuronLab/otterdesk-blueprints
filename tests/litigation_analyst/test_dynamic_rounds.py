@@ -149,7 +149,7 @@ def test_first_round_still_requires_an_enquiry(dynamic_case):
         def completion_text(self, system, user):
             return json.dumps({'decision': 'execute', 'rationale': 'Keep looking.', 'hypotheses': []})
 
-    with pytest.raises(ValueError, match='distinct enquiries'):
+    with pytest.raises(ValidationError, match='non-empty'):
         plan_round(context, {'context': ref, '_child': {'revision': 0}}, llm_client=EmptyPlan())
 
 

@@ -1,5 +1,21 @@
 # Litigation Analyst specification
 
+## Version 3.2.1 initial planning contract
+
+Before a model chooses enquiries, verify the frozen indexes and supply a bounded
+source inventory with deterministic examples spread across distinct normalized
+sources. Admit complete short documents or whole structural units and their local
+dependency closure; preserve exact source hashes/offsets and handling exclusions.
+Selection is navigation, never an exhaustive review or a source of report findings.
+Budget this packet together with schema, guidance, prior findings and output reserve.
+Empty optional historical memory must not imply an empty current source corpus.
+
+For revision zero the model schema permits only execute and requires a nonempty
+enquiry list. Actual absence of authorized readable sources and inability to admit
+complete source context produce explicit incomplete stop reasons without model
+inference. Existing cancellation/deadline controls retain priority. Completed-round
+replanning can stop as before. Prior run requests and artifacts are never rewritten.
+
 Local models require at least one GPU with 49,152 MB of memory. When the selected default LLM is a registered remote provider, admission requires any GPU and 16 GB RAM; local-model VRAM constraints are removed through the existing SDK resource profile.
 
 Version 2.7.5 requires the published graph analysis skill `1.3.49` and temporal

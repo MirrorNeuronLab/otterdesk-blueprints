@@ -106,6 +106,7 @@ def build(context, documents, evidence, state, inventory):
         "issues": hypotheses, "gaps": list(gaps.values()), "temporal": temporal,
         "analysis": {"stop_reason": state["stop_reason"], "status": "Incomplete analysis" if
             state["stop_reason"] in {"cancelled", "investigation_deadline_reached", "iteration_limit_exhausted",
+                "no_authorized_readable_sources", "planning_source_context_unavailable",
                 "tool_call_budget_exhausted", "maximum_rounds_reached"} else "Draft for human review",
             "scope": "Authorized frozen sources; ranked retrieval is not exhaustive"},
         "coverage": {"source_ids": sorted(visible_ids), "readable_ids": [d.source_id for d in documents if d.text is not None],

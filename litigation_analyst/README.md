@@ -1,5 +1,18 @@
 # Litigation Analyst
 
+## Version 3.2.1: source-grounded initial planning
+
+The planner now receives a bounded inventory and complete source examples from
+the verified frozen corpus, even without a matter file or historical memory.
+Examples retain exact offsets and hashes, exclude handling-restricted material,
+and keep structural dependencies whole. Duplicate content does not fill the sample.
+This is navigation for choosing searches, not exhaustive evidence review.
+
+The initial model schema requires execution with at least one enquiry. When no
+authorized readable source or complete source context fits, the blueprint records
+an explicit incomplete result without asking the model to invent case terms.
+Use a fresh run; prior failed runs retain their immutable requests and artifacts.
+
 ## Version 3.2: complete evidence and attorney issue briefs
 
 New runs preserve numeric references and monetary values in source units. Assessors

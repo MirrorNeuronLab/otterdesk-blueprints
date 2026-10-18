@@ -33,7 +33,7 @@ def attach(workspace, context, matter, documents, spans, plan):
     workspace["analysis"]["review_plan"] = plan
     workspace["analysis"]["unexamined_issue_ids"] = [r["id"] for r in rows if not r["hypothesis_ids"]]
     workspace["analysis"]["partial_review"] = plan["profile"] == "first_pass" or bool(workspace["analysis"]["unexamined_issue_ids"]) or workspace["analysis"]["status"] == "Incomplete analysis"
-    if workspace["analysis"]["partial_review"]:
+    if workspace["analysis"]["partial_review"] and workspace["analysis"]["status"] != "Incomplete analysis":
         workspace["analysis"]["status"] = "Partial review — draft for attorney review"
     workspace["capabilities"]["financial_scenarios"] = financial["status"] + "; arithmetic only, no damages or settlement determination"
     workspace["capabilities"]["legal_elements"] = "Counsel-provided issues/framework; legal applicability remains unverified" if rows else "Unavailable: counsel-defined framework not supplied"
