@@ -68,6 +68,7 @@ from domain.cosmos_access import cosmos_slot
 from domain.model_definitions import cosmos_model_spec
 from domain.benchmarks import Benchmarks
 from domain.caption_schedule import complete_caption
+from domain.site_monitoring import context as site_context, admission as caption_admission, enrich as enrich_site, notice_state as site_notice_state, record_notice as record_site_notice
 from domain.monitoring import load_monitoring_state
 from domain.alert_delivery import post_slack
 
@@ -475,6 +476,7 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
     return {
         **understanding_fields(result),
         "goal_event": result.get("goal_event"),
+        "site_findings": result.get("site_findings", []),
         "detected": bool(detected),
         "detected_target": bool(detected),
         "detection_count": detection_count,
@@ -817,6 +819,9 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
         "goal_event": detection_payload.get("goal_event"),
         "monitoring_goal": detection_payload.get("monitoring_goal"),
         "risk_predictions": detection_payload.get("risk_predictions"),
+        "site_findings": detection_payload.get("site_findings", []),
+        "site_context": detection_payload.get("site_context", {}),
+        "site_coverage": detection_payload.get("site_coverage", {}),
         "uncertainties": detection_payload.get("uncertainties"),
         "capture_started_at": detection_payload.get("capture_started_at"),
         "capture_ended_at": detection_payload.get("capture_ended_at"),
@@ -928,6 +933,9 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
             "goal_event": observation.get("goal_event"),
             "monitoring_goal": observation.get("monitoring_goal"),
             "risk_predictions": observation.get("risk_predictions"),
+            "site_findings": observation.get("site_findings", []),
+            "site_context": observation.get("site_context", {}),
+            "site_coverage": observation.get("site_coverage", {}),
             "uncertainties": observation.get("uncertainties"),
             "capture_started_at": observation.get("capture_started_at"),
             "capture_ended_at": observation.get("capture_ended_at"),
@@ -1058,10 +1066,7 @@ def main() -> None:
         if not batch_ref:
             raise ValueError("visual detector requires a persisted frame_batch_ref")
         batch, batch_frames = load_frame_batch(batch_ref)
-        person_gate = batch.get("candidate_gate") or {}
-        if not (person_gate.get("detector") == "RF-DETR" and
-                person_gate.get("condition") == "person" and person_gate.get("confirmed") is True):
-            raise ValueError("Cosmos analysis requires a confirmed RF-DETR person gate")
+        analysis_mode = caption_admission(batch, config)
         if batch.get("caption_claimed_at"):
             benchmarks.record("caption.dispatch_wait", max(0, (time.time() - batch["caption_claimed_at"]) * 1000),
                               variant="Core caption dispatch", metadata={"frames": len(batch_frames)})
@@ -1097,8 +1102,11 @@ def main() -> None:
                                     metadata={"frames": len(batch_frames), "instruction_revision": batch["instruction_revision"]}):
                 detection = mock_detection(frame_seq) if mock_mode else call_ollama(
                     batch_frames,
-                    with_history(temporal_prompt(detection_prompt(camera_id, goal, visual_targets), capture), history),
+                    with_history(temporal_prompt(detection_prompt(camera_id, goal, visual_targets) +
+                        "\n\nFacility review policy (operator configuration, not image evidence):\n" +
+                        json.dumps(site_context(config), ensure_ascii=False), capture), history),
                 )
+        detection = enrich_site(detection, batch, config, goal, attention_instruction)
         detection = validate_helmet_goal(detection, goal, batch)
         matched_event = goal_event(detection, batch)
         report_activity(str(detection.get("summary") or "Scene analysis completed"), kind="finding" if matched_event else "result", owner_blueprint="cctv_operator", step_id="detect_visual_targets", run_dir=configured_run_dir())
@@ -1113,7 +1121,7 @@ def main() -> None:
             )
         events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
             "camera_id": camera_id, "frame_seq": frame_seq, "frame_batch_ref": batch_ref,
-            "detected_target": detection["detected_target"], "analysis_mode": "person_gated_cosmos",
+            "detected_target": detection["detected_target"], "analysis_mode": analysis_mode,
         }})
 
         detection_payload = {
@@ -1150,7 +1158,7 @@ def main() -> None:
             "model_latency_ms": model_latency_ms,
             "sampling_metrics": dict((batch or {}).get("metrics") or {}),
             "latest_analyzed_frame": latest_frame_metadata or None,
-            "condition_screening": {"route": "deep_analysis", "mode": "person_gated_cosmos"},
+            "condition_screening": {"route": "deep_analysis", "mode": analysis_mode},
             "configured_targets": visual_targets,
         }
         candidate = batch.get("candidate_gate") or {}
@@ -1161,7 +1169,7 @@ def main() -> None:
         alert_decision = evaluate_alert(
             detection_payload,
             alert_policy,
-            state,
+            site_notice_state(detection_payload, batch, config, alert_policy, state, goal, attention_instruction),
             active_goal=goal,
         )
         current_revision = int(load_monitoring_state(configured_run_dir()).get("instruction_revision") or 0)
@@ -1173,7 +1181,7 @@ def main() -> None:
         detection_payload["alert_decision"] = alert_decision
         if alert_decision["notify"]:
             detection_payload["event_image"] = event_snapshot(
-                configured_run_dir(), matched_event, run_id=str(os.environ.get("MN_RUN_ID") or ""),
+                configured_run_dir(), detection_payload["goal_event"], run_id=str(os.environ.get("MN_RUN_ID") or ""),
                 camera_id=camera_id, frame_seq=frame_seq,
             )
         observation = update_conversation_context(state, detection_payload)
@@ -1204,6 +1212,7 @@ def main() -> None:
                 alert_decision["evaluated_at"]
             )
             state["notified_goal"] = goal
+            record_site_notice(detection_payload, state, alert_decision["evaluated_at"])
         elif (not detection["detected_target"] and detection["confidence"] >= alert_policy["min_confidence"]
               and detection.get("goal_validation") != "missing_helmet_evidence_unavailable"):
             state["notified_goal"] = None

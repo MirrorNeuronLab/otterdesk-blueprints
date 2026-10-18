@@ -3,10 +3,10 @@
   "backpressure": {
     "drop_policy": "skip_with_error",
     "llm": {
-      "max_calls_per_minute": 6,
+      "max_calls_per_minute": 12,
       "max_concurrent_calls": 1,
-      "min_interval_seconds": 10.0,
-      "rationale": "RF-DETR is the fixed person gate. Gated windows use one active Cosmos request and one latest pending window. Historical questions read MN caption memory with the text model."
+      "min_interval_seconds": 5,
+      "rationale": "One active Cosmos request and one latest pending window; person triggers plus periodic scene audits cover approved facility rules. No throughput claim exceeds measured model capacity."
     },
     "max_concurrency": 1,
     "max_events_per_second": 25,
@@ -82,23 +82,16 @@
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Warehouse recording staged from the submitter, or an approved live camera stream.",
+    "description": "Approved factory or hotel camera monitoring; default warehouse demo is recorded footage.",
     "payload": {
       "alert_policy": {
         "cooldown_seconds": 120,
         "min_confidence": 0.55,
-        "mode": "human_notice_only",
-        "notify_on": [
-          "person without a helmet"
-        ]
+        "mode": "human_notice_only"
       },
       "output_folder": "~/Downloads/cctv-operator",
       "source_mode": "stream",
-      "video_source": "bundled_demo",
-      "visual_targets": [
-        "person without a helmet"
-      ],
-      "monitoring_goal": "A visible person is not wearing a helmet."
+      "video_source": "bundled_demo"
     }
   },
   "interfaces": {
@@ -549,7 +542,7 @@
     "blueprint_revision": "v1",
     "category": "security",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "description": "An NVIDIA-only CCTV co-worker with resident RF-DETR person events, person-gated Cosmos helmet and scene understanding, MN caption memory and measured pipeline stages. It supports a staged demo recording or approved external RTSP/RTMP input.",
+    "description": "NVIDIA facility monitoring with independent RF-DETR person sampling, periodic scene audits and frame-bound reviewable Cosmos observations and risk hypotheses.",
     "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
     "name": "CCTV Operator",
     "problem_solved": "One NVIDIA-only workflow runs a self-contained CCTV demo or monitors an approved external RTSP/RTMP stream without sending the source frame rate to the model.",
@@ -661,14 +654,14 @@
     "sample_interval_seconds": 10
   },
   "sampling": {
-    "baseline_interval_seconds": 10,
+    "baseline_interval_seconds": 5,
     "burst_candidate_fps": 4,
-    "frame_jpeg_max_width": 896,
-    "max_calls_per_minute": 6,
-    "max_model_frames": 12,
+    "frame_jpeg_max_width": 768,
+    "max_calls_per_minute": 12,
+    "max_model_frames": 8,
     "max_pending_batches": 1,
-    "post_roll_seconds": 2,
-    "pre_roll_seconds": 2,
+    "post_roll_seconds": 0.5,
+    "pre_roll_seconds": 1.5,
     "proxy_fps": 1,
     "proxy_width": 320,
     "scene_change_consecutive_samples": 2,
@@ -676,7 +669,9 @@
     "sequence_triggers": [
       "semantic_event",
       "on_demand"
-    ]
+    ],
+    "scene_audit_seconds": 15,
+    "max_pending_age_seconds": 10
   },
   "schemas": {
     "artifact_record": "mn.artifact.record.v1",
@@ -766,7 +761,7 @@
       "jpeg_quality": 5,
       "reconnect_seconds": 1,
       "transport": "mjpeg",
-      "width": 1280
+      "width": 960
     },
     "service": {
       "host": "0.0.0.0",
@@ -790,5 +785,10 @@
   "benchmarks": {
     "cohort": "live",
     "max_samples": 10000
+  },
+  "site": {
+    "profile": "factory",
+    "review_owner": "Unassigned",
+    "zones": []
   }
 }

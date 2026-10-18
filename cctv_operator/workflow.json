@@ -53,7 +53,7 @@
       }
     },
     {
-      "goal": "Inspect a low-resolution proxy stream and select sparse or event-triggered frame batches.",
+      "goal": "Claim bounded person-triggered or periodic scene-audit windows; expire stale pending work.",
       "id": "adaptively_sample_video",
       "in": {
         "session": "$state.stream_session"
@@ -69,7 +69,7 @@
       }
     },
     {
-      "goal": "Check the monitoring condition once, branch to detailed analysis for a confident match, and request human approval for uncertain frames.",
+      "goal": "Understand selected video frames, validate frame-bound facility rules and qualified forecasts, then publish reviewable goal matches.",
       "id": "detect_visual_targets",
       "control": {
         "timeout_seconds": 600
@@ -137,7 +137,9 @@
         "human_decision_applied"
       ],
       "mode": "approval_required",
-      "blocked_actions": ["deep_analysis_after_uncertain_screening"],
+      "blocked_actions": [
+        "deep_analysis_after_uncertain_screening"
+      ],
       "default_action": "reject",
       "decision_event": "human_decision_applied",
       "request_event": "human_input_requested",

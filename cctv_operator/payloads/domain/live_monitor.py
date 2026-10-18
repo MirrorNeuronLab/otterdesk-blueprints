@@ -6,11 +6,11 @@ import threading
 import time
 from pathlib import Path
 
+from mn_live_video_analysis_skill import redact_source_urls
 from mn_sdk.agent_events import report_activity
 from mn_sdk.blueprint_support import write_json
 from mn_sdk.blueprint_support.step_execution import append_event
 from mn_sdk_models.local_service import LocalModelService
-from mn_live_video_analysis_skill import redact_source_urls
 
 from .benchmarks import Benchmarks
 from .caption_schedule import BINDING_FILE, CaptionSchedule
@@ -23,6 +23,8 @@ from .person_evidence import PersonEvidence
 class LiveMonitor:
     def __init__(self, run_dir, run_id, config, frame_source, publish_activity, *, detector=None):
         self.root, self.run_id, self.config = Path(run_dir), run_id, config
+        from .site_monitoring import context as site_context
+        site_context(config)  # Validate authored site policy before model/camera work.
         self.frame_source = frame_source
         self.benchmarks = Benchmarks(run_dir, config)
         settings = config.get("person_detector") or {}
@@ -55,7 +57,7 @@ class LiveMonitor:
     def _supervise(self, stage, target):
         try:
             target()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 -- A lane failure must not kill the independent camera lane.
             # The two lanes have explicit independent health. A failed detector
             # never makes an absence observation or opens the Cosmos gate.
             self.status["person_detector" if stage == "person" else "captions"] = "failed"
@@ -75,6 +77,12 @@ class LiveMonitor:
             if jpeg and revision != last_revision:
                 skipped = max(0, revision - last_revision - 1) if last_revision else 0
                 last_revision = revision
+                if not 0 <= time.time() - timestamp <= self.episodes.max_gap_seconds:
+                    self.status["person_detector"] = "waiting_for_frames"
+                    self.benchmarks.record("person.coverage", 0, variant=self.detector.variant, status="skipped", metadata={"skipped_frames": 1})
+                    self._persist()
+                    self.stop_event.wait(1 / self.fps)
+                    continue
                 metadata = {**self.detector.metadata, "fps": self.fps, "timestamp_basis": "worker_frame_availability"}
                 self.benchmarks.record("stream.frame_age", max(0, (time.time() - timestamp) * 1000),
                                        variant=self.detector.variant, metadata=metadata)

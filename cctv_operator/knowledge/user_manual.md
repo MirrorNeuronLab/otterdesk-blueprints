@@ -1,5 +1,8 @@
 # CCTV Operator user manual
 
+Version3.1: choose site.profile=factory or hotel. An omitted/blank monitoring goal uses the selected profile. Independent person triggers and periodic scene audits cover sampled activity and static hazards; forecasts remain hypotheses. Review the facility queue, evidence and unexamined rules in the report/status. One approved common-area camera per Job. Named rectangles are not privacy masks. No identity, medical, compliance or autonomous-response conclusions.
+
+
 Tell it what to watch for on your camera feed. Get alerts with images and times you can review, and ask questions about previously reviewed footage.
 
 ## Inputs

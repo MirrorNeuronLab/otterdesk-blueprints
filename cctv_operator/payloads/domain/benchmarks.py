@@ -1,14 +1,13 @@
 """Bounded CCTV stage measurements, grouped by experiment and implementation."""
 
-import json
 import hashlib
+import json
 import math
 import platform
 import sqlite3
 import time
 from contextlib import contextmanager
 from pathlib import Path
-
 
 STAGES = {
     "stream.frame_age": "Frame availability to processing",
@@ -19,6 +18,7 @@ STAGES = {
     "person.evidence": "Person evidence persistence",
     "notice.publish": "Notice publication",
     "person.capture_to_notice": "Frame availability to person notice",
+    "caption.preprocess": "Caption JPEG decode and resize",
     "caption.queue_wait": "Caption queue delay",
     "caption.dispatch_wait": "Core caption dispatch delay",
     "caption.model_queue_wait": "Cosmos capacity wait",
@@ -40,7 +40,7 @@ class Benchmarks:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.cohort = str(settings.get("cohort", "live"))[:80]
         sections = {"person_detector": ("model", "fps", "confidence_threshold", "consecutive_hits", "absence_seconds", "max_gap_seconds"),
-                    "sampling": ("baseline_interval_seconds", "burst_candidate_fps", "frame_jpeg_max_width", "max_model_frames", "max_calls_per_minute", "pre_roll_seconds", "post_roll_seconds"),
+                    "sampling": ("baseline_interval_seconds", "burst_candidate_fps", "frame_jpeg_max_width", "max_model_frames", "max_calls_per_minute", "pre_roll_seconds", "post_roll_seconds", "scene_audit_seconds", "max_pending_age_seconds"),
                     "text_memory": ("enabled", "max_results", "max_context_bytes")}
         self.configuration = {section: {key: (config or {}).get(section, {}).get(key) for key in keys}
                               for section, keys in sections.items()}
@@ -52,6 +52,7 @@ class Benchmarks:
         self.configuration["alerts"] = {key: alert.get(key) for key in ("min_confidence", "cooldown_seconds")}
         preview = ((config or {}).get("web_ui") or {}).get("preview") or {}
         self.configuration["capture"] = {key: preview.get(key) for key in ("fps", "width", "jpeg_quality")}
+        self.configuration["site"] = {key: (config or {}).get("site", {}).get(key) for key in ("profile", "rule_ids")}
         self.configuration_hash = hashlib.sha256(json.dumps(self.configuration, sort_keys=True).encode()).hexdigest()
         implementation = hashlib.sha256()
         for module in sorted(Path(__file__).parent.glob("*.py")):

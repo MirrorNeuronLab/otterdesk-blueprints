@@ -4,7 +4,7 @@
   "manual": "@/knowledge/user_manual.md",
   "tools": {
     "get_operator_status": {
-      "description": "Read the latest Cosmos scene understanding and its timestamp, plus separate RF-DETR person-gate and Cosmos health. RF-DETR only gates person presence; it never judges helmets or creates Chat findings. The gate cannot be changed. Questions do not change monitoring.",
+      "description": "Read the latest sampled Cosmos account, frame-bound factory/hotel review queue, uncertainty and separate capture/person/caption health. Scheduled scene audits can examine empty scenes. A read never changes monitoring.",
       "effect": "read",
       "inputSchema": {
         "type": "object",

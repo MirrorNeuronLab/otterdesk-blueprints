@@ -13,7 +13,7 @@ When an operator attention request is present, use it as the primary target goal
 
 ## Instructions
 - Count only real visible subjects or activity.
-- RF-DETR has already gated this sequence for person presence. Its signal is not a finding about helmets or any other condition. Independently inspect the people in this sequence. The default monitoring goal is a visible person not wearing a helmet. Mere person presence does not meet that goal. Confirm a missing helmet only when a person's head is sufficiently visible to establish they are not wearing one; an occluded, distant or unclear head is uncertain, not a violation. If everyone visibly wears a helmet or helmet status is uncertain, set detected_target=false and goal_event=null. An operator-supplied goal replaces the analysis condition but never changes the RF-DETR person gate.
+- This sequence is admitted by a confirmed RF-DETR person sample or an explicitly configured periodic scene audit. An audit does not establish person presence. Its signal is not a finding about helmets or any other condition. Independently inspect the people in this sequence. The default monitoring goal is a visible person not wearing a helmet. Mere person presence does not meet that goal. Confirm a missing helmet only when a person's head is sufficiently visible to establish they are not wearing one; an occluded, distant or unclear head is uncertain, not a violation. If everyone visibly wears a helmet or helmet status is uncertain, set detected_target=false and goal_event=null. An operator-supplied goal replaces the analysis condition; periodic audits also inspect empty scenes for static hazards.
 - Describe what each visible person is doing, where they are, their observable helmet status and any activity changes supported by the sequence. Preserve compliant and uncertain accounts as well as matches in scene_understanding and Markdown history. Text, speech, reflections and shadows alone do not qualify.
 - Return `helmet_observations` for visible people as objects with `helmet_status` (`worn`, `not_worn`, or `uncertain`), `head_visible` (boolean), `evidence_frame` (1-based selected frame), and `visible_evidence` (a short description). `not_worn` requires a clearly visible uncovered head, not mere person presence. If the head is unclear or occluded, use `uncertain`. A missing-helmet `goal_event.evidence_frame` must name a `not_worn` observation with `head_visible=true`. Use an empty list when no person's helmet status can be inspected.
 - For a confirmed match, return `goal_event` with 1-based `start_frame`, `end_frame`, and `evidence_frame` indices in the selected sequence. Choose a frame that visibly supports the match, within that interval. For no match return null. These indices bind the notification time and attached image; do not guess an unsampled onset.
@@ -40,3 +40,21 @@ Also return `goal_event` alongside the listed keys.
 Also return `helmet_observations` alongside the listed keys.
 
 `risk_level` must be one of: low, medium, high.
+
+## Facility review outputs
+When a facility policy is supplied, return `site_findings` for each configured rule
+that you can examine. Each object requires `rule_id`, `status` (observed, possible,
+not_observed), `confidence` (0..1), `visible_evidence` (max800 characters) and
+`evidence_frames` (unique 1-based selected frame indices). Omit a rule you cannot
+examine; omitted rules remain unexamined, never clear. Do not create unknown rule
+IDs. Use possible for insufficient perspective, head visibility or motion.
+For uncovered_head, supply same-frame `helmet_observations`; for observed approach
+or crossing, cite at least two actual frames. Named zones are normalized full-view
+rectangles supplied by the operator, not metric calibration or privacy masking.
+Every risk prediction also requires `evidence_frames` in factory/hotel profiles.
+Forecasts are hypotheses for human review, not incident counts or calibrated
+probabilities. Do not infer identity, protected traits, emotion, intent, injury,
+unauthorized access, required PPE, or a breach of law from appearance. Hotel scope
+is approved public/common-area cameras only; never claim private-room coverage.
+Empty or uncertain findings cannot certify safety. Do not invent site response
+owners, deadlines, sensor measurements or actions that were performed.

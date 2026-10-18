@@ -50,6 +50,34 @@
   "init_config_review": {
     "fields": [
       {
+        "path": "site.profile",
+        "label": "Facility profile",
+        "type": "select",
+        "default": "factory",
+        "description": "factory, hotel or custom. Use the matching example profile JSON and monitoring goal. Only approved cameras; one source per Job.",
+        "choices": [
+          {
+            "label": "Factory",
+            "value": "factory"
+          },
+          {
+            "label": "Hotel common areas",
+            "value": "hotel"
+          },
+          {
+            "label": "Custom goal",
+            "value": "custom"
+          }
+        ]
+      },
+      {
+        "path": "site.review_owner",
+        "label": "Review owner or duty role",
+        "type": "text",
+        "default": "Unassigned",
+        "description": "Your named review role; recommendations do not assign work or send communications."
+      },
+      {
         "default": "bundled_demo",
         "description": "Use the bundled Docker demo by default. Choose external only when supplying an approved RTSP/RTMP URI.",
         "label": "Video source profile",
@@ -65,21 +93,18 @@
         "description": "Staged from the submitting computer for warehouse demo playback."
       },
       {
-        "default": "A visible person is not wearing a helmet.",
-        "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
+        "default": "",
+        "description": "Optional specific visual goal. Leave blank to use the selected factory/hotel profile goal. Custom profile requires an explicit goal.",
         "label": "Monitoring goal",
         "path": "inputs.payload.monitoring_goal",
         "type": "text",
-        "required": true
+        "required": false
       },
       {
         "default": {
           "cooldown_seconds": 120,
           "min_confidence": 0.55,
-          "mode": "human_notice_only",
-          "notify_on": [
-            "person without a helmet"
-          ]
+          "mode": "human_notice_only"
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",
         "label": "Alert policy",
@@ -146,6 +171,36 @@
     },
     "fields": [
       {
+        "path": "site.profile",
+        "label": "Facility profile",
+        "type": "select",
+        "default": "factory",
+        "description": "factory, hotel or custom. Use the matching example profile JSON and monitoring goal. Only approved cameras; one source per Job.",
+        "choices": [
+          {
+            "label": "Factory",
+            "value": "factory"
+          },
+          {
+            "label": "Hotel common areas",
+            "value": "hotel"
+          },
+          {
+            "label": "Custom goal",
+            "value": "custom"
+          }
+        ],
+        "required": false
+      },
+      {
+        "path": "site.review_owner",
+        "label": "Review owner or duty role",
+        "type": "text",
+        "default": "Unassigned",
+        "description": "Your named review role; recommendations do not assign work or send communications.",
+        "required": false
+      },
+      {
         "path": "video_source.profile",
         "label": "Video source",
         "type": "text",
@@ -183,21 +238,18 @@
         "description": "Use an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address; 127.0.0.1 and localhost refer to the worker's own machine. The URL is stored securely."
       },
       {
-        "default": "A visible person is not wearing a helmet.",
-        "description": "Report only when this visible event is observed, with its capture time and an evidence frame.",
+        "default": "",
+        "description": "Optional visual goal; leave blank to use the selected facility profile.",
         "label": "Monitoring goal",
         "path": "inputs.payload.monitoring_goal",
         "type": "text",
-        "required": true
+        "required": false
       },
       {
         "default": {
           "cooldown_seconds": 120,
           "min_confidence": 0.55,
-          "mode": "human_notice_only",
-          "notify_on": [
-            "person without a helmet"
-          ]
+          "mode": "human_notice_only"
         },
         "description": "Confidence, cooldown, and notification policy for reviewer notices.",
         "label": "Alert policy",

@@ -1,0 +1,24 @@
+{
+  "web_ui": {
+    "preview": {
+      "width": 1280
+    }
+  },
+  "sampling": {
+    "frame_jpeg_max_width": 896,
+    "max_model_frames": 12,
+    "pre_roll_seconds": 2,
+    "post_roll_seconds": 2,
+    "baseline_interval_seconds": 10,
+    "max_calls_per_minute": 6
+  },
+  "backpressure": {
+    "llm": {
+      "min_interval_seconds": 10,
+      "max_calls_per_minute": 6
+    }
+  },
+  "benchmarks": {
+    "cohort": "detail-review"
+  }
+}

@@ -15,6 +15,7 @@ runs. Empty measurements are not benchmark results.
 | `person.evidence` | Durable frame artifacts | Frame, episode and bounded notice-preview persistence |
 | `notice.publish` | SDK human notice + MCP activity | Durable notice and activity publication; excludes desktop receipt/display |
 | `person.capture_to_notice` | Full person lane | First qualifying sampled frame availability to notice publication, including persistence delay |
+| `caption.preprocess` | Bounded JPEG sequence | JPEG decode, aspect-preserving thumbnail and re-encoding, outside the person-signal lock |
 | `caption.queue_wait` | Independent caption admission | Window offered to window claimed by sampler |
 | `caption.dispatch_wait` | Core | Claimed batch to caption handler load |
 | `caption.model_queue_wait` | Single Cosmos slot | Caption handler waiting for the model slot |
@@ -113,3 +114,15 @@ notification receipt require measurements in the prepared worker environment.
 No latency or accuracy figures are claimed from that smoke test.
 
 Primary model reference: [RF-DETR](https://github.com/roboflow/rf-detr).
+
+
+## Version 3.1 facility acceptance
+
+The responsive defaults lower the configured post-roll from2s to0.5s, selected-frame
+ceiling from12 to8, and sequence width from896 to768; the shared relay changes
+1280→960. Those are configuration/work reductions, not measured GPU speedups.
+Compare the detail-review example on the same labeled footage. Include first
+empty-scene audit latency, per-rule recall and false notices/hour, unexamined rules,
+stale expirations, concurrent Cosmos load and actual operator delivery. Model scores
+are uncalibrated; predictions need independent outcome labels and must not be scored
+as observed incidents. Default tests use fixtures, not customer acceptance data.

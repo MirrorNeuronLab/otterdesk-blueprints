@@ -57,7 +57,8 @@ def understanding_fields(result):
             raise ValueError("risk prediction severity must be low, medium or high")
         qualified.append({**{key: item[key].strip() for key in required},
                           "confidence": confidence, "severity": severity,
-                          "qualification": "prediction_not_observed_event"})
+                          "qualification": "prediction_not_observed_event",
+                          **({"evidence_frames": item["evidence_frames"]} if "evidence_frames" in item else {})})
     uncertainties = result.get("uncertainties", [])
     if not isinstance(uncertainties, list) or any(not isinstance(value, str) for value in uncertainties):
         raise ValueError("uncertainties must be a list of strings")

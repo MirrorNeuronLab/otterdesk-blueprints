@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
+from .site_monitoring import context as site_context
 
 DEFAULT_VISUAL_TARGETS = (
     "person without a helmet",
@@ -38,10 +40,10 @@ def _clean_phrases(value: Any, *, fallback: tuple[str, ...]) -> list[str]:
 def configured_visual_targets(
     config: Mapping[str, Any] | None,
 ) -> list[str]:
-    return _clean_phrases(
-        _payload_config(config).get("visual_targets"),
-        fallback=DEFAULT_VISUAL_TARGETS,
-    )
+    defaults = DEFAULT_VISUAL_TARGETS
+    if (config or {}).get("site", {}).get("profile") in {"factory", "hotel"}:
+        defaults = tuple(rule["title"] for rule in site_context(config)["rules"])
+    return _clean_phrases(_payload_config(config).get("visual_targets"), fallback=defaults)
 
 
 def configured_alert_policy(
@@ -76,7 +78,12 @@ def configured_alert_policy(
 
 
 def configured_monitoring_goal(config: Mapping[str, Any] | None) -> str:
-    goal = _payload_config(config).get("monitoring_goal", DEFAULT_MONITORING_GOAL)
+    default = DEFAULT_MONITORING_GOAL
+    if (config or {}).get("site", {}).get("profile") in {"factory", "hotel"}:
+        default = site_context(config)["profile_goal"]
+    goal = _payload_config(config).get("monitoring_goal", default)
+    if goal == "" and default != DEFAULT_MONITORING_GOAL:
+        goal = default
     if not isinstance(goal, str) or not goal.strip() or len(goal) > 500:
         raise ValueError("monitoring_goal must be a nonempty string of at most 500 characters")
     return " ".join(goal.split())

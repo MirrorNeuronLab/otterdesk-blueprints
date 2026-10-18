@@ -60,6 +60,7 @@ def test_resident_lane_reports_work_confirmation_and_observed_absence_without_fr
             self.count += 1
     monitor = LiveMonitor(tmp_path, "run", {}, Source(), None, detector=Detector())
     monitor.stop_event = Stop()
+    monkeypatch.setattr("cctv_operator.payloads.domain.live_monitor.time.time", lambda: [100, 100.2, 100.4, 101, 102.5][monitor.frame_source.index - 1])
     monitor._person_loop()
     records = [json.loads(line.removeprefix("__MN_EVENT__")) for line in capsys.readouterr().out.splitlines()]
     assert [record["payload"]["message"] for record in records] == [

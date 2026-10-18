@@ -154,8 +154,8 @@ def ffmpeg_mjpeg_command(settings: MJPEGPreviewSettings) -> list[str]:
             "-an",
             "-vf",
             (
-                f"scale_cuda=w={settings.width}:h=-2:format=nv12,"
-                f"hwdownload,format=nv12,fps={settings.fps:g}"
+                f"fps={settings.fps:g},scale_cuda=w={settings.width}:h=-2:format=nv12,"
+                "hwdownload,format=nv12"
             ),
             "-c:v",
             "mjpeg",

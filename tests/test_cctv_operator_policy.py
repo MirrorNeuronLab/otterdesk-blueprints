@@ -4,7 +4,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = (
     ROOT
@@ -17,20 +16,21 @@ SPEC = importlib.util.spec_from_file_location(
     "cctv_operator_detection_policy", MODULE_PATH
 )
 assert SPEC and SPEC.loader
-policy = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(policy)
+from cctv_operator.payloads.domain import detection_policy as policy
 
 
-def test_demo_starts_with_missing_helmet_goal_and_markdown_summary_contract():
+def test_demo_starts_with_factory_goal_and_markdown_summary_contract():
     blueprint = ROOT / "cctv_operator"
     config = json.loads((blueprint / "config/default.json").read_text())
     ui = json.loads((blueprint / "extensions/ui.json").read_text())
-    payload = config["inputs"]["payload"]
-    assert payload["visual_targets"] == ["person without a helmet"]
-    assert payload["alert_policy"]["notify_on"] == ["person without a helmet"]
-    assert policy.configured_visual_targets({}) == payload["visual_targets"]
-    assert payload["monitoring_goal"] == "A visible person is not wearing a helmet."
-    assert policy.configured_monitoring_goal({}) == payload["monitoring_goal"]
+    assert config["site"]["profile"] == "factory"
+    assert "Visible travel-path obstruction" in policy.configured_visual_targets(config)
+    assert "industrial equipment" in policy.configured_monitoring_goal(config)
+    config["site"]["profile"] = "hotel"
+    assert "common areas" in policy.configured_monitoring_goal(config)
+    assert "Person appears down on the floor" in policy.configured_visual_targets(config)
+    assert policy.configured_visual_targets({}) == list(policy.DEFAULT_VISUAL_TARGETS)
+    assert policy.configured_monitoring_goal({}) == policy.DEFAULT_MONITORING_GOAL
     assert ui["starter_questions"][0] == "Has the monitoring goal happened?"
     assert "Summarize the video." in ui["starter_questions"]
     chat = (blueprint / "payloads/prompts/chat-system.md").read_text()

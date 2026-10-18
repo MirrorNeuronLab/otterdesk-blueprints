@@ -70,7 +70,7 @@ def observation_details(value: Mapping[str, Any]) -> list[dict[str, str]]:
     for prediction in _items(value.get("risk_predictions")):
         details.append({"label": "Predicted risk", "value": (
             f"{prediction.get('risk')} · {prediction.get('severity')} · "
-            f"{prediction.get('time_horizon')} · confidence {float(prediction.get('confidence') or 0):.0%}. "
+            f"{prediction.get('time_horizon')} · model score {float(prediction.get('confidence') or 0):.2f} (uncalibrated). "
             f"Evidence: {prediction.get('visible_evidence')}. Review: {prediction.get('recommended_review')}. "
             "Prediction, not an observed event."
         )})
@@ -337,6 +337,7 @@ def operator_state(
         },
         "finding_details": observation_details(current_finding),
         "understanding": {key: current_finding.get(key) for key in (
+            "site_findings", "site_context", "site_coverage",
             "scene_understanding", "risk_predictions", "uncertainties", "observed_at",
             "camera_id", "frame_batch_ref", "capture_started_at", "capture_ended_at", "source_profile")},
         "warning": warning,

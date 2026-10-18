@@ -184,10 +184,10 @@
       "example": "/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4"
     },
     "monitoring_goal": {
-      "description": "Visible event condition that triggers a chat report with capture time and a frame.",
+      "description": "Optional explicit visible goal. Blank/omitted uses the selected factory/hotel profile; custom profile requires an explicit condition.",
       "example": "A visible person is not wearing a helmet.",
       "type": "domain_value",
-      "required": true,
+      "required": false,
       "privacy": "internal"
     }
   },

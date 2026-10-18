@@ -16,6 +16,7 @@ for ancestor in (SCRIPT_DIR, *SCRIPT_DIR.parents):
         break
 
 from domain.reporting import bounded_history, sampling_records
+from domain.site_reports import sections as site_sections
 
 
 RESULT_START = "__MN_RESULT_START__"
@@ -179,7 +180,7 @@ def markdown_report(report: dict[str, Any]) -> str:
         f"- Watch target: {monitoring.get('instruction') or 'Configured visual targets'}",
         f"- Source mode: {report['source_mode']}",
         f"- Media accelerator: {report['media_accelerator']}",
-        f"- Frames analyzed: {report['frames_analyzed']}",
+        f"- Analyzed sampled sequences: {report['frames_analyzed']}",
         f"- Target detections: {report['detection_count']}",
         f"- Operator notices: {len(report['alerts'])}",
         f"- Analysis errors: {len(report['errors'])}",
@@ -225,10 +226,11 @@ def markdown_report(report: dict[str, Any]) -> str:
     for observation, prediction in forecasts:
         lines.append(
             f"- {observation.get('observed_at')} · frame {observation.get('frame_seq')} · "
-            f"{prediction['risk']} ({prediction['severity']}, confidence {prediction['confidence']:.0%}). "
+            f"{prediction['risk']} ({prediction['severity']}, model score {prediction['confidence']:.2f}, uncalibrated). "
             f"Horizon: {prediction['time_horizon']}. Evidence: {prediction['visible_evidence']}. "
             f"Review: {prediction['recommended_review']}. Batch: {observation.get('frame_batch_ref')}."
         )
+    lines.extend(["", *site_sections(observations)])
     lines.extend(["", "## Analysis errors"])
     if not report["errors"]:
         lines.append("- No analysis errors have been recorded.")
@@ -247,7 +249,7 @@ def final_artifact(report: dict[str, Any]) -> dict[str, Any]:
     return {
         "type": "cctv_operator_review",
         "executive_summary": (
-            f"Analyzed {report['frames_analyzed']} frame(s) from {len(report['sources_observed'])} source(s) "
+            f"Analyzed {report['frames_analyzed']} sampled sequence(s) from {len(report['sources_observed'])} source(s) "
             f"and recorded {report['detection_count']} configured-target detection(s)."
         ),
         "recommended_action": (

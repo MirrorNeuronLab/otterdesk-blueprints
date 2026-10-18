@@ -314,7 +314,7 @@ def test_cctv_ui_mjpeg_relay_uses_cuda_decode_and_scale_without_cpu_fallback():
     assert settings.enabled is True
     assert command[command.index("-hwaccel") + 1] == "cuda"
     assert command[command.index("-hwaccel_output_format") + 1] == "cuda"
-    assert "scale_cuda=w=960:h=-2:format=nv12,hwdownload,format=nv12,fps=9" in command
+    assert "fps=9,scale_cuda=w=960:h=-2:format=nv12,hwdownload,format=nv12" in command
     assert command[command.index("-c:v") + 1] == "mjpeg"
     assert "libx264" not in command
     assert "h264" not in command

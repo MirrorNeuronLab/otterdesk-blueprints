@@ -1,0 +1,27 @@
+{
+  "site": {
+    "profile": "factory",
+    "review_owner": "Unassigned",
+    "zones": []
+  },
+  "inputs": {
+    "payload": {
+      "monitoring_goal": "Watch for visible travel-path obstructions, a person near moving industrial equipment, or a clearly visible uncovered head; distinguish observations from possible risks.",
+      "visual_targets": [
+        "visible travel-path obstruction",
+        "person near moving industrial equipment",
+        "clearly visible uncovered head"
+      ],
+      "alert_policy": {
+        "mode": "human_notice_only",
+        "min_confidence": 0.65,
+        "cooldown_seconds": 30,
+        "notify_on": [
+          "visible travel-path obstruction",
+          "person near moving industrial equipment",
+          "clearly visible uncovered head"
+        ]
+      }
+    }
+  }
+}

@@ -24,7 +24,7 @@ def observation_record(value):
     notes += "### Observed activity\n\n" + str(value.get("scene_understanding") or value.get("summary") or "No scene account.") + "\n\n"
     notes += "### Predicted risks\n\n"
     for prediction in value.get("risk_predictions") or []:
-        notes += (f"- {prediction['risk']} ({prediction['severity']}, confidence {prediction['confidence']:.0%}); "
+        notes += (f"- {prediction['risk']} ({prediction['severity']}, model score {prediction['confidence']:.2f}, uncalibrated); "
                   f"horizon: {prediction['time_horizon']}. Visible evidence: {prediction['visible_evidence']}. "
                   f"Review: {prediction['recommended_review']}. Prediction, not an observed event.\n")
     notes += "\n### Complete account and provenance\n\n"
