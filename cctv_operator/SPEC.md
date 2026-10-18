@@ -37,7 +37,7 @@ deadlines, action completion, speed, distance or external sensor measurements.
 ## Capture and admission
 
 Retain the independent resident CUDA relay, person and caption lanes. Default
-relay: 960-wide full-view MJPEG at8FPS, aspect preserved; fps selection precedes
+relay: 1280-wide full-view MJPEG at8FPS, aspect preserved; fps selection precedes
 CUDA scale/download. RF-DETR Small FP16 requests5FPS with existing pinned COCO
 weights, two-hit confirmation, two-second sampled absence and gap policy.
 Missing/corrupt weights fail without downloads or CPU fallback. A stale frame
@@ -45,7 +45,7 @@ cannot advance episodes or establish absence. JPEG resizing and batch writes
 cannot hold the person-signal lock.
 
 Default caption sequence:4candidateFPS,1.5s pre-roll,0.5s post-roll,<=8 chronological
-frames within768pixels, no upscaling. Initial short person appearances can have
+frames within896pixels, no upscaling. Initial short person appearances can have
 less pre-roll; actual timestamps disclose that span. A complete2s empty-scene
 window permits the first scene audit. Subsequent audits require15s without an
 offered window; pending steering may request an earlier eligible audit. Scheduled
@@ -129,9 +129,15 @@ footage including hard negatives, occlusion/distance/night, outages and busy sce
 Measure per-rule precision/recall/misses with counts, false notices/camera-hour,
 p50/p95 response and skipped coverage under concurrent load. Agree latency/recall
 thresholds per site and get human review of evidence and suggested actions. The
-smaller/shorter responsive profile requires comparison to examples/detail-review.json;
+shorter default sequence requires comparison to examples/detail-review.json;
+examples/smaller-media.json also requires independent site recall validation;
 preprocessing speed alone is not detection accuracy or production readiness.
 
-Current live acceptance remains pending an operator-authenticated Spark restart
-and an available approved source. No GPU speedup or real-case accuracy is claimed
-from offline fixture tests. Do not change or reinstall runtime to bypass blockers.
+On 2026-10-18 Spark reboot/reconnection and GB10 CUDA/RF-DETR stage checks succeeded.
+The 1280/896 image defaults remain because 960/768 saved little GPU time in this
+clip and one person count differed, without labeled ground truth. Smaller media
+is an explicit site-validation preset. Full workflow CreateJob was rejected by
+Spark Core's older response/MCP contract, before an accepted Job or Cosmos report.
+End-to-end latency, semantic accuracy, history and notice acceptance remain open.
+See README for measured scope and results. Keep the native declared contract;
+do not change/reinstall runtime or weaken validation to bypass this blocker.

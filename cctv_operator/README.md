@@ -37,14 +37,16 @@ injury diagnosis or legal compliance is inferred.
 
 `examples/factory-monitoring.json` and `examples/hotel-monitoring.json` are mergeable
 blueprint configuration examples. `examples/detail-review.json` preserves the
-larger/longer sequence settings for an explicit quality comparison. The installed
+longer sequence settings for an explicit quality comparison.
+`examples/smaller-media.json` selects a 960-pixel relay and 768-pixel captions for
+sites that independently validate the loss of distant/small-object detail. The installed
 CLI uses repeated `--set`; it does not accept these files via `--config`.
 
 ## Responsive pipeline
 
 One persistent CUDA FFmpeg relay feeds the preview, an independent resident
 RF-DETR person lane and a separate caption sampling lane. Rate selection precedes
-CUDA resize and host download. The default shared relay is 960 pixels wide at
+CUDA resize and host download. The default shared relay is 1280 pixels wide at
 8 FPS; source aspect ratio is preserved. RF-DETR Small requests 5 FPS and retains
 two-hit confirmation, sampled-absence rearming and explicit gap handling.
 No CPU decoder, replacement detector or demo-source fallback is used.
@@ -52,7 +54,7 @@ No CPU decoder, replacement detector or demo-source fallback is used.
 Default caption policy:
 
 - 4 candidate FPS; 1.5-second pre-roll and 0.5-second post-roll; up to eight
-  chronological selected frames, resized within 768 pixels without upscaling.
+  chronological selected frames, resized within 896 pixels without upscaling.
 - Person confirmation triggers a sequence. Periodic scene audits inspect static
   hazards even without a person: first after a complete two-second window, then
   after fifteen seconds without another offered window. Steering requests can
@@ -88,7 +90,7 @@ a Mac does not qualify. The sampler, inference, reports and Web UI share the
 selected DockerWorker. Pin Spark explicitly for validation:
 
 ```bash
-mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.26 --web-ui \
+mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
   --set video_source.demo_file=/absolute/path/on/mini/to/approved-test.mp4
 ```
 
@@ -102,7 +104,7 @@ No host FFmpeg, runtime reset or reinstallation is required.
 For an approved hotel camera:
 
 ```bash
-mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.26 --web-ui \
+mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
   --set site.profile=hotel \
   --set site.review_owner='Duty manager' \
   --set video_source.profile=external \
@@ -194,8 +196,28 @@ per camera-hour and precision/recall with sample counts; no synthetic fixture or
 faster preprocessing proves customer accuracy. Agree site-specific latency and
 recall targets before deployment. Human review must confirm useful recommended
 actions and the selected evidence. Do not claim production readiness without that
-evidence. The 2026-10-18 edit had offline checks only pending Spark restart and an
-available approved demo/camera input.
+evidence.
+
+### Verification on 2026-10-18
+
+Spark was rebooted and reconnected at 10.0.4.32. CUDA relay and the pinned RF-DETR
+checkpoint ran on its NVIDIA GB10 against the approved warehouse recording.
+Across eight sampled frames, warm complete person-prediction medians were 10.3ms
+at 1280 pixels and 8.8ms at 960 pixels. One sampled count differed; no independently
+labeled recall/precision claim follows. Four-second offline relay medians were
+690.7 ms and 683.0 ms respectively (three trials, including cold startup). These are
+stage timings, not real-time event-to-notice latency. Keep 1280/896 as defaults;
+the small measured gain does not establish that losing image detail is acceptable.
+The shorter sequence, post-roll and scheduling changes remain enabled.
+
+Full workflow submission reached a prepared worker but Spark Core rejected the
+current typed response/MCP contract during CreateJob. Job reconciliation returned
+not found. No accepted Core run, Cosmos output, published report, history round
+trip or operator notice was produced. The blueprint keeps its declared native
+contract; no compatibility shim, runtime upgrade or model-registry change was
+made. A deployment supporting the declared SDK/MCP contract is required before
+the end-to-end gate can pass. Offline checks passed 189 tests; the broader catalog
+had 968 passes, 36 skips and one unrelated VC environment-contract failure.
 
 See [SPEC.md](SPEC.md) for the contract and [BENCHMARKS.md](BENCHMARKS.md) for
 measurement boundaries. Source bundles use canonical blueprint/v1 documents;

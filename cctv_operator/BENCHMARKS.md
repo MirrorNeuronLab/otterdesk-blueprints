@@ -118,11 +118,26 @@ Primary model reference: [RF-DETR](https://github.com/roboflow/rf-detr).
 
 ## Version 3.1 facility acceptance
 
-The responsive defaults lower the configured post-roll from2s to0.5s, selected-frame
-ceiling from12 to8, and sequence width from896 to768; the shared relay changes
-1280→960. Those are configuration/work reductions, not measured GPU speedups.
+The defaults lower configured post-roll from 2 s to 0.5 s and the selected-frame
+ceiling from 12 to 8. Image defaults remain a 1280-pixel relay and 896-pixel captions.
+The optional smaller-media preset selects 960/768; its small observed GPU timing
+gain on the warehouse clip does not establish that reduced detail is acceptable.
+These settings reduce configured wait/work, without proving end-to-end latency.
 Compare the detail-review example on the same labeled footage. Include first
 empty-scene audit latency, per-rule recall and false notices/hour, unexamined rules,
 stale expirations, concurrent Cosmos load and actual operator delivery. Model scores
 are uncalibrated; predictions need independent outcome labels and must not be scored
 as observed incidents. Default tests use fixtures, not customer acceptance data.
+
+On 2026-10-18 the real GB10 CUDA relay and strict RF-DETR checkpoint stage check
+passed on the approved 1920x1080 warehouse recording. Eight sampled-frame warm
+complete person predictions had medians 10.315 ms at 1280 pixels and 8.77 ms at
+960 pixels; one count differed, without labeled ground truth. Four-second relay
+medians were 690.65 ms and 682.96 ms (three trials, including startup). Width and
+filter order changed together; this is not an isolated causal speedup measurement.
+A separate owned synthetic CPU JPEG benchmark measured 104.36 ms median for
+12 x 896-pixel frames, 69.35 ms for 8 x 896 and 64.29 ms for 8 x 768 (20 batches).
+These measurements are not model latency, incident accuracy or operator receipt.
+Core rejected the subsequent full Job creation's current typed response/MCP
+contract. Cosmos/report/history/notice acceptance and concurrent-load measurements
+remain open. Preserve this refusal rather than weakening the declared contract.

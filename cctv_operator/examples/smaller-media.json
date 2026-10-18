@@ -1,0 +1,13 @@
+{
+  "web_ui": {
+    "preview": {
+      "width": 960
+    }
+  },
+  "sampling": {
+    "frame_jpeg_max_width": 768
+  },
+  "benchmarks": {
+    "cohort": "smaller-media-site-validation"
+  }
+}

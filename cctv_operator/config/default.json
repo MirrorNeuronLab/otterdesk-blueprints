@@ -656,7 +656,7 @@
   "sampling": {
     "baseline_interval_seconds": 5,
     "burst_candidate_fps": 4,
-    "frame_jpeg_max_width": 768,
+    "frame_jpeg_max_width": 896,
     "max_calls_per_minute": 12,
     "max_model_frames": 8,
     "max_pending_batches": 1,
@@ -761,7 +761,7 @@
       "jpeg_quality": 5,
       "reconnect_seconds": 1,
       "transport": "mjpeg",
-      "width": 960
+      "width": 1280
     },
     "service": {
       "host": "0.0.0.0",
