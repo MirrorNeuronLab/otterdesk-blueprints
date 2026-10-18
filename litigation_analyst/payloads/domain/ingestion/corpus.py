@@ -37,15 +37,18 @@ _SKIP_PARTS = {".rgx", ".git", "__pycache__", ".venv", "target", "var"}
 
 
 class CaseCorpus:
-    def __init__(self, root: str | Path, access_scope: str = "default") -> None:
+    def __init__(self, root: str | Path, access_scope: str = "default", *, excluded_paths=()) -> None:
         self.root = Path(root).expanduser().resolve()
         self.access_scope = access_scope.strip()
+        self.excluded_paths = frozenset(excluded_paths)
+        self.processing_gaps = []
         if not self.root.is_dir():
             raise CorpusIngestError(f"corpus root does not exist: {self.root}")
         if not self.access_scope:
             raise CorpusIngestError("access_scope must be non-empty")
 
     def scan(self) -> tuple[CaseDocument, ...]:
+        self.processing_gaps = []
         documents: list[CaseDocument] = []
         for path in self._source_paths():
             if path.suffix.casefold() == ".mbox":
@@ -54,6 +57,7 @@ class CaseCorpus:
                 message = BytesParser(policy=policy.default).parsebytes(path.read_bytes())
                 text = self._message_text(message)
                 relative = path.relative_to(self.root).as_posix()
+                self._attachment_coverage(message, f'case:{relative}')
                 documents.append(CaseDocument(source_id=f"case:{relative}", relative_path=relative, media_type="message/rfc822", content_sha256=hashlib.sha256(text.encode()).hexdigest(), size_bytes=path.stat().st_size, text=text, access_scope=self.access_scope))
             else:
                 documents.append(self._scan_file(path))
@@ -82,6 +86,8 @@ class CaseCorpus:
             if not path.is_file():
                 continue
             relative = path.relative_to(self.root)
+            if relative.as_posix() in self.excluded_paths:
+                continue
             if any(part.startswith(".") or part in _SKIP_PARTS or part.endswith(".rgx") for part in relative.parts):
                 continue
             paths.append(path)
@@ -149,6 +155,7 @@ class CaseCorpus:
             content = text.encode("utf-8")
             digest = hashlib.sha256(content).hexdigest()
             source_id = f"case:{relative}#message={position:06d}:{digest[:12]}"
+            self._attachment_coverage(message, source_id)
             results.append(
                 CaseDocument(
                     source_id=source_id,
@@ -162,6 +169,13 @@ class CaseCorpus:
                 )
             )
         return results
+
+    def _attachment_coverage(self, message, source_id):
+        for part in message.walk():
+            if not part.is_multipart() and (part.get_filename() or part.get_content_disposition() == 'attachment'):
+                self.processing_gaps.append({'source_id':source_id, 'media_type':part.get_content_type(),
+                    'status':'included_as_text_without_separate_attachment_identity' if part.get_content_type() == 'text/plain' else 'attachment_not_extracted',
+                    'qualification':'Attachment coverage is not certified; obtain native records for independent review.'})
 
     @staticmethod
     def _message_text(message: Message) -> str:

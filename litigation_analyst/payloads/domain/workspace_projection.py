@@ -5,7 +5,7 @@ import hashlib
 from mn_temporal_graph_skill import fingerprint
 from .temporal_evidence import project
 from .matter_intake import load as load_matter
-from .gap_work import project as project_gaps
+from .gap_work import project as project_gaps, classify
 from .review_scope import limits
 
 
@@ -61,6 +61,7 @@ def build(context, documents, evidence, state, inventory):
         item = {**h, "id": question_id, "origin": "Model enquiry", "mode": "Investigation question",
             "definition": "Factual enquiry; no counsel-defined legal test supplied", "gap_ids": []}
         for gap in project_gaps(question_id, h, spans, matter["gap_assignments"]):
+            gap = classify(gap, documents)
             item["gap_ids"].append(gap["id"])
             gaps[gap["id"]] = gap
         hypotheses.append(item)
@@ -109,6 +110,10 @@ def build(context, documents, evidence, state, inventory):
             "scope": "Authorized frozen sources; ranked retrieval is not exhaustive"},
         "coverage": {"source_ids": sorted(visible_ids), "readable_ids": [d.source_id for d in documents if d.text is not None],
             "unreadable_ids": [d.source_id for d in documents if d.text is None],
+            "attachment_processing": [r for r in inventory.get('attachment_processing', []) if r['source_id'] in visible_ids],
+            "duplicate_source_groups": [kept for group in inventory.get('duplicate_source_groups', [])
+                if len(kept := [i for i in group if i in visible_ids]) > 1],
+            "archives_not_extracted": [p for p in inventory.get('archives_not_extracted', []) if 'case:' + p in visible_ids],
             "definition": "Authorized source records with readable normalized text; not proof of complete extraction or review"},
         "privacy": {"case_data_network_requests": "Workspace makes no network requests",
             "model_location": "Configured runtime model; deployment location is not attested by this output",
@@ -120,4 +125,6 @@ def build(context, documents, evidence, state, inventory):
             "identity_corrections": "Person identity is unresolved; address nodes are never silently merged"}}
 
     from .review_products import attach
-    return attach(workspace, context, matter, documents, spans, limits(context["config"]))
+    workspace = attach(workspace, context, matter, documents, spans, limits(context["config"]))
+    from .review_audit import attach as attach_audit
+    return attach_audit(workspace, context, documents)

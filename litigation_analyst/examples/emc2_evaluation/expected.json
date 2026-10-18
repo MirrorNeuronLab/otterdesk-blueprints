@@ -1,0 +1,46 @@
+{
+  "version": "mn.litigation.emc2-evaluation.v1",
+  "repository": "https://github.com/jur1st/EMC-2",
+  "revision": "6e2ecb0d0cd83eebe9b4ba6a3ce08f814d497977",
+  "license": "CC-BY-4.0",
+  "attribution": "Benson, John. (2024). EMC-2 eDiscovery Dataset (Version 1.0).",
+  "qualification": "Small source-linked regression set, not an attorney-labelled gold standard. Expected criteria must never enter model input.",
+  "labels": [
+    {
+      "id": "patch-not-deployment",
+      "source_id": "case:edocs/gibson_security_patch.txt",
+      "source_sha256": "217c23fcb9db2ae2484093d72db5409c61e3943ff7449eb38ffe0a6d70432b52",
+      "start_offset": 215,
+      "end_offset": 403,
+      "quote": "This document outlines the technical specifications for a comprehensive security patch designed to address vulnerabilities exploited in the recent cyber attack on the Gibson supercomputer.",
+      "criterion": "A technical plan is not proof that deployment occurred."
+    },
+    {
+      "id": "external-test-pending",
+      "source_id": "case:edocs/gibson_security_patch.txt",
+      "source_sha256": "217c23fcb9db2ae2484093d72db5409c61e3943ff7449eb38ffe0a6d70432b52",
+      "start_offset": 2434,
+      "end_offset": 2502,
+      "quote": "5.4 Penetration testing by external security firm (pending approval)",
+      "criterion": "Preserve pending approval; do not call the testing completed."
+    },
+    {
+      "id": "unidentified-participant",
+      "source_id": "case:edocs/ts_phone_log.txt",
+      "source_sha256": "01a8c2875eec1d61a907ecff8d70ccd25eb91e914218a7d272686a7b0ee266ca",
+      "start_offset": 2513,
+      "end_offset": 2603,
+      "quote": "SUBJECT B remains unidentified. Voice does not match any known associates in our database.",
+      "criterion": "Preserve unresolved participant identity and source-stated voice attribution uncertainty."
+    },
+    {
+      "id": "voicemail-anonymous",
+      "source_id": "case:edocs/plague_voicemail_transcript.txt",
+      "source_sha256": "c742067dc4eea1b1064c3b7b0c13ecfdfb3601b1c29f4786f96f3bc994c96ab9",
+      "start_offset": 62,
+      "end_offset": 93,
+      "quote": "From: EXTERNAL (Number blocked)",
+      "criterion": "Do not treat a blocked calling number as verified caller identity."
+    }
+  ]
+}

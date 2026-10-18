@@ -439,3 +439,42 @@ not authenticated attorney approval. No keyword score stands in for accuracy.
 Validate on a representative set of at least 25 genuinely attorney-reviewed matters
 before customer accuracy or readiness claims; the synthetic fixture is only a
 mechanical regression. Do not fabricate that acceptance evidence.
+
+
+## Version 3.2 reliability and delivery
+
+Legal clause boundaries must start a line; decimal amounts and embedded references
+such as TX-104 cannot start clauses. Keep exact normalized bytes and offsets.
+Candidate packets include complete short authorized sources and source-bound
+financial annotations. Whole-component admission still determines actual visibility.
+Never expose flagged sources, omit a required cited dependency, or let an omitted
+financial record masquerade as reviewed. Review performs its own source search and
+one structured financial consistency check per finding when annotations exist.
+Reject missing/duplicate checks, unresolved record coverage and contradictory claims.
+The deterministic explicit-absence guard is limited and is not semantic validation.
+
+Primary reports lead with the counsel issue brief and source-linked financial
+records; technical graph/action detail remains available under advanced disclosure.
+Inventory-matched ledger/policy work is internal reread; privilege-related work is
+handling review. No automatic collection, contact, legal judgment or assignee is
+introduced. New workspace coverage lists actual assessor/reviewer source admission
+and full-source admission separately from source readability and AI acceptance.
+`case/consistency_review.json` and `case/performance.json` are additional diagnostics.
+Frozen prior runs are never rewritten by this release.
+
+Blank input retains the pinned EMC-2 revision and CC-BY attribution. Repository
+README.md, LICENSE.md and CITATION.MD are excluded only for this known sample;
+custom folders retain their own selection. Report native attachment extraction gaps,
+archives not extracted and duplicate normalized-source groups without collapsing
+source identities. Source-linked expected criteria live outside model inputs in
+examples/emc2_evaluation/expected.json; exact-binding checks require separate
+attorney judgment for narrative retention and substantive correctness.
+
+The SDK/CLI resolve completed output identity from the bound Core result reference,
+retain completion/file readiness checks, and deliver the configured Downloads copy.
+Host delivery receipts and latest.html are separate from immutable analysis files.
+Stage timing and recorded response usage support prospective response-budget
+comparisons. Unmeasured provider reasoning/calibration/repair overhead stays unknown;
+output-token defaults are unchanged pending a passing factual and attorney baseline.
+
+Version 3.2 requires the companion SDK from 1.3.61.dev20 (or the matching local source checkout) for numeric ledger diagnostics and coordinated host delivery. Update the CLI alongside it. No Core configuration or model-registry change is required.

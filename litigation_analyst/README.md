@@ -1,16 +1,53 @@
 # Litigation Analyst
 
-## Version 3.1: counsel-directed first review
+## Version 3.2: complete evidence and attorney issue briefs
+
+New runs preserve numeric references and monetary values in source units. Assessors
+receive complete short sources when they fit, together with source-verified
+transaction facts. Reviewers run a separate case search, inspect contrary context
+and reconcile each finding with the supplied transaction records. Explicit absence
+conflicts and unresolved financial consistency checks withhold the affected finding;
+these checks do not certify semantic accuracy or replace attorney review.
+
+The main report leads with counsel questions, supported draft answers, contrary
+information, transaction distinctions and decision-changing next records. Existing
+ledgers/policies route to internal reread; potentially restricted requests route to
+handling review. Neither is presented as a customer collection request.
+`case/consistency_review.json` and workspace packet coverage disclose the checks
+and sources actually admitted to dispatched model requests, independently of whether the AI accepted a finding. Complete evidence takes priority over repeated methodology: assessment/review prompts retrieve two attributed guidance items; planning retains five.
+
+The default remains `~/Downloads/litigation-analyst`. Open `latest.html` there for
+the latest successfully delivered report/workspace. Prior runs stay in UTC
+`run_<timestamp>/` folders. Updated SDK/CLI delivery resolves Core's completed
+physical run ID and keeps delivery receipts outside frozen analysis outputs.
+Delivery failure is distinct from completed analysis; copying does not rerun it.
+
+Blank input retains pinned EMC-2. Root README/license/citation files provide
+attribution, not evidence. Attachment gaps, unextracted archives and duplicate
+copies are disclosed in `case/source_inventory.json`; duplicates are not independent
+corroboration. `sample_attribution.json` preserves the license and pinned revision.
+Do not feed `examples/emc2_evaluation/expected.json` to a model. After a new EMC-2 run:
+
+```bash
+python litigation_analyst/evaluate_emc2.py /absolute/path/to/run
+```
+
+`case/performance.json` records stage timing and measured decision usage. Missing
+reasoning, calibration and repair durations remain unknown. Compare two completed
+budget experiments using `compare_runs.py BASELINE CANDIDATE --expected PATH`;
+provider latency and output size do not establish answer accuracy. Keep output
+reserves unchanged until a corrected factual baseline and attorney review support
+shortening them. No speed or accuracy gain is claimed solely from these changes.
+
 
 The default `review.profile=first_pass` performs one round (up to two enquiries),
 uses observed structural relationships, and limits investigation decisions to six.
 A separate harmless readiness decision checks the selected model before source
 acquisition or case inference. It sends no case material, preserves the configured
-provider, and fails with `case/model_preflight.json` when verified-context admission
-is unsupported. The 10-second setting bounds the model request after readiness;
+provider, and records readiness in `case/model_preflight.json`. The current SDK can report
+unsupported token counting as unknown without blocking model generation. The 10-second setting bounds the model request after readiness;
 SDK preparation can take longer. Platform input staging occurs before this check.
-No local-model fallback is used. The installed remote serving-tokenizer prerequisite
-still applies; this release does not change the SDK or runtime.
+No local-model fallback is used. Source integrity and known context limits still apply.
 
 First-pass planning checks a 600-second allowance between rounds; it does not
 interrupt in-flight work, cap total wall time, or promise a dollar cost. Provider
@@ -194,8 +231,8 @@ never replace the local path with a guessed Spark path. Inputs are frozen before
 analysis, never executed or modified. Do not put outputs inside the input folder.
 
 Models retain the configured `default` gateway route, including a registered
-remote provider. The installed SDK must supply verified context admission for
-that provider; an unsupported provider fails before a case decision. The blueprint
+remote provider. The SDK keeps supported serving-token counts verified; unsupported counts remain
+explicitly unknown. This does not waive known context or source-integrity limits. The blueprint
 does not substitute a local model or change the model registry.
 The graph-analysis skill copies its digest-pinned Linux engine from a public multi-architecture GAR image.
 Local development requires the companion SDK, agents and skills repositories,
@@ -239,8 +276,8 @@ Tasks execute serially to protect the case evidence database. Core owns admissio
 routing, retries, and completion; the blueprint only proposes admitted task templates.
 The default is at most three rounds, two enquiries per round, and seven child steps
 per round. `dynamic_investigation.max_rounds` can reduce the three-round ceiling;
-`hypotheses_per_round` can be one or two. These bounds permit at most 24 retrieval/
-graph-view operations and 16 investigation model decisions, including the final
+`hypotheses_per_round` can be one or two. These bounds permit at most 24 collector retrieval/
+graph-view operations, plus up to six independent reviewer source searches and 16 investigation model decisions, including the final
 stop decision. Legal relationship indexing has a separate bounded extraction
 allowance; a source graph view may execute up to four native adjacency queries.
 Investigation responses use `context_memory.policy.output_tokens` (2,048 by default), bounded by the configured model client. The same reserve is used for evidence admission and dispatch. The existing elapsed deadline applies;
@@ -480,11 +517,9 @@ workspace. Frozen originals and internal audit records remain retained for the
 authorized matter owner; they are not a cleared sharing package.
 
 Remote-provider admission does not imply that the installed SDK supports that
-provider’s serving-tokenizer protocol. Evidence decisions retain verified context
-admission and fail explicitly when a verified counter is unavailable; the
-blueprint never replaces a registered remote default with a local model. The
-2026-10-18 mini trial is blocked at that prerequisite in the installed SDK; no
-remote-model report or factual-accuracy result is claimed from that attempt.
+provider’s serving-tokenizer protocol. The current SDK continues with unknown counts when counting is unsupported,
+without replacing a registered remote default. Earlier blocked trials used an older
+counting contract; their outcomes do not establish model factual accuracy.
 
 The small synthetic regression matter is in
 `examples/approval_reversal_case/inputs`; its seven files test amount-limited
@@ -494,3 +529,5 @@ never case evidence. `first-pass-config.json` records the bounded test scope;
 this is a reproducible evaluation fixture, not an actual case or a completed
 remote-model benchmark. Relationship-index policy version 2 invalidates older
 extraction bindings that did not apply the handling exclusions.
+
+Version 3.2 requires the companion SDK from 1.3.61.dev20 (or the matching local source checkout) for numeric ledger diagnostics and coordinated host delivery. Update the CLI alongside it. No Core configuration or model-registry change is required.

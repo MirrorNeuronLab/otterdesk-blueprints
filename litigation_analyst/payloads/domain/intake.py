@@ -10,7 +10,7 @@ from pathlib import Path
 
 from mn_sdk.step_runtime import artifact_reference
 from .ingestion.corpus import CaseCorpus
-from .sample_data import prepare_emc2
+from .sample_data import prepare_emc2, EMC2_DOCUMENTATION, attribution
 
 
 @activity_operation('Examining case documents', completed='Examining case documents: completed')
@@ -41,7 +41,8 @@ def prepare_sources(context, *, llm_client=None):
             "run output must be outside input_folder to avoid indexing generated evidence"
         )
     policy = context["config"]["investigation"]
-    corpus = CaseCorpus(source, access_scope=policy["access_scope"])
+    corpus = CaseCorpus(source, access_scope=policy["access_scope"],
+                        excluded_paths=EMC2_DOCUMENTATION if folder is None else ())
     paths = list(corpus._source_paths())
     if not paths or len(paths) > policy["max_files"]:
         raise ValueError("input folder is empty or exceeds max_files")
@@ -99,7 +100,15 @@ def prepare_sources(context, *, llm_client=None):
         ],
         "sources": [{k: v for k, v in r.items() if k != "text"} for r in records],
         "unreadable_sources": [d.source_id for d in documents if d.text is None],
+        "attachment_processing": corpus.processing_gaps,
+        "archives_not_extracted": [p.relative_to(source).as_posix() for p in paths if p.suffix.casefold() == '.zip'],
+        "duplicate_source_groups": [sorted(d.source_id for d in documents if d.content_sha256 == digest)
+            for digest in sorted({d.content_sha256 for d in documents})
+            if sum(d.content_sha256 == digest for d in documents) > 1],
     }
+    if folder is None and (source / 'LICENSE.md').is_file():
+        inventory['sample_attribution'] = attribution(source)
+        (run_dir / 'sample_attribution.json').write_text(json.dumps(inventory['sample_attribution'], indent=2))
     from .file_identity import capture_file_identities
     inventory['repository_id'], inventory['file_identities'] = capture_file_identities(
         source, run_dir, context, original_hashes)

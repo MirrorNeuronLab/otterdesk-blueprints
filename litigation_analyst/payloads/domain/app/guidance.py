@@ -11,9 +11,9 @@ class InvestigationGuidance:
         self.index = LexicalKnowledgeIndex(json.loads(path.read_text(encoding="utf-8")))
         self.fingerprint = self.index.fingerprint
 
-    def retrieve(self, phase, enquiry):
+    def retrieve(self, phase, enquiry, *, top_k=5):
         result = self.index.retrieve(
-            f"{phase} investigation evidence {enquiry}"[:8000], top_k=5
+            f"{phase} investigation evidence {enquiry}"[:8000], top_k=top_k
         )
         if not result["citations"]:
             raise ValueError(

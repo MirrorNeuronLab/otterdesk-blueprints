@@ -18,6 +18,7 @@ from .app.activity import observe_action
 from .app.planning import object_schema, HYPOTHESIS, validate
 from .app.findings import REPORT, REVIEW, submit_report, review_report
 from .app.prompt_context import investigation_history
+from .review_packets import supplement, register, visible_financial, packet_coverage, consistency_checks, counter_query
 
 
 def validate_graph_query(query):
@@ -112,7 +113,13 @@ def collect_evidence(context, work, *, llm_client=None):
             EvidenceAssistant._validate_evidence(evidence, documents)
             store.add_evidence(frozen['investigation_id'], evidence)
         records.append(record)
-    # Exact spans are already verified by the shared skill binding and in the ledger.
+    documents = tuple(corpus.scan())
+    extra, _ = supplement(documents, frozen['source_review_flags'], frozen.get('matter', {}), records,
+                          frozen['config'].get('text_memory', {}).get('max_context_bytes', 32768) // 2)
+    if extra['result']['passages']:
+        register(store, frozen['investigation_id'], documents, [extra])
+        records.append(extra)
+    # Exact spans are verified against frozen source bytes before ledger admission.
     ids = list(dict.fromkeys(p["evidence_id"] for r in records for p in r["result"].get("passages", [])))
     ref = save(root, name, {"hypothesis": h, "records": records, "evidence_ids": ids})
     return {"evidence": ref}
@@ -153,7 +160,10 @@ def assess_hypothesis(context, work, *, llm_client=None):
         "Return work_items for decisive missing records or interviews: a specific requested_record, question, "
         "why_it_matters, closure_condition, priority and priority_basis plus current evidence_ids. "
         "These are suggestions for attorney review. Do not invent a custodian, owner, deadline or completed collection. "
-        "Preserve distinctions between requested/approved/posted/reversed/settled amounts and loss; no intent or liability follows from arithmetic.")
+        "Preserve distinctions between requested/approved/posted/reversed/settled amounts and loss; no intent or liability follows from arithmetic. "
+        "Reconcile your wording with verified_financial, including limited approval, reversals and net balance. "
+        "Do not describe available records as missing. Re-read available sources internally; do not request them from counsel again. "
+        "Return a short supported answer, its contrary evidence, and the next record that could change the decision.")
     from .evidence_admission import admit, coverage, assess_admitted
     data = {"enquiry": task["hypothesis"], "finding_id": task["prefix"], "evidence": [],
          "omitted_passages": len(allowed - visible),
@@ -162,7 +172,14 @@ def assess_hypothesis(context, work, *, llm_client=None):
          "search_coverage": coverage(collected['records'], visible)}
     room = min(evidence_room(frozen, "assess", instruction, data, schema),
                max(0, frozen['config'].get('text_memory',{}).get('max_context_bytes',32768)-512))
-    data.update(admit(spans, collected['records'], room))
+    from .intake import PreparedCorpus
+    documents = PreparedCorpus(root / 'case', frozen['config']['investigation']['access_scope']).scan()
+    from .financial_review import build as reconcile
+    financial = reconcile(frozen.get('matter', {}), documents, frozen['source_review_flags'])
+    # This envelope is budgeted together with evidence, never an uncounted append.
+    financial_room = len(json.dumps(visible_financial(financial, financial['evidence']), ensure_ascii=False).encode())
+    data.update(admit(spans, collected['records'], max(0, room - financial_room - 512)))
+    data['verified_financial'] = visible_financial(financial, data['evidence'])
     visible = {e["evidence_id"] for e in data["evidence"]}
     data["omitted_passages"] = len(allowed - visible)
     for item in data["search_coverage"]:
@@ -195,9 +212,12 @@ def assess_hypothesis(context, work, *, llm_client=None):
         raise ValueError("Assessment cites unavailable evidence")
     if any(f["id"] != task["prefix"] for f in value["report"]["findings"]):
         raise ValueError("Finding identity must match committed task")
+    admitted_coverage = packet_coverage(data['evidence'], documents)
     data = {"source_review_flags": frozen["source_review_flags"]}
     submit_report(data, value["report"], store, frozen["investigation_id"])
     value["counsel_issue_ids"] = task["hypothesis"].get("counsel_issue_ids", [])
+    value['evidence_review_coverage'] = admitted_coverage
+    value['model_dispatched'] = not (quality and quality['action']=='insufficient_evidence')
     ref = save(root, name, value)
     from .claim_memory import publish
     publish(root, frozen, task['prefix'], value)
@@ -221,19 +241,91 @@ def review_finding(context, work, *, llm_client=None):
     finding_ids = [f["id"] for f in assessment["report"]["findings"]]
     schema["properties"]["accepted_ids"] = {"type": "array", "uniqueItems": True,
         "maxItems": len(finding_ids), "items": {"enum": finding_ids} if finding_ids else {"type": "string"}}
-    from .evidence_admission import review_closure, coverage
+    from .evidence_admission import review_closure, coverage, admit
+    from .intake import PreparedCorpus
+    documents = PreparedCorpus(root / 'case', frozen['config']['investigation']['access_scope']).scan()
+    corpus, _ = validate_indexes(root / 'case', frozen['config']['investigation']['access_scope'])
     collected = read(root / f"case/rounds/{task['prefix']}-evidence.json")
-    support = review_closure([asdict(e) for e in store.evidence_for(frozen['investigation_id'])
-        if e.source_id not in frozen['source_review_flags']], collected['records'], cited)
-    value = complete(root, frozen, task["prefix"] + "-review", "review",
-        "Independently review the proposed finding against every complete cited passage and its supplied dependencies. Accept only wording "
-        "supported by these sources, preserving identity uncertainty, competing explanations and incomplete coverage. "
+    records = list(collected['records'])
+    # A fresh source search is independent of the assessor's chosen citations.
+    query = counter_query(task['hypothesis'], frozen.get('matter', {}))
+    action_path = f"case/rounds/{task['prefix']}-review-search.json"
+    if (root / action_path).exists():
+        independent = read(root / action_path)
+    else:
+        runtime = bind_skills(root / 'case', corpus, store, frozen['investigation_id'],
+            [d['name'] for d in source_manifest(__file__)['skill_dependencies']],
+            config=frozen['config'], scope=frozen['memory_scope'])
+        runtime.read_skill(DOC)
+        result = runtime.invoke_skill(DOC, 'search', {'query':query,
+            'top_k':frozen['config']['investigation']['top_k']})
+        independent = {'purpose':'independent_counter', 'action':{'query':query},
+            'result':cleared_observation(result, frozen['source_review_flags'])}
+        save(root, action_path, independent)
+    records.append(independent)
+    extra, financial = supplement(documents, frozen['source_review_flags'], frozen.get('matter', {}), records,
+        frozen['config'].get('text_memory', {}).get('max_context_bytes', 32768) // 2)
+    records.append(extra)
+    register(store, frozen['investigation_id'], documents, records)
+    all_spans = [asdict(e) for e in store.evidence_for(frozen['investigation_id'])
+                 if e.source_id not in frozen['source_review_flags']]
+    required = review_closure(all_spans, records, cited)
+    available_ids = {p['evidence_id'] for r in records for p in r['result'].get('passages', [])} | cited
+    spans = required + [e for e in all_spans if e['evidence_id'] in available_ids - {p['evidence_id'] for p in required}]
+    if required:
+        records.append({'result':{'support_groups':[{'id':'review-cited', 'complete':True, 'required':True,
+            'source_evidence_ids':[p['evidence_id'] for p in required]}]}})
+    if financial['events'] and finding_ids:
+        schema['properties']['financial_checks'] = {'type':'array', 'minItems':len(finding_ids),
+            'maxItems':len(finding_ids), 'items':object_schema({
+                'finding_id':{'enum':finding_ids}, 'status':{'enum':['consistent','contradiction','unresolved']},
+                'record_ids':{'type':'array', 'uniqueItems':True, 'items':{'enum':sorted({e['record_id'] for e in financial['events']})}},
+                'reason':{'type':'string', 'minLength':1, 'maxLength':1000}})}
+        schema['required'].append('financial_checks')
+    instruction = (
+        "Independently review the proposed finding against every complete cited passage and its supplied dependencies, "
+        "the independent counter-search and verified_financial. Reject claims that available approval, ledger, posting "
+        "or reversal records are absent; distinguish accounting net from bank settlement and loss. "
+        "Accept only wording supported by these sources, preserving identity uncertainty, competing explanations and incomplete coverage. "
         "Reject overstatement, missing context, unsupported dates or allegations; explain issues concisely. "
-        "accepted_ids must contain report finding IDs, NEVER evidence or source IDs. Return [] to reject all. You cannot add evidence or rewrite the finding.",
-        {"report": assessment["report"], "hypothesis": assessment["hypothesis"],
-         "evidence": support, 'search_coverage':coverage(collected['records'], {e['evidence_id'] for e in support})}, schema, llm_client)
+        "When financial_checks is requested, return exactly one check per finding and list every supplied financial record_id. "
+        "Unresolved reconciliation or contradiction requires rejection. "
+        "accepted_ids must contain report finding IDs, NEVER evidence or source IDs. Return [] to reject all. You cannot add evidence or rewrite the finding.")
+    packet = {'report':assessment['report'], 'hypothesis':assessment['hypothesis'], 'evidence':[],
+        'search_coverage':coverage([r for r in records if 'purpose' in r], available_ids)}
+    room = min(evidence_room(frozen, 'review', instruction, packet, schema),
+        frozen['config'].get('text_memory', {}).get('max_context_bytes',32768) - 512)
+    packet.update(admit(spans, records, max(0,room-len(json.dumps(visible_financial(financial, financial['evidence']),ensure_ascii=False).encode())-512)))
+    packet['verified_financial'] = visible_financial(financial, packet['evidence'])
+    packet['search_coverage'] = coverage([r for r in records if 'purpose' in r], {e['evidence_id'] for e in packet['evidence']})
+    conflicts = consistency_checks(assessment['report'], financial)
+    dispatched = cited <= {e['evidence_id'] for e in packet['evidence']}
+    if not dispatched:
+        value = {'accepted_ids':[], 'issues':['Complete cited dependency packet did not fit review capacity.']}
+    else:
+        value = complete(root, frozen, task['prefix'] + '-review', 'review', instruction, packet, schema, llm_client)
+        checks = value.pop('financial_checks', [])
+        if financial['events'] and finding_ids:
+            if {c['finding_id'] for c in checks} != set(finding_ids):
+                raise ValueError('Financial consistency review must cover every finding exactly once')
+            expected = {e['record_id'] for e in financial['events']}
+            for check in checks:
+                if set(check['record_ids']) != expected or packet['verified_financial']['omitted_event_count']:
+                    check['status'] = 'unresolved'
+                    check['reason'] = 'Financial record coverage incomplete; do not publish this finding.'
+                if check['status'] != 'consistent':
+                    value['accepted_ids'] = [i for i in value['accepted_ids'] if i != check['finding_id']]
+            conflicts.extend(checks)
+    for conflict in conflicts:
+        if conflict['status'] != 'consistent':
+            value['accepted_ids'] = [i for i in value['accepted_ids'] if i != conflict['finding_id']]
+            value['issues'].append(conflict['reason'])
     review_report(data, value)
-    return {"review": save(root, name, value)}
+    value['consistency_checks'] = conflicts
+    value['evidence_review_coverage'] = packet_coverage(packet['evidence'], documents)
+    value['independent_search'] = action_path
+    value['model_dispatched'] = dispatched
+    return {'review': save(root, name, value)}
 
 
 @activity_operation('Summarizing the investigation round', completed='Summarizing the investigation round: completed')

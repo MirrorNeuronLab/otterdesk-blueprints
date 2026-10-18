@@ -1,5 +1,32 @@
 """Actionable evidence requests, with ownership supplied only by counsel."""
 from mn_temporal_graph_skill import fingerprint
+import re
+
+
+def classify(gap, documents):
+    """Route exact inventory matches to reread; never claim a missing record exists."""
+    request = gap['requested_record'].casefold()
+    if re.search(r'privileg|legal advice|attorney.client|work product', request):
+        return {**gap, 'question':'Handling review: ' + gap['question'],
+            'requested_record':'Handling decision only: ' + gap['requested_record'],
+            'priority_basis':'Counsel must decide handling before any substantive use. ' + gap.get('priority_basis', ''),
+            'status':'Handling review', 'work_type':'handling_review',
+            'routing_reason':'Counsel must decide handling; restricted records are not a collection request.'}
+    # These named record classes identify existing documents, not whether an
+    # approval authorizes a different amount or a ledger proves bank settlement.
+    classes = {'ledger':r'ledger|accounting entries', 'policy':r'policy|policies'}
+    matches = [d.source_id for d in documents if d.text and any(
+        re.search(pattern, request) and re.search(pattern, d.relative_path + ' ' + d.text.splitlines()[0], re.I)
+        for pattern in classes.values())]
+    if matches:
+        return {**gap, 'question':'Internal reread: ' + gap['question'],
+            'requested_record':'Already available for internal reread: ' + gap['requested_record'],
+            'priority_basis':'Matching records are already available; re-read before collection. ' + gap.get('priority_basis', ''),
+            'status':'Internal reread', 'work_type':'internal_reread',
+            'available_source_ids':sorted(matches),
+            'routing_reason':'Matching records are already in the cleared inventory. Re-read them before asking for additional records.'}
+    return {**gap, 'work_type':'customer_follow_up',
+        'routing_reason':'No matching record established by this inventory check; confirm with counsel.'}
 
 
 def project(question_id, hypothesis, spans, assignments):

@@ -42,6 +42,8 @@ def attach(workspace, context, matter, documents, spans, plan):
 
 
 def escaped(value):
+    if value is None:
+        return 'Unresolved'
     value = html.escape(str(value))
     for char in "[]()*_`":
         value = value.replace(char, "\\" + char)
@@ -70,7 +72,9 @@ def transaction_appendix(financial):
 def report_sections(workspace):
     lines = ["## Counsel issue coverage", "", "Counsel scope is review direction, not a legal conclusion or source evidence.", ""]
     for issue in workspace["counsel_issues"]:
+        findings = [f for f in workspace['findings'] if issue['id'] in f.get('counsel_issue_ids', [])]
         lines += ["### " + escaped(issue["id"]) + ": " + escaped(issue["question"]), "", escaped(issue["status"]), "",
+            "Supported draft answer: " + escaped(' '.join(f['assessment'] for f in findings) or 'No accepted answer established; review the source-bound records and unresolved questions below.'), "",
             "Supporting passage IDs: " + ", ".join(issue["supporting_evidence"]),
             "Counterevidence passage IDs: " + ", ".join(issue["counter_evidence"]),
             "Unresolved: " + escaped("; ".join(issue["unknowns"]) or "No answer is established by the absence of an item."), ""]
@@ -83,6 +87,8 @@ def report_sections(workspace):
         plan["definition"], "This is not a billing forecast, completeness certificate or confirmation that every source was reviewed.", "",
         "## Next evidence work", ""]
     for gap in workspace["gaps"]:
+        if gap.get('work_type') in {'internal_reread', 'handling_review'}:
+            continue
         lines += ["### " + escaped(gap["question"]), "",
             "Record or interview requested: " + escaped(gap["requested_record"]),
             "Decision it informs: " + escaped(gap["why_it_matters"]),
@@ -93,3 +99,49 @@ def report_sections(workspace):
             "Draft for attorney review; no communication or collection was performed.", ""]
     lines += ["## Transaction review", "", "See [source-bound transaction reconciliation](transaction_appendix.md). Accounting arithmetic is not a finding about bank settlement, loss, intent or liability.", ""]
     return "\n".join(lines)
+
+
+def issue_brief(workspace):
+    lines = ['# Litigation review draft', '', '**Draft for attorney review. Source authenticity and legal effect remain unverified.**', '',
+        '## Executive summary', '', escaped(workspace['matter_scope']['intended_decision'] or workspace['goal']), '',
+        '### Available transaction records', '',
+        '| Reference | Recorded event (counsel classification) | Currency | Amount | Source |',
+        '| --- | --- | --- | ---: | --- |']
+    financial = workspace['financial_review']
+    for e in financial['events']:
+        eid = e['evidence_ids'][0]
+        lines.append('| ' + ' | '.join([escaped(e['transaction_ref']), escaped(e['event_type']),
+            escaped(e['currency']), escaped(e['amount']), f'[Exact passage](transaction_appendix.md#evidence-{eid})']) + ' |')
+    if not financial['events']:
+        lines += ['', 'No counsel-labelled financial events supplied. This does not establish absence of transaction evidence.']
+    for t in financial['transactions']:
+        lines += ['', escaped(t['transaction_ref']) + ': request minus stated approval = ' + escaped(t['request_minus_approval']) +
+            '; posting/reversal net = ' + escaped(t['posting_reversal_net']) + '; recorded net = ' + escaped(', '.join(t['recorded_net_values'])) + '.']
+    lines += ['', 'Ledger net does not establish external bank settlement, damages, intent or liability. External settlement remains unresolved unless source records independently establish it.', '',
+        report_sections(workspace), '## Contrary evidence and qualifications', '']
+    for issue in workspace['issues']:
+        lines += [escaped(issue['question']), '',
+            'Ordinary alternatives: ' + escaped('; '.join(issue['alternatives'])),
+            'Contrary passage IDs: ' + ', '.join(issue['contradictory_evidence']), '']
+        by_id = {e['evidence_id']:e for e in workspace['evidence']}
+        for eid in issue['contradictory_evidence'][:3]:
+            evidence = by_id[eid]
+            lines += ['[Exact contrary passage](evidence_appendix.md#evidence-' + eid + ') · ' + escaped(evidence['source_id']), '']
+            if len(evidence['text'].encode()) <= 2000:
+                lines += ['> ' + html.escape(line) for line in evidence['text'].splitlines()]
+                lines += ['']
+    lines += ['Approval limits, reversals and zero accounting net in the transaction table must be reconciled with any proposed authorization or loss finding.', '',
+        '## Internal review work', '']
+    for gap in workspace['gaps']:
+        if gap.get('work_type') in {'internal_reread','handling_review'}:
+            lines += ['- ' + escaped(gap['status']) + ': ' + escaped(gap['requested_record']) + '. ' + escaped(gap['routing_reason'])]
+    coverage = workspace['coverage']
+    lines += ['', '## Evidence review coverage', '',
+        f"{len(coverage['readable_ids'])} of {len(coverage['source_ids'])} cleared source records contain readable text. {len(coverage.get('duplicate_source_groups', []))} duplicate groups are not independent corroboration.",
+        f"{len(coverage.get('attachment_processing', []))} attachment processing notices; {len(coverage.get('archives_not_extracted', []))} archives remain unextracted. See case/source_inventory.json.",
+        f"{len(coverage.get('assessor_source_ids', []))} source records admitted to assessor packets; {len(coverage.get('reviewer_source_ids', []))} to reviewer packets.",
+        'Packet admission does not certify complete extraction, model comprehension or attorney review.',
+        'Consistency status: ' + escaped(workspace.get('consistency', {}).get('status', 'unmeasured')), '']
+    if workspace.get('consistency', {}).get('withheld_finding_ids'):
+        lines += ['Some draft claims were withheld for consistency review. See case/consistency_review.json; their wording is not an accepted finding.', '']
+    return '\n'.join(lines)

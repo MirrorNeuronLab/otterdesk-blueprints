@@ -1,6 +1,7 @@
 """Litigation policy and prompt composition for shared SDK JSON decisions."""
 import json
 import os
+import time
 
 from mn_sdk.blueprint_support import durable_json_decision, json_decision_capacity
 from mn_sdk.context_session import ContextPolicy
@@ -24,7 +25,7 @@ Return only the requested JSON object. Keep prose concise and state decisive lim
 def prompt(frozen, stage, instruction, data):
     guidance = InvestigationGuidance()
     try:
-        request = {"stage": stage, **data, "guidance": guidance.retrieve(stage, frozen["payload"]["goal"])}
+        request = {"stage": stage, **data, "guidance": guidance.retrieve(stage, frozen["payload"]["goal"], top_k=2 if stage in {'assess','review'} else 5)}
     finally:
         guidance.index.close()
     system = POLICY + "\n" + instruction
@@ -48,6 +49,9 @@ def evidence_room(frozen, stage, instruction, data, schema):
 
 
 def complete(root, frozen, key, stage, instruction, data, schema, client=None):
+    started = time.monotonic()
+    replay = (root / f'case/rounds/models/{key}.json').exists()
+    completed = False
     system, request = prompt(frozen, stage, instruction, data)
     policy = ContextPolicy(**decision_config(frozen["config"])["context_memory"]["policy"])
     scope = frozen.get("memory_scope") or {
@@ -64,7 +68,7 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
     memory = runtime_text_memory(decision_config(frozen["config"]), principal="round-specialists", scope=scope)
     from mn_sdk.memory_quality import context_requirements
     try:
-        return durable_json_decision(
+        value = durable_json_decision(
             root / f"case/rounds/models/{key}.json",
             system=system, request=request, schema=schema, validator=validate,
             context_root=root / "case/context-memory",
@@ -82,6 +86,13 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
             memory_source_ref=f"case/rounds/models/{key}.json",
             memory_hydrate_runtime_records=True,
         )
+        completed = True
+        return value
     finally:
         if memory is not None:
             memory.close()
+        if not replay and completed:
+            from .round_state import save
+            save(root, f'case/rounds/timing/{key}.json', {'stage':stage,
+                'decision':key, 'elapsed_seconds':round(time.monotonic()-started, 3),
+                'output_token_reserve':policy.output_tokens})

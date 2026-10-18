@@ -6,6 +6,16 @@ import tempfile
 
 EMC2_REPOSITORY = "https://github.com/jur1st/emc-2.git"
 EMC2_REVISION = "6e2ecb0d0cd83eebe9b4ba6a3ce08f814d497977"
+EMC2_DOCUMENTATION = ('README.md', 'LICENSE.md', 'CITATION.MD')
+
+
+def attribution(source):
+    return {'repository':EMC2_REPOSITORY, 'revision':EMC2_REVISION,
+        'citation':'Benson, John. (2024). EMC-2 eDiscovery Dataset (Version 1.0).',
+        'license':'CC-BY-4.0',
+        'license_text':(source / 'LICENSE.md').read_text(),
+        'excluded_repository_documentation':[name for name in EMC2_DOCUMENTATION if (source / name).is_file()],
+        'qualification':'Synthetic demonstration only; loose filesystem timestamps reflect cloning and are not event dates. Duplicate copies are not corroboration. Archives are retained, not extracted.'}
 
 
 def prepare_emc2(destination):

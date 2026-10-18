@@ -10,7 +10,8 @@ import re
 from mn_context_engine_sdk.intelligent_system import TextDocumentAdapter, SourceSection
 from mn_context_engine_sdk.intelligent_system.sources import validate_sections
 
-VERSION = 'legal-source-structure/1'
+VERSION = 'legal-source-structure/2'
+BOUNDARY = re.compile(r'\n[ \t]*\n+|(?m:^[ \t]*(?:Section[ \t]+)?\d+(?:\.\d+)*\.?[ \t]+(?=[A-Z]))')
 NUMBER = re.compile(r'^\s*(?:Section\s+)?(\d+(?:\.\d+)*)(?:\.)?\s+', re.I)
 REFERENCE = re.compile(r'\bSections?\s+(\d+(?:\.\d+)*(?:\s*(?:,|and|or|through|to|[-–])\s*\d+(?:\.\d+)*)*)', re.I)
 DEFINITION = re.compile(r'["“]([^"”\n]{1,120})["”]\s+(?:shall\s+)?(?:means?|includes?)\b', re.I)
@@ -22,17 +23,21 @@ class LegalSourceAdapter(TextDocumentAdapter):
         self.coverage = {}
 
     def sections(self, text, path):
-        parts = super().sections(text, path)
         body = text.encode()
+        # Clause labels must start a line. TX-104. and USD 12,500. are prose,
+        # never clause boundaries. Keep original bytes, including whitespace.
+        starts = sorted({0, *(m.end() if m.group().startswith('\n') else m.start()
+                               for m in BOUNDARY.finditer(text)), len(text)})
         # Paragraph breaks inside one numbered clause do not split its provisos.
         grouped = []
-        for part in parts:
-            value = body[part.start_byte:part.end_byte].decode()
+        for start, end in zip(starts, starts[1:]):
+            a, b = len(text[:start].encode()), len(text[:end].encode())
+            value = body[a:b].decode()
             number = NUMBER.match(value)
             if grouped and grouped[-1][2] and not number:
-                grouped[-1][1] = part.end_byte
+                grouped[-1][1] = b
             else:
-                grouped.append([part.start_byte, part.end_byte, number.group(1) if number else None])
+                grouped.append([a, b, number.group(1) if number else None])
         sections, content, numbers, definitions = [], {}, {}, {}
         for a, b, number in grouped:
             value = body[a:b].decode()
@@ -41,7 +46,8 @@ class LegalSourceAdapter(TextDocumentAdapter):
             section = SourceSection(name, first, first + value.rstrip('\n').count('\n'),
                 'verbatim_legal_unit_not_established_fact',
                 'sha256:' + hashlib.sha256(value.encode()).hexdigest(), a, b)
-            sections.append(section); content[name] = value
+            sections.append(section)
+            content[name] = value
             if number:
                 numbers.setdefault(number, []).append(name)
             for term in DEFINITION.findall(value):
@@ -79,8 +85,6 @@ class LegalSourceAdapter(TextDocumentAdapter):
             result.append(replace(section, dependencies=dependencies))
         # Rank the final structural units, not their superseded paragraph pieces.
         from mn_context_engine_sdk.intelligent_system.text_documents import _terms
-        for part in parts:
-            self._terms.pop(part, None)
         for section in result:
             self._terms[section] = _terms(content[section.name])
         self._statistics = None

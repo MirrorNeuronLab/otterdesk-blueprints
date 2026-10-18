@@ -293,6 +293,36 @@
         "schema_version": "mn.litigation.review.v1",
         "privacy": "confidential",
         "required": true
+      },
+      {
+        "artifact_id": "consistency_review",
+        "path": "case/consistency_review.json",
+        "mime_type": "application/json",
+        "type": "consistency_review",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.consistency_review.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "performance",
+        "path": "case/performance.json",
+        "mime_type": "application/json",
+        "type": "performance",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.performance.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "sample_attribution",
+        "path": "sample_attribution.json",
+        "mime_type": "application/json",
+        "type": "sample_attribution",
+        "producer": "workflow",
+        "schema_version": "mn.litigation.sample_attribution.v1",
+        "privacy": "confidential",
+        "required": false
       }
     ]
   },

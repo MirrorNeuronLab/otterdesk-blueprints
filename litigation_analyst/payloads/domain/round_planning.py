@@ -4,8 +4,8 @@ from mn_sdk.agent_events import activity_operation
 import time
 from copy import deepcopy
 from mn_sdk.child_workflow import round_plan, stop_plan
-from .app.planning import object_schema, validate
-from .round_state import open_round, read, save, checkpoint, finish
+from .app.planning import object_schema
+from .round_state import open_round, read, save, finish
 from .round_model import complete
 from .review_scope import limits
 from .matter_intake import prompt_scope
@@ -52,6 +52,8 @@ def plan_round(context, work, *, llm_client=None):
         previous = [] if not revision else read(root / f"case/rounds/summary-{revision:02d}.json")["findings"]
         value = complete(root, frozen, f"plan-{revision:02d}", "plan", 
             "Choose execute or stop. Execute selects concrete falsifiable enquiries with distinct support and counter searches. "
+            "support_query and counter_query must be short lexical case terms (names, transaction IDs, approval, reversal), "
+            "never tool names, graph views, filter instructions or a description of an operation. "
             "Select zero to two named graph_tools from the admitted views only when they reduce uncertainty. Never write RGQL. "
             "Use clause_dependencies for definitions/references, qualification_paths for conditions/exceptions, "
             "amendment_paths for explicit amendments, and clause_statements for cited extraction proposals. "

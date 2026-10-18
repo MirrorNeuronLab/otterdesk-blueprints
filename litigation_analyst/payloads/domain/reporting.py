@@ -4,6 +4,7 @@ from mn_sdk.agent_events import activity_operation
 
 import json
 import shutil
+from copy import deepcopy
 from pathlib import Path
 
 from mn_sdk.step_runtime import artifact_reference
@@ -55,6 +56,18 @@ def write_review(context, *, llm_client=None):
     (run_dir / "graph_appendix.md").write_text(
         "\n".join(graph_exhibits(state["records"])), encoding="utf-8"
     )
+    from .matter_intake import load as load_matter
+    from .financial_review import build as reconcile
+    from .review_packets import consistency_checks
+    financial = reconcile(load_matter(run_dir), tuple(documents.values()), state['data'].get('source_review_flags', {}))
+    conflicts = consistency_checks(state['data'].get('report_draft', {'findings':[]}), financial)
+    state = deepcopy(state)
+    blocked = {c['finding_id'] for c in conflicts}
+    if blocked:
+        review = state['data']['report_review']
+        review['accepted_ids'] = [i for i in review['accepted_ids'] if i not in blocked]
+        review['issues'] += list(dict.fromkeys(c['reason'] for c in conflicts))
+    (case / 'consistency_review.json').write_text(json.dumps({'checks':conflicts, 'withheld_finding_ids':sorted(blocked)}, indent=2))
     summary = build_review(
         state, EvidenceStore(case / "evidence.sqlite3"), context["payload"]["goal"]
     )
@@ -78,10 +91,12 @@ def write_review(context, *, llm_client=None):
     workspace = build_workspace(context, tuple(documents.values()), evidence, state, inventory)
     workspace = attach_graph(workspace, case, context["config"].get("workspace", {}))
     workspace = publish_history(context, workspace)
-    from .review_products import report_sections, transaction_appendix
+    from .review_products import issue_brief, transaction_appendix
     (case / "financial_review.json").write_text(json.dumps(workspace["financial_review"], ensure_ascii=False), encoding="utf-8")
     (run_dir / "transaction_appendix.md").write_text(transaction_appendix(workspace["financial_review"]), encoding="utf-8")
-    text += "\n\n" + report_sections(workspace)
+    text = corpus_note + issue_brief(workspace) + '\n\n<details><summary>Advanced investigation and audit details</summary>\n\n' + text.removeprefix(corpus_note) + '\n\n</details>\n'
+    from .performance import measure
+    (case / 'performance.json').write_text(json.dumps(measure(run_dir), indent=2))
     (run_dir / "final_report.md").write_text(text, encoding="utf-8")
     # Memory locators refer to a durable authoritative snapshot, never a cached
     # narrative. Context-service failure is an explicit navigation limitation.
@@ -113,6 +128,8 @@ def write_review(context, *, llm_client=None):
         "workspace": "case/workspace.json",
         "interactive_investigation": workspace_status.get("path"),
         "workspace_status": "workspace_status.json",
+        "consistency_review": "case/consistency_review.json",
+        "performance": "case/performance.json",
     }
     (run_dir / "review_index.json").write_text(
         json.dumps(index, indent=2), encoding="utf-8"
@@ -145,6 +162,8 @@ def write_review(context, *, llm_client=None):
         artifact_reference("graph_appendix", "graph_appendix.md"),
         artifact_reference("transaction_appendix", "transaction_appendix.md"),
         artifact_reference("financial_review", "case/financial_review.json"),
+        artifact_reference("consistency_review", "case/consistency_review.json"),
+        artifact_reference("performance", "case/performance.json"),
     ] + workspace_refs + [artifact_reference("workspace_status", "workspace_status.json")]
     return {
         "review_draft": refs[0],

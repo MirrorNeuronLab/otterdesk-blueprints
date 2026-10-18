@@ -9,7 +9,7 @@ def test_original_search_is_separate_and_complete_with_exact_character_citations
     from domain.intake import PreparedCorpus
     from domain.source_query import search
     folder=tmp_path/'input'; folder.mkdir()
-    text='Notice café🙂. 1. Approval requires consent unless an emergency exists. 2. Routine duties continue.'
+    text='Notice café🙂.\n1. Approval requires consent unless an emergency exists.\n2. Routine duties continue.'
     (folder/'contract.txt').write_text(text)
     context=make_context(tmp_path,folder); modules['intake'].prepare_sources(context)
     root=context['run_dir']; manifest=json.loads((root/'case/source-query.json').read_text())
@@ -21,7 +21,7 @@ def test_original_search_is_separate_and_complete_with_exact_character_citations
     corpus=PreparedCorpus(root/'case','case')
     result=search(root/'case',corpus,context['config'],scope,'approval consent',1)
     span=result['passages'][0]
-    assert span['text']=='1. Approval requires consent unless an emergency exists. '
+    assert span['text']=='1. Approval requires consent unless an emergency exists.\n'
     assert text[span['start_offset']:span['end_offset']]==span['text']
     assert span['content_sha256']==hashlib.sha256(text.encode()).hexdigest()
     assert result['retrieval']=='membrane_original_source_units' and not result['exhaustive']
@@ -53,7 +53,7 @@ def test_assessor_can_read_multiple_whole_units_while_finding_citations_stay_bou
     folder=tmp_path/'input';folder.mkdir()
     approval='Approval requires written consent. '+ 'Qualified recorded context. '*45
     counter='Routine duties provide an ordinary explanation. '+ 'No identity conclusion is established. '*35
-    (folder/'contract.txt').write_text('1. '+approval+' 2. '+counter)
+    (folder/'contract.txt').write_text('1. '+approval+'\n2. '+counter)
     context=make_context(tmp_path,folder)
     modules['intake'].prepare_sources(context);modules['indexing'].build_indexes(context)
     result,_=initialize(context);ref=result['context']
