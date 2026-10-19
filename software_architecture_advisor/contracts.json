@@ -89,7 +89,7 @@
       },
       {
         "artifact_id": "report",
-        "path": "report.md",
+        "path": "reports/report.md",
         "mime_type": "text/markdown",
         "type": "report",
         "producer": "workflow",
@@ -99,7 +99,7 @@
       },
       {
         "artifact_id": "report_data",
-        "path": "report.json",
+        "path": "data/report.json",
         "mime_type": "application/json",
         "type": "report_data",
         "producer": "workflow",
@@ -129,7 +129,7 @@
       },
       {
         "artifact_id": "coverage",
-        "path": "coverage.json",
+        "path": "data/coverage.json",
         "mime_type": "application/json",
         "type": "coverage",
         "producer": "workflow",
@@ -139,7 +139,7 @@
       },
       {
         "artifact_id": "evidence",
-        "path": "evidence.json",
+        "path": "data/evidence.json",
         "mime_type": "application/json",
         "type": "evidence",
         "producer": "workflow",
@@ -149,7 +149,7 @@
       },
       {
         "artifact_id": "claims",
-        "path": "claims.json",
+        "path": "data/claims.json",
         "mime_type": "application/json",
         "type": "claims",
         "producer": "workflow",
@@ -159,7 +159,7 @@
       },
       {
         "artifact_id": "findings",
-        "path": "findings.json",
+        "path": "data/findings.json",
         "mime_type": "application/json",
         "type": "findings",
         "producer": "workflow",
@@ -169,7 +169,7 @@
       },
       {
         "artifact_id": "recommendations",
-        "path": "recommendations.json",
+        "path": "data/recommendations.json",
         "mime_type": "application/json",
         "type": "recommendations",
         "producer": "workflow",
@@ -179,7 +179,7 @@
       },
       {
         "artifact_id": "assumptions",
-        "path": "assumptions.json",
+        "path": "data/assumptions.json",
         "mime_type": "application/json",
         "type": "assumptions",
         "producer": "workflow",
@@ -189,7 +189,7 @@
       },
       {
         "artifact_id": "verification_tasks",
-        "path": "verification_tasks.json",
+        "path": "data/verification_tasks.json",
         "mime_type": "application/json",
         "type": "verification_tasks",
         "producer": "workflow",
@@ -199,7 +199,7 @@
       },
       {
         "artifact_id": "roadmap",
-        "path": "roadmap.json",
+        "path": "data/roadmap.json",
         "mime_type": "application/json",
         "type": "roadmap",
         "producer": "workflow",
@@ -209,7 +209,7 @@
       },
       {
         "artifact_id": "work_packages",
-        "path": "work_packages.json",
+        "path": "data/work_packages.json",
         "mime_type": "application/json",
         "type": "work_packages",
         "producer": "workflow",
@@ -239,7 +239,7 @@
       },
       {
         "artifact_id": "sections",
-        "path": "sections",
+        "path": "reports/sections",
         "mime_type": "application/octet-stream",
         "type": "sections",
         "producer": "workflow",
@@ -249,7 +249,7 @@
       },
       {
         "artifact_id": "work_package_documents",
-        "path": "work_packages",
+        "path": "reports/work_packages",
         "mime_type": "application/octet-stream",
         "type": "work_package_documents",
         "producer": "workflow",
@@ -289,7 +289,7 @@
       },
       {
         "artifact_id": "improvement_prompts",
-        "path": "improvement_prompts.md",
+        "path": "reports/improvement_prompts.md",
         "mime_type": "text/markdown",
         "type": "improvement_prompts",
         "producer": "workflow",
@@ -299,7 +299,7 @@
       },
       {
         "artifact_id": "improvement_prompt_data",
-        "path": "improvement_prompts.json",
+        "path": "data/improvement_prompts.json",
         "mime_type": "application/json",
         "type": "improvement_prompt_data",
         "producer": "workflow",
@@ -334,6 +334,96 @@
         "type": "web_ui_handle",
         "producer": "workflow",
         "schema_version": "mn.blueprint.web_ui.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "static_code",
+        "path": "data/static-code.json",
+        "mime_type": "application/json",
+        "type": "static_code",
+        "producer": "workflow",
+        "schema_version": "mn.static_code.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "function_evolution",
+        "path": "data/function-evolution.json",
+        "mime_type": "application/json",
+        "type": "function_evolution",
+        "producer": "workflow",
+        "schema_version": "mn.function_evolution.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "code_map",
+        "path": "web/code-map.html",
+        "mime_type": "text/html",
+        "type": "code_map",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.code_map.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "code_map_brief",
+        "path": "reports/code-map.md",
+        "mime_type": "text/markdown",
+        "type": "code_map_brief",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.code_map_brief.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_assets",
+        "path": "web/assets",
+        "mime_type": "application/octet-stream",
+        "type": "architecture_assets",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.renderer.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_growth",
+        "path": "data/growth.json",
+        "mime_type": "application/json",
+        "type": "architecture_growth",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.growth_history.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_report_history",
+        "path": "reports/snapshots",
+        "mime_type": "application/octet-stream",
+        "type": "architecture_report_history",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.report_history.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_score",
+        "path": "data/architecture-score.json",
+        "mime_type": "application/json",
+        "type": "architecture_score",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.score.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
+        "artifact_id": "architecture_score_brief",
+        "path": "reports/architecture-score.md",
+        "mime_type": "text/markdown",
+        "type": "architecture_score_brief",
+        "producer": "workflow",
+        "schema_version": "mn.architecture.score_brief.v1",
         "privacy": "confidential",
         "required": true
       }

@@ -1,6 +1,7 @@
 """Validate architecture policy budgets from SDK-resolved configuration."""
 from copy import deepcopy
 from pathlib import Path
+import re
 
 
 def bundled_path(relative):
@@ -11,6 +12,11 @@ def validate_config(value):
     config = deepcopy(value)
     if not isinstance(config.get("offline"), bool):
         raise ValueError("offline must be a boolean")
+    from .ingest import NON_CODE_EXTENSIONS
+    extra = config['ingest'].setdefault('additional_extensions', [])
+    if (not isinstance(extra, list) or len(extra) > 64 or any(not isinstance(e, str)
+        or not re.fullmatch(r'\.[A-Za-z][A-Za-z0-9]{0,15}', e) or e.casefold() in NON_CODE_EXTENSIONS for e in extra)):
+        raise ValueError('ingest.additional_extensions must contain at most 64 source suffixes, excluding documents and data')
     config["llm"].setdefault("model", "default")
     for key, default, maximum in (('seed_limit',12,128), ('max_hops',4,8),
                                   ('max_nodes',128,4096), ('max_edges',128,4096)):
@@ -34,6 +40,10 @@ def validate_config(value):
                 raise ValueError(f"{section}.{key} must be a positive integer")
     if config["analysis"]["max_dsm_modules"] > 1000:
         raise ValueError("analysis.max_dsm_modules must be at most 1000")
+    for key, default, high in [('history_commits', 80, 1000), ('history_timeout_seconds', 30, 120)]:
+        value = config['analysis'].setdefault(key, default)
+        if type(value) is not int or not 1 <= value <= high:
+            raise ValueError(f'analysis.{key} must be in 1..{high}')
     knowledge = config["knowledge"]
     if not isinstance(knowledge["enabled"], bool) or knowledge["max_cards"] > 4 or knowledge["max_prompt_bytes"] > 2400:
         raise ValueError("knowledge requires boolean enabled, at most 4 cards and 2400 prompt bytes")

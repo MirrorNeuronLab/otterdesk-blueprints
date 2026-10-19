@@ -6,9 +6,9 @@ from pathlib import Path
 from mn_docs_to_markdown_skill import convert_documents
 
 
-def publish_outputs(context, *, section_paths=()):
+def publish_outputs(context, *, section_paths=(), report_path="reports/report.md"):
     root = Path(context["run_dir"])
-    reports = [root / "report.md", *(root / path for path in section_paths)]
+    reports = [root / report_path, *(root / path for path in section_paths)]
     if any(report.is_symlink() or not report.is_file() for report in reports):
         raise ValueError("Conversation requires the complete published architecture review")
     # Standalone publication uses its run directory identity, like the workspace

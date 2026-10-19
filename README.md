@@ -11,7 +11,7 @@ depend on the deprecated LiteLLM communication skill. Their RAG packages and OCR
 own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
 
-All 13 published blueprints declare the Markdown context profile.
+All published blueprints declare the Markdown context profile.
 CCTV, Architecture, Litigation, VC and Mac security investigator use Membrane v2
 runtime recall. Drug Discovery uses Membrane source intelligence for input, output
 and procedure questions; seven other blueprints disable worker context consumers. See
@@ -92,6 +92,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`ct_reader`](ct_reader/README.md) | Research | Experimental NVIDIA CT reader with Chat uploads and local NIfTI preview. Not for real diagnosis. Requires one NVIDIA GPU with 48 GiB memory. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
+| [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |
 | [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
 | [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
 | [`cctv_operator`](cctv_operator/README.md) | Physical AI | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
@@ -298,9 +299,9 @@ still comes from `get_capabilities`; runtime receipts establish completion.
 
 ## MCP support by blueprint
 
-All 14 packages support the twelve common supervision tools above and one
+All 15 packages support the twelve common supervision tools above and one
 installed supervision Skill. Optional conversation tools follow `mn.response`.
-The catalog remains twelve published packages; GTM planner and executor remain
+The catalog has thirteen published packages; GTM planner and executor remain
 unpublished. Domain controls are listed below.
 
 | Blueprint | Additional domain tools |
@@ -318,6 +319,7 @@ unpublished. Domain controls are listed below.
 | Procurement manager | Common supervision |
 | Research assistant | Common supervision |
 | Software architecture advisor | Common supervision |
+| Code verifier | Common supervision |
 | VC assistant | Common supervision |
 
 Each package has its own `tests/test_mcp_<blueprint>.py` module. These validate
@@ -326,3 +328,18 @@ run controls, deduplication and identity checks. The three domain packages also
 exercise forwarding, asynchronous completion and their real worker registries.
 
 The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.
+
+## Code verifier
+
+[`code_verifier`](code_verifier/README.md) reads a local
+repository checkout or source/docs folder, extracts software expectations into
+editable `rules.md`, asks the supervisor to approve the full list in Chat, and
+verifies each approved rule separately against captured source.
+Its report table includes pass/fail/unknown, exact evidence references and 0–1
+confidence. Add or override rules in Job `knowledge/rules/*.md`; replace mode
+uses only a supervisor-edited list. Source and tests are never executed.
+
+The blueprint uses the static-code-analysis and code-search skills. Its additive
+offline `TextSearchIndex` API needs the code-search skill release
+`>=1.3.62.dev0,<2` before binary distribution; local mode uses current sibling
+skill source. No runtime changes are required.

@@ -22,10 +22,12 @@
     "max_edges": 128
   },
   "source_search": {
-    "mode": "hybrid"
+    "mode": "lexical"
   },
   "analysis": {
-    "max_dsm_modules": 300
+    "max_dsm_modules": 300,
+    "history_commits": 80,
+    "history_timeout_seconds": 30
   },
   "investigation": {
     "max_hypotheses": 3,
@@ -37,6 +39,7 @@
     "final_model_reserve": 6
   },
   "ingest": {
+    "additional_extensions": [],
     "source_roots": [
       "src",
       "."
@@ -104,8 +107,8 @@
   "inputs": {
     "adapter": "json",
     "payload": {
-      "repository_url": "https://github.com/MirrorNeuronLab/MirrorNeuron",
-      "goal": "Review architecture across the 150 report aspects; identify evidence-backed findings, counterevidence, unknowns, prioritized recommendations, and bounded proposed implementation tasks."
+      "repository_url": "https://github.com/mit-pdos/xv6-riscv",
+      "goal": "Explain the component graph and critical call paths, show how functions and coupling evolved in the captured Git window, identify change hotspots and blast radius, and recommend the next useful decisions with exact evidence and limitations."
     }
   },
   "outputs": {
@@ -116,7 +119,8 @@
     "write_run_store": true,
     "job_files": [
       "data",
-      "web"
+      "web",
+      "reports"
     ]
   },
   "offline": false,
@@ -151,14 +155,15 @@
     ]
   },
   "catalog_review": {
-    "max_tasks": 1024,
+    "max_tasks": 64,
     "max_rounds": 20,
-    "tasks_per_round": 64,
+    "tasks_per_round": 2,
     "chunk_bytes": 24000,
     "prompt_bytes": 60000,
-    "max_calls": 1024,
-    "walltime_seconds": 604800,
-    "max_followups": 64
+    "max_calls": 32,
+    "walltime_seconds": 3600,
+    "max_followups": 2,
+    "profile": "focused"
   },
   "opencode": {
     "model": "mn/default",

@@ -9,12 +9,12 @@
     "introduction": "Try the public example repository or choose a local source folder.",
     "sample": {
       "available": true,
-      "title": "MirrorNeuron example",
-      "description": "Review the public MirrorNeuron repository with the default goal.",
-      "expected_output": "An architecture report and cited follow-up tasks.",
+      "title": "xv6 example",
+      "description": "Explore the public xv6 RISC-V kernel, component relationships and function changes.",
+      "expected_output": "An interactive component and function evolution map, focused architecture review and cited next steps.",
       "values": {
-        "inputs.payload.goal": "Review MirrorNeuron's module boundaries and coupling, check counter-evidence, and recommend the most useful next change.",
-        "inputs.payload.repository_url": "https://github.com/MirrorNeuronLab/MirrorNeuron",
+        "inputs.payload.goal": "Explain xv6 component boundaries and critical call paths, show function development in the captured Git window, and recommend the most useful next decision with evidence and limitations.",
+        "inputs.payload.repository_url": "https://github.com/mit-pdos/xv6-riscv",
         "inputs.payload.input_folder": "",
         "inputs.payload.graph_export": ""
       }
@@ -60,7 +60,7 @@
         "path": "inputs.payload.repository_url",
         "label": "Repository URL",
         "type": "url",
-        "default": "https://github.com/MirrorNeuronLab/MirrorNeuron",
+        "default": "https://github.com/mit-pdos/xv6-riscv",
         "description": "Public GitHub repository root. Leave empty when using a local folder."
       },
       {
@@ -99,9 +99,9 @@
     ]
   },
   "starter_questions": [
-    "Review the architecture of this GitHub repository.",
-    "Investigate coupling and counter-evidence in my local source folder.",
-    "Which characterization tests should precede a service boundary change?"
+    "Show the component graph and explain the most important dependencies.",
+    "How did the most changed functions evolve in the captured Git window?",
+    "Which callers, components and tests should we inspect before changing a hotspot?"
   ],
   "web_ui": {
     "data_source": "job_data_and_run_artifacts",

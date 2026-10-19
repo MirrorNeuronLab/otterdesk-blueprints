@@ -106,7 +106,7 @@ def bind_skills(case, corpus, store, investigation_id, declared, *, config=None,
     if "mirrorneuron-temporal-graph-skill" not in declared:
         raise ValueError("Case temporal tools require the declared temporal graph skill")
     graph_runtime = SkillRuntime.discover(
-        [name for name in declared if name not in {"mirrorneuron-docs-to-markdown-skill", "mirrorneuron-temporal-graph-skill"}],
+        [name for name in declared if name not in {"mirrorneuron-docs-to-markdown-skill", "mirrorneuron-temporal-graph-skill", "mirrorneuron-web-report-skill"}],
         {(GRAPH, "query"): query},
     )
     return SkillRuntime([*graph_runtime.descriptors.values(), descriptor()], bindings)

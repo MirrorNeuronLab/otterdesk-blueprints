@@ -1,0 +1,77 @@
+.report #content {
+  padding: 0;
+}
+.verification-summary {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 28px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--report-line);
+}
+.report .verification-summary button {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 5px;
+  padding: 0;
+  height: auto;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 400;
+}
+.verification-summary strong {
+  font-size: 28px;
+  line-height: 1;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.verification-summary span {
+  font-size: 12px;
+  color: var(--report-muted);
+}
+.report .card h3 {
+  font-size: 20px;
+  line-height: 1.4;
+}
+.report .toolbar label:first-child {
+  flex: 1;
+  min-width: 140px;
+}
+.report th:first-child {
+  width: 51%;
+}
+.report th:nth-child(2) {
+  width: 12%;
+}
+.report th:nth-child(3) {
+  width: 14%;
+}
+.report .report-row > span:first-child {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+.report small {
+  font-size: 11px;
+  color: var(--report-muted);
+}
+.rule-statement {
+  font-size: 15px;
+}
+.evidence-record {
+  margin: 20px 0;
+  border-top: 1px solid var(--report-line);
+  padding-top: 14px;
+}
+.source-lines {
+  font: 12px/1.7 var(--mono);
+}
+@media (max-width: 760px) {
+  .report table {
+    min-width: 520px;
+  }
+  .verification-summary {
+    gap: 26px;
+  }
+}

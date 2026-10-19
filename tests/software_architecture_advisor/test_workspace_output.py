@@ -25,8 +25,10 @@ def fixture(tmp_path, *, run='first', body='from beta import pay\n', job='job-on
     (root / 'analysis/dependencies.json').write_text(json.dumps({
         'modules':['checkout.a','payments.b'], 'dependencies':[{'source':'checkout.a','target':'payments.b',
         'source_locations':[{'path':'src/checkout/a.py','sha256':records['src/checkout/a.py']['sha256'],'line_start':1,'line_end':1}]}]}))
-    (root / 'report.md').write_text('# Actual report\n')
-    (root / 'report.json').write_text('{}')
+    (root / 'reports').mkdir()
+    (root / 'data').mkdir()
+    (root / 'reports/report.md').write_text('# Actual report\n')
+    (root / 'data/report.json').write_text('{}')
     report = {'analysis_started':'2026-10-08T14:30:00+00:00', 'input':{}, 'goal':'Review payment boundaries',
         'status':'partial','executive':'Evidence still needed','terminal':{'stop_reason':'budget'},
         'scope':{'capture_limits':{},'exclusions':['node_modules']}}
@@ -145,11 +147,11 @@ def test_render_real_records_safely_and_publish_required_web_handle(tmp_path, mo
     ctx,w=fixture(tmp_path,body='value = "</script><script>alert(1)</script>"\n')
     w,index,root=retain(ctx,w)
     page=render(w,index)
-    assert 'connect-src &#x27;none&#x27;' in page
+    assert 'connect-src &#x27;self&#x27;' in page
     assert '</script><script>alert(1)' not in page
-    assert '\\u003c/script>' in page
+    assert workspace_data_not_embedded(page, w)
     assert 'ATLAS_DATA' not in page and 'SYNTHETIC DEMO' not in page
-    assert 'script-src &#x27;sha256-' in page
+    assert 'script-src &#x27;self&#x27;' in page
 
 
 def test_sdk_host_delivery_places_data_web_at_job_root(tmp_path):
@@ -350,16 +352,39 @@ def test_main_report_and_retained_dashboard_share_identical_coding_prompts(tmp_p
     files.update(coverage=rich['coverage'], verification_tasks=[], roadmap={})
     monkeypatch.setattr(catalog_publication,'assemble',lambda _: (deepcopy(report),deepcopy(files),{}))
     monkeypatch.setattr(catalog_publication,'project',lambda *_: deepcopy(rich))
-    (ctx['run_dir']/'report.json').unlink()
-    (ctx['run_dir']/'report.md').unlink()
+    (ctx['run_dir']/'data/report.json').unlink()
+    (ctx['run_dir']/'reports/report.md').unlink()
     catalog_publication.publish(ctx)
     root = ctx['run_dir']
     implementation = next(p for p in rich['improvement_prompts']['prompts'] if p['mode']=='Implement')
-    assert implementation['prompt'].rstrip() in (root/'report.md').read_text()
-    assert implementation['prompt'].rstrip() in (root/'work_packages/package-one.md').read_text()
+    assert implementation['prompt'].rstrip() in (root/'reports/report.md').read_text()
+    assert implementation['prompt'].rstrip() in (root/'reports/work_packages/package-one.md').read_text()
     retained = root/'data/snapshots'/rich['id']
-    assert implementation['prompt'].rstrip() in (retained/'improvement_prompts.md').read_text()
-    assert json.loads((root/'improvement_prompts.json').read_text()) == rich['improvement_prompts']
-    assert json.loads((root/'report.json').read_text())['improvement_prompts'] == rich['improvement_prompts']
+    assert implementation['prompt'].rstrip() in (root/'reports/snapshots'/rich['id']/'improvement_prompts.md').read_text()
+    assert json.loads((root/'data/improvement_prompts.json').read_text()) == rich['improvement_prompts']
+    assert json.loads((root/'data/report.json').read_text())['improvement_prompts'] == rich['improvement_prompts']
     assert json.loads((retained/'workspace.json').read_text())['improvement_prompts'] == rich['improvement_prompts']
     assert catalog_publication.publish(ctx)[0]['status'] == 'partial'
+
+
+def workspace_data_not_embedded(page, workspace):
+    return workspace["id"] in page and workspace["evidence"][0]["excerpt"] not in page and 'id="analysis-data"' not in page
+
+
+def test_growth_history_tracks_metrics_and_marks_scope_changes_incomparable(tmp_path):
+    from domain.workspace_history import retain
+    first_ctx,first=fixture(tmp_path,run='growth-one')
+    first['graph_growth']={'schema_version':'mn.architecture.growth.v1','files':2,'functions':4,
+        'file_dependencies':1,'call_pairs':2,'method':'syntax-v1','scope_identity':'same'}
+    retain(first_ctx,first)
+    second_ctx,second=fixture(tmp_path,run='growth-two')
+    second['graph_growth']={**first['graph_growth'],'files':3,'functions':8,'call_pairs':4}
+    _,_,root=retain(second_ctx,second)
+    data=json.loads((root/'data/growth.json').read_text())['snapshots']
+    assert data[-1]['comparable'] and data[-1]['delta']['functions']==4
+    third_ctx,third=fixture(tmp_path,run='growth-three')
+    third['graph_growth']={**second['graph_growth'],'scope_identity':'new-exclusions'}
+    retain(third_ctx,third)
+    data=json.loads((root/'data/growth.json').read_text())['snapshots']
+    assert not data[-1]['comparable'] and data[-1]['delta'] is None
+    assert not list((root/'data').rglob('*.md'))

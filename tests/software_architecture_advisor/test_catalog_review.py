@@ -26,6 +26,8 @@ def run(tmp_path, monkeypatch, architecture_paths):
             / "software_architecture_advisor/config/default.json"
         ).read_text()
     )
+    from domain.catalog_planning import DEFAULTS
+    cfg["catalog_review"].update(DEFAULTS)
     cfg["offline"] = False
     cfg['source_search']['mode'] = 'lexical'
     source = "def charge(amount):\n    gateway.charge(amount)\n    return amount\n"
@@ -212,22 +214,22 @@ def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
     ctx["output_folder"] = str(Path(ctx["run_dir"]).parent / "export")
     output, refs = publish(ctx)
     exported = Path(ctx["output_folder"])
-    assert (exported / "report.md").is_file()
+    assert (exported / "reports/report.md").is_file()
     assert (exported / "review_index.json").is_file()
     assert list((exported / "catalog/results").glob("*.json"))
     assert not list(exported.rglob("*.sqlite*"))
     prepared = list((exported / "context_sources" / "outputs").rglob("*.conversion.json"))
     assert len(prepared) == 24
-    originals = [root / "report.md", *sorted((root / "sections").glob("*.md"))]
+    originals = [root / "reports/report.md", *sorted((root / "reports/sections").glob("*.md"))]
     assert sorted(json.loads(path.read_text())["original_sha256"] for path in prepared) == sorted(
         hashlib.sha256(path.read_bytes()).hexdigest() for path in originals)
     assert output["status"] == "partial"
     assert len(json.dumps(output)) < 2000
     assert all((root / r["path"]).exists() for r in refs)
-    coverage = json.loads((root / "coverage.json").read_text())
+    coverage = json.loads((root / "data/coverage.json").read_text())
     assert len(coverage["aspects"]) == 150
     assert len(coverage["sections"]) == 23
-    assert len(list((root / "sections").glob("*.md"))) == 23
+    assert len(list((root / "reports/sections").glob("*.md"))) == 23
     for name in [
         "claims",
         "findings",
@@ -238,8 +240,8 @@ def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
         "work_packages",
         "evidence",
     ]:
-        assert (root / (name + ".json")).exists()
-    assert json.loads((root / "evidence.json").read_text())
+        assert (root / "data" / (name + ".json")).exists()
+    assert json.loads((root / "data/evidence.json").read_text())
     assert publish(ctx)[0] == output
     resultpath = next((root / "catalog/results").glob("*.json"))
     resultpath.write_text("{}")
@@ -309,7 +311,7 @@ def test_deadline_and_budget_publish_honest_unknowns(run, monkeypatch):
     decision = planner(ctx, {"context": ref, "_child": {"revision": 0}})
     assert decision["child_plan"]["decision"] == "stop"
     publish(ctx)
-    coverage = json.loads(Path(ctx["run_dir"], "coverage.json").read_text())
+    coverage = json.loads(Path(ctx["run_dir"], "data/coverage.json").read_text())
     assert all(
         r["coverage"] == "not_analyzed" and r["applicability"] == "undetermined"
         for r in coverage["aspects"]
@@ -469,7 +471,7 @@ def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monke
     )
     planner(ctx, {"context": ref, "_child": {"revision": 0}})
     publish(ctx)
-    packages = store.read("work_packages.json")
+    packages = store.read("data/work_packages.json")
     assert len(packages) == 1
     package = packages[0]
     assert package["approval_status"] == "not_authorized_by_report"
@@ -478,7 +480,7 @@ def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monke
         and package["evidence_ids"]
         and package["recommendation_ids"]
     )
-    assert (store.root / "work_packages" / f"{package['id']}.md").is_file()
+    assert (store.root / "reports/work_packages" / f"{package['id']}.md").is_file()
 
 
 def test_model_choices_provider_settings_and_frozen_run(run):

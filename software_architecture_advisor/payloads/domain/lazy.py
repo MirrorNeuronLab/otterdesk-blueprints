@@ -14,7 +14,7 @@ from .records import Records, add_export
 from . import static_layers as static
 from . import derived_layers as derived
 
-COLLECTOR_VERSION = "multi-graph/3"
+COLLECTOR_VERSION = "multi-graph/4-static-code"
 
 
 def atomic_json(path, value):

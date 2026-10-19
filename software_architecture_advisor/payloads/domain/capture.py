@@ -34,7 +34,9 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
     workspace.mkdir(parents=True, exist_ok=True)
     cfg = config["ingest"]
     excluded = {name.casefold() for name in cfg["exclude"]}
+    extensions = EXTENSIONS | set(cfg.get('additional_extensions', []))
     sources, modules, warnings, skipped = {}, {}, [], {}
+    uncaptured_extensions = {}
     total = 0
     for base, dirs, files in os.walk(repository, followlinks=False):
         skipped["excluded_directories"] = skipped.get("excluded_directories", 0) + sum(d.casefold() in excluded for d in dirs)
@@ -44,8 +46,10 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
             path = Path(base) / filename
             if path.is_symlink():
                 continue
-            if path.suffix not in EXTENSIONS and filename != "Dockerfile":
+            if path.suffix not in extensions and filename != "Dockerfile":
                 skipped["non_code_files"] = skipped.get("non_code_files", 0) + 1
+                suffix = path.suffix or '<no suffix>'
+                uncaptured_extensions[suffix] = uncaptured_extensions.get(suffix, 0) + 1
                 continue
             if path.stat().st_size > cfg["max_file_bytes"]:
                 skipped["oversized_files"] = skipped.get("oversized_files", 0) + 1
@@ -70,7 +74,7 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
                 layer = next((key for key, patterns in cfg["layers"].items() if any(fnmatch.fnmatch(rel, p) for p in patterns)), "unspecified")
                 modules[name] = {"name": name, "path": rel, "layer": layer, "layer_basis": "configured path pattern"}
     if not sources:
-        raise ValueError("No supported code sources found")
+        raise ValueError("No supported code sources found. Configure ingest.additional_extensions for other source formats; documents and data stay excluded.")
     beam = analyze_sources({path: source["text"] for path, source in sources.items()},
                                max_files=cfg["max_files"], max_file_bytes=cfg["max_file_bytes"],
                                max_total_bytes=cfg["max_total_bytes"])
@@ -81,6 +85,16 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
         layer = next((key for key, patterns in cfg["layers"].items() if any(fnmatch.fnmatch(rel, p) for p in patterns)), "unspecified")
         modules[name] = {**item, "layer": layer, "layer_basis": "configured path pattern"}
     warnings.extend(f"{item['path']}:{item['line']}: {item['reason']}" for item in beam["warnings"])
+    from .polyglot_graph import facts as static_facts
+    polyglot = static_facts(sources)
+    for component in polyglot['components']:
+        if component['status'] == 'unsupported':
+            continue
+        rel = component['id']
+        if rel in modules:
+            raise ValueError(f'Ambiguous module {rel}')
+        modules[rel] = {'name':rel, 'path':rel, 'layer':'unspecified', 'layer_basis':'file component',
+                        'language':Path(rel).suffix.lstrip('.'), 'parse_status':component['status']}
     supplied = {"version": 2, "modules": [], "layers": {}}
     if facts_path:
         supplied = json.loads(Path(facts_path).read_bytes())
@@ -97,7 +111,7 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
     anchor, worktree_state = None, 'unavailable'
     if (repository / ".git").exists():
         try:
-            git = ["git", "-C", str(repository), "-c", f"safe.directory={repository}",
+            git = ["git", "--no-optional-locks", "-C", str(repository), "-c", f"safe.directory={repository}",
                    "-c", "core.fsmonitor=false", "-c", "core.hooksPath=" + os.devnull]
             anchor = subprocess.run([*git, "rev-parse", "HEAD"],
                                     capture_output=True, text=True, check=True, timeout=10).stdout.strip()
@@ -149,12 +163,14 @@ def _capture(repository, workspace, config, facts_path=None, input_info=None):
     manifest = {"id": identifier, "format_version": 2, "repository": str(repository), "git_anchor": anchor,
                 "worktree_state": worktree_state,
                 "input": {**(input_info or {"kind": "folder", "location": str(repository)}), "revision": anchor},
-                "extractor": "source-capture/4", "repository_id": repository_id,
+                "extractor": "source-capture/5", "repository_id": repository_id,
                 "file_identity_version": registry.export()["version"],
                 "sources": {p: s["sha256"] for p, s in sources.items()}, "modules": modules,
-                "embedding_config": config["embedding"], "embedding_dimension": None, "ingest_config": cfg,
+                "embedding_config": config["embedding"], "embedding_dimension": None,
+                "ingest_config": {**cfg, 'capture_extensions':sorted(extensions)},
                 "coverage": {"source_files": len(sources), "source_scope": "code_only", "parsed_python_modules": None,
                              "parsed_beam_files": beam["parsed_files"], "beam_limitations": beam["limitations"], "skipped": skipped,
+                             "uncaptured_extensions": uncaptured_extensions,
                              "internal_dependency_pairs": None, "history": {"status": "not_materialized", "anchor": anchor},
                              "runtime_traces": "not_collected", "incidents": "not_materialized", "workflows": "not_materialized",
                              "semantic_retrieval": "not_materialized"}, "warnings": warnings,

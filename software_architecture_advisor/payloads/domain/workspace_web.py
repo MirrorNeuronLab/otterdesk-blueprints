@@ -1,6 +1,4 @@
-"""Offline dashboard rendering from retained real analysis records."""
-import base64
-import hashlib
+"""External-data dashboards over append-only retained architecture records."""
 import html
 import json
 from pathlib import Path
@@ -11,44 +9,86 @@ from .workspace_projection import project
 from .workspace_history import atomic, json_bytes, retain, storage
 from .improvement_prompts import markdown as prompts_markdown
 from .catalog_store import CatalogStore
+from .code_map import render as render_map
+from mn_web_report_skill import write_assets
 
 
 def render(workspace, index, *, historical=False):
-    assets = Path(__file__).with_name('workspace_assets')
-    script = (assets / 'workspace.js').read_text(encoding='utf-8')
-    style = (assets / 'workspace.css').read_text(encoding='utf-8')
-    payload = json.dumps({'workspace': workspace, 'index': index, 'historical': historical},
-        ensure_ascii=False, allow_nan=False).replace('<', '\\u003c').replace('&', '\\u0026')
-    sha = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
-    csp = f"default-src 'none'; script-src 'sha256-{sha}'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    if workspace.get('static_analysis'):
+        publication = workspace['id']
+        return render_map(data_root=('../../' if historical else '../')+'data/snapshots/'+publication,
+            assets='../assets' if historical else 'assets',
+            home='../snapshots/'+publication+'.html' if historical else 'index.html',
+            reports=('../../' if historical else '../')+'reports/snapshots/'+publication,
+            register='../reviews/'+publication+'.html' if historical else 'review-register.html')
+    return render_register(workspace, index, historical=historical)
+
+
+def render_register(workspace, index, *, historical=False):
+    # Shells contain no source or review data. The same renderer serves every run.
+    prefix = '../' if historical else ''
+    data_root = ('../../data/snapshots/' if historical else '../data/snapshots/') + workspace['id']
+    csp = "default-src 'none'; script-src 'self' file:; style-src 'self' file:; img-src data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    map_path = '../maps/' + workspace['id'] + '.html' if historical else 'code-map.html'
+    map_link = (f'<nav class="map-link"><a href="{html.escape(map_path, quote=True)}">Component and function evolution map</a></nav>'
+                if workspace.get('static_analysis') else '')
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        f'<meta name="data-root" content="{html.escape(data_root, quote=True)}">'
+        f'<meta name="historical" content="{str(historical).lower()}">'
         f'<meta http-equiv="Content-Security-Policy" content="{html.escape(csp, quote=True)}">'
         '<title>Architecture investigation · OtterDesk</title>'
-        f'<style>{style}</style></head><body><a class="skip" href="#content">Skip to investigation</a>'
-        '<div id="app"></div><dialog id="details"></dialog><p id="notice" role="status" aria-live="polite"></p>'
-        f'<script id="analysis-data" type="application/json">{payload}</script><script>{script}</script></body></html>')
+        f'<link rel="stylesheet" href="{prefix}assets/workspace.css">'
+        f'<script defer src="{prefix}assets/data-loader.js"></script>'
+        f'<script defer src="{prefix}assets/workspace.js"></script></head><body>'
+        '<section id="load-data"><h1>Open the review workspace</h1><p id="load-status" role="status"></p>'
+        '<label>Open workspace.json and index.json from this snapshot’s data folder '
+        '<input id="data-files" type="file" accept=".json,application/json" multiple></label></section>'
+        '<div id="content" hidden><a class="skip" href="#investigation">Skip to investigation</a>'
+        + map_link + '<div id="app"></div><dialog id="details"></dialog>'
+        '<p id="notice" role="status" aria-live="polite"></p></div></body></html>')
 
 
 def publish(context, report, registers, *, workspace=None):
     root = Path(context['run_dir'])
     projected = workspace if workspace is not None else project(context, report, registers)
-    CatalogStore(root).write('improvement_prompts.json', projected['improvement_prompts'])
+    has_map = (root / 'data/static-code.json').is_file() and (root / 'data/function-evolution.json').is_file()
+    if has_map:
+        projected['static_analysis'] = {'code_map': 'code-map.html'}
+    CatalogStore(root).write('data/improvement_prompts.json', projected['improvement_prompts'])
     document = ('# Architecture improvement handoffs\n\n' + prompts_markdown(projected)).encode('utf-8')
-    target = root / 'improvement_prompts.md'
+    target = root / 'reports/improvement_prompts.md'
     if target.exists() and target.read_bytes() != document:
         raise ValueError('Improvement prompt document changed on replay')
     atomic(target, document)
     workspace, index, store = retain(context, projected)
-    # Web is a required deliverable. Rendering errors are explicit after durable data.
     with storage(context) as (store, _):
         index = json.loads((store / 'data/index.json').read_text())
         web = store / 'web'
-        own = web / 'snapshots' / (workspace['id'] + '.html')
-        if not own.exists():
-            atomic(own, render(workspace, index, historical=True).encode('utf-8'))
+        assets = Path(__file__).with_name('workspace_assets')
+        write_assets(web / 'assets')
+        for name in ('workspace.js', 'workspace.css', 'code-map.js', 'code-map.css', 'report-shell.css', 'report-shell.js', 'overview-model.js', 'architecture-viz.js', 'graph-evolution.js', 'graph-layout.js', 'network-graph.js', 'comparison-presentation.js', 'code-paths.js', 'data-loader.js'):
+            atomic(web / 'assets' / name, (assets/name).read_bytes())
+        for source in (assets / 'vendor').iterdir():
+            if source.suffix == '.md':
+                continue
+            atomic(web / 'assets/vendor' / source.name, source.read_bytes())
+        # Shared assets and their shells are one presentation version. Refresh
+        # every retained shell so an older template cannot load incompatible JS.
+        # Authoritative JSON and Markdown retain their immutable identities.
+        for entry in index['snapshots']:
+            saved = json.loads((store / 'data/snapshots' / entry['id'] / 'workspace.json').read_text())
+            page = render(saved, index, historical=True).encode('utf-8')
+            atomic(web / 'snapshots' / (saved['id']+'.html'), page)
+            if saved.get('static_analysis'):
+                atomic(web / 'maps' / (saved['id']+'.html'), page)
+            atomic(web / 'reviews' / (saved['id']+'.html'), render_register(saved, index, historical=True).encode())
         latest = json.loads((store / 'data/workspace.json').read_text())
+        if latest.get('static_analysis'):
+            atomic(web / 'code-map.html', render_map(data_root='../data/snapshots/'+latest['id'],
+                reports='../reports/snapshots/'+latest['id']).encode())
         atomic(web / 'index.html', render(latest, index).encode('utf-8'))
+        atomic(web / 'review-register.html', render_register(latest, index).encode('utf-8'))
         shutil.copytree(store / 'data', root / 'data', dirs_exist_ok=True)
         shutil.copytree(web, root / 'web', dirs_exist_ok=True)
     page = (root / 'web/index.html').resolve()
@@ -61,6 +101,6 @@ def publish(context, report, registers, *, workspace=None):
         artifact_reference('architecture_dashboard', 'web/index.html'),
         artifact_reference('web_ui_handle', 'web_ui.json'),
         artifact_reference('architecture_snapshot_workspace', 'data/snapshots/' + workspace['id'] + '/workspace.json'),
-        artifact_reference('improvement_prompts', 'improvement_prompts.md'),
-        artifact_reference('improvement_prompt_data', 'improvement_prompts.json')]
+        artifact_reference('improvement_prompts', 'reports/improvement_prompts.md'),
+        artifact_reference('improvement_prompt_data', 'data/improvement_prompts.json')]
     return {'snapshot': workspace['id'], 'data': refs[4], 'latest_data': refs[0], 'web': refs[2]}, refs

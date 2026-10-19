@@ -25,6 +25,8 @@ class Project:
         self.sources, self.modules = sources, modules
         self.trees, self.defs, self.aliases, self.errors = {}, {}, {}, []
         self.beam = analyze_sources({path: source["text"] for path, source in sources.items()})
+        from .polyglot_graph import facts
+        self.polyglot = facts(sources)
         for module, info in modules.items():
             if not info["path"].endswith(".py"):
                 continue
@@ -95,6 +97,8 @@ class Project:
 
 
 def symbols(records, project):
+    from .polyglot_graph import symbols as polyglot_symbols
+    polyglot_symbols(records, project)
     for (module, name), item in project.defs.items():
         path = project.modules[module]["path"]
         line = getattr(item, "lineno", 1)
@@ -116,6 +120,8 @@ def symbols(records, project):
 
 
 def dependencies(records, project):
+    from .polyglot_graph import dependencies as polyglot_dependencies
+    polyglot_dependencies(records, project)
     unresolved = []
     for module, tree in project.trees.items():
         for item in ast.walk(tree):
@@ -152,6 +158,8 @@ def dependencies(records, project):
 
 
 def calls(records, project):
+    from .polyglot_graph import calls as polyglot_calls
+    polyglot_calls(records, project)
     unresolved = 0
     for module, name, item in project.scopes():
         path = project.modules[module]["path"]

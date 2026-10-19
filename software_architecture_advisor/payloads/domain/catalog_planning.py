@@ -14,6 +14,7 @@ from .review_packets import chunk_snapshot, build_full_task_list
 from .retry_budget import effective_config, effective_deadline
 
 DEFAULTS = {
+    "profile": "full_catalog",
     "max_tasks": 1024,
     "max_rounds": 20,
     "tasks_per_round": 64,
@@ -43,8 +44,10 @@ ORDER = {
 def catalog_settings(config):
     review = {**DEFAULTS, **config.get("catalog_review", {})}
     opener = {**OPEN_DEFAULTS, **config.get("opencode", {})}
+    if review['profile'] not in {'focused', 'full_catalog'}:
+        raise ValueError('catalog_review.profile must be focused or full_catalog')
     limits = {
-        "max_tasks": (325, 1024),
+        "max_tasks": (19 if review['profile'] == 'focused' else 325, 1024),
         "max_rounds": (1, 20),
         "tasks_per_round": (1, 64),
         "chunk_bytes": (1024, 24000),
@@ -112,7 +115,11 @@ def initializer(context, *, llm_client=None):
         1, (remaining_rounds - followup_rounds) * review["tasks_per_round"]
     )
     task_cap = min(review["max_tasks"] - review["max_followups"], fixed + scan_capacity)
-    tasks, omitted = build_full_task_list(catalog, packets, max(fixed + 1, task_cap))
+    if review['profile'] == 'focused':
+        from .focused_review import tasks as focused_tasks
+        tasks, omitted = focused_tasks(catalog, packets, review['max_tasks'] - review['max_followups'])
+    else:
+        tasks, omitted = build_full_task_list(catalog, packets, max(fixed + 1, task_cap))
     task_refs = {}
     for task in tasks:
         full = {**task, "snapshot_id": snapshot["snapshot_id"]}
@@ -221,6 +228,19 @@ def planner(context, work, *, llm_client=None):
     cache = f"catalog/plans/decision-{revision:02d}.json"
     if store.path(cache).exists():
         return store.read(cache)["plan"]
+    if review['offline']:
+        # A static-only request needs no sandbox per unassessed catalog task.
+        # Keep every task in the audit and publish honest not-analyzed coverage.
+        results = store.results()
+        terminal = {'stop_reason':'Static-only capture requested; model review not run',
+            'planned_tasks':len(plan['tasks']), 'resolved_tasks':len(results),
+            'pending_task_ids':[t['task_id'] for t in plan['tasks'] if t['task_id'] not in results],
+            'rejected_followups':[], 'omitted':plan['omitted'], 'usage':store.usage()}
+        ref = store.write('catalog/terminal.json', terminal)
+        result = stop_plan(revision=revision, reason=terminal['stop_reason'],
+                           output={'status':'partial','catalog':ref})
+        store.write(cache, {'context':work['context'],'plan':result})
+        return result
     from .review_admission import reconcile
     reconcile(store)
     from .catalog_retrieval import publish_runtime_notes
@@ -228,6 +248,7 @@ def planner(context, work, *, llm_client=None):
     results = store.results()
     tasks = [store.load_ref(r) for r in plan["task_refs"].values()]
     admitted = set()
+    dispatch_order = []
     for r in range(revision):
         prior = store.read(f"catalog/plans/decision-{r:02d}.json")
         if prior["plan"]["child_plan"]["decision"] != "execute":
@@ -235,6 +256,7 @@ def planner(context, work, *, llm_client=None):
         for node in prior["plan"]["child_plan"]["steps"]:
             task = store.load_ref(node["input"]["task"])
             admitted.add(task["task_id"])
+            dispatch_order.append(task["task_id"])
             if task["task_id"] not in results:
                 raise ValueError("Prior round has unresolved tasks")
             if all(t["task_id"] != task["task_id"] for t in tasks):
@@ -248,13 +270,21 @@ def planner(context, work, *, llm_client=None):
     )
     available = max(0, review["max_tasks"] - len(tasks))
     tasks += extra[:available]
+    cycle_first = (review['profile'] == 'focused' and store.path('data/static-code.json').exists()
+                   and bool(store.read('data/static-code.json').get('cycles')))
     pending = sorted(
         (t for t in tasks if t["task_id"] not in admitted),
-        key=lambda t: (ORDER[t["kind"]], t["task_id"]),
+        key=lambda t: (ORDER[t["kind"]],
+                       0 if cycle_first and t.get('aspect_id') == 'AR-04-02' else 1,
+                       t["task_id"]),
     )
     reserved = store.reservations()
     reason = None
-    if not pending:
+    recent = [results.get(ident, {}) for ident in dispatch_order[-2:]]
+    provider_failures = ('OpenCode exceeded timeout_seconds', 'OpenCode reported an error event')
+    if review['profile'] == 'focused' and len(recent) == 2 and all(any(token in result.get('reason', '') for token in provider_failures) for result in recent):
+        reason = "Repeated model provider failures; static evidence published and model review incomplete"
+    elif not pending:
         reason = "All admitted tasks resolved"
     elif time.time() >= deadline:
         reason = "Review walltime exhausted"
@@ -284,11 +314,16 @@ def planner(context, work, *, llm_client=None):
             },
         )
     else:
+        # In focused mode, challenge each completed wave before spending on
+        # another wave. This yields reviewed decisions early in a bounded run.
+        eligible_challenges = [t for t in pending if t['kind'] == 'aspect_challenge'
+            and results.get('analysis-'+t['aspect_id'], {}).get('status') == 'completed']
+        if review['profile'] == 'focused' and eligible_challenges:
+            pending = eligible_challenges + [t for t in pending if t not in eligible_challenges]
         phase = pending[0]["kind"]
         remaining = review["max_calls"] - store.usage()["catalog_models"] + sum(t["task_id"] in reserved for t in pending if t["kind"] == phase)
-        batch = [t for t in pending if t["kind"] == phase][: min(review["tasks_per_round"], remaining if not review["offline"] else review["tasks_per_round"])]
+        batch = [t for t in pending if t["kind"] == phase and (not eligible_challenges or phase != "aspect_challenge" or t in eligible_challenges)][: min(review["tasks_per_round"], remaining if not review["offline"] else review["tasks_per_round"])]
         nodes = []
-        previous = []
         from .review_admission import admit
         import os
         actual_run_id = os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")
@@ -302,11 +337,10 @@ def planner(context, work, *, llm_client=None):
                     "id": task["task_id"],
                     "template": "review_architecture_packet",
                     "label": task_label(task),
-                    "needs": previous,
+                    "needs": [],
                     "input": {"task": ref, "review_input": admitted_input},
                 }
             )
-            previous = [task["task_id"]]
         result = round_plan(
             revision=revision,
             steps=nodes,

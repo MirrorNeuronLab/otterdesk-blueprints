@@ -1,0 +1,70 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "mode": "compiled",
+  "job_name": "code-verifier",
+  "requirements": {
+    "cpu": {
+      "min_cores": 1
+    },
+    "memory": {
+      "min_gb": 2
+    },
+    "disk": {
+      "min_gb": 1
+    },
+    "gpu": {
+      "min_count": 0
+    }
+  },
+  "agents": {
+    "registry": {
+      "software_source_curator": {
+        "handler": "agents.software_source_curator",
+        "role": "Software source curator"
+      },
+      "software_rule_author": {
+        "handler": "agents.software_rule_author",
+        "role": "Software rule author"
+      },
+      "software_rule_reviewer": {
+        "handler": "agents.software_rule_reviewer",
+        "role": "Software rule reviewer"
+      },
+      "software_rules_reporter": {
+        "handler": "agents.software_rules_reporter",
+        "role": "Software rules reporter"
+      },
+      "software_rules_supervisor": {
+        "handler": "agents.software_rules_supervisor",
+        "role": "Software rules supervisor"
+      }
+    }
+  },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_host@1",
+      "with": {
+        "stereotype": [
+          "blueprint_host_worker",
+          "internal_write_worker"
+        ],
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          },
+          {
+            "source": "agents",
+            "target": "agents"
+          },
+          {
+            "source": "prompts",
+            "target": "prompts"
+          }
+        ],
+        "timeout_seconds": 3900
+      }
+    }
+  }
+}

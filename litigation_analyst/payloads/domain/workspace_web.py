@@ -1,30 +1,24 @@
 """Offline workspace publication. No service, CDN, implicit sharing or source execution."""
-import base64
 import hashlib
-import html
 import json
 from pathlib import Path
 import shutil
 
 from mn_sdk.step_runtime import artifact_reference
 from mn_sdk.blueprint_support import write_json
+from mn_web_report_skill import render_document
 
 
-def render(workspace):
+def render(workspace, *, max_bytes=32*1024*1024):
     assets = Path(__file__).with_name("workspace_assets")
-    script = (assets / "workspace.js").read_text()
-    style = (assets / "workspace.css").read_text()
-    payload = json.dumps(workspace, ensure_ascii=False, allow_nan=False).replace("<", "\\u003c").replace("&", "\\u0026")
-    script_hash = base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()
-    csp = f"default-src 'none'; script-src 'sha256-{script_hash}'; style-src 'unsafe-inline'; img-src 'self' data:; frame-src 'self'; object-src 'none'; connect-src 'none'; base-uri 'none'; form-action 'none'"
-    return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
-        '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        f'<meta http-equiv="Content-Security-Policy" content="{html.escape(csp, quote=True)}">'
-        f'<title>{html.escape(workspace["title"])} · OtterDesk</title><style>{style}</style></head>'
-        '<body><a class="skip" href="#content">Skip to investigation</a><div id="app"></div>'
-        '<p id="notice" role="status" aria-live="polite"></p><dialog id="source-dialog"></dialog>'
-        '<dialog id="review-dialog"></dialog><dialog id="export-dialog"></dialog>'
-        f'<script id="workspace-data" type="application/json">{payload}</script><script>{script}</script></body></html>')
+    script = "\n".join((assets / name).read_text() for name in ("navigation.js", "workspace.js", "reading.js"))
+    style = (assets / "workspace.css").read_text() + (assets / "report-domain.css").read_text()
+    return render_document(title="Litigation review", identity=workspace.get("matter_scope", {}).get("parties") and " / ".join(workspace["matter_scope"]["parties"]) or workspace["title"],
+        content_html='<div id="app"></div>'
+        '<p id="notice" role="status" aria-live="polite"></p>'
+        '<dialog id="review-dialog"></dialog><dialog id="export-dialog"></dialog>',
+        script=script, style=style, data=workspace, data_id="workspace-data", max_bytes=max_bytes,
+        description="Draft for attorney review · Source records, model assessment and human review remain distinct.")
 
 
 def publish(context, workspace):
@@ -34,8 +28,11 @@ def publish(context, workspace):
     refs = [artifact_reference("investigation_workspace", "case/workspace.json")]
     web = root / "web"
     try:
-        page = render(workspace)
+        from .workspace_review import attach
+        workspace = attach(workspace)
+        (root / "case/workspace.json").write_text(json.dumps(workspace, ensure_ascii=False, allow_nan=False), encoding="utf-8")
         maximum = context["config"].get("workspace", {}).get("max_page_bytes", 32*1024*1024)
+        page = render(workspace, max_bytes=maximum)
         if type(maximum) is not int or maximum < 1 or len(page.encode()) > maximum:
             raise ValueError("Workspace page exceeds configured byte limit")
         web.mkdir(exist_ok=True)
@@ -61,7 +58,7 @@ def publish(context, workspace):
         status = {"status": "Available", "path": "web/index.html", "handle": handle}
         refs.append(artifact_reference("interactive_investigation", "web/index.html"))
         refs.append(artifact_reference("web_ui_handle", "web_ui.json"))
-    except (OSError, ValueError, TypeError) as error:
+    except (OSError, ValueError, TypeError, RuntimeError, KeyError) as error:
         # Do not retain a prior page with a broader source authorization.
         if web.exists():
             shutil.rmtree(web)

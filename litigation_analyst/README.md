@@ -1,5 +1,69 @@
 # Litigation Analyst
 
+## Version 3.3.1: simpler matter review
+
+The local workspace has eight primary views: **Overview**, **Findings**,
+**Questions**, **Evidence**, **People & events**, **Timeline**, **Reports** and
+**Review history**. Matter settings is a secondary link. Existing bookmarked
+routes and saved views retain their original identities: comparisons belong to
+Evidence, briefing preparation belongs to Reports, and changes/audit share
+Review history. Questions includes proposed internal review work and evidence gaps.
+
+Overview puts recorded facts before counts and shows compact correction notices.
+Flagged drafts appear under Findings → Needs attention and remain ineligible for
+briefing. Reports displays eligibility before offering briefing creation. Evidence
+has an adjacent text/file-name search and collapses hashes/processing metadata.
+Graph selection highlights connections while preserving the displayed graph;
+the source inspector sits beside it on wide screens and below it on narrow ones.
+
+**Export** groups Markdown, source appendix, review decisions and **Save copy**.
+Local review or saved-view edits display a save reminder. A requested download
+does not certify filesystem persistence: check the saved HTML before closing.
+Reopening that saved copy restores its decisions and views without a pending-edit
+reminder. No browser storage, inference, source scope or export approval rules changed.
+
+## Version 3.3: counsel reading workspace
+
+The optional local webpage now opens with source-bound transaction amounts,
+available review work and visible quality flags. A **Reports** view renders the
+counsel reading brief and exact source appendix with headings, tables, quotations,
+source drill-throughs and Markdown downloads. Reports describe the full authorized
+snapshot; analytical filters do not rewrite them. Raw HTML in Markdown stays inert.
+
+**People & relationships → People & events** connects named email correspondents,
+communication records, counsel-labelled financial records and transaction references.
+Select a node to inspect its neighborhood and exact supporting passages. Names are
+header labels on separate address identities, not verified people. Shared-source
+links do not infer participation, causation or payment. Chronology includes the
+financial records with their date/annotation basis; unknown dates remain unresolved.
+The advanced source graph and its temporal path tools remain available separately.
+The map projects up to 60 communication records, 20 addresses per header field and
+60 financial records; the display shows at most 49 links and 60 nodes. Omitted
+record counts are disclosed. Duplicate communication copies are source records,
+not newly inferred occurrences.
+
+The reading brief rechecks exact source bindings and existing explicit-absence
+consistency rules. Conflicting model claims remain inspectable in quality review
+but cannot enter the reading brief or reviewed briefing export. Internal approval
+and ledger review are distinguished from proposed bank-side evidence work. These
+limited checks do not establish narrative accuracy or attorney approval.
+
+To review an older delivered run, create a **separate** supplemental copy:
+
+```bash
+python litigation_analyst/render_review.py /absolute/path/to/run \
+  --output /absolute/path/to/new-reading-copy
+```
+
+Use the normal blueprint Python environment with its declared dependencies.
+Open `index.html` in the new folder. The folder also contains
+`counsel-review-brief.md`, `exact-source-passages.md` and `review-data.json`.
+No model, network, collection or external publication is involved. The command
+verifies citation/source hashes, refuses overlapping/existing destinations and
+preserves the original run. It requires the run's existing authorized
+`case/workspace.json`; it does not migrate or rerun analysis. Keep the frozen run
+for its authoritative report, audit and any originals omitted from the workspace.
+
 ## Version 3.2.1: source-grounded initial planning
 
 The planner now receives a bounded inventory and complete source examples from
@@ -362,6 +426,7 @@ passages remain in the ledger and are excluded from visible citation IDs.
 ```bash
 python -m pytest tests/test_manifest_contracts.py -q
 python -m pytest tests/test_litigation_analyst.py tests/litigation_analyst -q
+node --test tests/litigation_analyst/*.test.cjs
 python -m pytest tests -q
 git diff --check
 ```
@@ -544,3 +609,12 @@ remote-model benchmark. Relationship-index policy version 2 invalidates older
 extraction bindings that did not apply the handling exclusions.
 
 Version 3.2 requires the companion SDK from 1.3.61.dev20 (or the matching local source checkout) for numeric ledger diagnostics and coordinated host delivery. Update the CLI alongside it. No Core configuration or model-registry change is required.
+
+## Shared web report
+
+The offline report uses `mn-web-report-skill` (distribution
+`mirrorneuron-web-report-skill`) for the Geist shell, shadcn/ui controls,
+Actions menu, tabs and non-modal evidence panel. Domain views and evidence rules
+remain in this blueprint. Open `web/index.html` from a completed output; no
+Node server, CDN or model call is needed to read it. Saved copies include the
+shared assets. Markdown and structured evidence remain the authoritative outputs.

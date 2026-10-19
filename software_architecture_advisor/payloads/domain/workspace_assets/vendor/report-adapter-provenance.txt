@@ -1,0 +1,11 @@
+{
+  "sources": {
+    "src/main.tsx": "ff9dade0f4dcc78ff6b8b8d53932823c3337f8446e79cf0f13b698985afee004",
+    "build.mjs": "1225d516438a18363209a5059583eadd3cf3f9c94d728c7295ab630aee89c65e",
+    "package.json": "a9f47ef978fd7a0fc20ffb17a948d48ae58dd54ce39ba4ddf5e99dfabe325d95",
+    "package-lock.json": "9be4c1222ca8f5d1b18f1468c6b5af9bb7bd9bdb9dcd5e4aeee4868de72e64a5"
+  },
+  "outputs": {
+    "report-shell.js": "ccc641f5c40af89e3dffa6d03cb5a304509e0880128cdb1f7a29aeedf4cdc38a"
+  }
+}

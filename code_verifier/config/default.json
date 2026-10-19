@@ -1,0 +1,86 @@
+{
+  "inputs": {
+    "payload": {
+      "input_folder": ""
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/code-verifier"
+  },
+  "review": {
+    "rules_mode": "augment",
+    "documentation_scope": "project_docs",
+    "max_extraction_packets": 512,
+    "max_extraction_attempts": 3,
+    "max_rules": 2000,
+    "max_turns_per_rule": 8,
+    "extraction_timeout_seconds": 3600,
+    "verification_timeout_seconds": 3600,
+    "human_review_timeout_seconds": 3600
+  },
+  "llm": {
+    "model": "default",
+    "provider": "docker_model_runner",
+    "enabled": true,
+    "require_live": true
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "linked_config_paths": [
+          "inputs.payload.input_folder"
+        ],
+        "payload_path": "runtime/mn_local_inputs/software_sources",
+        "runtime_path": "mn_local_inputs/software_sources",
+        "excluded_directories": [
+          ".git", ".svn", ".venv", "venv", "node_modules", "vendor",
+          "dist", "build", "__pycache__", ".next", "coverage", ".idea",
+          ".vscode", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox"
+        ],
+        "allowed_extensions": [
+          ".c",
+          ".cc",
+          ".cfg",
+          ".cjs",
+          ".cpp",
+          ".cs",
+          ".css",
+          ".cts",
+          ".cxx",
+          ".go",
+          ".h",
+          ".hh",
+          ".hpp",
+          ".html",
+          ".hxx",
+          ".ini",
+          ".java",
+          ".js",
+          ".json",
+          ".jsx",
+          ".kt",
+          ".kts",
+          ".md",
+          ".mjs",
+          ".mts",
+          ".php",
+          ".py",
+          ".pyi",
+          ".rb",
+          ".rs",
+          ".rst",
+          ".sh",
+          ".sql",
+          ".swift",
+          ".toml",
+          ".ts",
+          ".tsx",
+          ".txt",
+          ".yaml",
+          ".yml"
+        ]
+      }
+    ]
+  }
+}

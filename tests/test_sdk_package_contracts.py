@@ -131,13 +131,17 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
     if not requirements:
         # Compose-only and supervised services prepare their Python environment
         # on the native host rather than through a Docker build context.
-        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor', 'mac_security_investigator'}
+        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'code_verifier'}
         assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
         if local:
             sources = prepared['metadata']['mn_local_skill_dependencies']['sources']
             assert any(r['package'] == 'mirrorneuron-python-sdk' for r in sources)
             assert all(any(r['package'] == component.distribution for r in sources)
                        for component in component_requirements(prepared))
+            if blueprint_id == 'code_verifier':
+                assert {'mirrorneuron-code-search-skill', 'mirrorneuron-static-code-analysis-skill'} <= {
+                    r['package'] for r in sources
+                }
             if needs_context:
                 assert any(r['package'] == 'mirrorneuron-membrane-python-sdk'
                            and r['extras'] == '[grpc]' for r in sources)

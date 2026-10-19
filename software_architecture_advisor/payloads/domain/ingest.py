@@ -11,13 +11,18 @@ import math
 import os
 from pathlib import Path
 import sqlite3
+from mn_static_code_analysis_skill import SUPPORTED_EXTENSIONS
 from mn_sdk.integrations.rag import build_runtime_embedder
 from mn_sdk_rag import HashingEmbedder, RagConfig, SingleTextEmbedder
 
 
 EXTENSIONS = {".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".go", ".rs", ".cs", ".sql",
-              ".vue", ".svelte", ".html", ".css", ".php", ".c", ".cpp", ".h", ".hpp", ".rb", ".swift",
-              ".kt", ".kts", ".ex", ".exs", ".erl", ".hrl", ".scala", ".proto", ".graphql", ".gql", ".tf", ".sh"}
+              ".vue", ".svelte", ".html", ".css", ".php", ".c", ".cpp", ".cc", ".h", ".hpp", ".rb", ".swift",
+              ".kt", ".kts", ".ex", ".exs", ".erl", ".hrl", ".scala", ".proto", ".graphql", ".gql", ".tf", ".sh", ".s", ".S",
+              ".clj", ".cljs", ".cljc", ".lua", ".dart", ".r", ".R", ".jl", ".hs", ".lhs", ".ml", ".mli",
+              ".fs", ".fsx", ".pl", ".pm", ".groovy", ".zig", ".nim", ".elm", ".v", ".sv"} | SUPPORTED_EXTENSIONS
+
+NON_CODE_EXTENSIONS = {'.md', '.markdown', '.txt', '.json', '.yaml', '.yml', '.toml', '.csv', '.tsv', '.pdf', '.png', '.jpg', '.jpeg', '.svg'}
 
 
 def digest(value: bytes) -> str:

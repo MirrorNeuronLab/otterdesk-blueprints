@@ -1,0 +1,71 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "init_config_review": {
+    "required": true,
+    "title": "Choose software to review",
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Source folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "input",
+        "required": true,
+        "description": "Choose a local repository checkout or folder containing specifications, docs and source."
+      },
+      {
+        "path": "review.rules_mode",
+        "label": "Rules to verify",
+        "type": "select",
+        "required": true,
+        "choices": [
+          {
+            "label": "Extract docs and add custom rules",
+            "value": "augment"
+          },
+          {
+            "label": "Only my custom rules",
+            "value": "replace"
+          }
+        ]
+      },
+      {
+        "path": "review.documentation_scope",
+        "label": "Rule documents",
+        "type": "select",
+        "required": false,
+        "default": "project_docs",
+        "description": "Project docs excludes generated benchmark and test reports. Source capture remains available for evidence.",
+        "choices": [
+          {"label": "Project docs", "value": "project_docs"},
+          {"label": "All captured docs", "value": "all_captured_docs"}
+        ]
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "output",
+        "default": "~/Downloads/code-verifier"
+      }
+    ]
+  },
+  "web_ui": {
+    "enabled": true,
+    "kind": "output",
+    "adapter": "static_html",
+    "title": "Code verification",
+    "description": "Optional offline rules report with captured source evidence.",
+    "registration": {
+      "artifact": "web/index.html",
+      "scope": "run",
+      "writes": "static-html web_ui.json handle in the run output"
+    }
+  },
+  "starter_questions": [
+    "How do I add or edit my Markdown rules?",
+    "What does a pass mean, and what remains unknown?",
+    "Show the evidence and confidence for a rule."
+  ]
+}

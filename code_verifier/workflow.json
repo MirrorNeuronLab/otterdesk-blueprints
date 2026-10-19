@@ -1,0 +1,115 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "code_verifier_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "steps": [
+    {
+      "id": "capture_software_sources",
+      "kind": "source",
+      "label": "Capture source and docs",
+      "goal": "Capture source and docs with exact source references and explicit limits.",
+      "needs": [],
+      "run": {
+        "definition": "steps.capture_software_sources"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "extract_software_rules",
+      "kind": "stage",
+      "label": "Create editable rules",
+      "goal": "Create editable rules with exact source references and explicit limits.",
+      "needs": [
+        "capture_software_sources"
+      ],
+      "run": {
+        "definition": "steps.extract_software_rules"
+      },
+      "control": {
+        "timeout_seconds": 2000,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "review_software_rules",
+      "kind": "stage",
+      "label": "Review rules",
+      "goal": "Present a titled Markdown rule list for review and editing; wait for approval of the entire saved version in OtterDesk Chat.",
+      "needs": [
+        "extract_software_rules"
+      ],
+      "run": {
+        "definition": "steps.review_software_rules"
+      },
+      "control": {
+        "timeout_seconds": 3900,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "verify_software_rules",
+      "kind": "stage",
+      "label": "Verify each rule",
+      "goal": "Verify each rule with exact source references and explicit limits.",
+      "needs": [
+        "review_software_rules"
+      ],
+      "run": {
+        "definition": "steps.verify_software_rules"
+      },
+      "control": {
+        "timeout_seconds": 3900,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "publish_rules_report",
+      "kind": "sink",
+      "label": "Write rules report",
+      "goal": "Write rules report with exact source references and explicit limits.",
+      "needs": [
+        "verify_software_rules"
+      ],
+      "run": {
+        "definition": "steps.publish_rules_report"
+      },
+      "control": {
+        "timeout_seconds": 300,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ],
+  "policy": {
+    "human": {
+      "enabled": true,
+      "mode": "approval_required",
+      "allowed_decisions": [
+        "approve",
+        "revise",
+        "reject"
+      ],
+      "default_action": "reject",
+      "blocked_actions": [
+        "verify_unapproved_rules"
+      ],
+      "reason": "The supervisor must approve the exact extracted and custom rules before source verification."
+    }
+  }
+}

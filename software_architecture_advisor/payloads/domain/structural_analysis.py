@@ -120,7 +120,7 @@ def analyze_dependencies(snapshot, nodes, edges, evidence, *, max_dsm_modules):
     result = {
         "schema_version": "mn.architecture.structural_analysis.v1",
         "snapshot": snapshot["id"],
-        "method": "Frozen module DEPENDS_ON edges only; direction is referring module to referenced module. Python imports and Elixir/Erlang syntax references are static candidates.",
+        "method": "Frozen module DEPENDS_ON edges only; direction is referring module to referenced module. Python imports, BEAM references, and supported-language include/import/name-call relationships are static candidates; compiler and cross-file linking coverage varies by language.",
         "coverage": {"indexed_modules": len(names), "dependency_edges": len(relations),
                      "source_files": snapshot["coverage"]["source_files"],
                      "python_module_candidates": sum(info["path"].endswith(".py") for info in modules.values()),
@@ -168,6 +168,10 @@ def analyze_snapshot(context, *, llm_client=None):
     cfg = validate_config(context["config"])
     if cfg["offline"]:
         cfg = offline_config(cfg)
+    # Reusable syntax/history extraction is independent of optional lazy views.
+    # Publish the useful map before any model task is admitted.
+    from .static_analysis import build
+    static_refs = build(context)
     directory = root / "evidence" / "snapshots" / snapshot["id"]
     manager = LayerManager(directory, cfg)
     generation = manager.ensure(("dependencies",))
@@ -181,6 +185,7 @@ def analyze_snapshot(context, *, llm_client=None):
     )
     details = generation["entries"]["dependencies:*"]["details"]
     result["coverage"]["parsed_beam_files"] = details.get("parsed_beam_files", {})
+    result["coverage"]["polyglot"] = details.get('polyglot_coverage', {})
     result["limits"].extend(details.get("limitations", []))
     result["coverage"]["unresolved_imports"] = len(details.get("unresolved_imports", []))
     result["coverage"]["parse_warnings"] = details.get("warnings", [])[:20]
@@ -189,7 +194,7 @@ def analyze_snapshot(context, *, llm_client=None):
     output.mkdir(parents=True, exist_ok=True)
     result_path = output / "dependencies.json"
     result_path.write_text(json.dumps(result, indent=2), encoding="utf-8")
-    refs = [artifact_reference("structural_analysis", "analysis/dependencies.json")]
+    refs = [artifact_reference("structural_analysis", "analysis/dependencies.json"), *static_refs]
     if result["dsm"]["status"] == "ready":
         _write_dsm(output / "dependency-dsm.csv", result["modules"], adjacency)
         refs.append(artifact_reference("dependency_dsm", "analysis/dependency-dsm.csv"))

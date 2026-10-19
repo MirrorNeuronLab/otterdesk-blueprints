@@ -2,7 +2,7 @@
 import os
 import re
 from mn_opencode_skill import OpenCodeGateway
-from mn_sdk.model_access import ensure_runtime_model
+from mn_sdk.model_access import ensure_runtime_model, remote_model_api_base
 from mn_sdk.model_runtime import load_model_catalog, resolve_model_entry
 
 DEFAULT_MODEL = "mn/default"
@@ -32,9 +32,19 @@ def prepare_gateway(settings):
         resolve_model_entry(catalog_id, catalog=load_model_catalog())
     except (KeyError, ValueError) as exc:
         raise ValueError("The selected review model must be registered in the runtime model catalog.") from exc
-    binding = ensure_runtime_model("llm", catalog_id, provider="docker_model_runner")
-    descriptor = {"api_base": binding.host_api_base, "model": binding.api_model,
-                  "catalog_id": binding.catalog_id, "node": binding.node}
+    provider = (os.environ.get("MN_LLM_PROVIDER") or "docker_model_runner") if catalog_id == "default" else "docker_model_runner"
+    binding = ensure_runtime_model("llm", catalog_id, provider=provider)
+    host_api_base, node = binding.host_api_base, binding.node
+    if catalog_id == "default" and provider in {"litellm", "litellm_proxy"}:
+        # The SDK projects the registered default onto the node's gateway.
+        # Docker uses its internal URL; OpenShell needs the advertised host.
+        node = os.environ.get("MN_SELECTED_RUNTIME_NODE") or node
+        _, separator, host = node.rpartition("@")
+        if not separator or not host:
+            raise ValueError("Remote review requires the selected runtime node's advertised gateway host")
+        host_api_base = remote_model_api_base({}, {"api_base": binding.api_base}, host)
+    descriptor = {"api_base": host_api_base, "model": binding.api_model,
+                  "catalog_id": binding.catalog_id, "node": node}
     gateway_binding(descriptor).provider(selection)
     return descriptor
 

@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from support import ROOT, configuration
+from support import configuration
 
 
 def test_capture_code_only_and_beam_dependency_evidence(tmp_path, monkeypatch, architecture_paths):
@@ -63,3 +63,59 @@ def test_document_only_repository_is_rejected(tmp_path, architecture_paths):
     (repository / "README.md").write_text("Documentation only")
     with pytest.raises(ValueError, match="No supported code"):
         capture(repository, tmp_path / "outputs", configuration())
+
+
+def test_capture_preserves_staged_git_index_for_checkpoint_verification(tmp_path, monkeypatch):
+    import os
+    import subprocess
+    from domain.capture import capture
+    from mn_graph_analysis_skill import GraphClient
+    monkeypatch.setattr(GraphClient, "import_json", lambda *args: None)
+    monkeypatch.setattr(GraphClient, "check", lambda *args: None)
+    repository = tmp_path / "repo"
+    repository.mkdir()
+    source = repository / "a.py"
+    source.write_text("def run():\n    return 1\n")
+    def git(*args):
+        return subprocess.run(["git", "-C", str(repository), *args], check=True, capture_output=True)
+    git("init")
+    git("add", ".")
+    git("-c", "user.name=Fixture", "-c", "user.email=fixture@example.test", "commit", "-m", "baseline")
+    index = repository / ".git/index"
+    original = index.read_bytes()
+    stat = source.stat()
+    os.utime(source, ns=(stat.st_atime_ns, stat.st_mtime_ns + 2_000_000_000))
+    manifest = capture(repository, tmp_path / "snapshots", configuration())
+    assert index.read_bytes() == original
+    assert manifest["worktree_state"] == "clean worktree"
+    assert manifest["git_anchor"] == git("rev-parse", "HEAD").stdout.decode().strip()
+
+
+def test_unparsed_source_formats_and_explicit_extensions_remain_visible(tmp_path, monkeypatch):
+    from domain.capture import capture
+    from domain.static_analysis import build
+    from mn_graph_analysis_skill import GraphClient
+    monkeypatch.setattr(GraphClient,'import_json',lambda *args:None)
+    monkeypatch.setattr(GraphClient,'check',lambda *args:None)
+    repository=tmp_path/'repo with spaces';repository.mkdir()
+    for name,text in {'main.clj':'(defn run [] 1)', 'source with spaces/資料.dsl':'module Main', 'README.md':'ignored',
+                      'data.json':'{}'}.items():
+        path=repository/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_text(text)
+    cfg=configuration();cfg['ingest']['additional_extensions']=['.dsl']
+    run=tmp_path/'run';manifest=capture(repository,run/'evidence',cfg)
+    assert set(manifest['sources'])=={'main.clj','source with spaces/資料.dsl'}
+    assert manifest['coverage']['uncaptured_extensions']=={'.md':1,'.json':1}
+    assert '.dsl' in manifest['ingest_config']['capture_extensions']
+    (run/'snapshot.json').write_text(json.dumps(manifest))
+    build({'run_dir':run,'config':cfg})
+    facts=json.loads((run/'data/static-code.json').read_text())
+    score=json.loads((run/'data/architecture-score.json').read_text())
+    assert facts['coverage']['status_counts']=={'unsupported':2}
+    assert score['assessed_weight']==0 and score['score'] is None
+
+
+@pytest.mark.parametrize('extra', [['.json'],['.md'],['../code'],[''],[1],'.lua'])
+def test_additional_source_extensions_reject_documents_and_invalid_suffixes(extra):
+    from domain.config import validate_config
+    cfg=configuration();cfg['ingest']['additional_extensions']=extra
+    with pytest.raises(ValueError,match='additional_extensions'):validate_config(cfg)

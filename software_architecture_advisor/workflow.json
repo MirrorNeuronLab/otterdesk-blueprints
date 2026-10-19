@@ -34,7 +34,7 @@
       "id": "investigate_architecture",
       "kind": "stage",
       "label": "Investigate Architecture",
-      "goal": "Review bounded source packets and all 150 report aspects, challenge conclusions, and admit evidence-driven follow-ups.",
+      "goal": "Interpret the selected architecture aspects from precomputed source graphs, challenge conclusions, and admit bounded evidence-driven follow-ups.",
       "needs": [
         "analyze_dependency_structure"
       ],
@@ -80,7 +80,7 @@
             "handler": "agents.architecture_planner"
           },
           "control": {
-            "timeout_seconds": 300,
+            "timeout_seconds": 3600,
             "retry": {
               "max_attempts": 1
             }

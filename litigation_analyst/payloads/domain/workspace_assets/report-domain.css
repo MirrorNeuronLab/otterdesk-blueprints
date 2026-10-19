@@ -1,0 +1,171 @@
+/* Matter-specific presentation uses the shared template's tokens and primitives. */
+.report {
+  --ink: var(--report-ink);
+  --muted: var(--report-muted);
+  --line: var(--report-line);
+  --accent: var(--report-accent);
+  --soft: var(--vbg-surface-secondary);
+  --warning: var(--report-muted);
+}
+.report #content {
+  padding: 0;
+  max-width: none;
+  min-width: 0;
+}
+.report .scope {
+  padding: 0;
+  background: transparent;
+  border: 0;
+  margin-bottom: 20px;
+}
+.report .scope details {
+  margin: 0;
+}
+.report .eyebrow {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--report-muted);
+}
+.report .page-intro {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.report .page-intro h2 {
+  margin-bottom: 8px;
+}
+.report .reading-summary,
+.report .reading-metrics,
+.report .overview-counts {
+  background: transparent;
+  border-color: var(--report-line);
+  box-shadow: none;
+}
+.report .qualification,
+.report .warning {
+  background: var(--vbg-surface-secondary);
+  border-left: 2px solid var(--report-line);
+  padding: 10px 14px;
+  color: var(--report-muted);
+}
+.report .pill {
+  border: 1px solid var(--report-line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--report-muted);
+  font-size: 11px;
+}
+.report .danger {
+  background: var(--vbg-surface-secondary);
+}
+.report .graph,
+.report .case-map {
+  background: var(--report-surface);
+  border-color: var(--report-line);
+}
+.report .graph text,
+.report .case-map text {
+  fill: var(--report-ink);
+  font-family: inherit;
+}
+.report .graph line {
+  stroke: #a1a1aa;
+}
+.report .graph circle {
+  fill: #f4f4f5;
+  stroke: #71717a;
+}
+.report .map-node rect {
+  fill: var(--vbg-surface-secondary);
+  stroke: var(--report-line);
+}
+.report .map-node.selected rect {
+  stroke: var(--report-ink);
+}
+.report .source-text {
+  background: var(--vbg-surface-secondary);
+  font: 12px/1.7 var(--mono);
+  max-height: none;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.report .source-title {
+  overflow-wrap: anywhere;
+}
+.report dialog {
+  font:
+    13px/1.5 "Geist",
+    sans-serif;
+  background: var(--report-surface);
+  color: var(--report-ink);
+  width: min(720px, 94vw);
+  border: 1px solid var(--report-line);
+  border-radius: 8px;
+  padding: 24px;
+  max-height: 90dvh;
+  overflow: auto;
+}
+.report dialog::backdrop {
+  background: #0004;
+}
+.report .route-tabs {
+  border-color: var(--report-line);
+}
+.report .route-tabs button[aria-pressed="true"] {
+  background: var(--vbg-surface-secondary);
+  border-color: var(--report-line);
+  color: var(--report-ink);
+}
+.report .briefing-readiness,
+.report .unsaved-reminder {
+  background: var(--vbg-surface-secondary);
+  border-color: var(--report-line);
+  color: var(--report-ink);
+}
+.report #notice {
+  font-size: 12px;
+  color: var(--report-muted);
+}
+.report .source-link {
+  white-space: normal;
+  height: auto;
+  overflow-wrap: anywhere;
+}
+.report .overview-counts {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 6px 0 24px;
+}
+.report .overview-counts button {
+  border: 0;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  height: auto;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--report-muted);
+}
+.report #source-dialog iframe {
+  width: 100%;
+  height: 40dvh;
+  border: 1px solid var(--report-line);
+}
+@media (max-width: 760px) {
+  .report .grid,
+  .report .compare-grid,
+  .report .graph-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .report .toolbar label {
+    max-width: none;
+    min-width: 120px;
+  }
+  .report .page-intro {
+    flex-wrap: wrap;
+  }
+}

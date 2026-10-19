@@ -134,25 +134,53 @@ def retain(context, workspace):
             if existing.exists() and existing.read_bytes() != body:
                 raise ValueError('Uncommitted architecture publication changed')
             atomic(existing, body)
-            for name in ['report.md', 'report.json', 'sections', 'work_packages', 'evidence.json',
-                         'claims.json', 'findings.json', 'recommendations.json', 'assumptions.json',
-                         'verification_tasks.json', 'coverage.json', 'work_packages.json', 'roadmap.json',
-                         'improvement_prompts.md', 'improvement_prompts.json']:
-                source = run / name
-                if source.is_dir():
-                    shutil.copytree(source, directory / name, dirs_exist_ok=True)
-                elif source.is_file():
-                    atomic(directory / name, source.read_bytes())
+            # JSON and human-readable reports have distinct retained roots.
+            for source in sorted((run / 'data').glob('*.json')):
+                if source.name not in {'workspace.json', 'index.json', 'growth.json'}:
+                    atomic(directory / source.name, source.read_bytes())
+            if (run / 'reports').is_dir():
+                retained_reports = root / 'reports/snapshots' / identity
+                for source in (run / 'reports').iterdir():
+                    if source.name == 'snapshots':
+                        continue
+                    if source.is_dir():
+                        shutil.copytree(source, retained_reports/source.name, dirs_exist_ok=True)
+                    elif source.is_file():
+                        body = source.read_bytes()
+                        if source.suffix == '.md':
+                            body = body.replace(b'](../web/code-map.html)', ('](../../../web/maps/'+identity+'.html)').encode())
+                            body = body.replace(b'](../data/', ('](../../../data/snapshots/'+identity+'/').encode())
+                            body = body.replace(b'](../web/', b'](../../../web/')
+                        atomic(retained_reports/source.name, body)
             record = {'id': identity, 'snapshot_id': workspace['snapshot_id'], 'run_id': workspace['run_id'],
                 'repository_id': workspace['repository_id'], 'captured_at': workspace['captured_at'],
                 'revision': workspace['revision'], 'status': workspace['status'], 'sha256': fingerprint(workspace),
                 'files': len(workspace['files']), 'findings': len(workspace['findings'])}
+            if workspace.get('graph_growth'):
+                record['graph_growth'] = workspace['graph_growth']
             index['snapshots'].append(record)
             index['latest'] = identity
+            atomic(directory / 'index.json', json_bytes(index))
             atomic(index_path, json_bytes(index))
         # Only a mutable latest pointer is replaced. All immutable snapshot records remain.
         latest = json.loads((data / 'snapshots' / index['latest'] / 'workspace.json').read_text())
         atomic(data / 'workspace.json', json_bytes(latest))
+        growth = []
+        for row in index['snapshots']:
+            if row.get('graph_growth'):
+                prior = next((p for p in reversed(growth) if p['repository_id'] == row['repository_id']), None)
+                values = row['graph_growth']
+                comparable = bool(prior and prior['metrics']['scope_identity'] == values['scope_identity']
+                                  and prior['metrics']['method'] == values['method'])
+                growth.append({'id': row['id'], 'repository_id': row['repository_id'],
+                    'captured_at': row['captured_at'], 'revision': row['revision'], 'metrics': values,
+                    'baseline': prior['id'] if prior else None, 'comparable': comparable,
+                    'delta': {key: values[key]-prior['metrics'][key] for key in
+                              ('files','functions','file_dependencies','call_pairs')} if comparable else None})
+        atomic(data / 'growth.json', json_bytes({'schema_version':'mn.architecture.growth_history.v1',
+            'snapshots': growth, 'basis':'Repeated captures in this Job; absent findings are not verified fixes.'}))
         # Stage declared job_files under the shared output tree. SDK owns host delivery.
         shutil.copytree(data, run / 'data', dirs_exist_ok=True)
+        if (root / 'reports/snapshots').is_dir():
+            shutil.copytree(root / 'reports/snapshots', run / 'reports/snapshots', dirs_exist_ok=True)
         return workspace, index, root

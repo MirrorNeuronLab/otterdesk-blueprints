@@ -111,10 +111,13 @@ def project(context, report, registers):
         for component in finding['component_ids']:
             components[component]['finding_ids'].append(finding['id'])
     history = _read(root / 'analysis/history.json', {'status': 'unavailable', 'reason': 'Git history was not collected', 'change_sets': None})
+    static = _read(root / 'data/static-code.json', None)
     languages = Counter(f['language'] for f in files)
     capabilities = [{'language': language, 'files': count,
         'structural_files': sum(f['language'] == language and f['structural_module'] for f in files),
-        'parsing': 'Python/BEAM extractor; see warnings' if language in {'py', 'ex', 'exs', 'erl', 'hrl'} else 'Text review only',
+        'parsing': ('Primary Python/BEAM extractor; see warnings' if language in {'py','ex','exs','erl','hrl'} else
+            'Measured syntax statuses: '+str(dict(Counter(c['status'] for c in static['components']
+                if PurePosixPath(c['id']).suffix.lstrip('.') == language))) if static else 'Text review only'),
         'symbol_resolution': 'Bounded static candidates; dynamic targets unresolved',
         'runtime': 'Not collected', 'test_results': 'Not run'} for language, count in sorted(languages.items())]
     workspace = {
@@ -129,7 +132,7 @@ def project(context, report, registers):
         'goal': report['goal'], 'status': report['status'], 'executive': report['executive'],
         'terminal': report['terminal'], 'source_scope': report['scope'],
         'execution': {'model': cfg.get('opencode', {}).get('model'),
-            'network': 'Bounded source excerpts sent to selected review provider; browsing this page makes no network requests.',
+            'network': 'Bounded source excerpts sent to the selected review provider; the page reads bundled/same-origin report data and makes no third-party requests.',
             'source_execution': 'Reviewed code was not executed'},
         'files': files, 'components': list(components.values()), 'relations': relations,
         'component_relations': list(aggregate.values()), 'cycles': cycles,
@@ -145,10 +148,18 @@ def project(context, report, registers):
             'Directory components are inferred navigation groups, not deployed services or confirmed responsibilities.',
             'Static reachability identifies dependency context, not demonstrated behavioral impact or failure.',
             'No imported compatibility checks, runtime telemetry or approved architecture policy were supplied to this projection.',
-            'Other languages retain text review; their missing structural edges cannot establish absence of dependencies.',
+            'Unsupported grammar files retain text review; missing structural edges cannot establish absence of dependencies.',
             'Finding continuity is conservative: wording, aspect or path changes can require manual reconciliation.',
         ],
     }
+    if static is not None:
+        workspace['graph_growth'] = {'schema_version': 'mn.architecture.growth.v1',
+            'files': len(static['components']), 'functions': len(static['functions']),
+            'file_dependencies': len(static['component_edges']),
+            'call_pairs': len({(c['source'], c['target']) for c in static['calls'] if c['target']}),
+            'parse_status_counts': static['coverage']['status_counts'],
+            'method': static['schema_version'] + ('/'+static['analysis_version'] if static.get('analysis_version') else ''), 'scope_identity': scope_identity,
+            'basis': 'Captured source syntax; parse gaps may change extracted counts. No defect or severity score.'}
     workspace['gaps'].extend([
         {'id': 'gap-runtime', 'question': 'Does the candidate behave as expected at runtime?',
          'missing': 'Source-matched traces and representative workload', 'closure': 'Attach observations with build, environment, interval and sampling basis'},

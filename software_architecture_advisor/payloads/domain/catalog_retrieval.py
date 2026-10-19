@@ -99,6 +99,10 @@ def graph_context(store, snapshot, task, focus, config, source_evidence=(), requ
 def retrieve(store, saved, snapshot, task, catalog):
     config = saved['request']['retrieval_config']
     focus = _focus(task, catalog, saved['request']['goal'])
+    query, static_evidence = None, []
+    if task['kind'] not in {'section_synthesis', 'executive_synthesis'}:
+        from .static_analysis import source_context as static_context
+        query, static_evidence = static_context(store, snapshot, task, focus)
     # Direct file scans/lookups and synthesis already carry their complete inputs.
     # Historical navigation is useful only to the open-ended aspect reviewers.
     recall = task['kind'] in {'aspect_analysis', 'aspect_challenge'}
@@ -142,7 +146,14 @@ def retrieve(store, saved, snapshot, task, catalog):
         graph, evidence = {'status':'not_requested', 'queries':[], 'incomplete':False}, []
     else:
         originals, source_evidence = source_context(store,saved['request'],snapshot,task,focus)
-        graph, evidence = graph_context(store, snapshot, task, focus, config, source_evidence, saved['request'])
+        # Static function witnesses are current-source seeds, including when
+        # optional original-corpus search is disabled. Bind them before asking
+        # the graph for a module scope, not after an entity_unresolved verdict.
+        graph, evidence = graph_context(store, snapshot, task, focus, config,
+                                       [*static_evidence, *source_evidence], saved['request'])
+    if query is not None:
+        graph.setdefault('queries', []).insert(0, query)
+        evidence = [*static_evidence, *evidence]
     context = {'architecture_graph':graph,'source_query':originals}
     if recall:
         context['runtime_memory'] = notes

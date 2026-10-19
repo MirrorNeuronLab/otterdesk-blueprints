@@ -1,5 +1,61 @@
 # Litigation Analyst specification
 
+## Version 3.3.1 navigation and disclosure
+
+Expose eight primary task groups: Overview, Findings, Questions, Evidence,
+People & events, Timeline, Reports and Review history. Preserve the original route
+strings and saved-state contract; use explicit presentation grouping for comparison,
+briefing and change/audit routes. Keep Matter settings secondary. Do not change
+source authorization, review digests, human decisions or briefing eligibility.
+
+Overview presents the existing record summary before counts. Findings exposes
+withheld claims as correction work, never eligible briefing material. Evidence
+puts search above the list and retains complete long names through tooltips/details;
+technical provenance is secondary. Selecting a graph node retains the displayed
+context, highlights its connections and exposes supported sources in a responsive
+inspector. Keep active navigation visible after rerendering at narrow widths.
+
+Group saved-copy/download actions under Export. Local review/saved-view edits have
+an explicit pending-save reminder. Distinguish requesting a copy download from
+verified filesystem persistence; reopening the downloaded copy restores the state.
+Keep the existing recipient confirmation and complete supporting/contrary basis
+for reviewed briefing export. This is presentation-only; no runtime/IPC/data
+contract or model call is added.
+
+## Version 3.3 reading presentation
+
+Optional workspace publication adds source-bound reading reports, internal review
+tasks and a selectable people/event/reference map. The authoritative investigation
+and report are written first. Reading/render failures remain contained by the
+existing optional preview status; they cannot fail domain completion.
+
+Revalidate normalized hashes, exact spans and financial quotation bindings before
+deriving this presentation. Preserve source observations, counsel annotations,
+model assessments and human decisions as separate dimensions. Apply the existing
+limited consistency guard to older projected findings; expose flagged drafts as
+correction work and exclude them from reading findings and briefing eligibility.
+No new finding or human approval is synthesized. The reading brief supplies
+amount distinctions, accounting net qualifications and record-based review tasks.
+
+Graph nodes describe distinct observed email addresses with header display names,
+communication source records, annotated financial records and recorded transaction
+references. Edges have exact source support; shared-source and header links do not
+infer participation, causation, knowledge, payment or real-person identity.
+Unknown dates stay unresolved. Cap projected communications/financial records at
+60 each and addresses per header field at 20; cap displayed links at 49/nodes at
+60, disclose truncation, and provide an equivalent connection table.
+
+Markdown rendering supports headings, tables, blockquotes, lists and code with
+inert HTML and allowlisted evidence drill-throughs. Reading reports cover the
+authorized snapshot independently of analytical filters. Reviewed briefing export
+must strip reading reports/tasks, the case map and reading-copy provenance along
+with the existing full-source and unreviewed-state exclusions.
+
+`render_review.py` is an offline presentation command for a completed workspace.
+It writes a new separate folder only, binds provenance to the original workspace
+hash and never rewrites frozen analysis, performs inference or publishes externally.
+This additive presentation preserves the workspace v1/IPC/runtime contracts.
+
 ## Version 3.2.1 initial planning contract
 
 Before a model chooses enquiries, verify the frozen indexes and supply a bounded
@@ -494,3 +550,11 @@ comparisons. Unmeasured provider reasoning/calibration/repair overhead stays unk
 output-token defaults are unchanged pending a passing factual and attorney baseline.
 
 Version 3.2 requires the companion SDK from 1.3.61.dev20 (or the matching local source checkout) for numeric ledger diagnostics and coordinated host delivery. Update the CLI alongside it. No Core configuration or model-registry change is required.
+
+## Report presentation
+
+`mirrorneuron-web-report-skill` owns common report chrome and component assets.
+The blueprint owns its domain-specific views, source scope and evidence semantics.
+The web page is local/offline with a minimal header, Actions dropdown, progressive
+tabs and a non-modal evidence Sheet. Presentation adds no model calls, source
+execution, external sharing, runtime changes or approval authority.

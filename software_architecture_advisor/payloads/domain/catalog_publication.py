@@ -27,8 +27,11 @@ def publish(context, *, llm_client=None):
     root = store.root
     catalog = load_catalog()
     links = []
+    selected = set(catalog['specs']) - set(report['scope'].get('unselected_aspects', []))
     for section in report["sections"]:
-        name = f"sections/{section['number']:02d}-{section['folder']}.md"
+        if not selected.intersection(section['aspect_ids']):
+            continue
+        name = f"reports/sections/{section['number']:02d}-{section['folder']}.md"
         links.append((section["title"], name))
         synthesis = results.get(f"section-{section['number']:02d}", {})
         lines = [
@@ -42,7 +45,7 @@ def publish(context, *, llm_client=None):
             ),
             "",
         ]
-        for row in (r for r in report["coverage"] if r["section"] == section["number"]):
+        for row in (r for r in report["coverage"] if r["section"] == section["number"] and r["aspect_id"] in selected):
             aid = row["aspect_id"]
             a = results.get("analysis-" + aid, {})
             c = results.get("challenge-" + aid, {})
@@ -96,20 +99,33 @@ def publish(context, *, llm_client=None):
             )
         _write_text(root / name, "\n".join(lines) + "\n")
     for key, value in {"report": report, **files}.items():
-        store.write(key + ".json", value)
+        store.write("data/" + key + ".json", value)
     text = f"# Architecture review\n\nStatus: **{report['status']}**. Snapshot: `{report['snapshot']}`.\n\n{report['executive']}\n\n"
-    text += f"Source packets reviewed: {report['scope']['reviewed_source_packets']}/{report['scope']['source_packets']}. Stop: {report['terminal']['stop_reason']}.\n\n"
-    text += "\n".join(f"- [{title}]({path})" for title, path in links)
+    from .static_analysis import ARTIFACTS
+    if (root / 'data/static-code.json').is_file():
+        from .code_map import publish_shell
+        publish_shell(root)
+    static_paths = [(name,path) for name,path in ARTIFACTS if (root/path).is_file()]
+    if static_paths:
+        text += ('[Component and function evolution map](../web/code-map.html) · '
+                 '[Static analysis brief](code-map.md) · '
+                 '[Function change history](../data/function-evolution.json)\n\n')
+        static_brief = (root / 'reports/code-map.md').read_text()
+        text += static_brief.replace('## ', '### ').replace('# Component and function evolution review',
+            '## Component and function evolution review', 1) + '\n'
+    text += f"Model source-scan packets reviewed: {report['scope']['reviewed_source_packets']}/{report['scope']['source_packets']}. Stop: {report['terminal']['stop_reason']}.\n\n"
+    text += "\n".join(f"- [{title}]({path.removeprefix("reports/")})" for title, path in links)
     text += (
-        "\n\n[Coverage and exclusions](coverage.json) · [Evidence](evidence.json) · [Claims](claims.json) · [Findings](findings.json) · [Recommendations](recommendations.json) · [Verification tasks](verification_tasks.json) · [Roadmap](roadmap.json) · [Work packages](work_packages.json)\n\n"
+        "\n\n[Coverage and exclusions](../data/coverage.json) · [Evidence](../data/evidence.json) · [Claims](../data/claims.json) · [Findings](../data/findings.json) · [Recommendations](../data/recommendations.json) · [Verification tasks](../data/verification_tasks.json) · [Roadmap](../data/roadmap.json) · [Work packages](../data/work_packages.json)\n\n"
         + report["authorization"]
         + "\n"
     )
     text += '\n' + prompts_markdown(workspace_projection)
-    _write_text(root / "report.md", text)
+    text = text.replace('../web/code-map.html', '../web/maps/'+workspace_projection['id']+'.html')
+    _write_text(root / "reports/report.md", text)
     package_links = []
     for package in files["work_packages"]:
-        name = f"work_packages/{package['id']}.md"
+        name = f"reports/work_packages/{package['id']}.md"
         linked_evidence = [
             e for e in files["evidence"] if e["id"] in package["evidence_ids"]
         ]
@@ -127,7 +143,7 @@ def publish(context, *, llm_client=None):
         )
         package_links.append({"id": package["id"], "path": name})
     _write_text(
-        root / "work_packages/README.md",
+        root / "reports/work_packages/README.md",
         "# Proposed work packages\n\n"
         + (
             "\n".join(f"- [{r['id']}]({Path(r['path']).name})" for r in package_links)
@@ -138,35 +154,39 @@ def publish(context, *, llm_client=None):
     workspace, workspace_refs = publish_workspace(context, report, files, workspace=workspace_projection)
     index = {
         "status": report["status"],
-        "report": "report.md",
-        "data": "report.json",
-        "coverage": "coverage.json",
+        "report": "reports/report.md",
+        "data": "data/report.json",
+        "coverage": "data/coverage.json",
         "sections": [p for _, p in links],
-        "work_packages": "work_packages/README.md",
+        "work_packages": "reports/work_packages/README.md",
         "task_audit": "catalog/",
         "workspace": workspace["data"]["path"],
         "dashboard": "web/index.html",
         "history": "data/index.json",
-        "improvement_prompts": "improvement_prompts.md",
+        "improvement_prompts": "reports/improvement_prompts.md",
+        "static_analysis": {name:path for name,path in static_paths},
     }
     store.write("review_index.json", index)
     output_folder = context.get("output_folder")
     if output_folder and Path(output_folder).resolve() != root.resolve():
         # Export the published report and its JSON audit only, never the writable
         # budget ledger or sandbox workspaces. The index is published last.
-        names = ["report.md", "report.json", *[key + ".json" for key in files],
+        names = ["reports/report.md", "data/report.json", *["data/" + key + ".json" for key in files],
                  *[path for _, path in links], *[row["path"] for row in package_links],
-                 "work_packages/README.md", "improvement_prompts.md"]
+                 "reports/work_packages/README.md", "reports/improvement_prompts.md"]
         names += [str(path.relative_to(root)) for path in sorted((root / "catalog").rglob("*.json"))]
+        names += [str(path.relative_to(root)) for directory in ('data','web','reports')
+                  for path in sorted((root/directory).rglob('*')) if path.is_file()]
+        names += [path for _,path in static_paths]
         for name in dict.fromkeys([*names, "review_index.json"]):
             _export_file(root / name, Path(output_folder) / name)
     publish_outputs(context, section_paths=[path for _, path in links])
     refs = [
         artifact_reference(key, path)
         for key, path in [
-            ("report", "report.md"),
-            ("report_data", "report.json"),
-            ("coverage", "coverage.json"),
+            ("report", "reports/report.md"),
+            ("report_data", "data/report.json"),
+            ("coverage", "data/coverage.json"),
             ("review_index", "review_index.json"),
         ]
     ]
@@ -175,7 +195,7 @@ def publish(context, *, llm_client=None):
         "report": refs[0],
         "review_index": refs[-1],
         "workspace": workspace,
-    }, refs + workspace_refs
+    }, refs + workspace_refs + [artifact_reference(name,path) for name,path in static_paths]
 
 
 def _write_text(path, text):

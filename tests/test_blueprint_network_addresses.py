@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import json
 import re
@@ -33,9 +34,16 @@ def _source_files(blueprint: str):
 
 
 def test_catalog_payloads_have_no_deployment_specific_addresses():
+    # D3's minified JavaScript uses .local property access, which is not DNS.
+    # Permit only this audited upstream bundle, and reject any changed bytes.
+    vendored = {"software_architecture_advisor/payloads/domain/workspace_assets/vendor/d3.v7.min.js": "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539"}
     violations = []
     for blueprint in json.loads((ROOT / "index.json").read_text(encoding="utf-8")):
         for path in _source_files(blueprint):
+            vendor_hash = vendored.get(path.relative_to(ROOT).as_posix())
+            if vendor_hash is not None:
+                assert hashlib.sha256(path.read_bytes()).hexdigest() == vendor_hash
+                continue
             for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
                 # Documentation comments and public source references do not set runtime hosts.
                 if line.lstrip().startswith(("#", "//", "*")):

@@ -161,7 +161,8 @@ def assemble(context, *, llm_client=None):
             reason = (
                 a.get("applicability_reason")
                 or a.get("reason")
-                or "Task not executed before stop"
+                or ('Outside the selected focused review; not analyzed.'
+                    if aid in plan['omitted'].get('unselected_aspects', []) else "Task not executed before stop")
             )
             limits = a.get("limitations", []) + challenge.get("limitations", [])
             row = {
@@ -190,7 +191,7 @@ def assemble(context, *, llm_client=None):
                 "challenge_task": "challenge-" + aid,
             }
             coverage.append(row)
-            if state != "complete_for_stated_scope":
+            if state != "complete_for_stated_scope" and aid not in plan["omitted"].get("unselected_aspects", []):
                 verifications.append(
                     {
                         "id": "V-" + aid,
@@ -329,11 +330,7 @@ def assemble(context, *, llm_client=None):
     executive = results.get("executive", {})
     report = {
         "schema_version": "mn.architecture.catalog_report.v1",
-        "status": "review_draft"
-        if all(r["coverage"] == "complete_for_stated_scope" for r in coverage)
-        and executive.get("status") == "completed"
-        and not terminal["pending_task_ids"]
-        else "partial",
+        "status": review_status(coverage, plan['omitted'].get('unselected_aspects', []), executive, terminal),
         "snapshot": snapshot["snapshot_id"],
         "input": snapshot["manifest"].get("input", {}),
         "goal": saved["request"]["goal"],
@@ -342,6 +339,10 @@ def assemble(context, *, llm_client=None):
         ).isoformat(),
         "catalog_digest": catalog["digest"],
         "scope": {
+            "review_profile": review['profile'],
+            "unselected_aspects": plan['omitted'].get('unselected_aspects', []),
+            "static_analysis": 'data/static-code.json' if store.path('data/static-code.json').is_file() else None,
+            "function_evolution": 'data/function-evolution.json' if store.path('data/function-evolution.json').is_file() else None,
             "source_files": len(snapshot["inventory"]),
             "source_packets": len(packets),
             "reviewed_source_packets": len(scanned),
@@ -351,11 +352,12 @@ def assemble(context, *, llm_client=None):
             .get("exclude", []),
             "method": "Frozen text, static dependency baseline, bounded OpenCode reviews, independent aspect challenges; no reviewed code executed.",
             "runtime_evidence": "not_collected",
-            "history": "only captured immutable revision; no history measurement inferred",
+            "history": ("Bounded immutable function-change observations in data/function-evolution.json; missing or omitted history is not zero churn."
+                        if store.path('data/function-evolution.json').is_file() else 'Function history not materialized; immutable revision only.'),
         },
         "executive": executive.get(
             "conclusion",
-            "Executive review was not completed; inspect explicit partial coverage.",
+            _static_executive(store, coverage, results, plan),
         ),
         "executive_claim_type": "inferred",
         "executive_source_tasks": executive.get("source_task_ids", []),
@@ -370,6 +372,12 @@ def assemble(context, *, llm_client=None):
                 v["status"] == "not_analyzed" for v in results.values()
             ),
         },
+        "decisions": [{'id': r['id'], 'action': r['action'], 'next_decision': r['next_decision'],
+                       'verification_required': r['verification_required']} for r in recommendations],
+        "review_health": {
+            'provider_timeouts': sum('OpenCode exceeded timeout_seconds' in v.get('reason','') for v in results.values()),
+            'provider_errors': sum('OpenCode reported an error event' in v.get('reason','') for v in results.values()),
+            'validation_failures': sum('structured evidence validation failed' in v.get('reason','') for v in results.values())},
         "authorization": "Proposals only. No source modification, deployment or operational action is authorized by this report.",
     }
     files = {
@@ -429,3 +437,29 @@ def _validate_links(files):
             ]:
                 if not set(item.get(field, [])) <= targets[target]:
                     raise ValueError("Unresolvable report traceability link")
+
+
+def _static_executive(store, coverage, results, plan):
+    """Useful measured summary even when model review is blocked or exhausted."""
+    selected = [r for r in coverage if r['aspect_id'] not in plan['omitted'].get('unselected_aspects', [])]
+    analyzed = sum(r['coverage'] in {'partial','complete_for_stated_scope'} for r in selected)
+    challenged = sum(r['challenge'] == 'supported' for r in selected)
+    prefix = f"Model review incomplete: {analyzed}/{len(selected)} selected aspects have analysis; {challenged} have a supporting challenge. "
+    if not store.path('data/static-code.json').exists():
+        return prefix + 'Inspect the explicit coverage and task audit before acting.'
+    facts = store.read('data/static-code.json')
+    history = store.read('data/function-evolution.json')
+    frames = history.get('timeline', {}).get('frames', [])
+    text = (f"Static analysis extracted {len(facts['functions'])} named functions across {facts['coverage']['files']} captured files "
+            f"and {len(facts['component_edges'])} file dependency pairs by kind. ")
+    if frames:
+        a, b = frames[0]['metrics'], frames[-1]['metrics']
+        text += (f"Across {len(frames)} committed graph states, supported source files changed from {a['files']} to {b['files']}, "
+                 f"extracted functions from {a['functions']} to {b['functions']}, and call candidate pairs from {a['call_pairs']} to {b['call_pairs']}. ")
+    return text + prefix + 'Use the component map and growth timeline to scope the next source review; these counts do not establish defects or semantic behavior changes.'
+
+
+def review_status(coverage, unselected, executive, terminal):
+    selected = [r for r in coverage if r['aspect_id'] not in unselected]
+    complete = bool(selected) and all(r['coverage']=='complete_for_stated_scope' for r in selected)
+    return 'review_draft' if complete and executive.get('status')=='completed' and not terminal['pending_task_ids'] else 'partial'

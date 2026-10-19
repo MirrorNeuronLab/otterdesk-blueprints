@@ -10,7 +10,7 @@ import pytest
 
 @pytest.mark.parametrize("blueprint,report_name", [
     ("financial_advisor", "financial_advisor_report.md"),
-    ("software_architecture_advisor", "report.md"),
+    ("software_architecture_advisor", "reports/report.md"),
 ])
 def test_finished_report_publication_retains_complete_text_and_run_history(
         tmp_path, monkeypatch, blueprint, report_name):
@@ -23,6 +23,7 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
         root = tmp_path / str(number)
         root.mkdir()
         text = f"# Review {number}\n\n## Finding\nA recorded finding. 中🙂\n\n## Limit\nHuman review required.\n"
+        (root / report_name).parent.mkdir(parents=True, exist_ok=True)
         (root / report_name).write_text(text, encoding="utf-8")
         (root / "private-audit.json").write_text('{"private":"not a chat subject"}')
         (root / "raw-input.md").write_text("Not a selected report.")
@@ -41,12 +42,12 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
         saved.append((target, target.read_bytes()))
     assert saved[0][0] != saved[1][0]
     assert all(path.read_bytes() == body for path, body in saved)
-    assert sorted(p.name for p in output.rglob("*.md")) == [report_name + ".md"] * 2
+    assert sorted(p.name for p in output.rglob("*.md")) == [Path(report_name).name + ".md"] * 2
 
 
 @pytest.mark.parametrize("blueprint,report_name", [
     ("financial_advisor", "financial_advisor_report.md"),
-    ("software_architecture_advisor", "report.md"),
+    ("software_architecture_advisor", "reports/report.md"),
 ])
 @pytest.mark.parametrize("unsafe", ["missing", "symlink"])
 def test_missing_or_linked_reports_never_create_a_queryable_source(
@@ -58,6 +59,7 @@ def test_missing_or_linked_reports_never_create_a_queryable_source(
     if unsafe == "symlink":
         other = tmp_path / "private.md"
         other.write_text("Private source outside the run.")
+        (root / report_name).parent.mkdir(parents=True, exist_ok=True)
         (root / report_name).symlink_to(other)
     output = tmp_path / "output"
     with pytest.raises(ValueError, match="complete"):
@@ -68,13 +70,14 @@ def test_missing_or_linked_reports_never_create_a_queryable_source(
 def test_architecture_publishes_only_explicit_completed_sections(tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(Path(__file__).parents[1] / "software_architecture_advisor/payloads"))
     publisher = importlib.import_module("domain.conversation_sources")
-    (tmp_path / "report.md").write_text("# Published architecture review\n")
-    (tmp_path / "sections").mkdir()
-    (tmp_path / "sections/01-finding.md").write_text("# Finding\nComplete supported section.\n")
-    (tmp_path / "sections/private-draft.md").write_text("Unpublished draft.")
+    (tmp_path / "reports").mkdir()
+    (tmp_path / "reports/report.md").write_text("# Published architecture review\n")
+    (tmp_path / "reports/sections").mkdir()
+    (tmp_path / "reports/sections/01-finding.md").write_text("# Finding\nComplete supported section.\n")
+    (tmp_path / "reports/sections/private-draft.md").write_text("Unpublished draft.")
     context = {"run_dir": tmp_path, "run_id": "run", "output_folder": tmp_path / "output"}
     with pytest.raises(ValueError, match="complete"):
-        publisher.publish_outputs(context, section_paths=["sections/missing.md"])
+        publisher.publish_outputs(context, section_paths=["reports/sections/missing.md"])
     assert not context["output_folder"].exists()
-    records = publisher.publish_outputs(context, section_paths=["sections/01-finding.md"])
-    assert {record["source_ref"] for record in records} == {"report.md", "sections/01-finding.md"}
+    records = publisher.publish_outputs(context, section_paths=["reports/sections/01-finding.md"])
+    assert {record["source_ref"] for record in records} == {"reports/report.md", "reports/sections/01-finding.md"}

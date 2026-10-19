@@ -1,0 +1,162 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Read-only static verification of documented and supervisor-authored software rules.",
+  "inputs": {
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": true,
+      "privacy": "confidential",
+      "description": "Repository checkout or plain source/docs folder, staged by the platform."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "schema_version": "mn.software_rules.report.v1",
+      "type": "review_packet",
+      "required_fields": [
+        "rules",
+        "results",
+        "summary",
+        "snapshot_id",
+        "rules_review"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "extraction_status",
+        "path": "extraction-status.json",
+        "mime_type": "application/json",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "extraction_plan",
+        "path": "extraction-plan.json",
+        "mime_type": "application/json",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "capture",
+        "path": "capture.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "static_analysis",
+        "path": "static-analysis.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "rules",
+        "path": "rules.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "rules_markdown",
+        "path": "rules.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "verification",
+        "path": "verification.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "report",
+        "path": "report.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "final_artifact",
+        "path": "final_artifact.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "source",
+        "path": "source",
+        "mime_type": "application/octet-stream",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "result",
+        "path": "result.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "reviews",
+        "path": "reviews",
+        "mime_type": "application/octet-stream",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "extraction_audit",
+        "path": "extraction",
+        "mime_type": "application/octet-stream",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "verification_audit",
+        "path": "verification",
+        "mime_type": "application/octet-stream",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_report",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "rules_review_request",
+        "path": "rules-review-request.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "rules_review",
+        "path": "rules-review.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      }
+    ]
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled",
+    "notes": "Captured source and bounded evidence are sent to the configured SDK model route. No repository code or tests execute."
+  }
+}

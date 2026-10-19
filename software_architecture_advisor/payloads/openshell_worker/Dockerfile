@@ -2,6 +2,11 @@ FROM ghcr.io/nvidia/openshell-community/sandboxes/base:latest@sha256:aeef1c63f00
 
 USER root
 RUN apt-get update && apt-get install -y --no-install-recommends iproute2 ca-certificates && rm -rf /var/lib/apt/lists/*
+# The supervisor selects /sandbox/.venv for commands. Recreate that environment
+# with the declared worker minor before SDK dependency preparation runs.
+RUN uv venv --clear --python /usr/bin/python3.12 --seed /sandbox/.venv
+ENV VIRTUAL_ENV=/sandbox/.venv \
+    PATH=/sandbox/.venv/bin:$PATH
 ARG OPENCODE_VERSION=1.18.33
 RUN set -eu; \
     case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64) arch=x64 ;; *) exit 1 ;; esac; \

@@ -1,0 +1,37 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Engineering",
+  "intent": {
+    "problem": "Software expectations are scattered across specifications, docs and custom rules.",
+    "target_users": "Software owners, developers and reviewers.",
+    "safety": {
+      "enabled": true,
+      "mode": "review_only",
+      "reason": "Inspect source without executing programs or applying fixes.",
+      "blocked_actions": [
+        "execute_source",
+        "execute_tests",
+        "edit_repository",
+        "install_repository_dependencies",
+        "publish_results",
+        "verify_unapproved_rules"
+      ]
+    }
+  },
+  "product": {
+    "agent_role": "Software rules reviewer",
+    "benefit": "See which expectations have implementation evidence and which need attention.",
+    "how_it_works": "Extracts rules from SPEC.md, docs and knowledge, asks the supervisor to review them in Chat, and investigates each rule only after explicit approval.",
+    "input": "Local repository checkout or plain source/docs folder; optional Markdown rules in knowledge/rules/.",
+    "output": "Editable rules.md and a Markdown table of rules, pass/fail/unknown, exact references and 0\u20131 confidence.",
+    "runtime_features": [
+      "Read-only source capture",
+      "Editable Markdown rules",
+      "Required rule review in Chat",
+      "One investigation per rule",
+      "Exact evidence references",
+      "Explicit unknowns"
+    ],
+    "customizable_for": "Software expectations and prohibitions supplied as Markdown."
+  }
+}

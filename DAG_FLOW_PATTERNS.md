@@ -19,6 +19,7 @@ workflow ledger, not only displayed in the UI.
 | Procurement Manager | Evidence preparation forks to a structured case assessment and the existing market, cost, risk, and recommendation path; publication joins both branches into a review-only packet. |
 | Research Assistant | Evidence preparation forks to independent coverage and experiment-readiness assessments; the autonomous hypothesis step joins both before verification and publication. |
 | Software Architecture Advisor | Fixed parent DAG with a bounded, runtime-planned child investigation: commit a round, execute deterministically, then replan from evidence. |
+| Code verifier | Serial bounded batch: capture source/docs → extract editable rules → wait for supervisor approval in Chat → investigate each approved rule → publish an evidence table. |
 | VC Assistant | Fan-out/fan-in: ordered evidence preparation leads to seven independent valuation-method scorers, then an all-success score-consistency join. Per-method state files prevent scorer artifact races, while the RAG skill brokers all DuckDB operations through one job-scoped connection. |
 
 ## Authoring rules

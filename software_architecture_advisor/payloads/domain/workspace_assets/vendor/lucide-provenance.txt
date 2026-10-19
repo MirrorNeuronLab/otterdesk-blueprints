@@ -1,0 +1,24 @@
+{
+  "package": "lucide-static",
+  "version": "1.59.0",
+  "source": "https://registry.npmjs.org/lucide-static/-/lucide-static-1.59.0.tgz",
+  "license": "ISC; see lucide-LICENSE.txt",
+  "members": {
+    "ellipsis": "5744c741cddfe830075373e32c455e3e3eb6266495a8524cee8d40e1bc15ca4f",
+    "x": "b22c83fd632ff4082021e34d64b1393591134e7ce2889a6dad5361eff2fcc716",
+    "download": "2dd5aa5647f47a9fc6212bcb4cae730d41cec56b6c22624a88c3792a090fdd7d",
+    "info": "90a15da8900338f27acfb490534f623a2490398932fcb0cae1a48316094e4a46",
+    "copy": "3c2495e7be35f9e2df45e1c471136996670f365a34263477ff878963c9da4ecd",
+    "chevron-down": "e10693317903666ba372e80e895780164913328f1451b1d13909f7ebd9b2b026",
+    "arrow-left": "63ad6b972351dc4c233ff87666084debfaefac3657abb42f233c2d669500b133",
+    "arrow-right": "7fffdce8d4505927f8dfe0395331083397e2c7d7fd59f3291f73d00c2369efdb",
+    "play": "d899e50a8649cb0b066a73375b06888e08556959415151ae8fb5d668808429e2",
+    "pause": "a1fe8487700ffe50777f5da27538a159a95e8644eed4b0a10f602df8b62f3402",
+    "plus": "faf0bab01219d720cdd3047f6b5755c78c8e5a6743008a8fcd1c48fec4879519",
+    "minus": "aa3ef03c3175ca17faed7656bb392e3c50b5676f78242f4033fae0b95c079b56",
+    "focus": "6706254eb80d11103a569c8b7595e31a9f990c7edea57871ad864f6734455e71",
+    "maximize": "aea27aa48e6783b1780bc5558f6febf563cd9310715825eaf327417475562860",
+    "scan-search": "d1e7f8cc487d4b7add251e2e617107a71615a53b75af592a2310c4b11e4c0ea9"
+  },
+  "sprite_sha256": "fe2e18c89cc114141e4027e214d6ca8d4b58b1d7f008bdb0d30d5a4ce6c40a8d"
+}

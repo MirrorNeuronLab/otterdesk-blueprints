@@ -1,0 +1,6 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/rag.schema.json",
+  "enabled": true,
+  "index_on_startup": true,
+  "knowledge_dir": "knowledge"
+}

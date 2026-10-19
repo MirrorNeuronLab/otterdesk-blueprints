@@ -13,7 +13,28 @@ Understand how your software is organized, where changes may cause problems, and
 
 ## Outputs and review
 
+The default source is https://github.com/mit-pdos/xv6-riscv. Select a different
+public repository or clear that URL when choosing a local folder.
 
+Open **Component and function evolution map** from the dashboard or report.
+Start with the dependency matrix, then switch to the dependency graph, hotspot
+treemap, change impact or temporal coupling. Select a file or function to inspect
+its relationships and source witnesses. The Code evolution tab plays committed
+graph states and plots codebase growth. Compare a baseline to inspect added,
+removed and modified definitions and call candidates. Size, churn and graph
+connectivity guide inspection; they do not establish defects.
+
+Data is in `data/`, Markdown in `reports/`, and rendering in `web/`. HTTP previews load sibling data automatically. Direct local or desktop static
+HTML views use the explicit JSON file picker. Rerun the same Job or use its existing schedule to
+retain growth measurements and graphs across reviews. This reflects capture
+cadence, not a continuous filesystem watcher.
+
+The focused review uses six selected topics with independent challenges and
+summaries. Other catalog topics remain explicitly not analyzed. Missing history,
+parser gaps and indirect calls remain unknown. An exhaustive catalog review is
+available through `catalog_review.profile=full_catalog` with larger budgets.
+The model uses your runtime default, including a Nemotron override. Reports do
+not authorize source edits or execute suggested work.
 
 Consult the published run results and their evidence before making decisions. Missing evidence does not establish that an event or condition did not occur.
 

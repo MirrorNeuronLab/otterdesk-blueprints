@@ -68,7 +68,7 @@ def test_capture_file_identity_survives_edit_rename_and_graph_evolution(tmp_path
     fresh = capture(other, tmp_path / 'other-index', config)
     assert fresh['repository_id'] == 'fixture/architecture'
     fresh_nodes = json.loads((tmp_path / 'other-index/snapshots' / fresh['id'] / 'nodes.json').read_text())
-    assert next(n for n in fresh_nodes if n.get('properties', {}).get('path') == 'b.ts')['id'] == first['b.ts']['id']
+    assert next(n for n in fresh_nodes if n['kind'] == 'File' and n.get('properties', {}).get('path') == 'b.ts')['id'] == first['b.ts']['id']
 
 
 def test_failed_graph_publication_preserves_previous_identity_baseline(tmp_path, monkeypatch):

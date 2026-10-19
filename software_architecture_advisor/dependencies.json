@@ -30,6 +30,18 @@
       "source": "gar",
       "type": "pip",
       "version": ">=1.3.58.dev0,<2"
+    },
+    {
+      "name": "mirrorneuron-static-code-analysis-skill",
+      "source": "gar",
+      "type": "pip",
+      "version": ">=1.3.61.dev0,<2"
+    },
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-report-skill",
+      "version": ">=1.3.61.dev3,<2"
     }
   ],
   "agents": [

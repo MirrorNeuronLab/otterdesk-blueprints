@@ -62,6 +62,7 @@ def output_shape(task, required):
         "task_id": task["task_id"],
         "kind": task["kind"],
         "status": "completed|blocked|not_analyzed",
+        "reason": "Required explanation when blocked or not_analyzed; empty when completed",
         "scope": "Exact scope of the supplied evidence",
         "conclusion": "Useful scoped conclusion; unsupported questions remain unknown",
         "limitations": ["Missing evidence and its consequence"],
@@ -278,6 +279,16 @@ def build_prompt(task, catalog, snapshot, packets, results, budget, omitted, *, 
     base['instructions'] += (' Give every supplied counterexample exact counterevidence_citations. '
         'Use counterevidence_status unknown when it was unexamined; not_found_in_searched_scope '
         'describes a bounded completed search and never proves absence.')
+    base['instructions'] += (' Preserve metric units: a file-level edge site count is aggregated over that file; '
+        'it is not the count for one function, an execution frequency or a severity score. '
+        'Historical syntax edits do not establish semantic behavior changes. Historical parse gaps remain unknown.')
+    if (quality_config or {}).get('catalog_review', {}).get('profile') == 'focused':
+        base['instructions'] += (' This is a focused tech-lead review. Be concise: at most 3 claims, '
+            '2 observations, 1 recommendation and 2 verification tasks. Leave work_packages empty '
+            'unless this is the coding-agent handoff task and a concrete change is justified. '
+            'Do not repeat the same explanation across fields. A blocked or not_analyzed response '
+            'must include a nonempty reason and empty claims/observations. Prefer a scoped useful '
+            'partial conclusion over inventing a complete architecture assessment.')
     # Audit details belong to the durable request, not the model's byte share.
     source_quality = base.get('source_query', {}).pop('quality', {})
     encode = lambda: json.dumps(base, ensure_ascii=False, separators=(",", ":"))

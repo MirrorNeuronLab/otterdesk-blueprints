@@ -50,6 +50,18 @@
       "enforcement": "hard"
     }
   },
+  "remote_model_requirements": {
+    "config_path": "opencode.model",
+    "requirements": {
+      "memory": {
+        "min_gb": 16
+      },
+      "gpu": {
+        "min_count": 1,
+        "enforcement": "hard"
+      }
+    }
+  },
   "workers": {
     "groups": [
       {

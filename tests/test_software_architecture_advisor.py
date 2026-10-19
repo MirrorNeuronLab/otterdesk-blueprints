@@ -69,11 +69,11 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     config=json.loads((BLUEPRINT/'config/default.json').read_text())
     execution=json.loads((BLUEPRINT/'execution.json').read_text())
     assert 'output_folder' not in config
-    assert config['inputs']['payload']['repository_url']=='https://github.com/MirrorNeuronLab/MirrorNeuron'
+    assert config['inputs']['payload']['repository_url']=='https://github.com/mit-pdos/xv6-riscv'
     assert execution['job_name']=='software_architecture_advisor'
     assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
     assert config['outputs']['write_run_store'] is True
-    assert config['outputs']['job_files'] == ['data', 'web']
+    assert config['outputs']['job_files'] == ['data', 'web', 'reports']
 
     monkeypatch.setenv('HOME',str(tmp_path))
     manifest={
@@ -88,7 +88,7 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     copies=json.loads(prepared.manifest_json)['metadata']['mn_storage']['output_copy']
     assert any(item['target_path']==str(tmp_path/'Downloads/software_architecture_advisor')
                for item in copies)
-    assert all({'data', 'web'} <= set(item['job_files']) for item in copies)
+    assert all({'data', 'web', 'reports'} <= set(item['job_files']) for item in copies)
 
 
 def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modules, tmp_path):
@@ -146,7 +146,7 @@ def test_desktop_sample_selects_public_repository_without_graph_export(modules):
     assert modules['intake'].source_input({
         'repository_url': sample['inputs.payload.repository_url'],
         'input_folder': sample['inputs.payload.input_folder'],
-    })=='https://github.com/MirrorNeuronLab/MirrorNeuron.git'
+    })=='https://github.com/mit-pdos/xv6-riscv.git'
     assert modules['intake'].source_input({
         'repository_url': '',
         'input_folder': str(BLUEPRINT/'examples/sample_repository'),
@@ -359,13 +359,13 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
             else:
                 pytest.fail('Child workflow did not stop within its admitted round limit')
     assert not marker.exists()
-    report=json.loads((run/'report.json').read_text())
+    report=json.loads((run/'data/report.json').read_text())
     assert report['status']=='partial'
     assert report['terminal']['usage']['catalog_models']==0
-    assert 'changed after capture' not in (run/'report.md').read_text()
-    for filename in ('report.md','coverage.json','claims.json','verification_tasks.json','work_packages/README.md'):
+    assert 'changed after capture' not in (run/'reports/report.md').read_text()
+    for filename in ('reports/report.md','data/coverage.json','data/claims.json','data/verification_tasks.json','reports/work_packages/README.md'):
         assert (run/filename).is_file()
-    assert len(list((run/'sections').glob('*.md')))==23
+    assert len(list((run/'reports/sections').glob('*.md')))==6
     events=[json.loads(line) for line in (run/'events.log').read_text().splitlines()]
     assert [e['sequence'] for e in events]==list(range(1,len(events)+1))
     assert all(not e['event'].startswith('run.') for e in events)

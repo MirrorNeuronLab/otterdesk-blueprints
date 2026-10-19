@@ -179,7 +179,7 @@ def publish_review(context, *, llm_client=None):
             (output_folder / 'review_index.json').write_text(
                 json.dumps(index, indent=2), encoding='utf-8'
             )
-    publish_outputs(context)
+    publish_outputs(context, report_path="report.md")
     refs = [artifact_reference(name, path) for name, path in [('report','report.md'),
             ('suggestive_prompts','suggestive_prompts.md'), ('knowledge','knowledge.json'),
             ('report_data','report.json'), ('review_index','review_index.json')]]
