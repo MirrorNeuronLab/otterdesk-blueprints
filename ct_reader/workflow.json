@@ -16,9 +16,6 @@
       "label": "Read CT for research",
       "goal": "Validate one 3D CT volume, request NV-Reason-CT inference, and publish an experimental review with explicit limits.",
       "needs": [],
-      "run": {
-        "definition": "steps.read_ct_volume"
-      },
       "control": {
         "timeout_seconds": 900,
         "retry": {

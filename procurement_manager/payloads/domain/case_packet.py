@@ -68,6 +68,43 @@ def assess_procurement_case(ctx: dict[str, Any], **_options: Any) -> dict[str, A
     return {"status": packet["status"], "case_packet": str(target), "decision_digest": packet.get("decision_digest")}
 
 
+def assess_block(context, inputs):
+    """Preserve the case policy while the SDK block owns invocation mechanics."""
+    result = assess_procurement_case({"run_dir": context.store.run_dir,
+        "run_id": context.run_id, "job_id": context.job_id,
+        "step_id": context.step_id, "blueprint_id": "procurement_manager"})
+    if result["case_packet"]:
+        path = "workflow_state/" + CASE_PACKET
+        reference = context.store.commit_bytes(path, context.store.path(path).read_bytes(),
+            version="mn.committed_json/v1", kind="procurement_case_packet")
+        result["case_packet"] = reference.to_dict()
+    # The comparison branch continues mutating its own state; only this branch's
+    # immutable case packet belongs in a hashed completion receipt.
+    return result
+
+
+def publish_verified_case(ctx, *, step_inputs, **options):
+    """Verify the case branch's bound artifacts before the report join reads it."""
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+    from .reporting import publish_report
+
+    if not isinstance(step_inputs, dict) or "case_assessment" not in step_inputs:
+        raise ValueError("Report publication requires the case-assessment join input")
+    store = CommittedJsonStore(ctx["run_dir"])
+    summary = store.read(step_inputs["case_assessment"])
+    path = "workflow_state/" + CASE_PACKET
+    reference = summary["case_packet"]
+    if reference is not None:
+        if reference.get("path") != path:
+            raise ValueError("Case assessment points to a different packet")
+        packet = store.read(reference)
+        if packet["status"] != summary["status"] or packet.get("decision_digest") != summary.get("decision_digest"):
+            raise ValueError("Case packet differs from its assessment")
+    elif store.path(path).exists():
+        raise ValueError("An absent case assessment cannot publish a stale case packet")
+    return publish_report(ctx, **options)
+
+
 def emit_review_requests(ctx: dict[str, Any], packet: dict[str, Any]) -> list[str]:
     """Publish exact-packet review actions to OtterDesk's existing conversation panel."""
     if packet.get("status") != "READY_FOR_REVIEW" or not packet.get("decision_digest"):

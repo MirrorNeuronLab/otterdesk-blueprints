@@ -43,7 +43,7 @@ def test_context_contract_and_effective_disabled_override(name):
     extras = [r for r in dependencies if r["name"] == "mirrorneuron-python-sdk"]
     assert len(extras) == 1
     supported = SpecifierSet(extras[0]["version"])
-    assert supported.contains("1.3.61.dev12")
+    assert supported.contains(version("mirrorneuron-python-sdk"))
     assert not supported.contains("1.3.57")
     assert not supported.contains("2.0")
     assert extras[0].get("extras", []) == (["context"] if name in ACTIVE | SOURCE_ACTIVE else [])
@@ -60,7 +60,8 @@ def test_all_catalog_context_consumers_resolve_the_v2_sdk_and_wire_protocol():
     dependency, = [Requirement(value) for value in project["project"]["optional-dependencies"]["context"]
                    if Requirement(value).name == "mirrorneuron-membrane-python-sdk"]
     assert dependency.extras == {"grpc"}
-    assert dependency.specifier.contains("2.1.4")
+    assert dependency.specifier.contains("2.1.7")
+    assert not dependency.specifier.contains("2.1.6")
     assert not dependency.specifier.contains("2.1.3")
     assert not dependency.specifier.contains("1.3.57")
     assert not dependency.specifier.contains("2.0.0")

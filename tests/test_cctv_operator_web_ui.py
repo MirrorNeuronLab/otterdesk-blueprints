@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import asyncio
 import base64
 import io
@@ -31,16 +31,8 @@ MODULE_PATH = ROOT / "cctv_operator" / "payloads" / "services" / "cctv_web_ui.py
 SERVICES_DIR = MODULE_PATH.parent
 if str(SERVICES_DIR) not in sys.path:
     sys.path.insert(0, str(SERVICES_DIR))
-SPEC = importlib.util.spec_from_file_location("cctv_web_ui", MODULE_PATH)
-assert SPEC and SPEC.loader
-cctv_web_ui = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(cctv_web_ui)
-MCP_SPEC = importlib.util.spec_from_file_location(
-    "cctv_operator_mcp", SERVICES_DIR / "cctv_operator_mcp.py"
-)
-assert MCP_SPEC and MCP_SPEC.loader
-cctv_operator_mcp = importlib.util.module_from_spec(MCP_SPEC)
-MCP_SPEC.loader.exec_module(cctv_operator_mcp)
+cctv_web_ui = importlib.import_module("cctv_operator.payloads.services.cctv_web_ui")
+cctv_operator_mcp = importlib.import_module("cctv_operator.payloads.services.cctv_operator_mcp")
 
 
 class StubPreview:
@@ -61,7 +53,7 @@ class StubPreview:
 
 def test_private_mcp_starts_on_loopback_with_authenticated_relay(monkeypatch, tmp_path):
     from types import SimpleNamespace
-    import cctv_operator_mcp as proxy_module
+    proxy_module = cctv_operator_mcp
 
     bindings = []
     listener = SimpleNamespace(close=lambda: None)
@@ -524,7 +516,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
 
 def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():
     blueprint = ROOT / "cctv_operator"
-    source = (blueprint / "payloads" / "services" / "cctv_web_ui.py").read_text(
+    source = (blueprint / "payloads" / "domain" / "live_service.py").read_text(
         encoding="utf-8"
     )
     config = resolve_config(read_blueprint(blueprint)).data

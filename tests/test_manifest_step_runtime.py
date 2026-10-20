@@ -9,7 +9,8 @@ from pathlib import Path
 import pytest
 from blueprint_modernization_support import blueprint_path
 from mn_sdk import expand_manifest_source, is_manifest_source
-from mn_sdk.blueprints import blueprint_definition, read_blueprint
+from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
+from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
 from workspace_paths import companion_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -17,6 +18,35 @@ WORKSPACE = companion_workspace(ROOT)
 SDK_ROOT = WORKSPACE / "mn-python-sdk"
 SKILL_SOURCES = sorted((WORKSPACE / "mn-skills").glob("*/src"))
 AGENT_SOURCES = sorted((WORKSPACE / "mn-agents").glob("*/src"))
+
+
+def _mapped_fields(fields, *, inputs, upstream_outputs, flow_output=None):
+    """Resolve the data-only source/sink fields for this offline handler smoke.
+
+    This fixture does not schedule Core joins, retries or child workflows. Core
+    owns those integration contracts; generated workers must still run here.
+    """
+
+    def resolve(value):
+        if isinstance(value, dict):
+            reference = value.get("$ref")
+            if reference in {"run_input", "upstream", "flow_output"}:
+                selected = {
+                    "run_input": inputs,
+                    "upstream": upstream_outputs.get(value.get("step_id")),
+                    "flow_output": flow_output,
+                }[reference]
+                for part in value.get("path", []):
+                    selected = (
+                        selected.get(part) if isinstance(selected, dict) else None
+                    )
+                return selected
+            return {key: resolve(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [resolve(item) for item in value]
+        return value
+
+    return resolve(fields)
 
 
 def _write_software_architecture_source(root: Path) -> Path:
@@ -57,8 +87,12 @@ def _run_handler_workflow(
     # execute in their temporary workdir; the source package is read-only input.
     scripts = tmp_path / "workspace"
     scripts.mkdir(parents=True, exist_ok=True)
-    original_files = {path.relative_to(blueprint) for path in blueprint.rglob("*") if path.is_file()}
-    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
+    original_files = {
+        path.relative_to(blueprint) for path in blueprint.rglob("*") if path.is_file()
+    }
+    package = read_blueprint(blueprint)
+    configuration = resolve_config(package, config)
+    manifest = blueprint_definition(package, configuration)
     runtime_manifest = (
         expand_manifest_source(manifest, root_dir=blueprint)
         if is_manifest_source(manifest)
@@ -68,12 +102,17 @@ def _run_handler_workflow(
     message_path.write_text(json.dumps({"kwargs": inputs}), encoding="utf-8")
     result: dict = {}
     source_registry = manifest["agents"]["registry"]
+    descriptor_path = tmp_path / "runtime/manifest.json"
+    descriptor_path.parent.mkdir()
+    descriptor_path.write_text(
+        json.dumps(resolved_worker_descriptor(package, runtime_manifest, configuration))
+    )
     if is_manifest_source(manifest):
         assignments = []
         for node in runtime_manifest["agents"]["nodes"]:
             environment = (node.get("config") or {}).get("environment") or {}
             agent_id = environment.get("MN_WORKFLOW_AGENT_ID")
-            if agent_id not in source_registry:
+            if not environment.get("MN_WORKFLOW_STEP_HANDLER"):
                 continue
             assignments.append(
                 {
@@ -81,6 +120,12 @@ def _run_handler_workflow(
                     "agent_id": agent_id,
                     "invocation_id": environment["MN_WORKFLOW_INVOCATION_ID"],
                     "needs": [],
+                    "definition": {
+                        "handler": environment["MN_WORKFLOW_STEP_HANDLER"],
+                        "with": json.loads(
+                            environment.get("MN_WORKFLOW_STEP_WITH_JSON", "{}")
+                        ),
+                    },
                 }
             )
     else:
@@ -97,16 +142,28 @@ def _run_handler_workflow(
 
     agent_outputs = {}
     executed_agents = []
-    for assignment in assignments:
+    upstream_outputs = {}
+    runtime_nodes = {
+        node["node_id"]: node for node in runtime_manifest["agents"]["nodes"]
+    }
+    for index, assignment in enumerate(assignments):
         step_id = assignment["step_id"]
         agent_id = assignment["agent_id"]
         invocation_id = assignment["invocation_id"]
-        definition = source_registry[agent_id]
+        definition = assignment.get("definition") or source_registry[agent_id]
+        start = runtime_nodes.get(f"{step_id}__start", {}).get("config", {})
+        step_input = (
+            _mapped_fields(
+                start["fields"], inputs=inputs, upstream_outputs=upstream_outputs
+            )
+            if "fields" in start
+            else {"kwargs": inputs}
+        )
         message_path.write_text(
             json.dumps(
                 {
                     "body": {
-                        "step_input": {"kwargs": inputs},
+                        "step_input": step_input,
                         "agent_outputs": {
                             dependency: agent_outputs[dependency]
                             for dependency in assignment.get("needs", [])
@@ -126,6 +183,12 @@ def _run_handler_workflow(
                 "MN_RUN_ID": f"{blueprint_id}-handler-test",
                 "MN_RUN_DIR": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
                 "MN_BLUEPRINT_BUNDLE_DIR": str(blueprint),
+                "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor_path),
+                "MN_SDK_COMPONENTS_JSON": json.dumps(
+                    ["blueprint-blocks"]
+                    if "mn_blocks" in manifest.get("metadata", {})
+                    else []
+                ),
                 "MN_WORKFLOW_STEP_ID": step_id,
                 "MN_WORKFLOW_AGENT_ID": agent_id,
                 "MN_WORKFLOW_INVOCATION_ID": invocation_id,
@@ -169,17 +232,38 @@ def _run_handler_workflow(
             timeout=30,
         )
         assert completed.returncode == 0, completed.stderr
-        result = json.loads("\n".join(line for line in completed.stdout.splitlines() if not line.startswith("__MN_EVENT__")))
+        result = json.loads(
+            "\n".join(
+                line
+                for line in completed.stdout.splitlines()
+                if not line.startswith("__MN_EVENT__")
+            )
+        )
         assert result["workflow_step_id"] == step_id
         agent_outputs[agent_id] = dict(result.get("outputs") or {})
         executed_agents.append(agent_id)
-    assert {path.relative_to(blueprint) for path in blueprint.rglob("*")
-            if path.is_file() and "__pycache__" not in path.parts} == {
-        path for path in original_files if "__pycache__" not in path.parts}
+        if (
+            index + 1 == len(assignments)
+            or assignments[index + 1]["step_id"] != step_id
+        ):
+            end = runtime_nodes.get(f"{step_id}__end", {}).get("config", {})
+            upstream_outputs[step_id] = _mapped_fields(
+                end.get("fields", {}),
+                inputs=inputs,
+                upstream_outputs=upstream_outputs,
+                flow_output=agent_outputs[agent_id],
+            )
+    assert {
+        path.relative_to(blueprint)
+        for path in blueprint.rglob("*")
+        if path.is_file() and "__pycache__" not in path.parts
+    } == {path for path in original_files if "__pycache__" not in path.parts}
     return {
         **dict(result.get("outputs") or {}),
         **{key: value for key, value in result.items() if key != "outputs"},
         "executed_agents": executed_agents,
+        "expected_agents": [item["agent_id"] for item in assignments],
+        "step_outputs": upstream_outputs,
         "run_dir": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
     }
 
@@ -279,7 +363,9 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
     tmp_path: Path,
 ):
     if blueprint_id == "software_architecture_advisor":
-        pytest.skip("Child DAG scheduling requires Core; covered by child_workflow_test.exs and linux_dynamic_smoke.py with the real Linux graph engine")
+        pytest.skip(
+            "Child DAG scheduling requires Core; compiler, block handoff and domain investigation have separate offline integration tests"
+        )
     result = _run_handler_workflow(
         blueprint_id,
         tmp_path,
@@ -287,11 +373,14 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         config=config,
     )
 
-    manifest = blueprint_definition(
-        read_blueprint(blueprint_path(blueprint_id) / "manifest.json")
-    )
     assert result["status"] == "completed"
-    assert set(result["executed_agents"]) == set(manifest["agents"]["registry"])
+    assert result["executed_agents"] == result["expected_agents"]
+    if blueprint_id == "procurement_manager":
+        assessment = result["step_outputs"]["assess_procurement_case"][
+            "case_assessment"
+        ]
+        assert assessment["kind"] == "block_result"
+        assert "block_assess_procurement_case_specialist" in result["executed_agents"]
     final_ref = result.get("final_artifact")
     assert isinstance(final_ref, dict)
     assert final_ref["kind"] == "final_artifact"

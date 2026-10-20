@@ -252,6 +252,17 @@ class BridgeHub:
                 return self._rejected_receipt(command_id, "unknown", "command_not_found")
             return command.receipt()
 
+    async def receipt_for(self, *, command_id: str, kind: str, payload: Mapping[str, Any]):
+        """Read an existing exact command; never enqueue an absent request."""
+        async with self._lock:
+            self._expire_if_stale()
+            command = self._commands.get(command_id)
+            if command is None:
+                return None
+            if command.fingerprint != (kind, _freeze(dict(payload))):
+                return self._rejected_receipt(command_id, kind, "command_id_reused_for_different_effect")
+            return command.receipt()
+
     async def state(self) -> dict[str, Any]:
         async with self._lock:
             self._expire_if_stale()

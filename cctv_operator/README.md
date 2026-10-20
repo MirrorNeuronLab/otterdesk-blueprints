@@ -1,10 +1,19 @@
 # CCTV Operator
 
-Version 3.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 4 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
 security system and does not take physical action.
+
+The live camera/UI owner now uses `mn.blocks.monitored_service@1` through
+`extensions/blocks.json`. Core retains the same entrypoints, routing and four
+processing phases. Domain hooks own camera resources and first-frame readiness;
+the shared block owns periodic listener health, durable checkpoints, replay and
+cleanup after partial startup or stopping. This requires SDK/common/blocks
+`>=1.3.61.dev25,<2` and supervised-service agent `>=1.3.61.dev5,<2`.
+The migration is qualified by offline listener and process-group tests; the
+historical Spark measurements below predate this path.
 
 ## Factory and hotel setup
 
@@ -158,8 +167,8 @@ steer_monitoring input. Queued, applied and analyzed are separate states. A late
 old-goal result can remain in history but cannot notify under a newer revision.
 Acknowledging a notice records review; transport delivery does not acknowledge it.
 The stable Job response/MCP service can answer capability questions while stopped;
-a question does not start the monitor. No runtime/SDK/skill code changes are needed
-for this blueprint revision.
+a question does not start the monitor. Install the declared shared packages
+before running this blueprint revision.
 
 ## Outputs and operations
 
@@ -183,6 +192,12 @@ run never clears Job data. Standard mn.mcp.supervision.v1 owns lifecycle control
 stop the Job to stop its stream publisher and services. Do not reset a runtime to
 repair a blueprint. Inspect get_pipeline_benchmarks or use the summary/replay
 commands in [BENCHMARKS.md](BENCHMARKS.md).
+
+Service lifecycle checkpoints occur every 60 seconds and are bounded to 64 MiB;
+camera/person/caption timing remains independent. Capacity exhaustion stops with
+cleanup and retains its evidence. Plan an explicit service replacement/rotation
+before exhausting that budget. Pause/resume retains completed checkpoints and
+reconstructs listeners without replaying completed camera processing.
 
 ## Acceptance before customer deployment
 

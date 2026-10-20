@@ -1,4 +1,4 @@
-# Architecture Advisor 4.2.1 specification
+# Architecture Advisor 5.0.0 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -56,6 +56,18 @@ invocation performs one OpenCode skill review in OpenShell. Tasks within a phase
 admits at most two tasks with no serial dependency. Replanning occurs only
 after its tasks have terminal durable results.
 The planner itself makes no model calls. No worker owns routing or completion.
+
+The parent investigation and its planner use `mn.blocks.bounded_investigation@1`
+from the optional SDK component. `domain/investigation_block.py` adapts the
+existing catalog initialization, admission/planning and terminal policy. The
+block supplies ordinary StepSpec/worker boundaries, invocation journals and
+validated Core plans. The parent maps its hashed initialization into the `seed`
+port; each admitted reviewer receives its original domain `context`, task and
+review-input contracts. Core maps the terminal summary reference into the
+parent's `result`. Publication verifies the summary and exact terminal-catalog
+digest before producing the unchanged report formats. There is no blueprint
+initializer/planner agent or investigation StepSpec wrapper. Four parent phases,
+the OpenShell reviewer and domain budget ledgers remain unchanged.
 
 The default `focused` profile selects six component/cycle/impact/hotspot/verification/handoff
 aspects, their independent challenges, six section syntheses and the executive
@@ -255,7 +267,7 @@ Parent-phase Docker workers use a single-stage Python 3.12 image without
 OpenCode and sandbox system setup belong to the separate OpenShell image.
 Docker workers inherit their logical step timeout instead of sharing a one-hour
 cap. Source initialization uses the seven-day investigation window; planner
-invocations retain their 300-second control and packet reviews their 720-second
+invocations retain their 3,600-second control and packet reviews their 720-second
 worker limit.
 
 ### Immutable review handoff

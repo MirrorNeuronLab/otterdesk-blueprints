@@ -28,7 +28,14 @@ total-cost, and risk specialists in order; `audit_purchase_recommendation`
 runs the recommendation auditor as an independent logical review; and
 `publish_purchase_decision_packet` joins both branches and runs the report writer. Step modules declare
 only contracts and collaboration. Each same-named agent module binds one
-specialist to its focused implementation under `payloads/domain/`.
+specialist to its focused implementation under `payloads/domain/`. In version 3,
+the case branch is declared in `extensions/blocks.json` and uses the SDK's
+`domain_operation` block. Its local step/agent wrappers are removed. Shared code
+owns invocation replay, deadlines and hashed result references; the blueprint
+retains decimal calculations, fit policy and report composition. The existing
+report worker verifies the bound case packet before publication. This is an
+incremental migration; the narrative, research and report specialists retain
+their existing behavior and explicit fallback policy.
 
 Five existing specialists use one bounded LLM call apiece: intake framing,
 TCO interpretation, risk interpretation, recommendation explanation, and
@@ -126,7 +133,7 @@ provider, broker, landlord, dealer, or airline. All output requires human review
 
 ## Payload layout
 
-- `payloads/steps/`: the four logical `StepSpec` graphs.
+- `payloads/steps/`: five logical `StepSpec` graphs; the sixth step uses a block.
 - `payloads/agents/`: seven route-neutral specialist bindings.
 - `payloads/domain/inputs.py`, `intake.py`: request and evidence intake.
 - `payloads/domain/knowledge.py`, `research.py`: local and public evidence.

@@ -14,6 +14,24 @@ The blueprint declares `metadata.init_config_review.required: false`. Hiring the
 
 The browser owns all physics and policy execution. The service never runs MuJoCo, ONNX, or a synthetic simulator server-side. One ready browser tab can hold the control lease. It sends a bounded state snapshot five times per second; state older than one second is disconnected. A second tab is a spectator and cannot publish state or receive commands.
 
+Version3 declares `mn.blocks.operations.simulator_command` as a controlled
+operation. SDK-owned request journals bind Core job/run/agent and command UUID,
+with three capability calls and a3s attempt bound. The async binding admits at
+most two ordinary requests, with no waiting queue and a1s transport deadline.
+Stop runs directly through the existing browser bridge, bypasses ordinary
+admission capacity and invalidates older unadmitted attempts. An interrupted MCP
+caller does not discard an in-flight admission receipt or release its slot early.
+The existing atomic bridge checks remain authoritative at actual dispatch.
+
+An exact prior receipt is observed before new-state authorization; changed-ID
+payloads conflict. Journaled admission is not completed motion: tool replies
+project current browser receipts. A lost reply remains unknown and observable;
+after a service restart, verified block evidence without current browser history
+stays unknown rather than replaying an uncertain command. Invalid raw/named motion
+still fails the domain protocol. Motion constants live once in domain/protocol;
+the normal and Docker-context runtime sources remain identical. No source/sink,
+workflow topology, MCP tool roster or browser control algorithm changed.
+
 ## MCP contract
 
 The domain tools and their shared manual/polling entry points are `get_user_manual`, `get_duck_state`, `move_duck`, `perform_routine`, `find_ball`, `start_free_play`, `get_operation_status`, `stop_duck`, `set_locomotion`, `set_posture`, `play_ball_action`, and `reset_simulation`. Public effects take a caller-supplied `request_id`; the private simulation binding maps it to `command_id`. Retrying an identical command returns its original receipt; reusing an ID for a different effect is rejected.

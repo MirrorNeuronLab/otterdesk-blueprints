@@ -12,17 +12,9 @@
         "handler": "agents.architecture_structure_analyst",
         "role": "Architecture Structure Analyst"
       },
-      "architecture_investigator": {
-        "handler": "agents.architecture_investigator",
-        "role": "Architecture Investigator"
-      },
       "architecture_review_editor": {
         "handler": "agents.architecture_review_editor",
         "role": "Architecture Review Editor"
-      },
-      "architecture_planner": {
-        "handler": "agents.architecture_planner",
-        "role": "Architecture Planner"
       },
       "architecture_packet_reviewer": {
         "handler": "agents.architecture_packet_reviewer",

@@ -90,10 +90,7 @@
       "label": "Assess Procurement Case",
       "needs": [
         "build_purchase_evidence"
-      ],
-      "run": {
-        "definition": "steps.assess_procurement_case"
-      }
+      ]
     },
     {
       "control": {

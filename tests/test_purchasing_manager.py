@@ -73,7 +73,7 @@ def test_procurement_manager_manifest_compiles_logical_steps_and_specialist_grap
     assert "compare_purchase_options__market" in node_ids
     assert "compare_purchase_options__cost" in node_ids
     assert "compare_purchase_options__risk" in node_ids
-    assert "assess_procurement_case__purchase_case_assessor" in node_ids
+    assert "assess_procurement_case__block_assess_procurement_case_specialist" in node_ids
     steps = {step["id"]: step for step in source["workflow"]["steps"]}
     assert steps["assess_procurement_case"]["needs"] == ["build_purchase_evidence"]
     assert set(steps["publish_purchase_decision_packet"]["needs"]) == {
@@ -115,6 +115,57 @@ print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supp
         "approval_packet": True, "draft_label": True,
         "review_requests": 4,
     }
+
+
+def test_case_block_handoff_to_existing_report_worker_is_verified_and_replayable(tmp_path, monkeypatch):
+    import importlib
+    from mn_sdk.blueprints import compile_blueprint
+    from mn_sdk.integrations.block_worker import run as run_block
+    from mn_sdk.step_runtime import StepContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore, CommittedArtifactIntegrityError
+    import pytest
+
+    root = ROOT / "procurement_manager"
+    monkeypatch.syspath_prepend(str(root / "payloads"))
+    composition = importlib.import_module("domain.composition")
+    case = importlib.import_module("domain.case_packet")
+    context = composition.runtime_context_for_step(inputs={
+        "input_folder": str(root / "examples/procurement_case"), "output_folder": str(tmp_path / "output")},
+        config={"execution": {"quick_test": True}}, runs_root=str(tmp_path / "runs"), run_id="case-block")
+    for operation in composition.LOCAL_OPERATIONS[:2]:
+        operation(context)
+    manifest = compile_blueprint(read_blueprint(root)).manifest
+    descriptor = tmp_path / "runtime.json"
+    descriptor.write_text(json.dumps(manifest))
+    store = CommittedJsonStore(context["run_dir"])
+    step = StepContext(step_id="assess_procurement_case", run_id="case-block", idempotency_key="case-block/assess",
+        config=context["config"], environment={"MN_RUN_DIR": str(store.run_dir), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+            "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'}, message={"_mn_step": {"step_input": {"previous": {}}}})
+    options = {"block_step_id": "assess_procurement_case", "revision": manifest["metadata"]["mn_blocks_lock"]["revision"]}
+    assessed = run_block(step, **options)
+    summary = store.read(assessed.outputs["result"])
+    packet = store.read(summary["case_packet"])
+    assert packet["status"] == "READY_FOR_REVIEW" and packet["selected_supplier_id"] == "cedar"
+    # The parallel comparison branch changes its own mutable state; the case
+    # block receipt must remain valid and must not hash that mutable state file.
+    for operation in composition.LOCAL_OPERATIONS[3:-1]:
+        operation(context)
+    def repeated(*args, **kwargs):
+        raise AssertionError("completed case assessment executed again")
+    monkeypatch.setattr(case, "assess_procurement_case", repeated)
+    assert run_block(step, **options) == assessed
+    writer = importlib.import_module("agents.purchase_report_writer")
+    published = writer.run(StepContext(step_id="publish_purchase_decision_packet", agent_id="purchase_report_writer",
+        run_id="case-block", idempotency_key="case-block/publish", config=context["config"],
+        message={"_mn_step": {"step_input": {**context["payload"], "case_assessment": assessed.outputs["result"]}}}),
+        runs_root=store.run_dir.parent)
+    assert published.status == "completed"
+    final = json.loads((store.run_dir / "final_artifact.json").read_text())
+    assert final["procurement_case"] == packet
+    assert "Simulation values are fictional." in (tmp_path / "output/procurement_manager_report.md").read_text()
+    store.path("workflow_state/procurement_case_packet.json").write_text('{"status":"tampered"}')
+    with pytest.raises(CommittedArtifactIntegrityError):
+        case.publish_verified_case(context, step_inputs={"case_assessment": assessed.outputs["result"]})
 
 
 def test_procurement_manager_compiled_docker_workers_ship_their_build_context():

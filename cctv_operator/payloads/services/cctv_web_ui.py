@@ -8,7 +8,6 @@ import importlib
 import json
 import mimetypes
 import os
-import signal
 import secrets
 import socket
 import subprocess
@@ -22,9 +21,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
-from mn_live_video_analysis_skill import redact_source_uri, redact_source_urls
-from mn_sdk.blueprint_support import load_runtime_config
-from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
+from mn_live_video_analysis_skill import redact_source_urls
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 WEB_UI_NODE_ID = "cctv_web_ui"
@@ -356,22 +353,6 @@ operator_state = _load_domain_function("dashboard", "operator_state")
 _dashboard_html = _load_domain_function("media", "dashboard_html")
 
 
-def load_config() -> dict[str, Any]:
-    return load_runtime_config(__file__)
-
-
-def configured_run_id() -> str:
-    return str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run").strip()
-
-
-def configured_run_dir() -> Path:
-    explicit = str(os.environ.get("MN_RUN_DIR") or "").strip()
-    if explicit:
-        return Path(explicit).expanduser()
-    root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
-    return Path(root).expanduser() / configured_run_id() if root else Path.cwd() / "runs" / configured_run_id()
-
-
 def configured_job_data_dir(job_id: str) -> Path:
     value = str(os.environ.get("MN_JOB_DATA_DIR") or "").strip()
     if not value:
@@ -404,7 +385,8 @@ class CCTVWebUIService:
     def start_monitor(self) -> None:
         monitor = _load_domain_function("live_monitor", "LiveMonitor")
         self._live_monitor = monitor(self.run_dir, self.run_id, self.config,
-                                     self.preview_stream, self.ui_state).start()
+                                     self.preview_stream, self.ui_state)
+        self._live_monitor.start()
 
     def attach_activity_store(self, store: Any) -> None:
         self._activity_store = store
@@ -518,6 +500,7 @@ class CCTVWebUIServer:
     def __init__(self, service: CCTVWebUIService, *, host: str, port: int) -> None:
         self.service = service
         self._server = ThreadingHTTPServer((host, port), _handler_for(service))
+        self._serving = threading.Event()
 
     @property
     def address(self) -> tuple[str, int]:
@@ -525,11 +508,16 @@ class CCTVWebUIServer:
         return str(host), int(port)
 
     def serve_forever(self) -> None:
-        self._server.serve_forever(poll_interval=0.5)
+        self._serving.set()
+        try:
+            self._server.serve_forever(poll_interval=0.5)
+        finally:
+            self._serving.clear()
 
     def stop(self) -> None:
         self.service.stop()
-        self._server.shutdown()
+        if self._serving.is_set():
+            self._server.shutdown()
         self._server.server_close()
 
 
@@ -895,7 +883,7 @@ def create_operator_mcp_server(
             raise ValueError("instruction is required unless clear=true")
         sender = runtime_service
         if sender is None:
-            from cctv_operator_mcp import send_monitoring_input
+            from .cctv_operator_mcp import send_monitoring_input
 
             try:
                 accepted = send_monitoring_input(run_dir, {
@@ -985,16 +973,54 @@ def _open_listener(host: str, port: int = 0) -> tuple[socket.socket, int]:
     return listener, int(listener.getsockname()[1])
 
 
-def _run_operator_mcp(server: Any, listener: socket.socket) -> None:
+def _run_operator_mcp(server: Any, listener: socket.socket, lifecycle: dict) -> None:
     import uvicorn
 
     options = dict(getattr(server, "_mn_http_options", {}))
     options.pop("port", None)
     app = server.streamable_http_app(**options)
     try:
-        uvicorn.Server(uvicorn.Config(app, log_level="info")).run(sockets=[listener])
+        transport = uvicorn.Server(uvicorn.Config(app, log_level="info", timeout_graceful_shutdown=2))
+        lifecycle["server"] = transport
+        if not lifecycle["stopped"].is_set():
+            transport.run(sockets=[listener])
     finally:
         listener.close()
+
+
+class OperatorMCPService:
+    """The camera's private MCP listeners and activity thread share its lifetime."""
+
+    def __init__(self, service, listener, proxy, lifecycle, threads):
+        self.service, self.listener, self.proxy = service, listener, proxy
+        self.lifecycle, self.threads = lifecycle, threads
+
+    def is_alive(self):
+        return all(worker.is_alive() for worker in self.threads)
+
+    def stop(self):
+        self.lifecycle["stopped"].set()
+        transport = self.lifecycle.get("server")
+        if transport is not None:
+            transport.should_exit = True
+        self.service._stop_event.set()
+        errors = []
+        operations = []
+        if self.threads[-1].is_alive():
+            operations.append(self.proxy.shutdown)
+        operations.append(self.proxy.server_close)
+        operations.extend(lambda worker=worker: worker.join(timeout=3)
+                          for worker in self.threads if worker.ident is not None)
+        operations.append(self.listener.close)
+        for cleanup in operations:
+            try:
+                cleanup()
+            except Exception as exc:
+                errors.append(exc)
+        if any(worker.is_alive() for worker in self.threads):
+            errors.append(RuntimeError("CCTV private listener thread did not stop"))
+        if errors:
+            raise RuntimeError("CCTV private listener cleanup failed") from errors[0]
 
 
 def start_operator_mcp_server(
@@ -1003,10 +1029,10 @@ def start_operator_mcp_server(
     job_id: str,
     run_id: str,
     run_dir: Path,
-) -> tuple[threading.Thread, int]:
+) -> OperatorMCPService:
     """Start the SDK MRTR server on a private, OS-selected owner-node port."""
 
-    from cctv_operator_mcp import create_mcp_proxy
+    from .cctv_operator_mcp import create_mcp_proxy
 
     listener, port = _open_listener("127.0.0.1")
     try:
@@ -1027,101 +1053,41 @@ def start_operator_mcp_server(
     except Exception:
         listener.close()
         raise
+    lifecycle = {"stopped": threading.Event()}
     thread = threading.Thread(
         target=_run_operator_mcp,
-        args=(server, listener),
+        args=(server, listener, lifecycle),
         name="cctv-operator-private-mcp",
         daemon=True,
     )
-    thread.start()
-    threading.Thread(
-        target=service.publish_activity_until_stopped,
-        name="cctv-operator-activity",
-        daemon=True,
-    ).start()
-    threading.Thread(
-        target=proxy.serve_forever, name="cctv-operator-mcp-relay", daemon=True
-    ).start()
-    relay_port = int(proxy.server_address[1])
-    endpoint = {
-        "schema_version": "mn.cctv.operator_mcp_endpoint.v1",
-        "url": f"http://host.docker.internal:{relay_port}",
-        "port": relay_port,
-        "token": token,
-        "run_id": run_id,
-    }
-    target = run_dir / CCTV_MCP_ENDPOINT_ARTIFACT
-    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    with temporary.open("x", encoding="utf-8") as handle:
-        os.chmod(temporary, 0o600)
-        handle.write(json.dumps(endpoint, sort_keys=True) + "\n")
-    os.replace(temporary, target)
-    return thread, port
-
-
-def main() -> int:
-    config = load_config()
-    run_id = configured_run_id()
-    job_id = str(os.environ.get("MN_JOB_ID") or run_id).strip()
-    run_dir = configured_run_dir()
-    job_data_dir = configured_job_data_dir(job_id)
-    run_dir.mkdir(parents=True, exist_ok=True)
-    binding = resolve_web_ui_binding(config)
-    service = CCTVWebUIService(run_id=run_id, run_dir=run_dir, config=config)
-    mcp_thread, _mcp_port = start_operator_mcp_server(
-        service,
-        job_id=job_id,
-        run_id=run_id,
-        run_dir=run_dir,
-    )
-    if not mcp_thread.is_alive():
-        raise RuntimeError("CCTV Operator MCP failed to start")
-    service.start_monitor()
-    server = CCTVWebUIServer(service, host=binding.host, port=binding.port)
-    _bound_host, port = server.address
-    web_thread = threading.Thread(target=server.serve_forever, name="cctv-web-ui", daemon=True)
-    web_thread.start()
-    # The claim becomes visible to users immediately. Publish it only after
-    # the bound server has answered its own health endpoint.
-    from http.client import HTTPConnection
-    deadline = time.monotonic() + 10
-    while True:
-        connection = HTTPConnection("127.0.0.1", port, timeout=1)
-        try:
-            connection.request("GET", "/health")
-            if connection.getresponse().status == 200:
-                break
-        except OSError:
-            pass
-        finally:
-            connection.close()
-        if time.monotonic() >= deadline or not web_thread.is_alive():
-            raise RuntimeError("CCTV Web UI did not become ready")
-        time.sleep(0.1)
-    if service.preview_stream.enabled and not service.preview_stream.wait_for_first_frame():
-        raise RuntimeError("CCTV Web UI preview did not produce a video frame")
-    claim_web_ui(
-        job_data_dir,
-        job_id=job_id,
-        title="CCTV Operator",
-        url=public_service_url(binding.host, port),
-        service_name=WEB_UI_SERVICE_NAME,
-        node_id=WEB_UI_NODE_ID,
-        http_ports=[port],
-        metadata={"run_id": run_id, "upstream": "cctv-operator-docker-worker"},
-    )
-
-    def stop(_signum: int, _frame: Any) -> None:
-        mark_web_ui_status(job_data_dir, job_id=job_id, status="stopped", detail="The CCTV service is paused or cancelled.")
-        threading.Thread(target=server.stop, daemon=True).start()
-
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
-    web_thread.join()
-    return 0
-
-
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    activity_thread = threading.Thread(target=service.publish_activity_until_stopped,
+        name="cctv-operator-activity", daemon=True)
+    proxy_thread = threading.Thread(target=proxy.serve_forever,
+        name="cctv-operator-mcp-relay", daemon=True)
+    managed = OperatorMCPService(service, listener, proxy, lifecycle,
+        [thread, activity_thread, proxy_thread])
+    try:
+        for worker in managed.threads:
+            worker.start()
+    except BaseException:
+        managed.stop()
+        raise
+    try:
+        relay_port = int(proxy.server_address[1])
+        endpoint = {
+            "schema_version": "mn.cctv.operator_mcp_endpoint.v1",
+            "url": f"http://host.docker.internal:{relay_port}",
+            "port": relay_port,
+            "token": token,
+            "run_id": run_id,
+        }
+        target = run_dir / CCTV_MCP_ENDPOINT_ARTIFACT
+        temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+        with temporary.open("x", encoding="utf-8") as handle:
+            os.chmod(temporary, 0o600)
+            handle.write(json.dumps(endpoint, sort_keys=True) + "\n")
+        os.replace(temporary, target)
+    except BaseException:
+        managed.stop()
+        raise
+    return managed

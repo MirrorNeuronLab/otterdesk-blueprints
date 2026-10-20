@@ -15,6 +15,17 @@ Require one NVIDIA CUDA GPU with at least 48 GiB device memory. Declare NV-Reaso
 
 ## Outputs and evaluation
 
+`mn.blocks.native_computation@1` supplies the standard specialist worker. Domain
+hooks snapshot the validated volume, dispatch the existing SDK native model
+request, validate the research-only report and reconcile saved output. The block
+binds source/config/code identities and inputs to its invocation, verifies
+artifact hashes and fences uncertain native requests. It does not pass volume
+bytes through coordination messages. The `read_ct_volume` logical step and
+public report files retain their contracts; generated worker identity changes
+in version 2. Removed local step/agent/runtime wrappers have no second execution
+path. The block call budget is one native dispatch and its deadline is 900s;
+the existing native transport timeout remains 600s with zero retries.
+
 Save an experimental report and source/model provenance before returning bounded
 artifact references. Declare `conversation_result_text:report.md` so OtterDesk
 displays the complete saved report as text in Chat after completion, with its

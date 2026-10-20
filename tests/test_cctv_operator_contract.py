@@ -199,7 +199,7 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
             "python3",
             "agents/report_writer/scripts/write_cctv_report.py",
         ],
-        "cctv_web_ui": ["bash", "services/run_cctv_web_ui.sh"],
+        "cctv_web_ui": ["python3", "-m", "mn_sdk.step_runtime"],
     }
     assert set(nodes) == set(expected_uploads)
     for node_id, node in nodes.items():

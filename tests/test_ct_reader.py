@@ -164,3 +164,56 @@ def test_ct_uses_shared_native_runtime_json_protocol(reporting, monkeypatch):
     assert kwargs['backend'] == 'docker' and kwargs['num_retries'] == 0
     assert kwargs['timeout_seconds'] == 600
     assert not (ROOT/'payloads/domain/ct_model.py').exists()
+
+
+def test_native_block_compiles_without_local_wrappers():
+    package = read_blueprint(ROOT)
+    manifest = compile_blueprint(package).manifest
+    assert package.manifest['version'] == '2.0.0'
+    assert package.extension('mn.blocks')['steps']['read_ct_volume']['uses'] == 'mn.blocks.native_computation@1'
+    assert manifest['metadata']['mn_blocks_lock']['steps']['read_ct_volume']['limits']['max_calls'] == 1
+    assert not (ROOT/'payloads/agents/ct_research_specialist.py').exists()
+    assert not (ROOT/'payloads/steps/read_ct_volume.py').exists()
+    assert not (ROOT/'payloads/runtime/runtime.py').exists()
+
+
+def test_native_block_snapshots_input_replays_and_reconciles_saved_report(reporting, monkeypatch, tmp_path):
+    from mn_blueprint_blocks.testing import BlockHarness
+    from mn_sdk.integrations.block_adapters import capabilities_for
+    from mn_blueprint_blocks import validate_instance
+    from mn_sdk.step_runtime import StepContext
+
+    native = importlib.import_module('domain.native_inference')
+    calls = []
+    original = reporting.review_ct
+    def review(context, **kwargs):
+        return original(context, request=lambda *args: calls.append(args) or {
+            'answer': 'Synthetic research observation.', 'research_only': True, 'model_revision': 'pinned'}, **kwargs)
+    monkeypatch.setattr(native, 'review_ct', review)
+    scan = tmp_path/'scan.nii'; scan.write_bytes(b'synthetic-volume')
+    inputs = {'ct_file': str(scan), 'region': 'chest', 'prompt': 'Research report'}
+    block = validate_instance(compile_blueprint(read_blueprint(ROOT)).manifest['metadata']['mn_blocks_lock']['steps']['read_ct_volume'])
+    harness = BlockHarness(tmp_path/'run')
+    hooks = {'request': native.prepare, 'validate': native.accepted}
+    context = harness.context(hooks=hooks)
+    context.capabilities = capabilities_for(block, context, StepContext(step_id='read_ct_volume'))
+    from mn_blueprint_blocks.execution import execute_block
+    first = execute_block(block, inputs, context)
+    assert execute_block(block, inputs, context) == first
+    assert len(calls) == 1
+    saved = json.loads((harness.store.run_dir/'final_artifact.json').read_text())
+    assert saved['input_sha256'] == __import__('hashlib').sha256(b'synthetic-volume').hexdigest()
+    assert saved['research_only'] is True
+    # Exercise the exact pending-effect reconciler after a response was saved.
+    request = native.prepare(context, inputs)
+    (harness.store.run_dir/'report.md').unlink()
+    recovered = native.reconcile(context, {'data': request, 'idempotency_key': 'same-effect'})
+    assert recovered['state'] == 'succeeded'
+    assert len(calls) == 1 and (harness.store.run_dir/'report.md').is_file()
+    scan.write_bytes(b'changed-input')
+    # Reconciliation consumes the immutable initial volume, even if a local
+    # path later changes. A different semantic request conflicts in this run.
+    assert native.reconcile(context, {'data': request})['state'] == 'succeeded'
+    from mn_sdk_common.committed_artifacts import CommittedArtifactConflict
+    with pytest.raises(CommittedArtifactConflict):
+        execute_block(block, {**inputs, 'region': 'abdomen'}, harness.context(hooks=hooks, capabilities=context.capabilities))

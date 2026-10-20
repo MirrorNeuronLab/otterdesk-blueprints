@@ -1,4 +1,4 @@
-from domain.catalog_publication import publish
+from domain.investigation_block import publish
 from ._binding import bind
 
-run = bind(publish)
+run = bind(publish, step_input=True)

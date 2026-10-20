@@ -51,7 +51,8 @@ def create_domain_agent(agent_id: str, operation: Callable[..., dict[str, Any]],
     ) -> AgentHandlerOutput:
         prepared_llm = context.services.get("llm") if isinstance(context.services, dict) else None
         result = operation(
-            context.to_mapping(), llm_client=prepared_llm or llm_client, **options
+            context.to_mapping(), llm_client=prepared_llm or llm_client,
+            step_inputs=agent_input.payload.get("step_input", agent_input.payload), **options
         )
         ref = artifact_reference("procurement_manager_state", "workflow_state/procurement_manager_state.json")
         artifacts = [ref]

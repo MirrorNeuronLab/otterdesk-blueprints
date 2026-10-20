@@ -734,7 +734,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "2.0.0"
+    assert read_blueprint(blueprint).manifest["version"] == "3.0.0"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
@@ -885,6 +885,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "mn-python-sdk-mcp",
         "mirrorneuron-python-sdk",
         "mn-python-sdk-rag",
+        "mn-blueprint-blocks",
     }
     assert source["llm"]["model"] == "default"
     assert source["llm"]["configs"]["primary"]["provider"] == "openai_compatible"

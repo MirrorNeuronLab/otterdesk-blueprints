@@ -3,6 +3,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from workspace_paths import companion_workspace
 
 WORKSPACE = companion_workspace(Path(__file__).resolve().parents[1])
@@ -27,14 +29,12 @@ for source in SIBLING_SOURCES:
         sys.path.insert(0, str(source))
 
 
-import pytest
-
 
 @pytest.fixture(autouse=True)
 def isolated_payload_modules():
     # Blueprints deliberately use the same package names inside isolated worker
     # processes. Unit tests must provide the same isolation in this process.
-    prefixes = ("domain", "agents", "steps", "runtime")
+    prefixes = ("domain", "agents", "steps", "runtime", "services")
     previous_path = list(sys.path)
     previous = {
         name: module

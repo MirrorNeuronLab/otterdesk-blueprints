@@ -1,0 +1,90 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "read_ct_volume": {
+      "uses": "mn.blocks.native_computation@1",
+      "hooks": {
+        "request": "domain.native_inference:prepare",
+        "validate": "domain.native_inference:accepted"
+      },
+      "adapters": {
+        "native_task": {
+          "call": "domain.native_inference:compute",
+          "reconcile": "domain.native_inference:reconcile",
+          "read_only": false,
+          "idempotent": false
+        }
+      },
+      "inputs": {
+        "ct_file": {
+          "$ref": "run_input",
+          "path": [
+            "ct_file"
+          ]
+        },
+        "region": {
+          "$ref": "run_input",
+          "path": [
+            "region"
+          ]
+        },
+        "prompt": {
+          "$ref": "run_input",
+          "path": [
+            "prompt"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      },
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "ct_file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "region": {
+            "enum": [
+              "chest",
+              "abdomen"
+            ]
+          },
+          "prompt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "ct_file",
+          "region"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "research_only",
+          "notice",
+          "report",
+          "artifacts"
+        ],
+        "properties": {
+          "research_only": {
+            "const": true
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    }
+  }
+}

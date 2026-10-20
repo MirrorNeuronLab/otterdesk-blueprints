@@ -1,4 +1,4 @@
-# CCTV Operator 3.1 specification
+# CCTV Operator 4.0 specification
 
 ## Purpose and scope
 
@@ -64,8 +64,9 @@ ownership; this blueprint owns only facility sampling/admission policy.
 ## Inference, outputs and review
 
 Keep fixed parent graph ingress→sampling→vision→reporting, SDK DockerWorker
-placement, NVIDIA/CUDA 49152MB admission and single-node execution. No runtime,
-SDK, CLI, model-registry or shared-skill changes in this release. Cosmos3 Nano
+placement, NVIDIA/CUDA 49152MB admission and single-node execution. The required
+camera/UI auxiliary entrypoint uses the SDK monitored-service block; model-registry
+and shared-skill contracts remain unchanged. Cosmos3 Nano
 Reasoner1.7 NIM receives selected MP4 frames at4FPS and true capture timestamps;
 reasoning/4096token answer allowance/300s request deadline remain. Nemotron text
 chat remains separate. Preparation and lifecycle are platform-owned. Malformed,
@@ -96,6 +97,21 @@ times. External RTSP/RTSPS/RTMP/RTMPS never falls back to a demo or CPU decoder.
 Local source files must exist on the submitter; missing files fail explicitly.
 
 ## History and persistent state
+
+`mn.blocks.services.cctv_web_ui` retains its existing Docker worker, uploads and
+entrypoint. Domain `live_service` hooks own the demo publisher process group,
+private MCP/relay listeners, resident monitor, first-frame readiness and UI claim.
+The SDK supplies lifecycle supervision, per-cycle health and hashed progress.
+Listener health/checkpoints run every60s, independently of camera/person/caption
+timing. Lane failures keep their existing separate visible health; they neither
+certify absence nor automatically kill the other lane. Startup failure closes
+already-created resources; stop also closes listeners and preview threads. Core
+stop/pause retains progress without successful terminal caching, so resume can
+reconstruct resources on the same attached service run. Checkpoint capacity64MiB
+requires explicit service replacement/rotation before exhaustion; no automatic
+evidence deletion is claimed. Offline tests cover real loopback listeners,
+partial startup, health failure, replay and publisher process-group ownership.
+The migrated path has not been qualified on a live camera/GPU.
 
 Retain complete authored Markdown Facts/Relations/Notes in camera/source Job scope.
 Current selected frames take precedence over historical text. Prior accounts are

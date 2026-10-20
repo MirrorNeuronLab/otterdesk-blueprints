@@ -166,6 +166,73 @@ def execute_round(ctx, ref, decision, model=fake):
         done.add(node["id"])
 
 
+def test_block_uses_real_admissions_core_plans_and_verified_terminal_handoff(run, monkeypatch):
+    from mn_sdk.blueprints import compile_blueprint, read_blueprint
+    from mn_sdk.integrations.block_worker import run as run_block
+    from mn_sdk.step_runtime import StepContext
+    from mn_sdk_common.committed_artifacts import (
+        CommittedJsonStore, CommittedArtifactIntegrityError,
+    )
+    from domain import catalog_planning, investigation_block
+    from domain.catalog_store import CatalogStore
+
+    ctx, _ = run
+    root = Path(ctx["run_dir"])
+    blueprint = Path(__file__).parents[2] / "software_architecture_advisor"
+    compiled = compile_blueprint(read_blueprint(blueprint)).manifest
+    descriptor = root / "block-runtime.json"
+    descriptor.write_text(json.dumps(compiled))
+    store = CommittedJsonStore(root)
+    child = compiled["workflow"]["child_workflows"]["investigate_architecture"]
+    assert child["inputs"] == {"seed": ["outputs", "result"]}
+    assert child["outputs"] == {"result": ["result"]}
+    assert child["templates"]["plan_architecture_round"]["implementation"]["handler"] == "mn_sdk.integrations.block_worker"
+    assert child["templates"]["review_architecture_packet"]["implementation"]["handler"] == "agents.architecture_packet_reviewer"
+    options = {"revision": compiled["metadata"]["mn_blocks_lock"]["revision"],
+               "block_step_id": "investigate_architecture"}
+
+    def invoke(identity, inputs, phase="execute"):
+        step = StepContext(step_id="investigate_architecture", run_id="test-runtime-run",
+            idempotency_key=identity, config=ctx["config"],
+            environment={"MN_RUN_DIR": str(root), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+                         "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'},
+            message={"_mn_step": {"step_input": inputs}})
+        return run_block(step, phase=phase, **options)
+
+    initialized = invoke("init", ctx["payload"])
+    seed = initialized.outputs["result"]
+    work = {"seed": seed, "_child": {"round": 0, "revision": 0}}
+    first = invoke("planner-0", work, "plan")
+    assert first.outputs["child_plan"]["decision"] == "execute"
+    assert invoke("planner-0", work, "plan") == first
+    tasks = first.outputs["child_plan"]["steps"]
+    assert tasks and all(t["input"]["context"]["version"] == "mn.committed_json/v1" for t in tasks)
+    assert CatalogStore(root).usage()["catalog_models"] == len(tasks)
+    # Existing handoff simulation exercises exact frozen source and result
+    # receipts; the model is synthetic and no live gateway/sandbox is contacted.
+    execute_round(ctx, tasks[0]["input"]["context"], first.outputs)
+    assert len(CatalogStore(root).results()) == len(tasks)
+    saved = CatalogStore(root).read("catalog/context.json")
+    monkeypatch.setattr(catalog_planning.time, "time", lambda: saved["deadline"] + 1)
+    work = {"seed": seed, "_child": {"round": 1, "revision": 1}}
+    stopped = invoke("planner-1", work, "plan")
+    assert stopped.outputs["child_plan"]["decision"] == "stop"
+    assert invoke("planner-1", work, "plan") == stopped
+    reference = stopped.outputs["child_plan"]["output"]["result"]
+    summary = store.read(reference)
+    assert summary["status"] == "partial"
+    assert store.read(summary["catalog"])["stop_reason"] == "Review walltime exhausted"
+    assert CatalogStore(root).usage()["catalog_models"] == len(tasks)
+    published, artifacts = investigation_block.publish(ctx,
+        step_input={"previous": {"result": reference}})
+    assert published["status"] == "partial"
+    assert artifacts and (root / "reports/report.md").is_file()
+    assert (root / "web/index.html").is_file()
+    store.path("catalog/terminal.json").write_text('{}')
+    with pytest.raises(CommittedArtifactIntegrityError):
+        investigation_block.publish(ctx, step_input={"previous": {"result": reference}})
+
+
 def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
     from domain.catalog_planning import planner, initializer
     from domain.catalog_publication import publish

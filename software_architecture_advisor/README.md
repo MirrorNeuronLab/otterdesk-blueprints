@@ -30,6 +30,17 @@ six selected aspects with independent challenges and synthesis (19 baseline task
 rather than sending every source packet and all 150 aspects to the model.
 All 150 aspects retain explicit coverage; unselected topics remain not analyzed.
 
+Version 5 uses the SDK's `mn.blocks.bounded_investigation@1` composition for the
+investigation initializer and planner. `extensions/blocks.json` declares its
+domain hooks; Core still schedules the child rounds and OpenShell reviewers.
+The advisor retains its task selection, frozen evidence, SQLite reservations,
+call/deadline budgets and report policy. Block completion carries hashed catalog
+references, verified again before the existing report publisher runs. This path
+requires SDK/common/blocks `>=1.3.61.dev25,<2`. Its offline integration test covers
+real task admission, source/result handoffs, replay, deadline termination and
+report/dashboard publication with a synthetic model. Earlier live checks below
+predate this migration; the new path still requires live qualification.
+
 Open **Component and function evolution map** from the dashboard or report to
 inspect file components, dependency cycles, direct callers/callees, source spans,
 function version changes, call-name changes and functions that changed together.

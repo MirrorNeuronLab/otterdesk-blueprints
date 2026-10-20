@@ -33,8 +33,8 @@ def kill_group(process):
 
 @pytest.fixture
 def launches(tmp_path):
-    # Keep production launch commands, substituting only the image-owned helper
-    # with a publisher fixture. No GPU, network, or user-home access is needed.
+    # Exercise the real service start_demo helper and production sampler command,
+    # substituting the image-owned publisher. No GPU or camera is used.
     helper = tmp_path / "start_demo_stream.py"
     helper.write_text(f"#!{sys.executable}\n" + """
 import json, os, pathlib, subprocess, sys, time
@@ -65,21 +65,21 @@ signal.signal(signal.SIGTERM, stop)
 while True:
     time.sleep(1)
 """)
-    (tmp_path / "services").mkdir()
     (tmp_path / "scripts").mkdir()
-    (tmp_path / "services/cctv_web_ui.py").write_text("""
-import pathlib, time
+    (tmp_path / "ui.py").write_text(f"""
+import importlib.util, json, os, pathlib, time
+spec = importlib.util.spec_from_file_location('camera_service', {str(ROOT / 'domain/live_service.py')!r})
+service = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(service)
+service.DEMO_LAUNCHER = {str(helper)!r}
+service.start_demo(json.loads(os.environ['MN_BLUEPRINT_CONFIG_JSON']))
 pathlib.Path('ui.ready').write_text('ready')
 while True:
     time.sleep(1)
 """)
     (tmp_path / "scripts/sample_video.py").write_text("from pathlib import Path; Path('sample.done').write_text('done')\n")
-    for name, relative in {
-        "ui": "services/run_cctv_web_ui.sh",
-        "sampler": "agents/adaptive_frame_sampler/scripts/run_sampler_on_nvidia.sh",
-    }.items():
-        source = (ROOT / relative).read_text()
-        (tmp_path / f"{name}.sh").write_text(source.replace("/opt/cctv-demo/start_demo_stream.sh", str(helper)))
+    source = (ROOT / "agents/adaptive_frame_sampler/scripts/run_sampler_on_nvidia.sh").read_text()
+    (tmp_path / "sampler.sh").write_text(source.replace("/opt/cctv-demo/start_demo_stream.sh", str(helper)))
     return tmp_path
 
 
@@ -87,7 +87,8 @@ def launch(root, name, profile="bundled_demo", **overrides):
     env = {**os.environ, **overrides, "MN_BLUEPRINT_CONFIG_JSON": json.dumps({"video_source": {
         "profile": profile, "demo_file": "/staged/warehouse demo.mp4",
     }})}
-    return subprocess.Popen(["bash", f"{name}.sh"], cwd=root, env=env, start_new_session=True,
+    command = [sys.executable, "ui.py"] if name == "ui" else ["bash", f"{name}.sh"]
+    return subprocess.Popen(command, cwd=root, env=env, start_new_session=True,
                             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 
 

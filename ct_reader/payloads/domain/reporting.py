@@ -22,17 +22,19 @@ def request_ct(model, volume, region, prompt):
 
 
 @activity_operation('Reading CT for research', completed='Experimental CT report saved for review')
-def review_ct(context, request=request_ct):
+def review_ct(context, request=request_ct, *, source_bytes=None):
     run_dir = Path(context['run_dir'])
     inputs = context.get('payload') or context.get('inputs') or context.get('config', {}).get('inputs', {}).get('payload', {})
     source = Path(inputs.get('ct_file') or '')
     region = inputs.get('region')
     prompt = str(inputs.get('prompt') or f'write a structured {"abdominal" if region == "abdomen" else "chest"} CT report')
-    if region not in ('chest', 'abdomen') or not source.is_file() or source.stat().st_size > MAX_CT_BYTES:
+    if region not in ('chest', 'abdomen') or (source_bytes is None and (not source.is_file() or source.stat().st_size > MAX_CT_BYTES)):
         raise ValueError('A bounded CT file and matching chest or abdomen region are required.')
     if not 0 < len(prompt) <= 2000:
         raise ValueError('Keep the research question under 2,000 characters.')
-    data = source.read_bytes()
+    data = source.read_bytes() if source_bytes is None else source_bytes
+    if not isinstance(data, bytes) or not 0 < len(data) <= MAX_CT_BYTES:
+        raise ValueError('A nonempty bounded CT file is required.')
     digest = hashlib.sha256(data).hexdigest()
     manifest = source_manifest(__file__)
     model = manifest['runtime']['models']['ct']

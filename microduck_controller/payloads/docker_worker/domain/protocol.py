@@ -29,6 +29,30 @@ MAX_SEGMENT_MS = 1_000
 MAX_PLAN_MS = 5_000
 
 
+MOVE_DURATIONS_MS = {"short": 250, "medium": 500, "long": 1_000}
+MOTION_ROUTINES = {
+    "showcase": [
+        {"direction": "forward", "duration_ms": 500},
+        {"direction": "turn_left", "duration_ms": 350},
+        {"direction": "turn_right", "duration_ms": 700},
+        {"direction": "backward", "duration_ms": 500},
+    ],
+    "spin_left": [
+        {"direction": "turn_left", "duration_ms": 1_000},
+        {"direction": "turn_left", "duration_ms": 1_000},
+    ],
+    "spin_right": [
+        {"direction": "turn_right", "duration_ms": 1_000},
+        {"direction": "turn_right", "duration_ms": 1_000},
+    ],
+    "zigzag": [
+        {"direction": "forward", "duration_ms": 500},
+        {"direction": "turn_left", "duration_ms": 300},
+        {"direction": "forward", "duration_ms": 500},
+        {"direction": "turn_right", "duration_ms": 300},
+    ],
+}
+
 class ProtocolError(ValueError):
     """Raised when an MCP or bridge payload violates the public contract."""
 

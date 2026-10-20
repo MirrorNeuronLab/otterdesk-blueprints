@@ -1,0 +1,22 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "services": {
+    "cctv_web_ui": {
+      "uses": "mn.blocks.monitored_service@1",
+      "config": {
+        "interval_seconds": 60,
+        "max_cycles": null,
+        "buffer_policy": "latest"
+      },
+      "hooks": {
+        "start": "domain.live_service:start",
+        "health": "domain.live_service:health",
+        "cycle": "domain.live_service:cycle",
+        "stop": "domain.live_service:stop"
+      },
+      "limits": {
+        "max_calls": 1
+      }
+    }
+  }
+}

@@ -38,9 +38,6 @@
       "needs": [
         "analyze_dependency_structure"
       ],
-      "run": {
-        "definition": "steps.investigate_architecture"
-      },
       "control": {
         "timeout_seconds": 604800
       }
@@ -76,9 +73,6 @@
       "planner": "plan_architecture_round",
       "templates": {
         "plan_architecture_round": {
-          "run": {
-            "handler": "agents.architecture_planner"
-          },
           "control": {
             "timeout_seconds": 3600,
             "retry": {
@@ -109,14 +103,15 @@
         }
       },
       "inputs": {
-        "context": [
+        "seed": [
           "outputs",
-          "result",
-          "context"
+          "result"
         ]
       },
       "outputs": {
-        "result": []
+        "result": [
+          "result"
+        ]
       },
       "max_rounds": 20,
       "max_steps_per_round": 64

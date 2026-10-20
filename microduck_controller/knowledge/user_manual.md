@@ -20,6 +20,12 @@ Call `get_duck_state`. An action is allowed only when both `connected` and `read
 
 Each external effect requires a fresh caller-generated `request_id`. Identical retries reuse it; conflicting reuse fails. The SDK maps it to a private worker UUID. A queued or accepted receipt does not prove motion completed. Poll the returned `operation_id` with `get_operation_status` and report only the observed terminal state.
 
+An unknown outcome means the admission reply or current browser history is
+unavailable. Keep observing that operation; do not issue another effect to
+reconstruct it or claim it failed without evidence. A disconnected caller does
+not cancel an already issued command. Use `stop_duck` when the operator asks to
+stop; it bypasses ordinary request admission and remains available while busy.
+
 ## Natural-language controls
 
 - Requests to go or walk forward/ahead, back up/reverse, or turn/rotate left or right use `move_duck` only when no destination is named. Conversational forms such as “take a little step ahead” and “could you turn to your right now?” mean the same thing.

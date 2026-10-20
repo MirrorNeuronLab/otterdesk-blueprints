@@ -79,12 +79,7 @@
     }
   },
   "agents": {
-    "registry": {
-      "ct_research_specialist": {
-        "handler": "agents.ct_research_specialist",
-        "role": "Experimental CT report specialist"
-      }
-    }
+    "registry": {}
   },
   "workers": {
     "groups": [
@@ -108,18 +103,6 @@
             {
               "source": "domain",
               "target": "domain"
-            },
-            {
-              "source": "agents",
-              "target": "agents"
-            },
-            {
-              "source": "runtime",
-              "target": "runtime"
-            },
-            {
-              "source": "steps",
-              "target": "steps"
             }
           ]
         }

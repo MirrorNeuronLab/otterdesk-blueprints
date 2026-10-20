@@ -14,6 +14,7 @@ from mn_sdk.version_constraints import dependency_requirement
 from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint, resolve_config
 from mn_sdk.context_engine import blueprint_requires_context_engine
 from mn_sdk.components.dependencies import component_requirements
+from mn_sdk.components.catalog import CATALOG as SDK_COMPONENTS
 from mn_sdk.components.installation import SDKInstallation
 from mn_sdk.submission_preparation import (
     prepare_manifest_for_submission,
@@ -23,6 +24,7 @@ from mn_sdk.submission_preparation import (
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINTS = json.loads((ROOT / "index.json").read_text())
+SDK_DISTRIBUTIONS = {"mirrorneuron-python-sdk", *(spec.distribution for spec in SDK_COMPONENTS.values())}
 
 
 @pytest.mark.parametrize("blueprint_id", BLUEPRINTS)
@@ -37,9 +39,9 @@ def test_catalog_dependencies_use_gar_packages_and_keep_domain_skills(blueprint_
             assert record["version"]
             assert not {"path", "format"} & record.keys()
             if group == "packages":
-                assert record["name"].startswith("mn-python-sdk-") or record["name"] == "mirrorneuron-python-sdk"
+                assert record["name"] in SDK_DISTRIBUTIONS
             else:
-                assert not record["name"].startswith("mn-python-sdk-")
+                assert record["name"] not in SDK_DISTRIBUTIONS
     compiled = compile_blueprint(read_blueprint(root)).manifest
     assert compiled["packages"] == dependencies["packages"]
     assert component_requirements(compiled)

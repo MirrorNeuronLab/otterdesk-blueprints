@@ -1,0 +1,74 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "operations": {
+    "simulator_command": {
+      "uses": "mn.blocks.controlled_operation@1",
+      "config": {
+        "max_state_age_seconds": 1
+      },
+      "hooks": {
+        "validate": "domain.control_blocks:validate",
+        "policy": "domain.control_blocks:policy",
+        "receipt": "domain.control_blocks:receipt"
+      },
+      "adapters": {
+        "device_state": {
+          "call": "domain.control_blocks:device_state",
+          "read_only": true,
+          "idempotent": false
+        },
+        "command": {
+          "call": "domain.control_blocks:command",
+          "reconcile": "domain.control_blocks:reconcile",
+          "read_only": false,
+          "idempotent": false
+        },
+        "command_receipt": {
+          "call": "domain.control_blocks:command_receipt",
+          "read_only": true,
+          "idempotent": false
+        }
+      },
+      "input_schema": {
+        "type": "object",
+        "required": [
+          "command_id",
+          "kind",
+          "payload"
+        ],
+        "properties": {
+          "command_id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "receipt"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "receipt": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "limits": {
+        "max_calls": 3,
+        "timeout_seconds": 3
+      }
+    }
+  }
+}

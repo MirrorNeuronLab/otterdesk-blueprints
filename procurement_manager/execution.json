@@ -32,10 +32,6 @@
       "purchase_report_writer": {
         "handler": "agents.purchase_report_writer",
         "role": "Approval Ready Procurement Decision Writer"
-      },
-      "purchase_case_assessor": {
-        "handler": "agents.purchase_case_assessor",
-        "role": "Structured Procurement Case Assessor"
       }
     }
   },

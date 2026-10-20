@@ -1,0 +1,78 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "investigate_architecture": {
+      "uses": "mn.blocks.bounded_investigation@1",
+      "hooks": {
+        "initialize": "domain.investigation_block:initialize",
+        "plan": "domain.investigation_block:plan",
+        "summarize": "domain.investigation_block:summarize"
+      },
+      "inputs": {
+        "repository_url": {
+          "$ref": "run_input",
+          "path": [
+            "repository_url"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        },
+        "goal": {
+          "$ref": "run_input",
+          "path": [
+            "goal"
+          ]
+        },
+        "graph_export": {
+          "$ref": "run_input",
+          "path": [
+            "graph_export"
+          ]
+        },
+        "output_folder": {
+          "$ref": "run_input",
+          "path": [
+            "output_folder"
+          ]
+        },
+        "review_file": {
+          "$ref": "run_input",
+          "path": [
+            "review_file"
+          ]
+        },
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "analyze_dependency_structure"
+        }
+      },
+      "output_schema": {
+        "type": "object",
+        "required": [
+          "status",
+          "catalog"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "partial",
+              "review_draft"
+            ]
+          },
+          "catalog": {
+            "type": "object"
+          }
+        },
+        "additionalProperties": false
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 604800
+      }
+    }
+  }
+}

@@ -2,6 +2,14 @@
 
 Microduck Controller packages the Microduck RL playground as a live OtterDesk service. Open its browser control tab, then use ordinary language in OtterDesk to inspect or control the visible robot. The stable Job agent reads the blueprint-owned control manual and invokes only the service's bounded MCP tools.
 
+Version 3 composes ordinary command admission with the SDK's
+`mn.blocks.controlled_operation@1` named operation. Shared code handles request
+journals, replay, uncertainty fencing and bounded async transport. Browser physics,
+lease/readiness policy, live completion receipts and the priority stop path remain
+domain-owned. It requires SDK/common/blocks `>=1.3.61.dev25,<2`. Offline tests use
+the real MCP/SDK/bridge path with a synthetic browser sender; this migration has
+not been qualified in a live simulator browser session.
+
 ## Start the demo
 
 ```bash

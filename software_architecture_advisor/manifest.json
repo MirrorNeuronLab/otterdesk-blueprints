@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "software_architecture_advisor",
   "name": "Architecture Advisor",
-  "version": "4.2.1",
+  "version": "5.0.0",
   "description": "Understand how your software is organized, where changes may cause problems, and what to improve first. Get a report with supporting examples, an interactive overview, and suggested tasks for your development team.",
   "workflow": "workflow.json",
   "execution": "execution.json",
@@ -42,6 +42,10 @@
     },
     "mn.mcp": {
       "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
       "required": true
     }
   }

@@ -21,9 +21,9 @@ SERVICE_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVICE_ROOT) not in sys.path:
     sys.path.insert(0, str(SERVICE_ROOT))
 
-from domain.bridge import BridgeHub
-from domain.protocol import (
-    ProtocolError,
+from domain.bridge import BridgeHub  # noqa: E402 - Executable entrypoint bootstraps its payload root above.
+from domain.protocol import (  # noqa: E402
+    ProtocolError, MOVE_DURATIONS_MS, MOTION_ROUTINES,
     validate_ball_action,
     validate_command_id,
     validate_locomotion,
@@ -40,29 +40,6 @@ COMMAND_HISTORY_ARTIFACT = "duck_command_history.json"
 # registrar then publishes the resolved endpoint to MirrorNeuron's job-scoped
 # proxy; no end user needs to know this port.
 DEFAULT_PORT = 0
-MOVE_DURATIONS_MS = {"short": 250, "medium": 500, "long": 1_000}
-MOTION_ROUTINES = {
-    "showcase": [
-        {"direction": "forward", "duration_ms": 500},
-        {"direction": "turn_left", "duration_ms": 350},
-        {"direction": "turn_right", "duration_ms": 700},
-        {"direction": "backward", "duration_ms": 500},
-    ],
-    "spin_left": [
-        {"direction": "turn_left", "duration_ms": 1_000},
-        {"direction": "turn_left", "duration_ms": 1_000},
-    ],
-    "spin_right": [
-        {"direction": "turn_right", "duration_ms": 1_000},
-        {"direction": "turn_right", "duration_ms": 1_000},
-    ],
-    "zigzag": [
-        {"direction": "forward", "duration_ms": 500},
-        {"direction": "turn_left", "duration_ms": 300},
-        {"direction": "forward", "duration_ms": 500},
-        {"direction": "turn_right", "duration_ms": 300},
-    ],
-}
 _DNS_HOST_RE = re.compile(r"(?=.{1,253}\Z)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\Z")
 
 
@@ -303,11 +280,14 @@ def _state_summary(state: Mapping[str, Any]) -> str:
     return f"Microduck is ready in {locomotion} mode."
 
 
-def create_mcp_server(hub: BridgeHub):
+def create_mcp_server(hub: BridgeHub, *, run_dir=None):
     """Create the MCP projection without importing server packages during tests."""
 
     from mcp.server import MCPServer
     from mn_sdk_mcp import domain_tool
+    from domain.control_blocks import ControlBlocks
+
+    controls = ControlBlocks(hub, run_dir or configured_run_dir())
 
     mcp = MCPServer(
         "Microduck Controller",
@@ -349,7 +329,7 @@ def create_mcp_server(hub: BridgeHub):
         """Move once in a fixed direction for 250, 500, or 1000 ms; never navigate to a target."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="motion_plan",
             payload={"direction": direction, "duration": duration},
@@ -369,7 +349,7 @@ def create_mcp_server(hub: BridgeHub):
         """Run one named, predefined motion routine with a maximum five-second duration."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="motion_plan",
             payload={"routine": routine},
@@ -384,7 +364,7 @@ def create_mcp_server(hub: BridgeHub):
         """Move the duck continuously to the active ball with bounded closed-loop navigation."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="find_ball",
             payload={},
@@ -396,7 +376,7 @@ def create_mcp_server(hub: BridgeHub):
         """Keep finding and alternately kicking the active ball until stop_duck is called."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="free_play",
             payload={},
@@ -408,7 +388,7 @@ def create_mcp_server(hub: BridgeHub):
         """Read the latest receipt for one MCP command UUID."""
 
         try:
-            return await hub.command_status(validate_command_id(operation_id))
+            return await controls.status(validate_command_id(operation_id))
         except ProtocolError as error:
             return _invalid_receipt(operation_id, "unknown", str(error))
 
@@ -417,7 +397,7 @@ def create_mcp_server(hub: BridgeHub):
         """Cancel all remote movement, free play, and any in-progress remote kick."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="stop",
             payload={},
@@ -431,7 +411,7 @@ def create_mcp_server(hub: BridgeHub):
         """Switch the connected simulator between legged and roller locomotion."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="set_locomotion",
             payload={"locomotion": locomotion},
@@ -445,7 +425,7 @@ def create_mcp_server(hub: BridgeHub):
         """Sit down or stand up through the simulator's legged posture policy."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="set_posture",
             payload={"posture": posture},
@@ -460,7 +440,7 @@ def create_mcp_server(hub: BridgeHub):
         """Spawn the local ball or execute a left/right leg kick when the simulator is ready."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="ball_action",
             payload={"action": action},
@@ -472,7 +452,7 @@ def create_mcp_server(hub: BridgeHub):
         """Reset the connected browser simulation to its deterministic initial state."""
 
         return await _enqueue(
-            hub,
+            controls,
             command_id=command_id,
             kind="reset",
             payload={},
@@ -483,7 +463,7 @@ def create_mcp_server(hub: BridgeHub):
 
 
 async def _enqueue(
-    hub: BridgeHub,
+    controls,
     *,
     command_id: Any,
     kind: str,
@@ -495,7 +475,7 @@ async def _enqueue(
         normalized_payload = validate()
     except ProtocolError as error:
         return _invalid_receipt(command_id, kind, str(error))
-    return await hub.enqueue(
+    return await controls.enqueue(
         command_id=normalized_id,
         kind=kind,
         payload=normalized_payload,
@@ -530,14 +510,10 @@ def create_app(
     from starlette.staticfiles import StaticFiles
     from starlette.websockets import WebSocket, WebSocketDisconnect
 
-    state_writer = lambda state, history: _service_artifact(
-        run_dir=run_dir,
-        public_url=public_url,
-        state=state,
-        history=history,
-    )
+    def state_writer(state, history):
+        _service_artifact(run_dir=run_dir, public_url=public_url, state=state, history=history)
     bridge = hub or BridgeHub(on_change=state_writer)
-    mcp = create_mcp_server(bridge)
+    mcp = create_mcp_server(bridge, run_dir=run_dir)
     app = mcp.streamable_http_app(stateless_http=True, json_response=True)
 
     async def health(_request):

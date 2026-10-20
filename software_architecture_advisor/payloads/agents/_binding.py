@@ -5,7 +5,7 @@ from mn_sdk.step_runtime import find_message_payload
 from runtime.runtime import runtime_context_for_step
 
 
-def bind(operation):
+def bind(operation, *, step_input=False):
     keys = frozenset(source_manifest(__file__)["contracts"]["inputs"])
     spec = StatefulStepSpec(
         context_factory=runtime_context_for_step, input_keys=keys,
@@ -13,7 +13,8 @@ def bind(operation):
     )
 
     def invoke(context, *, agent_input, llm_client=None, **options):
-        payload, references = operation(context.to_mapping(), llm_client=llm_client)
+        mapped = {"step_input": agent_input.payload.get("step_input", agent_input.payload)} if step_input else {}
+        payload, references = operation(context.to_mapping(), llm_client=llm_client, **mapped)
         return AgentHandlerOutput(payload=payload, artifacts=tuple(references))
 
     return create_domain_message_agent(DomainOperationSpec(

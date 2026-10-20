@@ -28,6 +28,17 @@ The launcher stages that folder and rewrites the linked runtime input paths.
 
 ## Workflow
 
+Version 3 declares the case-assessment branch through `mn.blocks.domain_operation@1`
+and requires SDK/common/blocks from `1.3.61.dev25`. Generated worker identity and
+the branch handoff change to a committed JSON reference. The six logical steps,
+join dependencies, packet paths, economics, review semantics and five narrative
+calls remain unchanged. The case block commits a hash of its independent packet,
+not the comparison branch's mutable state. The deployed report binding verifies
+the case result/packet hashes and identity before calling the existing publisher;
+corrupt, mismatched or stale packet handoffs fail closed. Completed case
+invocations replay without recalculation. The local composition runner remains a
+domain test/example runner and does not implement Core scheduling.
+
 The optional structured `procurement_case.json` input is evaluated in a
 separate branch after evidence preparation. Its decimal cash-flow and mandatory
 fit checks join the existing recommendation audit at publication. The branch

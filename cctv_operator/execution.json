@@ -312,10 +312,6 @@
         "agent_type": "executor",
         "alias": "cctv_web_ui",
         "config": {
-          "command": [
-            "bash",
-            "services/run_cctv_web_ui.sh"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
