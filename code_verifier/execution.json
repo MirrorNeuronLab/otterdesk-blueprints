@@ -18,28 +18,7 @@
     }
   },
   "agents": {
-    "registry": {
-      "software_source_curator": {
-        "handler": "agents.software_source_curator",
-        "role": "Software source curator"
-      },
-      "software_rule_author": {
-        "handler": "agents.software_rule_author",
-        "role": "Software rule author"
-      },
-      "software_rule_reviewer": {
-        "handler": "agents.software_rule_reviewer",
-        "role": "Software rule reviewer"
-      },
-      "software_rules_reporter": {
-        "handler": "agents.software_rules_reporter",
-        "role": "Software rules reporter"
-      },
-      "software_rules_supervisor": {
-        "handler": "agents.software_rules_supervisor",
-        "role": "Software rules supervisor"
-      }
-    }
+    "registry": {}
   },
   "defaults": {
     "worker": {
@@ -55,15 +34,13 @@
             "target": "domain"
           },
           {
-            "source": "agents",
-            "target": "agents"
-          },
-          {
             "source": "prompts",
             "target": "prompts"
           }
         ],
-        "timeout_seconds": 3900
+        "timeout_seconds": 3900,
+        "upload_path": "domain",
+        "upload_as": "domain"
       }
     }
   }

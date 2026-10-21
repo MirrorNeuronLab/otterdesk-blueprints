@@ -5,7 +5,7 @@ from ._shared import step_inputs
 
 STEP = StepSpec(
     input=InputSpec(
-        fields=step_inputs("detect_packet_changes", "packet_changes")
+        fields=step_inputs("detect_packet_changes", "packet_changes", result_ref=True)
     ),
     flow=agent("company_packet_grouper"),
     output=OutputSpec(fields={"company_packets": flow_output()}),

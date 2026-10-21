@@ -64,9 +64,13 @@ class Benchmarks:
             raise ValueError("benchmarks.max_samples must be between 100 and 100000")
         with self._connect() as db:
             db.execute("PRAGMA journal_mode=WAL")
+            db.execute("BEGIN IMMEDIATE")
             db.execute("CREATE TABLE IF NOT EXISTS samples (id INTEGER PRIMARY KEY, "
                        "at REAL, stage TEXT, variant TEXT, cohort TEXT, phase TEXT, "
                        "status TEXT, duration_ms REAL, metadata TEXT)")
+            if "sample_key" not in {row[1] for row in db.execute("PRAGMA table_info(samples)")}:
+                db.execute("ALTER TABLE samples ADD COLUMN sample_key TEXT")
+            db.execute("CREATE UNIQUE INDEX IF NOT EXISTS samples_sample_key ON samples(sample_key)")
             db.execute("CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value INTEGER)")
             retained = db.execute("SELECT value FROM settings WHERE name='max_samples'").fetchone()
             if config is None and retained:
@@ -77,11 +81,13 @@ class Benchmarks:
     def _connect(self):
         return sqlite3.connect(self.path, timeout=5)
 
-    def record(self, stage, duration_ms, *, variant, phase="warm", status="ok", metadata=None):
+    def record(self, stage, duration_ms, *, variant, phase="warm", status="ok", metadata=None, sample_key=None):
         if stage not in STAGES or phase not in {"cold", "warm"} or status not in {"ok", "error", "skipped"}:
             raise ValueError("invalid CCTV benchmark measurement")
         if not math.isfinite(duration_ms) or duration_ms < 0:
             raise ValueError("benchmark duration must be finite and nonnegative")
+        if sample_key is not None and (not isinstance(sample_key, str) or not sample_key or len(sample_key.encode()) > 256):
+            raise ValueError("benchmark sample identity must be bounded")
         # Deliberate allowlist: benchmarks contain timing/configuration, never
         # camera URLs, images, captions, private prompts or exception messages.
         allowed = {"frames", "skipped_frames", "skipped_windows", "threshold", "fps", "dataset_sha256",
@@ -92,9 +98,9 @@ class Benchmarks:
         values["configuration_sha256"] = self.configuration_hash
         values["implementation_sha256"] = self.implementation_hash
         with self._connect() as db:
-            db.execute("INSERT INTO samples (at,stage,variant,cohort,phase,status,duration_ms,metadata) "
-                       "VALUES (?,?,?,?,?,?,?,?)", (time.time(), stage, str(variant)[:240], self.cohort,
-                                                 phase, status, duration_ms, json.dumps(values, allow_nan=False)))
+            db.execute("INSERT OR IGNORE INTO samples (at,stage,variant,cohort,phase,status,duration_ms,metadata,sample_key) "
+                       "VALUES (?,?,?,?,?,?,?,?,?)", (time.time(), stage, str(variant)[:240], self.cohort,
+                                                 phase, status, duration_ms, json.dumps(values, allow_nan=False), sample_key))
             db.execute("DELETE FROM samples WHERE id <= (SELECT COALESCE(MAX(id),0)-? FROM samples)",
                        (self.max_samples,))
 

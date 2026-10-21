@@ -40,6 +40,39 @@ def append_debug_record(run_dir: Path | None, event_type: str, payload: dict[str
             handle.write(json.dumps(record, sort_keys=True) + "\n")
     append_event(run_dir, event_type, record["payload"])
 
+
+def observation_records_for_role(run_dir, role):
+    path = Path(run_dir) / "llm_rag_trace.jsonl"
+    records = []
+    if path.is_file():
+        for line in path.read_text().splitlines():
+            try:
+                record = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            fields = record.get("payload") or {}
+            if role in (fields.get("agent_id"), fields.get("stage"), fields.get("verification_target")):
+                records.append(record)
+    return records
+
+
+def merged_observation_trace(state, run_dir):
+    path = Path(run_dir) / "llm_rag_trace.jsonl"
+    records, seen = [], set()
+    local = []
+    if path.is_file():
+        for line in path.read_text().splitlines():
+            try:
+                local.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    for record in [*local, *[record for rows in state.get("observations", {}).values() for record in rows]]:
+        encoded = json.dumps(record, sort_keys=True)
+        if encoded not in seen:
+            records.append(encoded)
+            seen.add(encoded)
+    return ("\n".join(records) + ("\n" if records else "")).encode()
+
 def append_debug_record_if_enabled(ctx: dict[str, Any], event_type: str, payload: dict[str, Any]) -> None:
     if debug_mode_enabled(ctx.get("config") if isinstance(ctx, dict) else None):
         append_debug_record(ctx.get("run_dir"), event_type, payload)

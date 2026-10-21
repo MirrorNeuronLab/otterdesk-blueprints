@@ -10,14 +10,15 @@ from pathlib import Path
 from mn_docs_to_markdown_skill import convert_documents
 
 
-def publish_outputs(context):
-    root = Path(context["run_dir"])
+def publish_outputs(block):
+    from .state import output_directory
+    root = block.store.run_dir
     report = root / "financial_advisor_report.md"
     if report.is_symlink() or not report.is_file():
         raise ValueError("Conversation requires the complete saved financial report")
-    run_key = hashlib.sha256(context["run_id"].encode("utf-8")).hexdigest()
+    run_key = hashlib.sha256(block.run_id.encode("utf-8")).hexdigest()
     return convert_documents(
         [report], source_root=root,
-        output_root=Path(context["output_folder"]) / "context_sources" / "outputs" / run_key,
+        output_root=output_directory(block) / "context_sources" / "outputs" / run_key,
         max_bytes=4 * 1024 * 1024,
     )

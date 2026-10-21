@@ -618,3 +618,31 @@ Actions menu, tabs and non-modal evidence panel. Domain views and evidence rules
 remain in this blueprint. Open `web/index.html` from a completed output; no
 Node server, CDN or model call is needed to read it. Saved copies include the
 shared assets. Markdown and structured evidence remain the authoritative outputs.
+
+## Native block composition (5.0.0)
+
+The four parent phases and four child-task templates use the stock SDK block
+worker. Source capture, indexing, round planning/tasks and publication receive
+native block contexts and explicit input ports. The old worker bindings,
+runtime-context dictionary and `case_workflow` bridge have been removed. Core
+still schedules the serial child tasks and enforces the three-round limit.
+
+SDK checkpoints bind captured evidence to the Job, run and original configuration.
+The source/index/terminal chain retains file hashes and exact source authority;
+publication verifies it before rendering. A domain-operation postcondition also
+checks published bytes on replay, so changing a saved report fails without
+rerunning investigation. Final report projection is read-only: the terminal
+phase persists the audit review once. An interrupted host export can retry
+publication while reusing the completed investigation.
+
+Coordination messages carry committed references. Large authorized case files
+and workspace JSON retain streaming hash verification rather than inheriting
+the common JSON store's 64 MiB file ceiling. Source limits remain 32 MiB per file
+and 256 MiB total; optional UI failures still leave the report/workspace available.
+The preserved autonomous explorer also consumes native contexts, remains
+unregistered, and requires an explicit workflow change before use.
+
+Use SDK and blocks >=1.3.61.dev26 with common >=1.3.61.dev25. Existing Docker and
+model choices are preserved. Deterministic tests cover compiled parent/child
+bindings, publication replay, file tampering, optional UI failure and interrupted
+export; they do not qualify a live model, Docker graph engine or deployment.

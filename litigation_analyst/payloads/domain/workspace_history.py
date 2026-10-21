@@ -43,8 +43,8 @@ def apply_reviews(workspace, reviews):
             finding["review_state"] = "Reviewers disagree"
 
 
-def publish(context, workspace):
-    root = Path(context["run_dir"])
+def publish(context, workspace, *, review_file=None):
+    root = Path(context.store.run_dir)
     capture = root / "case/workspace_capture.json"
     if capture.exists():
         clock = json.loads(capture.read_text())
@@ -54,7 +54,7 @@ def publish(context, workspace):
         clock = {"at": datetime.now(timezone.utc).isoformat()}
         capture.write_text(json.dumps(clock))
     workspace["captured_at"] = clock["at"]
-    job_root, job_id = context.get("job_data_dir"), context.get("job_id")
+    job_root, job_id = context.job_data_dir, context.job_id
     mode = "Job history" if job_root and job_id else "Single snapshot; Job history unavailable"
     epoch = fingerprint([job_id, workspace["matter_id"], workspace["access_scope"]])
     path = (Path(job_root) / "state" / epoch / "history.sqlite3") if job_root and job_id else root / "case/temporal_history.sqlite3"
@@ -75,7 +75,7 @@ def publish(context, workspace):
         if not sources:
             workspace["changes"] = {"mode": mode, "previous_snapshot": None, "items": []}
             return workspace
-        run_identity = str(context.get("run_id") or root.name)
+        run_identity = str(context.run_id or root.name)
         receipt = history.ingest_scan({"host_epoch_id": epoch, "scan_id": fingerprint([run_identity, workspace["snapshot_id"]]),
             "acquisition": {"earliest": clock["at"], "latest": clock["at"]}, "sources": sources})
         revision = receipt["revision"]
@@ -115,7 +115,6 @@ def publish(context, workspace):
             if not any(f["id"] == identifier for f in workspace["findings"]):
                 changes.append({"kind": "Finding no longer retained", "finding_id": identifier,
                     "before": old["assessment"], "after": "No current retained finding; the prior revision remains historical"})
-        review_file = context["payload"].get("review_file")
         if review_file:
             review_path = Path(review_file)
             if review_path.is_symlink() or review_path.stat().st_size > 2*1024*1024:

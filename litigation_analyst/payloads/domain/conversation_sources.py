@@ -12,11 +12,11 @@ from mn_docs_to_markdown_skill import convert_documents
 REPORTS = ("final_report.md", "evidence_appendix.md", "graph_appendix.md", "transaction_appendix.md")
 
 
-def publish_outputs(context):
-    output = context.get("output_folder")
+def publish_outputs(context, *, output_folder=None):
+    output = output_folder
     if not output:
         return []
-    run = Path(context["run_dir"])
+    run = context.store.run_dir
     paths = [run / name for name in REPORTS]
     if any(path.is_symlink() or not path.is_file() for path in paths):
         raise ValueError("Conversation reports require complete regular output files")

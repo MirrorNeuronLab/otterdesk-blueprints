@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 import importlib.util
 import json
 import os
@@ -22,20 +24,29 @@ from workspace_paths import companion_workspace
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT_DIR = ROOT / "drug_discovery_research_assistant"
 WORKSPACE = companion_workspace(ROOT)
-STEP_SCRIPTS = {
-    "target_discovery": "scripts/stage_a.py",
-    "structure_generation": "scripts/stage_b.py",
-    "candidate_generation": "scripts/run_continuous_service.py",
-    "binding_evaluation": "scripts/stage_d.py",
-    "ranking_reporting": "scripts/stage_e.py",
+STEP_HOOKS = {
+    "target_discovery": "domain.native_stages:discover_targets",
+    "structure_generation": "domain.native_stages:generate_structures",
+    "candidate_generation": "domain.continuous_service:run_discovery_service",
+    "binding_evaluation": "domain.native_stages:evaluate_binding",
+    "ranking_reporting": "domain.reporting:publish_ranking",
 }
-STEP_AGENTS = {
-    "target_discovery": "target_biology_researcher",
-    "structure_generation": "structure_modeler",
-    "candidate_generation": "discovery_service_operator",
-    "binding_evaluation": "binding_evidence_reviewer",
-    "ranking_reporting": "discovery_packet_writer",
-}
+
+
+def native_block(run_dir, monkeypatch, *, output_dir=None, config=None, run_id="discovery-test"):
+    monkeypatch.syspath_prepend(str(BLUEPRINT_DIR / "payloads"))
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output_dir or run_dir / "outputs"))
+    return BlockContext(store=CommittedJsonStore(run_dir), invocation_id="discovery-test", revision="test-v4",
+        job_id="job-1", run_id=run_id, config=config or {"mode": "mock", "source_context": {"enabled": False}})
+
+
+def evaluation_state(block):
+    smiles = ["CCO", "CCN", "CCC", "CCCl", "CCBr"]
+    state = {"evaluations": [{"candidate": {"candidate_id": f"candidate-{number}", "smiles": value},
+        "simulation_stability": .8, "drugclip_score": .9} for number, value in enumerate(smiles)],
+        "service_reports": [{"completed_at": "2026-10-20T00:00:00Z"}]}
+    return {"previous": {"state": block.store.commit("discovery/evaluations.json", state, kind="discovery_evidence").to_dict()}}
+
 
 
 def _expand_source_manifest(source: dict) -> dict:
@@ -80,10 +91,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
             "type": "pip",
             "source": "gar",
             "name": "mirrorneuron-python-sdk",
-            "version": ">=1.3.61.dev12,<2",
+            "version": ">=1.3.61.dev25,<2",
             "extras": ["context"],
         },
-        {"type": "pip", "source": "gar", "name": "mn-python-sdk-common", "version": ">=1.3.61.dev12,<2"},
+        {"type": "pip", "source": "gar", "name": "mn-python-sdk-common", "version": ">=1.3.61.dev25,<2"},
+        {"type": "pip", "source": "gar", "name": "mn-blueprint-blocks", "version": ">=1.3.61.dev25,<2"},
+        {"type": "pip", "source": "gar", "name": "mn-python-sdk-web-ui", "version": ">=1.3.61.dev25,<2"},
     ]
     assert (
         manifest["config"]["data"]["interfaces"]["input_contract"]
@@ -91,7 +104,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "2.0.0"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "4.0.0"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]
@@ -108,7 +121,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         artifact["path"] for artifact in manifest["contracts"]["outputs"]["artifacts"]
     }
     assert {"leading_candidate.json", "leading_candidate.svg"} <= output_paths
-    assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_SCRIPTS)
+    assert [step["id"] for step in manifest["workflow"]["steps"]] == list(STEP_HOOKS)
     assert manifest["agents"].get("extra_templates", []) == []
     assert manifest["defaults"]["worker"]["uses"] == "mn-agents.worker.python_host@1"
     assert "python_environment" not in manifest["defaults"]["worker"]["with"]
@@ -123,8 +136,9 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         "domain",
         "biotarget",
     }
-    for script in STEP_SCRIPTS.values():
-        assert (BLUEPRINT_DIR / "payloads" / "service" / script).is_file(), script
+    for reference in STEP_HOOKS.values():
+        module, _ = reference.split(":")
+        assert (BLUEPRINT_DIR / "payloads" / (module.replace(".", "/") + ".py")).is_file()
     assert (BLUEPRINT_DIR / "payloads" / "prompts" / "scientific-review.md").is_file()
     assert manifest["service"]["run_until"] == "one_cycle"
     assert manifest["cluster_distribution"]["enabled"] is False
@@ -162,15 +176,12 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
         == "mirror-neuron/drug-discovery-research-assistant:drugclip-gnina"
     )
 
-    assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_SCRIPTS)
-    assert set(manifest["agents"]["registry"]) == set(STEP_AGENTS.values())
-    for step in STEP_SCRIPTS:
-        assert (
-            manifest["workflow"]["steps"][
-                [item["id"] for item in manifest["workflow"]["steps"]].index(step)
-            ]["run"]["definition"]
-            == f"steps.{step}"
-        )
+    assert {step["id"] for step in manifest["workflow"]["steps"]} == set(STEP_HOOKS)
+    assert manifest["agents"]["registry"] == {}
+    assert set(manifest["metadata"]["mn_blocks"]["steps"]) == set(STEP_HOOKS)
+    for step in STEP_HOOKS:
+        assert "run" not in next(item for item in manifest["workflow"]["steps"] if item["id"] == step)
+        assert manifest["metadata"]["mn_blocks"]["steps"][step]["hooks"]["operation"] == STEP_HOOKS[step]
     candidate_step = next(
         item
         for item in manifest["workflow"]["steps"]
@@ -203,7 +214,7 @@ def test_drug_discovery_uses_logical_default_llm_route():
     assert config["service"]["candidate_pool_size"] == 800
     assert config["service"]["drugclip_scoring_batch_size"] == 64
     assert [step["id"] for step in config["web_ui"]["workflow_steps"]] == list(
-        STEP_SCRIPTS
+        STEP_HOOKS
     )
     assert [step["id"] for step in config["service"]["cycle_steps"]] == [
         "generate_candidates",
@@ -293,11 +304,12 @@ def test_drug_discovery_source_manifest_expands_with_native_service_script():
     step_nodes = {
         node_id: node
         for node_id, node in node_by_id.items()
-        if node_id.endswith(tuple(f"__{agent_id}" for agent_id in STEP_AGENTS.values()))
+        if node.get("config", {}).get("environment", {}).get("MN_WORKFLOW_STEP_HANDLER")
     }
-    assert {node_id.split("__", 1)[0] for node_id in step_nodes} == set(STEP_SCRIPTS)
-    for step in STEP_SCRIPTS:
-        config = step_nodes[f"{step}__{STEP_AGENTS[step]}"]["config"]
+    assert {node_id.split("__", 1)[0] for node_id in step_nodes} == set(STEP_HOOKS)
+    for step in STEP_HOOKS:
+        config = step_nodes[f"{step}__block_{step}_specialist"]["config"]
+        assert config["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_worker"
         assert config["command"] == [
             "/opt/mn-venv/bin/python3",
             "-m",
@@ -344,11 +356,11 @@ def test_drug_discovery_submission_has_no_hostlocal_ui_environment(
     )
 
 
-def test_drug_discovery_stage_environment_propagates_biotarget_source():
-    stages = (BLUEPRINT_DIR / "payloads" / "domain" / "native_stages.py").read_text(
-        encoding="utf-8"
-    )
-    assert 'environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)' in stages
+def test_scientific_native_dispatch_propagates_biotarget_source():
+    scientific = (BLUEPRINT_DIR / "payloads/service/scripts/continuous_service.py").read_text()
+    assert 'adapter_environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)' in scientific
+    assert not (BLUEPRINT_DIR / "payloads/domain/discovery_workflow.py").exists()
+    assert not list((BLUEPRINT_DIR / "payloads/runtime").glob("*.py"))
 
 
 def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
@@ -372,7 +384,8 @@ def test_drug_discovery_bundles_biotarget_and_prefers_it_at_runtime():
     stages = (BLUEPRINT_DIR / "payloads" / "domain" / "native_stages.py").read_text(
         encoding="utf-8"
     )
-    assert 'capture_output = script != "run_continuous_service.py"' in stages
+    assert "subprocess" not in stages and "MN_MESSAGE_FILE" not in stages
+    assert "stage_a_target_discovery(disease.strip())" in stages
     continuous_service = (
         BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
     ).read_text(encoding="utf-8")
@@ -484,7 +497,7 @@ def test_five_candidate_policy_rejects_duplicate_shortfall():
     assert len(module.five_distinct_candidates(candidates, synthetic=True)) == 5
 
 
-def test_one_cycle_handoff_produces_five_reviewed_candidates(tmp_path):
+def test_one_cycle_handoff_produces_five_reviewed_candidates(tmp_path, monkeypatch):
     service_path = (
         BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "continuous_service.py"
     )
@@ -509,24 +522,15 @@ def test_one_cycle_handoff_produces_five_reviewed_candidates(tmp_path):
         tmp_path,
     )
     assert result["completed_cycles"] == 1
-    payload = {"reports": result["reports"]}
-    message = tmp_path / "message.json"
-    for script in ("stage_d.py", "stage_e.py"):
-        message.write_text(json.dumps({"body": payload}))
-        process = subprocess.run(
-            [sys.executable, str(service_path.parent / script)],
-            env={
-                **os.environ,
-                "MN_MESSAGE_FILE": str(message),
-                "MN_RUN_DIR": str(tmp_path),
-            },
-            text=True,
-            capture_output=True,
-            check=True,
-        )
-        payload = json.loads(process.stdout.splitlines()[-1])
-    report = payload["review_report"]
-    assert report["candidate_count"] == 5
+    block = native_block(tmp_path, monkeypatch)
+    state = {"service_reports": result["reports"]}
+    reference = block.store.commit("discovery/cycle.json", state, kind="discovery_evidence").to_dict()
+    stages = _load_drug_discovery_domain_module("native_stages")
+    reviewed = stages.evaluate_binding(block, {"previous": {"state": reference}})
+    reporting = _load_drug_discovery_domain_module("reporting")
+    published = reporting.publish_ranking(block, {"previous": reviewed})
+    report = block.store.read_path("final_artifact.json")
+    assert published["candidate_count"] == 5 and report["candidate_count"] == 5
     assert len({row["candidate"]["smiles"] for row in report["ranked_candidates"]}) == 5
     assert (tmp_path / "discovery_service_review.json").is_file()
 
@@ -646,10 +650,8 @@ def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, mon
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg=="
     )
     monkeypatch.setattr(module, "_draw_candidate_png", lambda _smiles: preview_png)
-    module.publish_static_dashboard({
-        "run_id": "demo", "run_dir": str(run_dir),
-        "output_folder": str(tmp_path / "output"), "config": {},
-    })
+    module.publish_static_dashboard(native_block(run_dir, monkeypatch,
+        output_dir=tmp_path / "output", run_id="demo"))
     page = (tmp_path / "output" / "web" / "index.html").read_text()
     assert "Ranked candidate structures" in page
     assert "candidate-a" in page and "CCO" in page
@@ -812,7 +814,7 @@ def test_drug_discovery_web_ui_projects_only_the_leading_molecule(tmp_path):
     assert "do-not-project" not in json.dumps(state)
 
 
-def test_drug_discovery_publishes_static_dashboard_and_proxy_handle(tmp_path):
+def test_drug_discovery_publishes_static_dashboard_and_proxy_handle(tmp_path, monkeypatch):
     module = _load_drug_discovery_domain_module("dashboard")
     config = load_blueprint_config(BLUEPRINT_DIR)
     run_dir = tmp_path / "run"
@@ -826,14 +828,8 @@ def test_drug_discovery_publishes_static_dashboard_and_proxy_handle(tmp_path):
         json.dumps({"status": "ready", "candidate_id": "candidate-1"}),
         encoding="utf-8",
     )
-    handle = module.publish_static_dashboard(
-        {
-            "run_id": "run-static",
-            "run_dir": str(run_dir),
-            "output_folder": str(output_dir),
-            "config": config,
-        }
-    )
+    handle = module.publish_static_dashboard(native_block(run_dir, monkeypatch,
+        output_dir=output_dir, config=config, run_id="run-static"))
 
     assert handle["adapter"] == "static_html"
     assert handle["metadata"]["optional"] is True
@@ -843,87 +839,32 @@ def test_drug_discovery_publishes_static_dashboard_and_proxy_handle(tmp_path):
     assert json.loads((run_dir / "web_ui.json").read_text()) == handle
 
 
-def test_drug_discovery_reporting_writes_the_declared_final_contract(
-    tmp_path, monkeypatch
-):
+def test_drug_discovery_reporting_writes_the_declared_final_contract(tmp_path, monkeypatch):
+    block = native_block(tmp_path / "run", monkeypatch, output_dir=tmp_path / "output")
     module = _load_drug_discovery_domain_module("reporting")
-    stored_state = {}
-    monkeypatch.setattr(module, "read_discovery_state", lambda _ctx: {})
-    monkeypatch.setattr(
-        module,
-        "run_stage_script",
-        lambda *_args, **_kwargs: {
-            "review_report": {
-                "candidate_count": 2,
-                "ranked_candidates": [{"candidate_id": "candidate-1"}],
-                "recommendation": "review_required",
-            }
-        },
-    )
-    monkeypatch.setattr(
-        module,
-        "write_discovery_state",
-        lambda _ctx, state: stored_state.update(state),
-    )
-    run_dir = tmp_path / "run"
-    output_dir = tmp_path / "output"
-    run_dir.mkdir()
-
-    result = module.publish_ranking(
-        {
-            "run_dir": str(run_dir),
-            "output_folder": str(output_dir),
-            "config": {},
-        }
-    )
-
-    artifact = result["final_artifact"]
-    manifest = blueprint_definition(read_blueprint(BLUEPRINT_DIR / "manifest.json"))
-    required = manifest["contracts"]["outputs"]["primary"]["required_fields"]
-    assert set(required) <= set(artifact)
-    assert artifact["confidence"] == 0.25
-    assert artifact["evidence"][0]["candidate_count"] == 2
-    assert {"inputs.json", "events.jsonl", "result.json"} <= set(
-        artifact["source_refs"]
-    )
-    assert json.loads((run_dir / "final_artifact.json").read_text()) == artifact
-    assert json.loads((output_dir / "final_artifact.json").read_text()) == artifact
-    assert stored_state["final_report"] == artifact
-    assert result["web_ui"]["adapter"] == "static_html"
-    assert result["web_ui_error"] == ""
+    published = module.publish_ranking(block, evaluation_state(block))
+    artifact = block.store.read_path("final_artifact.json")
+    manifest = blueprint_definition(read_blueprint(BLUEPRINT_DIR))
+    assert set(manifest["contracts"]["outputs"]["primary"]["required_fields"]) <= set(artifact)
+    assert artifact["candidate_count"] == 5 and artifact["confidence"] == .25
+    assert artifact["evidence"][0]["candidate_count"] == 5
+    assert {"inputs.json", "events.jsonl", "result.json"} <= set(artifact["source_refs"])
+    assert json.loads((tmp_path / "output/final_artifact.json").read_text()) == artifact
+    assert block.store.read(published["state"])["final_report"] == artifact
+    assert published["web_ui"]["adapter"] == "static_html" and not published["web_ui_error"]
 
 
-def test_drug_discovery_optional_dashboard_failure_does_not_fail_reporting(
-    tmp_path, monkeypatch
-):
+def test_drug_discovery_optional_dashboard_failure_does_not_fail_reporting(tmp_path, monkeypatch):
+    block = native_block(tmp_path / "run", monkeypatch)
     module = _load_drug_discovery_domain_module("reporting")
-    monkeypatch.setattr(module, "read_discovery_state", lambda _ctx: {})
-    monkeypatch.setattr(
-        module,
-        "run_stage_script",
-        lambda *_args, **_kwargs: {"review_report": {"candidate_count": 1}},
-    )
-    monkeypatch.setattr(module, "write_discovery_state", lambda *_args: None)
-    monkeypatch.setattr(
-        module,
-        "_publish_static_dashboard",
-        lambda _ctx: (_ for _ in ()).throw(OSError("optional UI unavailable")),
-    )
-    run_dir = tmp_path / "run"
-    run_dir.mkdir()
-
-    result = module.publish_ranking(
-        {
-            "run_dir": str(run_dir),
-            "output_folder": str(tmp_path / "output"),
-            "config": {},
-        }
-    )
-
-    assert result["final_artifact"]["candidate_count"] == 1
-    assert result["web_ui"] == {}
-    assert result["web_ui_error"] == "Optional result dashboard was not rendered: OSError"
-    assert (run_dir / "final_artifact.json").is_file()
+    dashboard = _load_drug_discovery_domain_module("dashboard")
+    def unavailable(_block):
+        raise OSError("optional UI unavailable")
+    monkeypatch.setattr(dashboard, "publish_static_dashboard", unavailable)
+    published = module.publish_ranking(block, evaluation_state(block))
+    assert block.store.read_path("final_artifact.json")["candidate_count"] == 5
+    assert published["web_ui"] == {}
+    assert published["web_ui_error"] == "Optional result dashboard was not rendered: OSError"
 
 
 def test_discovery_runs_once_even_with_legacy_unlimited_config(tmp_path):
@@ -1151,90 +1092,3 @@ def test_continuous_service_requires_a_native_dispatcher_for_cross_box_runs(tmp_
         assert "dispatch_command" in str(error)
     else:  # pragma: no cover - protects the cross-box fail-closed contract
         raise AssertionError("cross-box service accepted a missing native dispatcher")
-
-
-def test_continuous_service_uses_embedded_config_when_bundle_config_is_not_mounted(
-    tmp_path, monkeypatch
-):
-    service_path = (
-        BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
-    )
-    monkeypatch.syspath_prepend(str(service_path.parent))
-    spec = importlib.util.spec_from_file_location(
-        "drug_discovery_runner_config_test", service_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-
-    monkeypatch.setattr(module, "blueprint_root", lambda: tmp_path)
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps({"mode": "mock", "service": {"max_cycles": 1}}),
-    )
-
-    assert module.load_config() == {"mode": "mock", "service": {"max_cycles": 1}}
-
-
-def test_continuous_service_runner_starts_required_agent_beacon(tmp_path, monkeypatch):
-    service_path = (
-        BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
-    )
-    monkeypatch.syspath_prepend(str(service_path.parent))
-    spec = importlib.util.spec_from_file_location(
-        "drug_discovery_runner_beacon_test", service_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-
-    started = []
-    captured = {}
-    monkeypatch.setattr(
-        module, "start_agent_beacon_thread", lambda message: started.append(message)
-    )
-    monkeypatch.setattr(module, "run_dir", lambda: tmp_path)
-    monkeypatch.setattr(
-        module, "load_config", lambda: {"mode": "mock", "service": {"max_cycles": 1}}
-    )
-    monkeypatch.setattr(
-        module, "service_main", lambda args: captured.setdefault("args", args)
-    )
-
-    module.main()
-
-    assert started == ["Continuous drug discovery service is running"]
-    assert captured["args"] == [
-        "--config",
-        str(tmp_path / "resolved_service_config.json"),
-        "--run-dir",
-        str(tmp_path),
-    ]
-
-
-def test_continuous_service_beacon_uses_runtime_stdout_contract(monkeypatch, capsys):
-    service_path = (
-        BLUEPRINT_DIR / "payloads" / "service" / "scripts" / "run_continuous_service.py"
-    )
-    monkeypatch.syspath_prepend(str(service_path.parent))
-    spec = importlib.util.spec_from_file_location(
-        "drug_discovery_runner_beacon_payload_test", service_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    assert spec and spec.loader
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-
-    monkeypatch.setenv("MN_AGENT_BEACON_STDOUT_PREFIX", "__MN_AGENT_BEACON__")
-    monkeypatch.setenv("MN_AGENT_BEACON_INTERVAL_MS", "not-a-number")
-    module.start_agent_beacon_thread("service heartbeat")
-
-    line = capsys.readouterr().out.strip()
-    assert line.startswith("__MN_AGENT_BEACON__")
-    payload = json.loads(line.removeprefix("__MN_AGENT_BEACON__"))
-    assert payload["schema"] == "mn.agent.beacon.v1"
-    assert payload["source"] == "agent"
-    assert payload["status"] == "started"
-    assert payload["message"] == "service heartbeat"

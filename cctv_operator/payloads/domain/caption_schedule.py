@@ -5,6 +5,7 @@ import io
 import json
 import math
 import os
+import re
 import threading
 import time
 from collections import deque
@@ -17,6 +18,7 @@ from mn_live_video_analysis_skill import (
     write_frame_batch,
 )
 from mn_sdk.blueprint_support import write_json
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from mn_sdk_models.local_service import local_model_request
 
 from .monitoring import initial_monitoring_state
@@ -24,14 +26,43 @@ from .monitoring import initial_monitoring_state
 BINDING_FILE = "resident_monitor_binding.json"
 
 
+def _read_completion(root, batch_id):
+    if not isinstance(batch_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", batch_id):
+        raise ValueError("Caption completion has an invalid batch identity")
+    try:
+        value = json.loads((Path(root) / "caption_completions" / (batch_id + ".json")).read_text())
+    except FileNotFoundError:
+        return None
+    if (not isinstance(value, dict) or set(value) != {"batch_id", "status", "at"}
+        or value["batch_id"] != batch_id or not isinstance(value["status"], str) or value["status"] not in {"ok", "error"}
+        or type(value["at"]) not in {int, float} or not math.isfinite(value["at"])):
+        raise ValueError("Caption completion receipt is invalid")
+    return value
+
+
 def complete_caption(run_dir, batch_id, *, status):
-    if batch_id:
-        write_json(Path(run_dir) / "caption_completion.json", {"batch_id": batch_id, "status": status, "at": time.time()})
+    if (not isinstance(batch_id, str) or not re.fullmatch(r"[a-zA-Z0-9_-]{1,128}", batch_id)
+        or not isinstance(status, str) or status not in {"ok", "error"}):
+        raise ValueError("Caption completion requires a bounded batch and known status")
+    store = CommittedJsonStore(run_dir)
+    path = f"caption_completions/{batch_id}.json"
+    with store.locked("caption-completion:" + batch_id):
+        previous = _read_completion(run_dir, batch_id)
+        if previous is not None:
+            if previous["status"] != status:
+                raise ValueError("A completed caption cannot change its outcome")
+            return
+        store.commit(path, {"batch_id": batch_id, "status": status, "at": time.time()}, kind="caption_completion")
 
 
 def claim_caption(run_dir, run_id, *, monitoring, force=False, invocation_id=""):
     return local_model_request(Path(run_dir) / BINDING_FILE, run_id,
         {"operation": "claim_caption", "monitoring": monitoring, "force": bool(force), "invocation_id": invocation_id}, timeout=20)
+
+
+def acknowledge_caption(run_dir, run_id, batch_id, *, status):
+    return local_model_request(Path(run_dir) / BINDING_FILE, run_id,
+        {"operation": "complete_caption", "batch_id": batch_id, "status": status}, timeout=20)
 
 
 class CaptionSchedule:
@@ -93,7 +124,7 @@ class CaptionSchedule:
 
     def capture(self, revision, timestamp, jpeg, monitoring):
         with self.lock:
-            self._refresh_monitoring(monitoring)
+            monitoring = self._refresh_monitoring(monitoring)
             if revision == self.last_revision or (self.last_capture_at is not None and
                     timestamp - self.last_capture_at < 1 / self.policy.burst_candidate_fps):
                 return
@@ -107,6 +138,7 @@ class CaptionSchedule:
             buffer = io.BytesIO()
             image.save(buffer, "JPEG", quality=85)
         with self.lock:
+            monitoring = self._refresh_monitoring(monitoring)
             self.frames.append({"content": buffer.getvalue(), "timestamp": timestamp, "score": 0})
             if self.first_capture_at is None:
                 self.first_capture_at = timestamp
@@ -162,6 +194,10 @@ class CaptionSchedule:
         self._persist()
 
     def _refresh_monitoring(self, monitoring):
+        current = self.state.get("current_monitoring")
+        if current is not None and int(monitoring.get("instruction_revision") or 0) <= int(current.get("instruction_revision") or 0):
+            monitoring = current
+        self.state["current_monitoring"] = dict(monitoring)
         revision = int(monitoring.get("instruction_revision") or 0)
         if self.pending is not None and revision > int(self.pending["monitoring"].get("instruction_revision") or 0):
             # An already scheduled window follows the latest rule. A superseded
@@ -170,6 +206,7 @@ class CaptionSchedule:
         requested = self.pending_requested_command
         if requested is not None and revision > int(requested.get("instruction_revision") or 0):
             self.pending_requested_command = None
+        return monitoring
 
     def _persist(self):
         write_json(self.root / "caption_schedule.json", self.snapshot())
@@ -190,14 +227,11 @@ class CaptionSchedule:
         now = time.time() if now is None else now
         with self.lock:
             if monitoring is not None:
-                self._refresh_monitoring(monitoring)
+                monitoring = self._refresh_monitoring(monitoring)
             inflight = self.state.get("inflight")
             if inflight:
-                try:
-                    completion = json.loads((self.root / "caption_completion.json").read_text())
-                except FileNotFoundError:
-                    completion = {}
-                if completion.get("batch_id") == inflight["batch_id"]:
+                completion = _read_completion(self.root, inflight["batch_id"])
+                if completion is not None:
                     self.state["inflight"] = None
                     self.state["last_completion"] = completion
                 elif invocation_id and inflight.get("invocation_id") == invocation_id:

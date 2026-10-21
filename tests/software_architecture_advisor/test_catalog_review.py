@@ -13,9 +13,9 @@ def run(tmp_path, monkeypatch, architecture_paths):
     from domain.catalog_contract import load_catalog
 
     catalog = load_catalog()
-    for module in ["catalog_planning", "opencode_review", "catalog_reporting", "review_admission"]:
+    for module in ["catalog_planning", "catalog_reporting", "review_admission"]:
         monkeypatch.setattr("domain." + module + ".load_catalog", lambda: catalog)
-    from domain.catalog_planning import initializer
+    from native_test_support import initializer
 
     monkeypatch.setattr("domain.catalog_planning.prepare_gateway", lambda settings: {
         "api_base": "http://gateway:4000/v1", "model": "default", "catalog_id": "fixture-model", "node": "fixture"})
@@ -46,7 +46,7 @@ def run(tmp_path, monkeypatch, architecture_paths):
         "coverage": {"skipped": {}},
         "warnings": [],
     }
-    root = tmp_path / "run"
+    root = tmp_path / "submission/outputs/runs/test-runtime-run"
     folder = root / "evidence/snapshots/fixture"
     folder.mkdir(parents=True)
     (root / "snapshot.json").write_text(json.dumps(snapshot))
@@ -167,27 +167,30 @@ def execute_round(ctx, ref, decision, model=fake):
 
 
 def test_block_uses_real_admissions_core_plans_and_verified_terminal_handoff(run, monkeypatch):
-    from mn_sdk.blueprints import compile_blueprint, read_blueprint
+    from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run as run_block
     from mn_sdk.step_runtime import StepContext
     from mn_sdk_common.committed_artifacts import (
         CommittedJsonStore, CommittedArtifactIntegrityError,
     )
-    from domain import catalog_planning, investigation_block
+    from domain import catalog_planning
     from domain.catalog_store import CatalogStore
 
     ctx, _ = run
     root = Path(ctx["run_dir"])
     blueprint = Path(__file__).parents[2] / "software_architecture_advisor"
-    compiled = compile_blueprint(read_blueprint(blueprint)).manifest
+    package = read_blueprint(blueprint)
+    configuration = resolve_config(package, ctx["config"])
+    compiled = compile_blueprint(package, configuration).manifest
     descriptor = root / "block-runtime.json"
-    descriptor.write_text(json.dumps(compiled))
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, configuration)))
     store = CommittedJsonStore(root)
     child = compiled["workflow"]["child_workflows"]["investigate_architecture"]
     assert child["inputs"] == {"seed": ["outputs", "result"]}
     assert child["outputs"] == {"result": ["result"]}
     assert child["templates"]["plan_architecture_round"]["implementation"]["handler"] == "mn_sdk.integrations.block_worker"
-    assert child["templates"]["review_architecture_packet"]["implementation"]["handler"] == "agents.architecture_packet_reviewer"
+    assert child["templates"]["review_architecture_packet"]["implementation"]["handler"] == "mn_sdk.integrations.block_worker"
     options = {"revision": compiled["metadata"]["mn_blocks_lock"]["revision"],
                "block_step_id": "investigate_architecture"}
 
@@ -199,7 +202,8 @@ def test_block_uses_real_admissions_core_plans_and_verified_terminal_handoff(run
             message={"_mn_step": {"step_input": inputs}})
         return run_block(step, phase=phase, **options)
 
-    initialized = invoke("init", ctx["payload"])
+    from native_test_support import initialization_inputs
+    initialized = invoke("init", initialization_inputs(ctx))
     seed = initialized.outputs["result"]
     work = {"seed": seed, "_child": {"round": 0, "revision": 0}}
     first = invoke("planner-0", work, "plan")
@@ -223,19 +227,26 @@ def test_block_uses_real_admissions_core_plans_and_verified_terminal_handoff(run
     assert summary["status"] == "partial"
     assert store.read(summary["catalog"])["stop_reason"] == "Review walltime exhausted"
     assert CatalogStore(root).usage()["catalog_models"] == len(tasks)
-    published, artifacts = investigation_block.publish(ctx,
-        step_input={"previous": {"result": reference}})
-    assert published["status"] == "partial"
-    assert artifacts and (root / "reports/report.md").is_file()
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(root.parent / "exports"))
+    monkeypatch.setenv("MN_JOB_ID", "test-job")
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(root.parent / "job"))
+    publishing = StepContext(step_id="publish_architecture_review", job_id=ctx.get("job_id", ""), job_data_dir=str(ctx.get("job_data_dir") or ""), run_id="test-runtime-run", idempotency_key="publish",
+        config=ctx["config"], environment={"MN_RUN_DIR": str(root), "MN_JOB_ID": "test-job", "MN_JOB_DATA_DIR": str(root.parent / "job"), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+            "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'},
+        message={"_mn_step": {"step_input": {**ctx["payload"], "previous": {"result": reference}}}})
+    publish_options = {"block_step_id": "publish_architecture_review", "revision": options["revision"]}
+    published = run_block(publishing, **publish_options)
+    assert store.read(published.outputs["result"])["status"] == "partial"
+    assert (root / "reports/report.md").is_file()
     assert (root / "web/index.html").is_file()
     store.path("catalog/terminal.json").write_text('{}')
     with pytest.raises(CommittedArtifactIntegrityError):
-        investigation_block.publish(ctx, step_input={"previous": {"result": reference}})
+        run_block(publishing, **publish_options)
 
 
 def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
-    from domain.catalog_planning import planner, initializer
-    from domain.catalog_publication import publish
+    from native_test_support import planner, initializer
+    from native_test_support import publish
 
     ctx, ref = run
     root = Path(ctx["run_dir"])
@@ -291,7 +302,7 @@ def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
     assert sorted(json.loads(path.read_text())["original_sha256"] for path in prepared) == sorted(
         hashlib.sha256(path.read_bytes()).hexdigest() for path in originals)
     assert output["status"] == "partial"
-    assert len(json.dumps(output)) < 2000
+    assert len(json.dumps(ctx['_native_last_output'])) < 2000
     assert all((root / r["path"]).exists() for r in refs)
     coverage = json.loads((root / "data/coverage.json").read_text())
     assert len(coverage["aspects"]) == 150
@@ -345,8 +356,8 @@ def test_unicode_packets_exact_and_path_inventory(run):
 
 
 def test_failed_call_budget_and_no_automatic_replay(run):
-    from domain.catalog_planning import planner
-    from domain.opencode_review import handle_task
+    from native_test_support import planner
+    from native_test_support import review_work
     from domain.catalog_store import CatalogStore
 
     ctx, ref = run
@@ -359,16 +370,16 @@ def test_failed_call_budget_and_no_automatic_replay(run):
         calls.append(1)
         return "not json"
 
-    first = handle_task(ctx, work, llm_client=invalid)
+    first = review_work(ctx, work, llm_client=invalid)
     assert first["status"] == "blocked"
-    assert handle_task(ctx, work, llm_client=invalid) == first
+    assert review_work(ctx, work, llm_client=invalid) == first
     assert len(calls) == 1
     assert CatalogStore(ctx["run_dir"]).usage()["catalog_models"] == 1
 
 
 def test_deadline_and_budget_publish_honest_unknowns(run, monkeypatch):
-    from domain.catalog_planning import planner
-    from domain.catalog_publication import publish
+    from native_test_support import planner
+    from native_test_support import publish
     from domain.catalog_store import CatalogStore
 
     ctx, ref = run
@@ -386,7 +397,8 @@ def test_deadline_and_budget_publish_honest_unknowns(run, monkeypatch):
 
 
 def test_review_can_plan_after_24_hours_with_one_week_budget(run, monkeypatch):
-    from domain.catalog_planning import catalog_settings, planner
+    from domain.catalog_planning import catalog_settings
+    from native_test_support import planner
     from domain.catalog_store import CatalogStore
 
     ctx, ref = run
@@ -425,7 +437,7 @@ def test_citation_wrong_offsets_rejected(run):
 
 
 def test_round_cannot_advance_before_prior_results(run):
-    from domain.catalog_planning import planner
+    from native_test_support import planner
 
     ctx, ref = run
     planner(ctx, {"context": ref, "_child": {"revision": 0}})
@@ -473,10 +485,10 @@ def test_config_and_spec_hash_reject_mutation(run, tmp_path):
 
 
 def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monkeypatch):
+    from native_test_support import review_work
     from domain.catalog_store import CatalogStore
-    from domain.catalog_planning import planner
-    from domain.opencode_review import handle_task
-    from domain.catalog_publication import publish
+    from native_test_support import planner
+    from native_test_support import publish
 
     ctx, ref = run
     store = CatalogStore(ctx["run_dir"])
@@ -528,7 +540,7 @@ def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monke
         return json.dumps(v)
 
     assert (
-        handle_task(ctx, {"context": ref, "task": taskref}, llm_client=proposal)[
+        review_work(ctx, {"context": ref, "task": taskref}, llm_client=proposal)[
             "status"
         ]
         == "completed"
@@ -551,9 +563,9 @@ def test_real_work_package_fields_trace_to_evidence_and_stay_proposed(run, monke
 
 
 def test_model_choices_provider_settings_and_frozen_run(run):
-    from domain.catalog_planning import catalog_settings, planner
+    from domain.catalog_planning import catalog_settings
+    from native_test_support import planner
     from domain.opencode_models import gateway_binding
-    from domain.opencode_review import handle_task
 
     ctx, ref = run
     _, defaults = catalog_settings({})
@@ -578,13 +590,13 @@ def test_model_choices_provider_settings_and_frozen_run(run):
         "steps"
     ][0]
     ctx["config"]["opencode"]["model"] = "spark/muse-glimmer-30b"
-    with pytest.raises(ValueError, match="Frozen configuration changed"):
-        handle_task(ctx, {"context": ref, **node["input"]}, llm_client=fake)
+    with pytest.raises(ValueError, match="configuration changed"):
+        planner(ctx, {"context": ref, "_child": {"revision": 1}})
 
 
 @pytest.mark.parametrize('response', ['not json', '[]', '{}', 'x' * 200001])
 def test_immutable_review_blocks_invalid_model_response_and_continues(run, response):
-    from domain.catalog_planning import planner
+    from native_test_support import planner
     from domain.catalog_store import CatalogStore
     from handoff_test_support import review_task
     ctx, ref = run
@@ -607,7 +619,7 @@ def test_immutable_review_blocks_invalid_model_response_and_continues(run, respo
 
 
 def test_immutable_review_records_provider_failure_without_secret(run):
-    from domain.catalog_planning import planner
+    from native_test_support import planner
     from domain.catalog_store import CatalogStore
     from handoff_test_support import review_task
     ctx, ref = run
@@ -621,15 +633,18 @@ def test_immutable_review_records_provider_failure_without_secret(run):
 
 
 def test_immutable_review_input_integrity_failure_still_raises(run, monkeypatch):
-    from domain.catalog_planning import planner
+    from native_test_support import planner
     from domain.sandbox_review import review_admitted
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
     ctx, ref = run
     node = planner(ctx, {'context': ref, '_child': {'revision': 0}})['child_plan']['steps'][0]
     def corrupted(reference):
         raise ValueError('artifact digest mismatch')
     monkeypatch.setattr('domain.sandbox_review.resolve_input', corrupted)
     with pytest.raises(ValueError, match='artifact digest mismatch'):
-        review_admitted(node['input']['review_input'], llm_client=fake)
+        review_admitted(BlockContext(store=CommittedJsonStore(ctx['run_dir']), invocation_id='corrupt',
+            revision='test', resources={'llm':fake}), {'review_input':node['input']['review_input']})
 
 
 def test_prepared_gateway_uses_sdk_owner_route_without_persisting_credentials(architecture_paths, monkeypatch):
@@ -659,7 +674,7 @@ def test_prepared_gateway_uses_sdk_owner_route_without_persisting_credentials(ar
 @pytest.mark.parametrize('invalid_json', [False, True])
 def test_sandbox_usage_is_published_by_owner_once_after_reconciliation_replay(run, monkeypatch, invalid_json):
     from types import SimpleNamespace
-    from domain.catalog_planning import planner
+    from native_test_support import planner
     from domain.catalog_store import CatalogStore
     from handoff_test_support import review_task
     from mn_sdk.job_analysis import usage_totals

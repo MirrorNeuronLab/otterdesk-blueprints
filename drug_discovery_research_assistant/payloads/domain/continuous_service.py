@@ -1,56 +1,39 @@
-"""Supervised continuous-service binding for discovery cycles."""
+"""One scientific cycle per run, with explicit interrupted-cycle reconciliation."""
+from mn_blueprint_blocks.contracts import BlockError, fingerprint
+from mn_sdk.agent_events import report_activity
+from service.scripts.continuous_service import run_service, is_fake
 
-from __future__ import annotations
-
-from mn_sdk.agent_events import activity_operation
-
-import json
-from pathlib import Path
-from typing import Any
-
-from mn_prototype_supervised_service_agent import (
-    ServiceContext,
-    SupervisedServiceSpec,
-    create_agent as create_supervised_service,
-)
-
-from .native_stages import (
-    read_discovery_state,
-    run_stage_script,
-    write_discovery_state,
-)
+from .configuration import BLUEPRINT_ID, cycle_configuration
+from .native_stages import read_discovery_state, write_discovery_state
 
 
-@activity_operation('Processing discovery requests', completed='Processing discovery requests: completed')
-def run_discovery_service(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = read_discovery_state(ctx)
-    service = create_supervised_service(
-        SupervisedServiceSpec(
-            serve=lambda _service_context: run_stage_script(
-                ctx,
-                state,
-                "run_continuous_service.py",
-                {},
-                timeout=None,
-            ),
-        )
-    )
-    service(
-        context=ServiceContext(
-            config=ctx["config"],
-            run_dir=Path(ctx["run_dir"]),
-            output_folder=Path(ctx["output_folder"]),
-        )
-    )
-    status_path = Path(ctx["run_dir"]) / "service_state.json"
-    status = (
-        json.loads(status_path.read_text(encoding="utf-8"))
-        if status_path.exists()
-        else {}
-    )
-    state["service_reports"] = status.get("reports") or []
-    write_discovery_state(ctx, state)
-    return {
-        "completed_cycles": status.get("completed_cycles", 0),
-        "service_status": status.get("status"),
-    }
+def run_discovery_service(block, inputs):
+    block.check()
+    report_activity("Discovering five candidates", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_discovery_state(block, inputs)
+    config = cycle_configuration(block, state)
+    started = block.store.path("discovery/cycle-started.json")
+    existed = started.exists()
+    block.store.commit("discovery/cycle-started.json", {"configuration": fingerprint(config),
+        "source": inputs["previous"]["state"]}, kind="discovery_cycle_start")
+    if existed:
+        status = block.store.read_path("service_state.json") if block.store.path("service_state.json").is_file() else {}
+        if status.get("status") != "stopped" or status.get("completed_cycles") != 1:
+            raise BlockError("outcome_unknown", "Inspect the interrupted scientific cycle before starting another run.")
+    else:
+        block.check()
+        status = run_service(config, block.store.run_dir, check=block.check)
+    reports = status.get("reports") or []
+    if status.get("completed_cycles") != 1 or len(reports) != 1:
+        raise ValueError("Discovery did not complete its required single scientific cycle.")
+    report = block.store.read_path("cycles/cycle-000000/cycle_report.json")
+    if report != reports[0] or report.get("cycle_id") != 0 or report.get("mode") != (
+            "fake_smoke_test" if is_fake(config) else "live"):
+        raise BlockError("outcome_unknown", "The completed cycle evidence does not match the scientific status.")
+    paths = ["cycles/cycle-000000/" + name for name in ["generated_candidates.json", "folding_results.json",
+        "drugclip_screening.json", "simulation_results.json", "cycle_report.json"]]
+    state["cycle_artifacts"] = [block.store.commit_bytes(path, block.store.path(path).read_bytes(),
+        kind="scientific_cycle").to_dict() for path in paths]
+    state["service_reports"] = reports
+    return {"completed_cycles": 1, "service_status": status.get("status"),
+            "state": write_discovery_state(block, state, "cycle")}

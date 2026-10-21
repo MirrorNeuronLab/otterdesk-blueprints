@@ -3,16 +3,15 @@ import math
 import json
 from hashlib import sha256
 import time
-from pathlib import Path
 
 from mn_code_search_skill import TextSearchIndex
-from mn_sdk.agent_events import activity_operation, report_activity
+from mn_sdk.agent_events import report_activity
 from mn_sdk.llm import LLMError
 
 from .artifacts import read, save
 from .intake import role
 from .model import ask, client, failure_details
-from .configuration import settings
+from .configuration import BLUEPRINT_ID, settings
 from .rule_review import require_approved_rules
 
 
@@ -66,11 +65,11 @@ def admit(result, rule, index, seen):
             'basis': 'static_review', 'tests_executed': False}
 
 
-def verify_rule(context, rule, index, analysis, llm, *, files=None, deadline=float('inf')):
-    policy = settings(context)
+def verify_rule(block, rule, index, analysis, llm, *, files=None, deadline=float('inf')):
+    policy = settings(block)
     transcript, seen, history = [], [], []
     model_errors = 0
-    inventory = files if files is not None else [{'path': p, 'kind': role(p)} for p in read(context, 'capture.json')['sources']]
+    inventory = files if files is not None else [{'path': p, 'kind': role(p)} for p in read(block, 'capture.json')['sources']]
     visible, size = [], 0
     for item in sorted(inventory, key=lambda item: item['kind'] != 'implementation'):
         length = len(json.dumps(item, ensure_ascii=False).encode())
@@ -83,6 +82,7 @@ def verify_rule(context, rule, index, analysis, llm, *, files=None, deadline=flo
                   'truncated': len(visible) < len(inventory), 'search_covers_all_captured_files': True},
               'syntax_coverage': analysis['coverage'], 'limitations': analysis['limitations']}
     for _ in range(policy['max_turns_per_rule']):
+        block.check()
         if time.monotonic() >= deadline:
             break
         try:
@@ -120,37 +120,43 @@ def verify_rule(context, rule, index, analysis, llm, *, files=None, deadline=flo
     return unknown(rule, 'Investigation reached its turn or time limit without an admissible judgment.', history)
 
 
-@activity_operation('Verifying rules one by one', completed='Rule verification saved')
-def verify(context, llm=None):
-    policy = settings(context)
+def verify(block, inputs, *, llm=None):
+    report_activity("Verifying rules one by one", owner_blueprint=BLUEPRINT_ID,
+                    step_id=block.step_id, run_dir=block.store.run_dir)
+    capture_ref = inputs["previous"]["capture"]
+    capture = block.store.read(capture_ref)
+    llm = llm or block.resources.get("llm")
+    policy = settings(block)
     deadline = time.monotonic() + policy['verification_timeout_seconds']
-    capture, rules = read(context, 'capture.json'), read(context, 'rules.json')
-    index, analysis = TextSearchIndex(capture['sources']), read(context, 'static-analysis.json')
+    rules = read(block, 'rules.json')
+    index, analysis = TextSearchIndex(capture['sources']), read(block, 'static-analysis.json')
     if rules['snapshot_id'] != index.snapshot_id:
         raise ValueError('Rules and captured source do not match.')
-    approval = require_approved_rules(context, rules)
-    results, refs = [], []
+    approval = require_approved_rules(block, rules)
+    results = []
     files = [{'path': p, 'kind': role(p)} for p in capture['sources']]
     for number, rule in enumerate(rules['rules'], 1):
+        block.check()
         name = f"verification/{rule['id']}.json"
-        reuse = (Path(context['run_dir']) / name).is_file()
+        reuse = block.store.path(name).is_file()
         if reuse:
-            value = read(context, name)
+            value = read(block, name)
             if value['snapshot_id'] != index.snapshot_id or value['rule'] != rule:
                 raise ValueError('Saved verification does not match this rule and capture.')
             result = value['result']
             # An outage placeholder without an investigation is unfinished work.
             reuse = not (result.get('reason_code') == 'model_unavailable' and not result.get('investigation'))
         if not reuse:
-            report_activity(f"Checking rule {number} of {len(rules['rules'])}", kind='action', run_dir=context['run_dir'])
+            report_activity(f"Checking rule {number} of {len(rules['rules'])}", kind='action', run_dir=block.store.run_dir, owner_blueprint=BLUEPRINT_ID)
             if number > policy['max_rules']:
                 result = unknown(rule, 'The configured rule investigation limit was reached; this rule was not assessed.')
             else:
-                llm = llm or client(context)
-                result = verify_rule(context, rule, index, analysis, llm, files=files, deadline=deadline)
+                llm = llm or client()
+                result = verify_rule(block, rule, index, analysis, llm, files=files, deadline=deadline)
             value = {'snapshot_id': index.snapshot_id, 'rule': rule, 'result': result}
-        refs.append(save(context, name, value))
+        save(block, name, value)
         results.append(result)
-    refs.append(save(context, 'verification.json', {'snapshot_id': index.snapshot_id, 'results': results,
-                                                 'rules_review': approval}))
-    return {'verified': len(results), 'unknown': sum(r['status'] == 'unknown' for r in results)}, refs
+    reference = block.store.commit('verification.json', {'snapshot_id': index.snapshot_id,
+        'results': results, 'rules_review': approval}, kind='rule_verification')
+    return {'verified': len(results), 'unknown': sum(r['status'] == 'unknown' for r in results),
+            'capture': capture_ref, 'verification': reference.to_dict()}

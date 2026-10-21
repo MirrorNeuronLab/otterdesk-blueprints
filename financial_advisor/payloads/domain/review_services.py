@@ -1,6 +1,9 @@
 """Shared, domain-specific model review policy and usage accounting."""
 
 from .common import *
+from mn_blueprint_blocks.contracts import BlockError, fingerprint
+from mn_sdk.blueprint_support import BudgetedLlmClient, build_action_budget, build_llm_call_limiter
+from mn_sdk.blueprint_support.step_execution import append_debug
 from .knowledge import knowledge_context_for_step, load_prompt, render_prompt
 
 def step_model_profile(config: dict[str, Any], step_id: str) -> dict[str, Any]:
@@ -101,7 +104,7 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
     if llm_client is not None:
         return llm_client
     if fake_llm_requested(config, payload):
-        return DeterministicLLM()
+        return DeterministicFallbackLLM("deterministic-financial-advisor", default_summary="Deterministic review packet generated from local evidence.", confidence=.74)
     if not live_llm_requested(config, payload):
         return None
     if get_actor_llm_client is None:
@@ -113,13 +116,13 @@ def build_llm_client(config: dict[str, Any], payload: dict[str, Any], llm_client
         client = get_actor_llm_client(config, None)
     except Exception as exc:
         raise RuntimeError(f"Unable to initialize shared live LLM client: {exc}") from exc
-    if client is None or isinstance(client, DeterministicLLM):
+    if client is None or isinstance(client, DeterministicFallbackLLM):
         raise RuntimeError("Shared live LLM client was unavailable for a normal Financial Advisor run.")
     return client
 
 def actor_review(
-    config: dict[str, Any],
-    llm: Any,
+    block,
+    state,
     step_id: str,
     summary: str,
     context: dict[str, Any],
@@ -128,6 +131,33 @@ def actor_review(
     prompt_details: str = "",
     active_knowledge: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    block.check()
+    config = block.config
+    profile = step_model_profile(config, step_id)
+    state.setdefault("model_profiles_used", {})[step_id] = {key: profile[key] for key in ("llm_config", "model", "runtime_model")}
+    active_knowledge = state["knowledge"]
+    identity = fingerprint({"configuration": config, "reviewer": step_id, "context": context,
+        "summary": summary, "fallback": fallback, "prompt": prompt_details, "knowledge": active_knowledge})
+    receipt_path = f"financial/reviews/{step_id}-receipt.json"
+    if block.store.path(receipt_path).exists():
+        saved = block.store.read(block.store.read_path(receipt_path))
+        if saved["identity"] != identity:
+            raise ValueError("Financial review belongs to different evidence or configuration")
+        state["llm_usage"] = saved["cumulative_usage"]
+        return saved["response"]
+    started_path = f"financial/reviews/{step_id}-started.json"
+    if block.store.path(started_path).exists():
+        block.store.commit(started_path, {"identity": identity}, kind="financial_review_start")
+        raise BlockError("outcome_unknown", "Reconcile the interrupted financial review before another model attempt.")
+    raw_llm = build_llm_client(config, state["inputs"], block.resources.get("llm"))
+    before = llm_usage(raw_llm)
+    limit = int((config.get("research_budget") or {}).get("default_actions", (config.get("budgets") or {}).get("default_action_budget", 80)))
+    remaining = max(0, limit - int((state.get("llm_usage") or {}).get("calls", 0)))
+    llm = BudgetedLlmClient(raw_llm,
+        build_action_budget({"research_budget": {"default_actions": remaining}}),
+        require_live=live_llm_requested(config, state["inputs"]),
+        limiter=build_llm_call_limiter(config, fake_mode=fake_llm_requested(config, state["inputs"])),
+        run_dir=block.store.run_dir, observation_writer=append_debug) if raw_llm is not None else None
     profile = step_model_profile(config, step_id)
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
@@ -151,6 +181,7 @@ def actor_review(
     if llm is None:
         response = fallback
     else:
+        block.store.commit(started_path, {"identity": identity}, kind="financial_review_start")
         try:
             response = llm.generate_json(
                 system_prompt=render_prompt(
@@ -189,11 +220,14 @@ def actor_review(
                 ),
                 fallback=fallback,
             )
+        except BlockError:
+            raise
         except Exception as exc:
-            if live_llm_requested(config):
+            if live_llm_requested(config, state["inputs"]):
                 raise RuntimeError(f"Live LLM review failed for {step_id}: {exc}") from exc
             response = copy.deepcopy(fallback)
             response["llm_error"] = str(exc)
+    block.check()
     if not isinstance(response, dict):
         response = copy.deepcopy(fallback)
     response.setdefault("actor_id", step_id)
@@ -201,6 +235,16 @@ def actor_review(
     response.setdefault("model", profile["model"])
     response.setdefault("runtime_model", profile["runtime_model"])
     response.setdefault("generated_at", utc_now_iso())
+    delta = usage_delta(before, llm_usage(raw_llm))
+    if delta.get("fallback_calls") and live_llm_requested(config, state["inputs"]):
+        raise RuntimeError(f"Financial review {step_id} requires live model evidence")
+    cumulative = copy.deepcopy(state.get("llm_usage") or {})
+    for key, value in delta.items():
+        cumulative[key] = value if key in {"provider", "model"} else int(cumulative.get(key, 0)) + value
+    reference = block.store.commit(f"financial/reviews/{step_id}.json",
+        {"identity": identity, "response": response, "cumulative_usage": cumulative}, kind="financial_review")
+    block.store.commit(receipt_path, reference.to_dict(), kind="financial_review_receipt")
+    state["llm_usage"] = cumulative
     return response
 
 def llm_usage(llm: Any) -> dict[str, Any]:
@@ -221,51 +265,8 @@ def usage_delta(before: dict[str, Any], after: dict[str, Any]) -> dict[str, Any]
         delta[key] = max(0, int(after.get(key, 0) or 0) - int(before.get(key, 0) or 0))
     return delta
 
-def accumulate_llm_usage(ctx: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
-    usage = ctx["state"].setdefault(
-        "llm_usage",
-        {
-            "provider": delta.get("provider", "none"),
-            "model": delta.get("model", "none"),
-            "calls": 0,
-            "fallback_calls": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-            "estimated_tokens": 0,
-        },
-    )
-    usage["provider"] = delta.get("provider") or usage.get("provider", "none")
-    usage["model"] = delta.get("model") or usage.get("model", "none")
-    for key in ("calls", "fallback_calls", "input_tokens", "output_tokens", "total_tokens", "estimated_tokens"):
-        usage[key] = int(usage.get(key, 0) or 0) + int(delta.get(key, 0) or 0)
-    return usage
-
-def effective_llm_usage(ctx: dict[str, Any]) -> dict[str, Any]:
-    usage = copy.deepcopy(
-        ctx["state"].get(
-            "llm_usage",
-            {
-                "provider": str(getattr(ctx["llm"], "provider", "none")),
-                "model": str(getattr(ctx["llm"], "model", "none")),
-                "calls": 0,
-                "fallback_calls": 0,
-                "input_tokens": 0,
-                "output_tokens": 0,
-                "total_tokens": 0,
-                "estimated_tokens": 0,
-            },
-        )
-    )
-    current_delta = usage_delta(ctx.get("step_llm_usage_before") or llm_usage(ctx["llm"]), llm_usage(ctx["llm"]))
-    usage["provider"] = current_delta.get("provider") or usage.get("provider", "none")
-    usage["model"] = current_delta.get("model") or usage.get("model", "none")
-    for key in ("calls", "fallback_calls", "input_tokens", "output_tokens", "total_tokens", "estimated_tokens"):
-        usage[key] = int(usage.get(key, 0) or 0) + int(current_delta.get(key, 0) or 0)
-    return usage
-
 def review_artifact(
-    ctx: dict[str, Any],
+    block, state,
     *,
     step_id: str,
     summary: str,
@@ -290,13 +291,12 @@ def review_artifact(
         "source_refs": source_refs,
     }
     response = actor_review(
-        ctx["config"],
-        ctx["llm"],
+        block, state,
         step_id,
         summary,
         context,
         fallback=fallback,
         prompt_details=load_prompt(REVIEW_PROMPT_FILES.get(step_id, "review-artifact-fields.md")),
-        active_knowledge=ctx.get("active_knowledge"),
+        active_knowledge=state["knowledge"],
     )
     return normalize_review_response(response, fallback, source_refs)

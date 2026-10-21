@@ -64,10 +64,7 @@
       "id": "target_discovery",
       "kind": "source",
       "label": "Target Discovery",
-      "needs": [],
-      "run": {
-        "definition": "steps.target_discovery"
-      }
+      "needs": []
     },
     {
       "goal": "Generate or retrieve useful target structures for screening.",
@@ -76,10 +73,7 @@
       "label": "Structure Generation",
       "needs": [
         "target_discovery"
-      ],
-      "run": {
-        "definition": "steps.structure_generation"
-      }
+      ]
     },
     {
       "control": {
@@ -99,10 +93,7 @@
       "label": "Discover Five Candidates",
       "needs": [
         "structure_generation"
-      ],
-      "run": {
-        "definition": "steps.candidate_generation"
-      }
+      ]
     },
     {
       "goal": "Review the five candidates and preserve their scientific evidence.",
@@ -111,10 +102,7 @@
       "label": "Cycle Results Review",
       "needs": [
         "candidate_generation"
-      ],
-      "run": {
-        "definition": "steps.binding_evaluation"
-      }
+      ]
     },
     {
       "goal": "Rank candidates, summarize evidence, and prepare a human-reviewable research artifact.",
@@ -123,10 +111,7 @@
       "label": "Ranking And Reporting",
       "needs": [
         "binding_evaluation"
-      ],
-      "run": {
-        "definition": "steps.ranking_reporting"
-      }
+      ]
     }
   ],
   "workflow_id": "drug_discovery_research_assistant_v1"

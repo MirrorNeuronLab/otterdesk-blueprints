@@ -3,29 +3,63 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .source_ingestion import *
 
 @activity_operation('Checking financial folders for changes', completed='Checking financial folders for changes: completed')
-def step_financial_folder_watcher(ctx: dict[str, Any]) -> dict[str, Any]:
-    files = iter_input_files(ctx["document_folder"])
-    result = {
-        "document_folder": str(ctx["document_folder"]),
-        "output_folder": str(ctx["output_folder"]),
-        "file_count": len(files),
-        "files": [fingerprint_file(path) for path in files],
-        "monitoring": ctx["payload"].get("monitoring") or {},
-        "ready": True,
-    }
+def step_financial_folder_watcher(block, inputs):
+    from mn_blueprint_blocks.contracts import fingerprint
+    from .state import finance_inputs, output_directory, INPUT_KEYS
+    from .knowledge import load_financial_knowledge
+    block.check()
+    request_identity = fingerprint({key: value for key, value in inputs["request"].items() if key in INPUT_KEYS})
+    receipt_path = "financial/intake-receipt.json"
+    if block.store.path(receipt_path).exists():
+        previous = {"state": block.store.read_path(receipt_path)}
+        saved = read_state(block, previous)
+        if saved["request_identity"] != request_identity:
+            raise ValueError("Financial intake request changed after capture")
+        return {"status": "completed", **previous}
+    selected = finance_inputs(block, inputs["request"])
+    identity = {"request_identity": request_identity, "configuration": fingerprint(block.config)}
+    started_path = "financial/intake-start.json"
+    if block.store.path(started_path).exists():
+        started = block.store.read_path(started_path)
+        if any(started[key] != value for key, value in identity.items()):
+            raise ValueError("Financial intake request changed during capture")
+    else:
+        started = {**identity, "created_at": utc_now_iso()}
+        block.store.commit(started_path, started, kind="financial_intake_start")
+    state = {**started, "inputs": selected, "workflow": {}, "actor_findings": {},
+        "knowledge": load_financial_knowledge(),
+        "input_artifact": block.store.commit("inputs.json", selected, kind="financial_inputs").to_dict()}
+    files = []
+    folder = Path(selected["document_folder"])
+    for path in iter_input_files(folder):
+        block.check()
+        reference = block.store.commit_bytes("financial/sources/" + path.relative_to(folder).as_posix(), path.read_bytes(), kind="financial_source")
+        files.append({"name": path.name, "artifact": reference.to_dict()})
+    result = save_result(block, state, "financial_folder_watcher", {
+        "document_folder": selected["document_folder"], "output_folder": str(output_directory(block)),
+        "files": files, "file_count": len(files), "monitoring": selected.get("monitoring") or {}, "ready": True})
+    block.store.commit(receipt_path, result["state"], kind="financial_intake_receipt")
     return result
 
 @activity_operation('Reading financial documents', completed='Reading financial documents: completed')
-def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
-    ocr_client, ocr_status = build_ocr_runtime(ctx)
-    docs = [read_document(path, ocr_client=ocr_client) for path in iter_input_files(ctx["document_folder"])]
+def step_financial_document_reader(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    ocr_client, ocr_status = build_ocr_runtime(block, state)
+    docs = []
+    for source in state["workflow"]["financial_folder_watcher"]["files"]:
+        block.check()
+        reference = source["artifact"]
+        block.store.read_bytes(reference)
+        docs.append(read_document(block.store.path(reference["path"]), ocr_client=ocr_client))
     counts: dict[str, int] = {}
     for doc in docs:
         counts[doc["kind"]] = counts.get(doc["kind"], 0) + 1
-    return {
+    return save_result(block, state, "financial_document_reader", {
         "documents": docs,
         "document_count": len(docs),
         "kind_counts": counts,
@@ -34,11 +68,13 @@ def step_financial_document_reader(ctx: dict[str, Any]) -> dict[str, Any]:
         "ocr": ocr_status,
         "ocr_required_sources": [doc["source_ref"] for doc in docs if doc.get("ocr_required")],
         "ocr_required_count": len([doc for doc in docs if doc.get("ocr_required")]),
-    }
+    })
 
 @activity_operation('Extracting bank transactions', completed='Extracting bank transactions: completed')
-def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def step_bank_statement_extractor(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     statements = [doc for doc in docs if doc["kind"] == "bank_statement"]
     extracted = []
     totals = {"deposits": 0.0, "withdrawals": 0.0, "fees": 0.0}
@@ -96,7 +132,7 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
     fee_transactions = [item for item in all_transactions if item.get("direction") == "fee"]
     statement_periods = [statement.get("statement_period") for statement in extracted if statement.get("statement_period")]
     account_names = sorted({str(statement.get("account_name")) for statement in extracted if statement.get("account_name")})
-    return {
+    return save_result(block, state, "bank_statement_extractor", {
         "statement_count": len(statements),
         "statements": extracted,
         "totals": totals,
@@ -115,6 +151,4 @@ def step_bank_statement_extractor(ctx: dict[str, Any]) -> dict[str, Any]:
             "waiver_terms_status": "not_provided",
         },
         "warnings": [] if statements else ["no_bank_statement_detected"],
-    }
-
-__all__ = ["step_bank_statement_extractor", "step_financial_document_reader", "step_financial_folder_watcher"]
+    })

@@ -5,7 +5,7 @@ from ._shared import step_inputs
 
 STEP = StepSpec(
     input=InputSpec(
-        fields=step_inputs("audit_valuation_analysis", "audited_analysis")
+        fields=step_inputs("audit_valuation_analysis", "audited_analysis", result_ref=True)
     ),
     flow=agent("company_report_writer"),
     output=OutputSpec(fields={"company_reports": flow_output()}),

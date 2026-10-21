@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 import json
 import re
@@ -22,25 +22,27 @@ from .llm_analysis import (
 )
 from .research import deterministic_evidence, deterministic_recommendation, research_public_sources
 from .case_packet import selected_case_mode
-from .state import _inputs, _save, _state
+from .state import read_state, save_state
+from .common import BLUEPRINT_ID
 
-@activity_operation('Researching market options', completed='Researching market options: completed')
-def research_market(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
-    llm_config = ctx["config"].get("llm") if isinstance(ctx["config"].get("llm"), dict) else {}
-    quick = str(llm_config.get("mode") or "live").lower() in {"fake", "mock"} or bool((ctx["config"].get("execution") or {}).get("quick_test")) or selected_case_mode(state.get("documents") or []) == "MOCK"
+def research_market(block, inputs) -> dict[str, Any]:
+    report_activity('Researching market options', owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    state = read_state(block, inputs['previous'])
+    inputs = state["inputs"]
+    llm_config = block.config.get("llm") if isinstance(block.config.get("llm"), dict) else {}
+    quick = str(llm_config.get("mode") or "live").lower() in {"fake", "mock"} or bool((block.config.get("execution") or {}).get("quick_test")) or selected_case_mode(state.get("documents") or []) == "MOCK"
     sources, web_warnings = research_public_sources(
         state.get("research_queries") or [],
-        ctx["config"],
+        block.config,
         seed_urls=state.get("research_links") or [],
         quick_test=quick,
     )
     documents = state.get("documents") or []
     evidence = deterministic_evidence(inputs, documents, sources)
     state.update({"inputs": inputs, "sources": sources, "web_warnings": web_warnings, "evidence": evidence})
-    _save(ctx, state)
-    return {"source_count": len(sources), "query_count": len(state.get("research_queries") or [])}
+    reference = save_state(block, state, 'market')
+    return {"state": reference, "source_count": len(sources), "query_count": len(state.get("research_queries") or [])}
 
 
 def _candidate_records(documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -656,12 +658,14 @@ def build_candidate_comparisons(
     return comparisons
 
 
-@activity_operation('Calculating total purchase cost', completed='Calculating total purchase cost: completed')
 def analyze_total_cost(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
+    report_activity('Calculating total purchase cost', owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    llm_client = llm_client or block.resources.get("llm")
+    state = read_state(block, inputs['result'])
+    inputs = state["inputs"]
     comparisons = build_candidate_comparisons(inputs, state.get("documents") or [])
     state["candidate_comparisons"] = comparisons
     if inputs.get("purchase_type") not in {"property", "rental_property"} and comparisons:
@@ -681,7 +685,7 @@ def analyze_total_cost(
             )
         )
         state["evidence"] = evidence
-    settings = analysis_settings(ctx["config"])
+    settings = analysis_settings(block.config)
     candidate_packet, metrics = candidate_analysis_packet(
         comparisons, max_candidates=settings["max_candidates"]
     )
@@ -765,7 +769,7 @@ def analyze_total_cost(
     }
     state["analysis_interpretation"] = generate_structured_analysis(
         state=state,
-        config=ctx["config"],
+        config=block.config,
         agent_id="purchase_total_cost_analyst",
         prompt_name="purchase-tco-analysis-task.md",
         payload={
@@ -784,8 +788,8 @@ def analyze_total_cost(
         validator=validate_tco_analysis,
         llm_client=llm_client,
     )
-    _save(ctx, state)
-    return {"candidate_count": len(comparisons), "constraint_match_count": sum(1 for item in comparisons if item["hard_constraints_passed"])}
+    reference = save_state(block, state, 'cost')
+    return {"state": reference, "candidate_count": len(comparisons), "constraint_match_count": sum(1 for item in comparisons if item["hard_constraints_passed"])}
 
 
 def build_purchase_risk_review(
@@ -858,17 +862,19 @@ def _build_commercial_risk_review(
     }
 
 
-@activity_operation('Reviewing purchase risks', completed='Reviewing purchase risks: completed')
 def review_purchase_risks(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
+    report_activity('Reviewing purchase risks', owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    llm_client = llm_client or block.resources.get("llm")
+    state = read_state(block, inputs['result'])
+    inputs = state["inputs"]
     review = build_purchase_risk_review(
         state.get("candidate_comparisons") or [], inputs.get("purchase_type") or "custom"
     )
     state.update(review)
-    settings = analysis_settings(ctx["config"])
+    settings = analysis_settings(block.config)
     comparisons = state.get("candidate_comparisons") or []
     candidate_packet, metrics = candidate_analysis_packet(
         comparisons, max_candidates=settings["max_candidates"]
@@ -928,7 +934,7 @@ def review_purchase_risks(
     }
     state["risk_interpretation"] = generate_structured_analysis(
         state=state,
-        config=ctx["config"],
+        config=block.config,
         agent_id="purchase_risk_reviewer",
         prompt_name="purchase-risk-analysis-task.md",
         payload={
@@ -946,16 +952,18 @@ def review_purchase_risks(
         validator=validate_risk_analysis,
         llm_client=llm_client,
     )
-    _save(ctx, state)
-    return {"risk_count": len(review["risk_flags"]), "evidence_gap_count": len(review["evidence_gaps"])}
+    reference = save_state(block, state, 'risk')
+    return {"state": reference, "risk_count": len(review["risk_flags"]), "evidence_gap_count": len(review["evidence_gaps"])}
 
 
-@activity_operation('Auditing the purchase recommendation', completed='Auditing the purchase recommendation: completed')
 def audit_recommendation(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
+    report_activity('Auditing the purchase recommendation', owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    llm_client = llm_client or block.resources.get("llm")
+    state = read_state(block, inputs['previous'])
+    inputs = state["inputs"]
     sources = state.get("sources") or []
     evidence = state.get("evidence") or deterministic_evidence(inputs, state.get("documents") or [], sources)
     deterministic = deterministic_recommendation(evidence, sources)
@@ -976,7 +984,7 @@ def audit_recommendation(
             "evidence_gaps": state.get("evidence_gaps") or [],
         }
     )
-    settings = analysis_settings(ctx["config"])
+    settings = analysis_settings(block.config)
     candidate_packet, metrics = candidate_analysis_packet(
         comparisons, max_candidates=settings["max_candidates"]
     )
@@ -1026,7 +1034,7 @@ def audit_recommendation(
     }
     decision_analysis = generate_structured_analysis(
         state=state,
-        config=ctx["config"],
+        config=block.config,
         agent_id="purchase_recommendation_auditor",
         prompt_name="purchase-decision-analysis-task.md",
         payload={
@@ -1047,7 +1055,7 @@ def audit_recommendation(
     )
     state["decision_analysis"] = decision_analysis
     actor_id = "purchase_recommendation_auditor"
-    actor_spec = resolve_actor_specs(ctx["config"], actor_ids=[actor_id]).get(actor_id) or {}
+    actor_spec = resolve_actor_specs(block.config, actor_ids=[actor_id]).get(actor_id) or {}
     phase = ((state.get("llm_generation") or {}).get("phases") or {}).get(actor_id) or {}
     actor_findings = dict(state.get("actor_findings") or {})
     actor_findings[actor_id] = {
@@ -1070,5 +1078,5 @@ def audit_recommendation(
             "actor_findings": actor_findings,
         }
     )
-    _save(ctx, state)
-    return {"recommended_action": recommendation["label"], "preferred_candidate": recommendation.get("preferred_candidate")}
+    reference = save_state(block, state, 'audit')
+    return {"state": reference, "recommended_action": recommendation["label"], "preferred_candidate": recommendation.get("preferred_candidate")}

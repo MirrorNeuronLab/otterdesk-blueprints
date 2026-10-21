@@ -98,6 +98,7 @@ def test_bundle_references_resolve_for_source_and_staged_payload_roots(tmp_path)
     assert [item["path"] for item in active_knowledge["documents"]] == [
         "knowledge/conversation_guide.md",
         "knowledge/startup_research_playbook.md",
+        "knowledge/user_manual.md",
     ]
     assert "# VC Assistant conversation guide" in active_knowledge["content"]
     assert "# VC Startup Research And Method Playbook" in active_knowledge["content"]
@@ -140,11 +141,30 @@ def test_step_definitions_resolve_to_direct_agent_handlers():
     handlers = {registry[agent_id]["handler"] for agent_id in assigned}
 
     assert assigned == set(registry)
-    assert "agents.public_researcher" in handlers
-    scorer_handlers = {
-        f"agents.{agent_id}" for agent_id in registry if agent_id.endswith("_scorer")
-    }
-    assert scorer_handlers <= handlers
+    assert handlers == {"mn_sdk.integrations.block_worker"}
+    for agent_id in assigned:
+        binding = registry[agent_id]["with"]
+        module, function = binding["instance"]["hooks"]["operation"].split(":")
+        expected = "domain.intake_blocks" if agent_id in {
+            "startup_folder_watcher", "company_packet_grouper",
+            "document_evidence_extractor", "claim_normalizer",
+        } else "domain.diligence_workflow"
+        if agent_id == "research_planner":
+            expected = "domain.research_planner"
+        elif agent_id in {"company_identity_researcher", "funding_researcher", "market_comp_researcher",
+                "traction_verifier", "rendered_page_researcher"}:
+            expected = "domain.public_researcher"
+        elif agent_id == "research_reconciler":
+            expected = "domain.research_reconciler"
+        elif registry[agent_id].get("lifecycle", {}).get("method"):
+            expected = "domain.valuation_scorer"
+        elif agent_id == "score_consistency_auditor":
+            expected = "domain.score_consistency_auditor"
+        elif agent_id in {"company_report_writer", "batch_index_writer"}:
+            expected = "domain." + agent_id
+        assert module == expected
+        assert function == agent_id
+        assert callable(getattr(importlib.import_module(module), function))
     assert not any(handler.startswith("steps.") for handler in handlers)
     assert all(":" not in handler for handler in handlers)
 
@@ -206,46 +226,9 @@ def test_runtime_module_resolves_the_blueprint_root_after_the_entrypoint_move():
     assert runner.PROMPTS.prompt_dir == BLUEPRINT_DIR / "payloads" / "prompts"
 
 
-def test_runtime_context_uses_the_platform_staged_input_folder(tmp_path):
-    from domain.runtime_services import runtime_context_for_step
-
-    staged_inputs = tmp_path / "staged-inputs"
-    staged_inputs.mkdir()
-    (staged_inputs / "packet.txt").write_text("Company: Staged Input", encoding="utf-8")
-    output_folder = tmp_path / "outputs"
-    run_id = "staged-input-run"
-
-    context = runtime_context_for_step(
-        inputs={
-            "document_folder": None,
-            "input_folder": str(staged_inputs),
-            "output_folder": str(output_folder),
-        },
-        runs_root=tmp_path / "runs",
-        run_id=run_id,
-    )
-
-    assert context["document_folder"] == staged_inputs
-    assert context["payload"]["document_folder"] == str(staged_inputs)
-    assert context["payload"]["input_folder"] == str(staged_inputs)
-
-    persisted = json.loads(
-        (
-            tmp_path / "runs" / run_id / "workflow_state" / "runtime_context.json"
-        ).read_text()
-    )
-    assert persisted["document_folder"] == str(staged_inputs)
-
-    replay = runtime_context_for_step(
-        inputs={"document_folder": None, "output_folder": str(output_folder)},
-        runs_root=tmp_path / "runs",
-        run_id=run_id,
-    )
-    assert replay["document_folder"] == staged_inputs
-
-
 def test_vc_has_no_local_blueprint_entrypoint_or_generic_dispatch():
-    runtime_source = RUNTIME_PATH.read_text(encoding="utf-8")
+    assert not RUNTIME_PATH.exists()
+    runtime_source = ""
 
     assert not (RUNTIME_PATH.parent / "run_blueprint.py").exists()
     assert "def run_blueprint(" not in runtime_source
@@ -258,23 +241,10 @@ def test_vc_has_no_local_blueprint_entrypoint_or_generic_dispatch():
 
 
 def test_runtime_boundary_contains_only_runtime_preparation_responsibilities():
-    source = RUNTIME_PATH.read_text(encoding="utf-8")
-    function_names = {
-        node.name
-        for node in ast.parse(source).body
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
-    }
-
-    assert function_names <= {
-        "runtime_context_for_step",
-        "agentic_research_config",
-        "step_agent_review_selected",
-        "build_runtime_services",
-        "persist_action_budget_state",
-        "append_event",
-        "append_debug_record",
-        "write_benchmark_artifacts",
-    }
+    assert not list((PAYLOAD_DIR / "runtime").glob("*.py"))
+    source = "\n".join(path.read_text() for path in (PAYLOAD_DIR / "domain").rglob("*.py"))
+    for boundary in ("runtime_context_for_step", "execute_step_handler", "load_action_budget_state", "run_step_agent_reviews"):
+        assert boundary not in source
     for path in (PAYLOAD_DIR / "agents").glob("*.py"):
         if path.name == "_shared.py":
             continue
@@ -308,42 +278,26 @@ def test_old_stage_routers_and_in_process_crew_modules_are_removed():
 
 
 def test_agent_invocation_replay_uses_durable_idempotency_record(tmp_path):
-    from agents._shared import create_agent_handler
-
+    from mn_sdk.integrations.block_worker import run
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
     calls = []
 
-    def domain_handler(ctx, **_options):
-        calls.append(ctx["idempotency_key"])
+    def operation(block, inputs):
+        calls.append(block.invocation_id)
         return {"value": len(calls)}
 
-    handler = create_agent_handler(domain_handler)
-    context = StepContext(
-        step_id="test_step",
-        agent_id="test_agent",
-        invocation_id="test_step__test_agent",
-        run_id="replay-run",
-        idempotency_key="replay-run/test_step__test_agent",
-        message={"body": {"step_input": {"kwargs": {"output_folder": str(tmp_path)}}}},
-        config={
-            "agentic_research": {"enabled": False},
-            "actor_review": {"llm_actor_ids": []},
-            "knowledge_rag": {"enabled": False, "required": False},
-        },
-    )
-
-    first = handler(context, runs_root=tmp_path)
-    replay = handler(context, runs_root=tmp_path)
-
-    assert first.outputs == {"value": 1}
-    assert replay.outputs == {"value": 1}
-    assert calls == ["replay-run/test_step__test_agent"]
-    assert (
-        tmp_path
-        / "replay-run"
-        / "workflow_state"
-        / "agent_invocations"
-        / "test_step__test_agent.json"
-    ).exists()
+    binding = blueprint_definition(read_blueprint(BLUEPRINT_DIR))["agents"]["registry"]["startup_folder_watcher"]["with"]
+    context = StepContext(step_id="detect_packet_changes", agent_id="startup_folder_watcher",
+        run_id="replay-run", idempotency_key="replay-run/watch",
+        environment={"MN_RUN_DIR": str(tmp_path / "replay-run"), "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'},
+        message={"body": {"step_input": {}}})
+    first = run(context, hooks={"operation": operation}, **binding)
+    replay = run(context, hooks={"operation": operation}, **binding)
+    assert replay == first
+    store = CommittedJsonStore(tmp_path / "replay-run")
+    assert store.read(first.outputs["result"]) == {"value": 1}
+    assert calls == ["replay-run/watch"]
+    assert list(store.run_dir.glob("blocks/*/request.json"))
 
 
 def test_model_contract_uses_the_shared_adaptive_default():
@@ -371,8 +325,10 @@ def test_valuation_methods_map_to_discoverable_specialist_agents():
     assert set(rb.METHOD_SCORER_FUNCTIONS) == set(rb.METHOD_IDS)
     assert set(rb.SCORER_AGENT_BY_METHOD.values()) <= set(rb.AGENT_IDS)
     for agent_id in rb.SCORER_AGENT_BY_METHOD.values():
-        assert registry[agent_id]["handler"] == f"agents.{agent_id}"
-        assert (PAYLOAD_DIR / "agents" / f"{agent_id}.py").exists()
+        assert registry[agent_id]["handler"] == "mn_sdk.integrations.block_worker"
+        assert registry[agent_id]["lifecycle"]["method"] in rb.METHOD_IDS
+        assert registry[agent_id]["with"]["instance"]["hooks"]["operation"] == "domain.valuation_scorer:" + agent_id
+        assert callable(getattr(importlib.import_module("domain.valuation_scorer"), agent_id))
 
     valuation_source = "\n".join(
         path.read_text(encoding="utf-8")
@@ -381,18 +337,12 @@ def test_valuation_methods_map_to_discoverable_specialist_agents():
     assert "scorer_id=" not in valuation_source
 
 
-def test_agent_lifecycle_exceptions_are_manifest_owned():
-    manifest = blueprint_definition(read_blueprint(BLUEPRINT_DIR))
-    batch_lifecycle = manifest["agents"]["registry"]["batch_index_writer"]["lifecycle"]
-    shared_source = (PAYLOAD_DIR / "agents" / "_shared.py").read_text(encoding="utf-8")
-
-    assert batch_lifecycle == {
-        "rag_stage": "batch_indexing",
-        "review_after_run": False,
-    }
-    assert 'agent_id == "batch_index_writer"' not in shared_source
-    assert 'agent_id != "batch_index_writer"' not in shared_source
-
+def test_report_workers_have_direct_native_publication_bindings():
+    registry = blueprint_definition(read_blueprint(BLUEPRINT_DIR))["agents"]["registry"]
+    for role in ("company_report_writer", "batch_index_writer"):
+        assert registry[role]["with"]["instance"]["hooks"]["operation"] == "domain." + role + ":" + role
+        assert "lifecycle" not in registry[role]
+    assert not (PAYLOAD_DIR / "domain" / "diligence_workflow.py").exists()
 
 def test_research_prompt_specs_are_distinct_for_all_agent_ids():
     rb = load_module()
@@ -504,8 +454,11 @@ def test_actor_review_prompt_bounds_large_context():
         knowledge_rag={"enabled": True, "config": {"required": False}},
     )
 
-    assert len(json.dumps(prompt["context"])) <= 2400
     assert prompt["context"]["context_truncated_for_model"] is True
+    assert prompt["context"]["context_target_exceeded"] is True
+    assert prompt["context"]["rag_context"]["citations"] == [
+        {"ref": index, "body": "large " * 100} for index in range(10)
+    ]
 
 
 def test_actor_review_prompts_are_role_specific():

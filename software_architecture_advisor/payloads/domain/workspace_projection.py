@@ -16,11 +16,11 @@ def _read(path, default):
     return json.loads(path.read_text(encoding='utf-8')) if path.exists() else default
 
 
-def project(context, report, registers):
-    root = Path(context['run_dir'])
+def project(block, report, registers):
+    root = Path(block.store.run_dir)
     snapshot = load_snapshot(root)
     manifest = snapshot['manifest']
-    cfg = context['config']
+    cfg = block.original_config
     scope_identity = fingerprint(manifest.get('ingest_config', {}))
     # Delivery folders, staged input paths and review imports are not analysis settings.
     analysis_identity = fingerprint({k: cfg[k] for k in (
@@ -121,9 +121,9 @@ def project(context, report, registers):
         'symbol_resolution': 'Bounded static candidates; dynamic targets unresolved',
         'runtime': 'Not collected', 'test_results': 'Not run'} for language, count in sorted(languages.items())]
     workspace = {
-        'schema_version': VERSION, 'id': 'snapshot-' + fingerprint([context.get('run_id') or root.name, snapshot['snapshot_id']])[:24],
+        'schema_version': VERSION, 'id': 'snapshot-' + fingerprint([block.run_id or root.name, snapshot['snapshot_id']])[:24],
         'snapshot_id': snapshot['snapshot_id'], 'repository_id': manifest.get('repository_id') or fingerprint(report.get('input', {})),
-        'run_id': str(context.get('run_id') or root.name), 'captured_at': report['analysis_started'],
+        'run_id': str(block.run_id or root.name), 'captured_at': report['analysis_started'],
         'revision': manifest.get('git_anchor'), 'source_identity': fingerprint(manifest['sources']),
         'worktree_state': manifest.get('worktree_state', 'Not recorded; captured hashes are authoritative'),
         'config_identity': analysis_identity, 'scope_identity': scope_identity,

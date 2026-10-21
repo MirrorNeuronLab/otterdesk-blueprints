@@ -1,6 +1,7 @@
 """Financial playbook discovery and bounded actor context."""
 
 from .common import *
+from mn_sdk.blueprint_support import BlueprintBundleLayout
 
 def load_prompt(name: str) -> str:
     return PROMPTS.load(name)
@@ -8,28 +9,8 @@ def load_prompt(name: str) -> str:
 def render_prompt(name: str, **values: str) -> str:
     return PROMPTS.render(name, **values)
 
-def financial_knowledge_search_roots(blueprint_dir: Path) -> list[Path]:
-    roots = [blueprint_dir, blueprint_dir / "payloads"]
-    bundle_dir = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
-    if bundle_dir:
-        roots.append(Path(bundle_dir).expanduser())
-    script_path = Path(__file__).resolve()
-    roots.extend([script_path.parents[1], script_path.parents[2], script_path.parents[3]])
-    unique_roots: list[Path] = []
-    for root in roots:
-        if root not in unique_roots:
-            unique_roots.append(root)
-    return unique_roots
-
-def load_financial_knowledge(blueprint_dir: Path) -> dict[str, Any]:
-    playbook_path = next(
-        (
-            root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
-            for root in financial_knowledge_search_roots(blueprint_dir)
-            if (root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH).exists()
-        ),
-        blueprint_dir / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH,
-    )
+def load_financial_knowledge() -> dict[str, Any]:
+    playbook_path = BlueprintBundleLayout.discover(__file__).payload_root / KNOWLEDGE_PLAYBOOK_RELATIVE_PATH
     try:
         content = playbook_path.read_text(encoding="utf-8")
     except OSError:

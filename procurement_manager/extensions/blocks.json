@@ -4,7 +4,7 @@
     "assess_procurement_case": {
       "uses": "mn.blocks.domain_operation@1",
       "hooks": {
-        "operation": "domain.case_packet:assess_block"
+        "operation": "domain.case_packet:assess_procurement_case"
       },
       "inputs": {
         "previous": {
@@ -59,6 +59,118 @@
           "case_packet"
         ],
         "additionalProperties": false
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "frame_purchase_request": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:collect_context"
+      },
+      "inputs": {
+        "request": {
+          "$ref": "run_input",
+          "path": []
+        }
+      },
+      "outputs": {
+        "purchase_frame": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "build_purchase_evidence": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:retrieve_knowledge"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "purchase_frame"
+          ],
+          "step_id": "frame_purchase_request"
+        }
+      },
+      "outputs": {
+        "purchase_evidence": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "audit_purchase_recommendation": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.comparison:audit_recommendation"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "option_comparison"
+          ],
+          "step_id": "compare_purchase_options"
+        }
+      },
+      "outputs": {
+        "audited_recommendation": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "publish_purchase_decision_packet": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.reporting:publish_report"
+      },
+      "inputs": {
+        "case_assessment": {
+          "$ref": "upstream",
+          "path": [
+            "case_assessment"
+          ],
+          "step_id": "assess_procurement_case"
+        },
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "audited_recommendation"
+          ],
+          "step_id": "audit_purchase_recommendation"
+        }
+      },
+      "outputs": {
+        "purchase_decision_packet": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
       },
       "limits": {
         "max_calls": 1,

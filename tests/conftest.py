@@ -53,6 +53,14 @@ def isolated_payload_modules():
 
 
 @pytest.fixture
+def workflow_budget_owner(monkeypatch, tmp_path):
+    from vc_assistant.native_test_support import WorkflowBudgetOwner
+    owner = WorkflowBudgetOwner(tmp_path / "workflow-budgets.sqlite")
+    monkeypatch.setattr("mn_sdk.integrations.run_budget._client_factory", lambda **_options: owner)
+    return owner
+
+
+@pytest.fixture
 def text_memory_transport(monkeypatch):
     from text_memory_support import MemoryService
     service = MemoryService()

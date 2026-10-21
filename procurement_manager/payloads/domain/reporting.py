@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 import json
-import os
 import re
-from pathlib import Path
 from typing import Any
 
 from .common import (
@@ -15,12 +13,10 @@ from .common import (
     BLUEPRINT_ID,
     BLUEPRINT_NAME,
     CATEGORY,
-    DEFAULT_OUTPUT_FOLDER,
     OUTPUT_TYPE,
     RECOMMENDATIONS,
 )
-from .inputs import expand_runtime_path
-from .case_packet import emit_review_requests, render_case_packet
+from .case_packet import emit_review_requests, render_case_packet, verified_case_packet
 from .conversation_sources import publish_outputs
 from .llm_analysis import (
     analysis_settings,
@@ -30,8 +26,14 @@ from .llm_analysis import (
     known_source_refs,
     validate_report_narrative,
 )
-from .state import _inputs, _save, _state
+from .state import read_state, save_state, output_directory
+from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 
+
+NARRATIVE_STATE_FIELDS = ("llm_generation", "llm_usage", "llm_warnings", "_llm_analysis_results")
 
 def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recommendation: dict[str, Any], rag: dict[str, Any], sources: list[dict[str, Any]], warnings: list[dict[str, Any]], documents: list[dict[str, Any]], actor_findings: dict[str, Any], run_id: str, intake_plan: dict[str, Any] | None = None, request: dict[str, Any] | None = None) -> dict[str, Any]:
     source_refs = list(dict.fromkeys(["inputs.json", "events.jsonl", "result.json", *(evidence.get("source_refs") or []), *(rag.get("citations") or []), *(item.get("source_ref") for item in sources if item.get("source_ref"))]))
@@ -67,11 +69,9 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
     }
 
 
-def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], config: dict[str, Any], inputs: dict[str, Any]) -> list[dict[str, str]]:
-    output_dir = resolve_output_folder(config, inputs)
-    if output_dir is None:
-        return []
-    output_dir.mkdir(parents=True, exist_ok=True)
+def publish_documents(block, final_artifact, result):
+    """Project procurement outputs; the SDK commits the complete report bundle."""
+    output_dir = output_directory(block)
     quality = build_artifact_quality(final_artifact)
     health = {"schema_version": "mn.blueprint.run_health.v1", "status": "completed_with_warnings" if final_artifact.get("warnings") else "completed", "warning_count": len(final_artifact.get("warnings") or []), "llm": result.get("llm", {})}
     ledger = [
@@ -86,46 +86,36 @@ def write_user_outputs(final_artifact: dict[str, Any], result: dict[str, Any], c
     final_artifact["run_health"] = health
     final_artifact["action_ledger"] = ledger
     evidence = final_artifact.get("evidence") or {}
-    paths = {
-        "procurement_manager_json": output_dir / "procurement_manager.json",
-        "report_markdown": output_dir / "procurement_manager_report.md",
-        "evidence_json": output_dir / "evidence.json",
-        "research_sources_json": output_dir / "research_sources.json",
-        "knowledge_rag_json": output_dir / "knowledge_rag.json",
-        "action_ledger_json": output_dir / "action_ledger.json",
-        "artifact_quality_json": output_dir / "artifact_quality.json",
-        "run_health_json": output_dir / "run_health.json",
+    documents = {
+        "procurement_manager_json": ("procurement_manager.json", "json", final_artifact),
+        "report_markdown": ("procurement_manager_report.md", "markdown", lambda: render_markdown(final_artifact)),
+        "evidence_json": ("evidence.json", "json", evidence),
+        "research_sources_json": ("research_sources.json", "json", evidence.get("public_sources") or []),
+        "knowledge_rag_json": ("knowledge_rag.json", "json", final_artifact.get("knowledge_rag") or {}),
+        "action_ledger_json": ("action_ledger.json", "json", ledger),
+        "artifact_quality_json": ("artifact_quality.json", "json", quality),
+        "run_health_json": ("run_health.json", "json", health),
     }
     case_packet = final_artifact.get("procurement_case")
     if isinstance(case_packet, dict):
-        paths["approval_packet_json"] = output_dir / "approval-packet.json"
-        paths["approval_packet_md"] = output_dir / "approval-packet.md"
-    output_files = [{"kind": kind, "path": str(path)} for kind, path in paths.items()]
-    final_artifact["output_files"] = output_files
-    paths["procurement_manager_json"].write_text(json.dumps(final_artifact, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["report_markdown"].write_text(render_markdown(final_artifact), encoding="utf-8")
-    paths["evidence_json"].write_text(json.dumps(evidence, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["research_sources_json"].write_text(json.dumps(evidence.get("public_sources") or [], indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["knowledge_rag_json"].write_text(json.dumps(final_artifact.get("knowledge_rag") or {}, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["action_ledger_json"].write_text(json.dumps(ledger, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["artifact_quality_json"].write_text(json.dumps(quality, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["run_health_json"].write_text(json.dumps(health, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    if isinstance(case_packet, dict):
-        paths["approval_packet_json"].write_text(json.dumps(case_packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        paths["approval_packet_md"].write_text(render_case_packet(case_packet), encoding="utf-8")
+        documents.update(approval_packet_json=("approval-packet.json", "json", case_packet),
+                         approval_packet_md=("approval-packet.md", "markdown", lambda: render_case_packet(case_packet)))
+    output_files = [{"kind": name, "path": str(output_dir / path)} for name, (path, _, _) in documents.items()]
+    final_artifact["output_files"] = result["output_files"] = output_files
+    documents.update(final_artifact=("final_artifact.json", "json", final_artifact), result=("result.json", "json", result))
+    writes = []
+    for name, (path, kind, content) in documents.items():
+        encoded = content().encode("utf-8") if kind == "markdown" else json.dumps(
+            content, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        writes.append(ArtifactWrite(name, path, encoded, kind=kind, authoritative=kind == "json"))
+    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
+    if output_dir != block.store.run_dir:
+        output = CommittedJsonStore(output_dir)
+        for item in receipt["artifacts"]:
+            relative = item["reference"]["path"]
+            copy_path_to_host(block.store.path(relative), output.path(relative))
     publish_outputs(output_dir, final_artifact["run_id"])
-    return output_files
-
-
-def resolve_output_folder(config: dict[str, Any], inputs: dict[str, Any]) -> Path | None:
-    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
-    if runtime_output_folder:
-        return expand_runtime_path(runtime_output_folder)
-    value = inputs.get("output_folder") or (config.get("outputs") or {}).get("folder_path") or DEFAULT_OUTPUT_FOLDER
-    value = str(value).strip()
-    if not value:
-        return None
-    return expand_runtime_path(value)
+    return receipt
 
 
 def build_artifact_quality(final_artifact: dict[str, Any]) -> dict[str, Any]:
@@ -453,17 +443,26 @@ def render_markdown(artifact: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-@activity_operation('Writing the purchase report', completed='Writing the purchase report: completed')
 def publish_report(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
+    report_activity("Writing the purchase report", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    llm_client = llm_client or block.resources.get("llm")
+    case_packet = verified_case_packet(block, inputs["case_assessment"])
+    audit = inputs["previous"]["state"]
+    state = read_state(block, inputs["previous"])
+    checkpoint = "procurement/report-analysis.json"
+    if block.store.path(checkpoint).exists():
+        saved = block.store.read_path(checkpoint)
+        if saved["audit"] != audit or set(saved["analysis"]) - set(NARRATIVE_STATE_FIELDS) or saved["digest"] != fingerprint({"audit": saved["audit"], "analysis": saved["analysis"]}):
+            raise ValueError("Report analysis does not match the procurement audit checkpoint")
+        state.update(saved["analysis"])
+    inputs = state["inputs"]
     warnings = [*(state.get("document_warnings") or []), *((state.get("rag") or {}).get("warnings") or []), *(state.get("web_warnings") or [])]
-    final = build_final_artifact(inputs, state.get("evidence") or {}, state.get("recommendation") or {}, state.get("rag") or {}, state.get("sources") or [], warnings, state.get("documents") or [], state.get("actor_findings") or {}, ctx["run_id"], intake_plan=state.get("intake_plan") or {}, request=state.get("request") or {})
-    case_packet_path = Path(ctx["run_dir"]) / "workflow_state" / "procurement_case_packet.json"
-    if case_packet_path.exists():
-        final["procurement_case"] = json.loads(case_packet_path.read_text(encoding="utf-8"))
+    final = build_final_artifact(inputs, state.get("evidence") or {}, state.get("recommendation") or {}, state.get("rag") or {}, state.get("sources") or [], warnings, state.get("documents") or [], state.get("actor_findings") or {}, block.run_id, intake_plan=state.get("intake_plan") or {}, request=state.get("request") or {})
+    if case_packet is not None:
+        final["procurement_case"] = case_packet
     final["candidate_comparisons"] = state.get("candidate_comparisons") or []
     final["preferred_candidate"] = (state.get("recommendation") or {}).get("preferred_candidate")
     final["source_refs"] = list(
@@ -482,7 +481,7 @@ def publish_report(
     final["procurement_summary"] = build_procurement_summary(
         inputs, final["candidate_comparisons"], final["preferred_candidate"]
     )
-    settings = analysis_settings(ctx["config"])
+    settings = analysis_settings(block.config)
     candidate_packet, metrics = candidate_analysis_packet(
         final["candidate_comparisons"], max_candidates=settings["max_candidates"]
     )
@@ -541,7 +540,7 @@ def publish_report(
     }
     report_narrative = generate_structured_analysis(
         state=state,
-        config=ctx["config"],
+        config=block.config,
         agent_id="purchase_report_writer",
         prompt_name="purchase-report-narrative-task.md",
         payload={
@@ -618,39 +617,20 @@ def publish_report(
         else "completed"
     )
     result = {
-        "identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": ctx["run_id"]},
+        "identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": block.run_id},
         "blueprint": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "category": CATEGORY,
-        "run": {"run_id": ctx["run_id"], "status": run_status}, "inputs": inputs,
+        "run": {"run_id": block.run_id, "status": run_status}, "inputs": inputs,
         "intake_plan": state.get("intake_plan") or {}, "knowledge_rag": state.get("rag") or {},
         "research_sources": state.get("sources") or [], "evidence": state.get("evidence") or {},
         "recommendation": state.get("recommendation") or {}, "final_artifact": final,
         "llm": state.get("llm_usage") or {},
     }
     final["llm_usage"] = result["llm"]
-    output_files = write_user_outputs(final, result, ctx["config"], inputs)
-    result["output_files"] = output_files
-    run_dir = Path(ctx["run_dir"])
-    run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "final_artifact.json").write_text(
-        json.dumps(final, indent=2, sort_keys=True, default=str) + "\n",
-        encoding="utf-8",
-    )
-    (run_dir / "result.json").write_text(
-        json.dumps(result, indent=2, sort_keys=True, default=str) + "\n",
-        encoding="utf-8",
-    )
+    analysis = {key: state[key] for key in NARRATIVE_STATE_FIELDS if key in state}
+    saved = {"audit": audit, "analysis": analysis}
+    block.store.commit(checkpoint, {**saved, "digest": fingerprint(saved)}, kind="procurement_report_analysis")
+    receipt = publish_documents(block, final, result)
     if isinstance(case_packet, dict):
-        emit_review_requests(ctx, case_packet)
-    _save(ctx, state)
-    return {"final_artifact": final, "output_files": output_files}
-
-
-__all__ = [
-    "build_artifact_quality",
-    "build_final_artifact",
-    "build_procurement_summary",
-    "publish_report",
-    "render_markdown",
-    "resolve_output_folder",
-    "write_user_outputs",
-]
+        emit_review_requests(block, case_packet)
+    return {"state": save_state(block, state, "publication"), "artifacts": receipt["artifacts"],
+            "recommended_action": final["recommended_action"]}

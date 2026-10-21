@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "mac_security_investigator",
   "name": "Mac security investigator",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "description": "Review recent security-related activity recorded by your Mac and compare it with earlier scans. Get a saved report with supporting records and clear limits on what was checked. This early version reviews logs only and cannot confirm that your Mac is safe.",
   "workflow": "workflow.json",
   "execution": "execution.json",
@@ -38,6 +38,10 @@
     },
     "mn.mcp": {
       "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
       "required": true
     }
   }

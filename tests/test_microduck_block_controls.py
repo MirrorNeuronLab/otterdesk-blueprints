@@ -24,14 +24,15 @@ def control_environment(tmp_path, monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
     manifest = compile_blueprint(read_blueprint(ROOT)).manifest
     descriptor = tmp_path / "runtime.json"
-    descriptor.write_text(json.dumps(manifest))
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(read_blueprint(ROOT), manifest)))
     output = tmp_path / "run"
     values = {
         "MN_BLUEPRINT_MANIFEST_PATH": descriptor,
         "MN_RUN_DIR": output,
         "MN_JOB_ID": "duck-job",
         "MN_RUN_ID": "duck-run",
-        "MN_AGENT_ID": "run_microduck_service__microduck_service",
+        "MN_AGENT_ID": "run_microduck_service__block_run_microduck_service_specialist",
         "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]',
         "MN_BLUEPRINT_CONFIG_JSON": "{}",
         "MN_HOME": tmp_path / "home",
@@ -136,13 +137,13 @@ def test_lost_admission_reply_never_repeats_an_uncertain_effect(
     control_environment, monkeypatch, restarted
 ):
     controls, bridge, service, output = control_environment
-    original = controls.command
+    original = bridge.BridgeHub.execute
 
-    def lose_reply(block, inputs):
-        original(block, inputs)
+    async def lose_reply(device, inputs):
+        await original(device, inputs)
         raise TimeoutError("injected lost admission response")
 
-    monkeypatch.setattr(controls, "command", lose_reply)
+    monkeypatch.setattr(bridge.BridgeHub, "execute", lose_reply)
 
     async def scenario():
         hub, messages = await ready(bridge)
@@ -192,6 +193,28 @@ def test_run_scope_allows_a_new_run_without_cross_run_command_replay(
             "accepted"
         ] is True
         assert len(first_messages) == len(second_messages) == 1
+
+    asyncio.run(scenario())
+
+
+@pytest.mark.parametrize("completed", [False, True])
+def test_committed_admission_after_restart_cannot_claim_an_unobserved_motion_result(
+    control_environment, completed
+):
+    controls, bridge, _, output = control_environment
+
+    async def scenario():
+        hub, messages = await ready(bridge)
+        controller = controls.ControlBlocks(hub, output)
+        assert (await controller.enqueue(command_id=A, kind="motion_plan", payload=MOVE))["accepted"] is True
+        if completed:
+            await hub.update_command("browser", {"command_id": A, "status": "completed"})
+        replacement, delivered = await ready(bridge)
+        restarted = controls.ControlBlocks(replacement, output)
+        result = await restarted.enqueue(command_id=A, kind="motion_plan", payload=MOVE)
+        assert result["status"] == "unknown" and "accepted" not in result
+        assert (await restarted.status(A))["status"] == "unknown"
+        assert len(messages) == 1 and delivered == []
 
     asyncio.run(scenario())
 

@@ -1,8 +1,21 @@
 """Bound operator tunables before any source/model work."""
 
+import os
+from pathlib import Path
+from mn_sdk.blueprint_support import source_manifest
 
-def settings(context):
-    values = context['config']['review']
+BLUEPRINT_ID = source_manifest(__file__)["metadata"]["blueprint_id"]
+
+
+def job_directory(block):
+    directory = os.environ.get("MN_JOB_DATA_DIR")
+    if not directory or not block.job_id:
+        raise ValueError("Runtime-provided Job knowledge is required.")
+    return Path(directory)
+
+
+def settings(block):
+    values = block.config['review']
     for name, maximum in [('max_rules', 2000), ('max_turns_per_rule', 12),
                           ('max_extraction_packets', 2048),
                           ('max_extraction_attempts', 3),

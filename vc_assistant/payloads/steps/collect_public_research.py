@@ -11,7 +11,7 @@ from ._shared import step_inputs
 
 
 STEP = StepSpec(
-    input=InputSpec(fields=step_inputs("plan_public_research", "research_plan")),
+    input=InputSpec(fields=step_inputs("plan_public_research", "research_plan", result_ref=True)),
     flow=parallel(
         agent("company_identity_researcher"),
         agent("funding_researcher"),

@@ -4,10 +4,10 @@ from ._shared import inputs
 
 
 STEP = StepSpec(
-    input=InputSpec(fields=inputs("collect_public_finance_guidance")),
+    input=InputSpec(fields=inputs("collect_public_finance_guidance", "public_finance_guidance")),
     flow=sequence(
         agent("advisor_evidence_reconciler", as_="reconcile"),
         agent("advisor_review_auditor", as_="audit"),
     ),
-    output=OutputSpec(fields={"advisor_review": flow_output()}),
+    output=OutputSpec(fields={"advisor_review": flow_output("result")}),
 )

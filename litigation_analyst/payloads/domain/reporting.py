@@ -3,11 +3,12 @@
 from mn_sdk.agent_events import activity_operation
 
 import json
-import shutil
+import os
 from copy import deepcopy
 from pathlib import Path
 
 from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 from .evidence.store import EvidenceStore
 from .intake import PreparedCorpus
 from .app.review import build_review
@@ -16,14 +17,18 @@ from .app.report_sections import graph_exhibits
 
 
 @activity_operation('Writing the litigation review', completed='Writing the litigation review: completed')
-def write_review(context, *, llm_client=None):
-    run_dir = Path(context["run_dir"])
+def write_review(context, inputs):
+    from .state import read_terminal, file_record
+    terminal = read_terminal(context, inputs["previous"]["result"])
+    payload = terminal["inputs"]
+    output = os.environ.get("MN_JOB_OUTPUT_DIR") or payload.get("output_folder")
+    run_dir = context.store.run_dir
     case = run_dir / "case"
-    summary = json.loads((case / "investigation.json").read_text())
+    summary = json.loads(context.store.path(terminal["investigation"]["path"]).read_text())
     report = summary["report"]
     if report["status"] != "draft_for_human_review":
         raise ValueError("only human-review drafts may be written")
-    corpus = PreparedCorpus(case, context["config"]["investigation"]["access_scope"])
+    corpus = PreparedCorpus(case, context.config["investigation"]["access_scope"])
     documents = {d.source_id: d for d in corpus.scan()}
     evidence = EvidenceStore(case / "evidence.sqlite3").evidence_for(
         report["investigation_id"]
@@ -43,7 +48,7 @@ def write_review(context, *, llm_client=None):
         raise ValueError("draft evidence list differs from its audit record")
     # Re-render from the persisted action/evidence records after citation checks.
     # A cached Markdown string is never treated as an authoritative finding.
-    state = json.loads((case / "agent_checkpoint.json").read_text())
+    state = json.loads(context.store.path(terminal["checkpoint"]["path"]).read_text())
     if state["data"].get("derivations"):
         raise ValueError("Retired document-index derivations require their original staged implementation")
     (run_dir / "evidence_appendix.md").write_text(
@@ -69,7 +74,7 @@ def write_review(context, *, llm_client=None):
         review['issues'] += list(dict.fromkeys(c['reason'] for c in conflicts))
     (case / 'consistency_review.json').write_text(json.dumps({'checks':conflicts, 'withheld_finding_ids':sorted(blocked)}, indent=2))
     summary = build_review(
-        state, EvidenceStore(case / "evidence.sqlite3"), context["payload"]["goal"]
+        state, EvidenceStore(case / "evidence.sqlite3"), payload["goal"]
     )
     report = summary["report"]
     inventory = json.loads((case / "source_inventory.json").read_text())
@@ -88,9 +93,9 @@ def write_review(context, *, llm_client=None):
     from .workspace_history import publish as publish_history
     from .workspace_memory import publish as publish_memory
     from .workspace_web import publish as publish_web
-    workspace = build_workspace(context, tuple(documents.values()), evidence, state, inventory)
-    workspace = attach_graph(workspace, case, context["config"].get("workspace", {}))
-    workspace = publish_history(context, workspace)
+    workspace = build_workspace(context, tuple(documents.values()), evidence, state, inventory, goal=payload["goal"])
+    workspace = attach_graph(workspace, case, context.config.get("workspace", {}))
+    workspace = publish_history(context, workspace, review_file=payload.get("review_file"))
     from .review_products import issue_brief, transaction_appendix
     (case / "financial_review.json").write_text(json.dumps(workspace["financial_review"], ensure_ascii=False), encoding="utf-8")
     (run_dir / "transaction_appendix.md").write_text(transaction_appendix(workspace["financial_review"]), encoding="utf-8")
@@ -135,8 +140,7 @@ def write_review(context, *, llm_client=None):
         json.dumps(index, indent=2), encoding="utf-8"
     )
     from .conversation_sources import publish_outputs
-    publish_outputs(context)
-    output = context.get("output_folder")
+    publish_outputs(context, output_folder=output)
     if output:
         output = Path(output)
         archive = output / "runs" / run_dir.name
@@ -144,7 +148,7 @@ def write_review(context, *, llm_client=None):
             if run_dir.resolve() in archive.resolve().parents:
                 raise ValueError("report export must not recurse into its source run")
             archive.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(run_dir, archive, dirs_exist_ok=True)
+            copy_path_to_host(run_dir, archive)
         output.mkdir(parents=True, exist_ok=True)
         notice = f"Audit paths below are relative to `runs/{run_dir.name}/`.\n\n"
         linked_text = text.replace(
@@ -165,10 +169,23 @@ def write_review(context, *, llm_client=None):
         artifact_reference("consistency_review", "case/consistency_review.json"),
         artifact_reference("performance", "case/performance.json"),
     ] + workspace_refs + [artifact_reference("workspace_status", "workspace_status.json")]
+    files = {ref["path"] for ref in refs} | {"case/evidence.sqlite3"}
+    if (run_dir / "web").is_dir():
+        files.update(path.relative_to(run_dir).as_posix() for path in (run_dir / "web").rglob("*") if path.is_file())
     return {
         "review_draft": refs[0],
         "review_index": refs[1],
         "status": report["status"],
         "investigation_workspace": workspace_refs[0],
         "web_ui": workspace_status.get("handle"),
-    }, refs
+        "terminal": inputs["previous"]["result"]["terminal"],
+        "files": [file_record(context, name) for name in sorted(files)],
+    }
+
+
+def verified(context, result):
+    from .state import read_seal, read_indexed, verify_files
+    terminal = read_seal(context, result["terminal"], "terminal")
+    read_indexed(context, terminal["indexed"])
+    verify_files(context, [terminal["checkpoint"], terminal["investigation"], *result["files"]])
+    return True

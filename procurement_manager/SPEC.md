@@ -28,16 +28,11 @@ The launcher stages that folder and rewrites the linked runtime input paths.
 
 ## Workflow
 
-Version 3 declares the case-assessment branch through `mn.blocks.domain_operation@1`
-and requires SDK/common/blocks from `1.3.61.dev25`. Generated worker identity and
-the branch handoff change to a committed JSON reference. The six logical steps,
-join dependencies, packet paths, economics, review semantics and five narrative
-calls remain unchanged. The case block commits a hash of its independent packet,
-not the comparison branch's mutable state. The deployed report binding verifies
-the case result/packet hashes and identity before calling the existing publisher;
-corrupt, mismatched or stale packet handoffs fail closed. Completed case
-invocations replay without recalculation. The local composition runner remains a
-domain test/example runner and does not implement Core scheduling.
+Version 5 uses native SDK blocks for every specialist. Immutable evidence
+references isolate the case and comparison branches; publication verifies both
+handoffs before writing the report. The six logical steps, join dependencies,
+packet paths, economics, review semantics and five narrative calls are preserved.
+Core owns scheduling, retry, routing and completion.
 
 The optional structured `procurement_case.json` input is evaluated in a
 separate branch after evidence preparation. Its decimal cash-flow and mandatory
@@ -142,6 +137,28 @@ are not additional conversation subjects. Skill receipts retain the original
 report hash and conversion completeness. A report exceeding the 4 MiB source
 limit fails explicitly. Review requests and their exact decision digests remain
 separate from source reads.
+
+## Native block composition (5.0.0)
+
+Every specialist binds directly to its native domain function in `intake.py`,
+`comparison.py`, `case_packet.py` or `reporting.py`. Each consumes `BlockContext`;
+legacy context creation and phase adapters are removed. The first block captures
+the declared purchase request and configuration defaults. It retains structured
+analysis inputs and excludes undeclared fields before narrative generation.
+
+Each phase returns immutable evidence references. The case assessor and the
+market → cost → risk comparison consume the same captured evidence independently.
+Publication verifies both the audit and case handoffs; the case packet cannot be
+replaced by a stale mutable file. Core retains the six logical phases, internal
+comparison sequence and publication join.
+
+SDK bundles commit all required JSON and Markdown, verify replayed bytes and own
+atomic copying. The completed Markdown report remains the sole conversation
+source. A bounded narrative checkpoint permits delivery retry within the five-call
+budget; it can restore narrative fields only, validates its audit binding and
+revalidates cached claims against deterministic evidence. Decimal calculations,
+prices, fit checks, rankings, review authority and explicit fallback policy remain
+domain-owned. Unused tool-loop and artifact-finalizer dependencies are removed.
 
 ## Blueprint package format
 

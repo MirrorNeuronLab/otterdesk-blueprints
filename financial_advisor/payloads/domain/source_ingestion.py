@@ -31,19 +31,19 @@ def iter_input_files(document_folder: Path) -> list[Path]:
     return document_paths(document_folder, supported_suffixes=SUPPORTED_SUFFIXES)
 
 
-def _ocr_disabled_for_fake_run(ctx: dict[str, Any]) -> bool:
-    llm = ctx.get("llm")
+def _ocr_disabled_for_fake_run(block, state) -> bool:
+    llm = block.resources.get("llm")
     provider = str(getattr(llm, "provider", "") or "").strip().lower()
     return (
-        isinstance(llm, DeterministicLLM)
+        isinstance(llm, DeterministicFallbackLLM)
         or provider in {"fake", "mock", "deterministic", "deterministic-local", "test"}
-        or fake_llm_requested(ctx["config"], ctx.get("payload"))
+        or fake_llm_requested(block.config, state["inputs"])
     )
 
-def build_ocr_runtime(ctx: dict[str, Any]) -> tuple[Any | None, dict[str, Any]]:
-    skip = _ocr_disabled_for_fake_run(ctx)
+def build_ocr_runtime(block, state) -> tuple[Any | None, dict[str, Any]]:
+    skip = _ocr_disabled_for_fake_run(block, state)
     return configure_ocr_runtime(
-        ctx["config"],
+        block.config,
         min_text_chars=OCR_MIN_TEXT_CHARS,
         skip_status="disabled_for_fake_or_quick_test" if skip else None,
         skip_warning="llm_ocr_skipped_for_explicit_fake_or_quick_test" if skip else None,

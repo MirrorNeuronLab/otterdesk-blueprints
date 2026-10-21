@@ -18,9 +18,9 @@ The durable data plane is the run filesystem. The live message plane is acknowle
 
 The workflow requests `manual_recover`. Redis retains bounded live coordination state, but a lost runtime lease does not trigger repeated automatic reconstruction of the full 46-agent graph. The supported recovery path is to submit a fresh run against the same durable inputs and filesystem artifacts; completed artifact writes and invocation idempotency records make that rerun safe.
 
-Production code follows a strict ownership boundary. `payloads/steps` owns orchestration declarations, `payloads/agents` owns executable worker entrypoints, `payloads/domain` owns VC-specific evidence/research/valuation/report policy, and `payloads/runtime` owns runtime context and shared-service preparation. Domain-neutral message envelopes, artifact references, durable replay, document intake utilities, and control agents belong to the SDK, reusable agents, and skills. No aggregate `agents/domain.py` compatibility module is permitted.
+Production code follows a strict ownership boundary. `payloads/steps` owns orchestration declarations, the SDK block worker owns execution, `payloads/domain` owns VC-specific evidence/research/valuation/report policy, and `payloads/runtime` owns runtime context and shared-service preparation. Domain-neutral message envelopes, artifact references, durable replay, document intake utilities, and control agents belong to the SDK, reusable agents, and skills. No aggregate `agents/domain.py` compatibility module is permitted.
 
-Every scorer registry ID resolves to a same-named agent module. The shared scorer executor handles durable queue mechanics, while deterministic formulas remain individually inspectable under `domain/valuation` (`first_chicago.py`, `berkus.py`, `scorecard.py`, and the other method modules).
+Every scorer registry ID resolves to a distinct stock block binding and domain hook. The shared scorer executor handles durable queue mechanics, while deterministic formulas remain individually inspectable under `domain/valuation` (`first_chicago.py`, `berkus.py`, `scorecard.py`, and the other method modules).
 
 | DAG step | Required agents |
 | --- | --- |
@@ -107,7 +107,7 @@ service instead of opening the file independently.
 - Agent messages contain bounded results and artifact references rather than confidential documents or large ledgers.
 - `payloads/runtime/runtime.py` remains below 500 lines and contains only runtime context, configuration, service preparation, observability, and lifecycle persistence.
 - `payloads/agents/domain.py` does not exist, agent modules do not import it, and no VC domain module grows beyond the architecture size guard.
-- Every valuation scorer registry entry resolves to a same-named agent module and an individually owned formula module.
+- Every valuation scorer registry entry resolves to a distinct block hook, manifest-owned method and individually owned formula module.
 - All seven method sections are present for every company.
 - Scores are included where evidence exists.
 - Missing evidence is explicit and not hallucinated.
@@ -135,6 +135,69 @@ taking investment action.
 ## Upgrade Path To Real Customer Use
 
 Add richer source citation capture, customer-specific scoring weights, authenticated market-data and funding-data connectors, analyst review annotations, historical calibration against partner decisions, and governance controls for confidential data handling.
+
+## Block composition (5.0.0)
+
+The four intake specialists use native block contexts and explicit upstream
+checkpoints. Sources are captured as portable, hash-verified SDK file graphs;
+conversion and normalization use captured bytes. Checkpoints bind the Job, run
+and original settings. Prepared evidence freezes before optional actor review,
+and a lost model response cannot trigger an automatic duplicate call. Actor
+privacy, RAG citations, qualified runtime-memory records and conversion-failure
+diagnostics remain. Original and processed source files remain reachable through
+the artifact graph. Cache fingerprints use relative source identity and content;
+older absolute-path fingerprints refresh once.
+
+The research planner uses the same native snapshot authority. Its bounded entity
+queue and privacy-safe research policy run behind a journaled planning request;
+the complete response freezes before optional review. Unknown planning outcomes
+cannot redispatch models or browser tools. SDK action reservations retain their
+charges across interruption, including an unknown optional-review outcome.
+Resource preparation takes native contexts and input ledgers directly.
+
+Five public-research specialists and the reconciler use the native checkpoint
+contract. Branches bind one exact planning reference and complete active-company
+coverage. Reconciliation validates the declared branch set and merges findings,
+qualifications and traces deterministically; source data stays in verified
+artifact graphs. A completed phase checkpoint is invocation-owned and frozen
+before inspection views, permitting retry without observing a newer global ledger.
+Review context freezes before model dispatch. Its reference, authored-memory
+witnesses and individual branch references stay reachable from the joined graph;
+retry cannot silently substitute newer retrieval results after a known response.
+
+Native workers reserve actions through Core's `mn.workflow_budget/v1` protocol.
+The source policy resolves the configured allowance once. Core serializes admission
+at the run owner, validates identity/scope, persists before granting work and
+preserves charges across unknown outcomes and checkpoint recovery. Worker copies
+cannot reset or raise that allowance. Audit records and byte quotas are bounded;
+capacity errors never authorize work. Existing metadata privacy rules apply.
+
+Seven valuation specialists consume the reconciler's frozen company fact tables
+through native contexts. The auditor validates the exact seven branch roles,
+common research checkpoint, company coverage, method IDs and original fact
+tables before applying the existing deterministic audit/composition policy.
+Formulas remain in their existing method modules. Each scorer's review recalls
+its own method result first, including formula, input names, numerical details,
+assumptions, references and missing-evidence qualifications. Prepared audit data
+freezes before review; a known model response replays with the same checked time,
+context and evidence. Branch reviews merge in manifest order, and their frozen
+contexts and witnesses remain reachable through the scoring proof graph.
+
+All 21 specialists now use native contexts. Report writers consume scoped audit
+and company-publication checkpoints, with SDK immutable file publication and
+receipts. Required company files, source subjects and watch state precede terminal
+delivery. Batch review and final report data freeze before writes, preserving
+known responses, health/elapsed values and byte identity across delivery retries.
+Logical public names are relative. The SDK verifies files and receipts before
+run/output-folder delivery; Core handles declared OpenShell exports when selected.
+All selected reviews use the same Core-owned run allowance. Legacy runtime-context
+and local-budget loaders are removed; workflow-state files are inspection views.
+Domain formulas and StepSpec joins remain intact. Metadata traces preserve local
+records plus upstream specialist-qualified observations; private initialization
+diagnostics may be absent from the aggregate, explicitly qualified in coverage.
+Main SDK requires dev31, blocks dev30, common dev25 and coordinated Core support.
+Core keeps delivery and logical completion. Full catalog migration still includes
+unfinished CCTV event hooks; no live provider/device qualification is claimed.
 
 ## Blueprint package format
 

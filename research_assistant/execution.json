@@ -5,33 +5,39 @@
   },
   "agents": {
     "registry": {
-      "research_goal_framer": {
-        "handler": "agents.research_goal_framer",
-        "role": "Research Goal Framer"
-      },
-      "research_evidence_curator": {
-        "handler": "agents.research_evidence_curator",
-        "role": "Research Evidence Curator"
-      },
-      "research_evidence_reviewer": {
-        "handler": "agents.research_evidence_reviewer",
-        "role": "Research Evidence Reviewer"
-      },
-      "research_experiment_planner": {
-        "handler": "agents.research_experiment_planner",
-        "role": "Research Experiment Planner"
-      },
-      "autonomous_researcher": {
-        "handler": "agents.autonomous_researcher",
-        "role": "Autonomous Researcher"
-      },
       "research_packet_auditor": {
-        "handler": "agents.research_packet_auditor",
-        "role": "Research Packet Auditor"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Research Packet Auditor",
+        "with": {
+          "revision": "research_assistant@4.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.verification:audit_packet"
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 1800
+            }
+          }
+        }
       },
       "research_report_writer": {
-        "handler": "agents.research_report_writer",
-        "role": "Research Report Writer"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Research Report Writer",
+        "with": {
+          "revision": "research_assistant@4.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.reporting:publish_packet"
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 1800
+            }
+          }
+        }
       }
     }
   },
@@ -45,7 +51,9 @@
             "source": "domain",
             "target": "domain"
           }
-        ]
+        ],
+        "upload_path": "domain",
+        "upload_as": "domain"
       }
     }
   },

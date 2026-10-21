@@ -56,16 +56,20 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from domain.reporting import write_user_outputs
+from domain.reporting import publish_documents
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
-os.environ.pop('MN_JOB_OUTPUT_DIR', None)
+os.environ['MN_JOB_OUTPUT_DIR'] = {str(tmp_path)!r}
 root = Path({str(tmp_path)!r})
 artifact = {{'run_id': 'saved-report', 'recommended_action': 'wait',
             'risk_flags': ['Written supplier quote required.'],
             'evidence_gaps': ['Current stock is unverified.'],
             'review_boundary': {{'review_required': True,
                                 'blocked_actions': ['place orders']}}}}
-outputs = write_user_outputs(artifact, {{}}, {{'outputs': {{'folder_path': str(root)}}}}, {{}})
+block = BlockContext(store=CommittedJsonStore(root / 'run'), invocation_id='report', revision='v5', run_id='saved-report')
+publish_documents(block, artifact, {{}})
+outputs = artifact['output_files']
 report = (root / 'procurement_manager_report.md').read_text()
 sources = list((root / 'context_sources' / 'outputs').rglob('*.md'))
 source = sources[0].read_text()

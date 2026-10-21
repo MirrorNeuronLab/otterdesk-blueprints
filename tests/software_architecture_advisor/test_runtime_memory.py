@@ -5,7 +5,7 @@ from test_catalog_review import run as run  # fixture with immutable admissions
 
 
 def test_file_scan_skips_memory_but_aspect_review_can_recall_notes(run, text_memory_transport):
-    from domain.catalog_planning import planner
+    from native_test_support import planner
     from domain.catalog_store import CatalogStore
     from domain.catalog_knowledge import publish_runtime_notes
     ctx, ref = run

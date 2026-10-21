@@ -36,11 +36,11 @@ def json_bytes(value):
 
 
 @contextmanager
-def storage(context):
-    job_id, job_root = context.get('job_id'), context.get('job_data_dir')
+def storage(block):
+    job_id, job_root = block.job_id, block.job_data_dir
     if bool(job_id) != bool(job_root):
         raise ValueError('Persistent architecture history requires both Job identity and Job data directory')
-    root = Path(job_root) / 'architecture_results' if job_id else Path(context['run_dir']) / 'architecture_results'
+    root = Path(job_root) / 'architecture_results' if job_id else Path(block.store.run_dir) / 'architecture_results'
     if root.is_symlink():
         raise ValueError('Architecture storage must not be a link')
     root.mkdir(parents=True, exist_ok=True)
@@ -86,10 +86,10 @@ def apply_reviews(workspace, source):
             finding['review_state'] = 'Needs reassessment'
 
 
-def retain(context, workspace):
+def retain(block, workspace, *, review_file=None):
     workspace = deepcopy(workspace)
-    run = Path(context['run_dir'])
-    with storage(context) as (root, mode):
+    run = Path(block.store.run_dir)
+    with storage(block) as (root, mode):
         data = root / 'data'
         index_path = data / 'index.json'
         index = json.loads(index_path.read_text()) if index_path.exists() else {
@@ -101,7 +101,6 @@ def retain(context, workspace):
         identity = workspace['id']
         record = next((r for r in index['snapshots'] if r['id'] == identity), None)
         directory = data / 'snapshots' / identity
-        review_file = context.get('payload', {}).get('review_file')
         review_source = None
         if review_file:
             path = Path(review_file)

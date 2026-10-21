@@ -363,7 +363,7 @@ def evidence_penalties_for_claim(source_record: dict[str, Any], claim_type: str,
 def polarity_for_claim_sentence(sentence: str) -> str:
     return "contradicts" if negative_claim_polarity(sentence) else "supports"
 
-def build_evidence_items(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]], source_records_by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def build_evidence_items(company: str, records: list[dict[str, Any]], sources: list[dict[str, Any]], source_records_by_id: dict[str, dict[str, Any]], *, source_scope=None) -> list[dict[str, Any]]:
     company_slug = slugify(company)
     source_texts: list[dict[str, Any]] = []
 
@@ -375,7 +375,7 @@ def build_evidence_items(company: str, records: list[dict[str, Any]], sources: l
         if source_id in source_records_by_id:
             source_texts.append({
                 "source_id": source_id,
-                "text": local_source_text(record, sorted({term for spec in CLAIM_EXTRACTION_SPECS for term in spec["terms"]})),
+                "text": local_source_text(record, sorted({term for spec in CLAIM_EXTRACTION_SPECS for term in spec["terms"]}), scope=source_scope),
                 "filename": str(record.get("filename") or ""),
                 "source_url": None,
                 "retrieved_at": utc_now_iso(),
@@ -661,13 +661,14 @@ def build_company_evidence_layer(
     sources: list[dict[str, Any]],
     *,
     fund_profile: str | None = None,
+    source_scope=None,
 ) -> dict[str, Any]:
     profile = str(fund_profile or "generalist").strip().lower().replace("-", "_")
     if profile not in FUND_PROFILE_WEIGHTS:
         profile = "generalist"
     company_slug = slugify(company)
     source_records, source_records_by_id = build_source_records(company, records, sources)
-    evidence_items = build_evidence_items(company, records, sources, source_records_by_id)
+    evidence_items = build_evidence_items(company, records, sources, source_records_by_id, source_scope=source_scope)
     pre_claim_ids = {key: stable_short_id("claim", company_slug, key) for key in {canonical_claim_key(ev) for ev in evidence_items}}
     graph = build_evidence_graph(
         entity_id=company_slug,

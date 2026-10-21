@@ -1,16 +1,15 @@
 """Require Core-authoritative conversation approval of the exact frozen ruleset."""
 from hashlib import sha256
 import json
-from pathlib import Path
 import time
 
 from mn_sdk import human_interactions
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 from mn_sdk.interactions import InteractionError
 
 from .artifacts import read, save, text
 from . import rule_document
-from .configuration import settings
+from .configuration import BLUEPRINT_ID, settings
 from .extraction_outcome import require_rule_candidates
 
 
@@ -61,10 +60,10 @@ def _latest_request(events):
     return max(requests, key=lambda request: request['review_revision'], default=None)
 
 
-def require_approved_rules(context, rules):
+def require_approved_rules(block, rules):
     """Only the latest Core decision for this exact content grants approval."""
     require_rule_candidates(rules)
-    events = human_interactions.read_interaction_events(context['run_id'])
+    events = human_interactions.read_interaction_events(block.run_id)
     latest = _latest_request(events)
     digest, requests = review_requests(rules, latest['review_revision'] if latest else 1)
     request = requests[0]
@@ -74,25 +73,29 @@ def require_approved_rules(context, rules):
             'request_ids': [request['request_id']]}
 
 
-@activity_operation('Waiting for your review of the rules', completed='Rules approved for verification')
-def review(context):
+def review(block, inputs):
+    report_activity("Waiting for your review of the rules", owner_blueprint=BLUEPRINT_ID,
+                    step_id=block.step_id, run_dir=block.store.run_dir)
+    capture_ref = inputs["previous"]["capture"]
+    capture = block.store.read(capture_ref)
     from .rules import markdown
-    policy = settings(context)
-    rules = read(context, 'rules.json')
+    policy = settings(block)
+    rules = read(block, 'rules.json')
     require_rule_candidates(rules)
-    if rules['snapshot_id'] != read(context, 'capture.json')['snapshot_id']:
+    if rules['snapshot_id'] != capture['snapshot_id']:
         raise RulesReviewRequired('The rules and source capture do not match.')
-    path = Path(context['run_dir']) / 'rules-review-request.json'
-    plan = read(context, path.name) if path.is_file() else {
+    path = block.store.path('rules-review-request.json')
+    plan = read(block, path.name) if path.is_file() else {
         'snapshot_id': rules['snapshot_id'], 'next_revision': 1,
         'expires_at': int(time.time() * 1000) + policy['human_review_timeout_seconds'] * 1000}
     if plan['snapshot_id'] != rules['snapshot_id']:
         raise RulesReviewRequired('The review belongs to a different source capture.')
     if not path.is_file():
-        save(context, 'reviews/original-rules.json', rules)
-    refs = [save(context, path.name, plan)]
+        save(block, 'reviews/original-rules.json', rules)
+    save(block, path.name, plan)
     while True:
-        events = human_interactions.read_interaction_events(context['run_id'])
+        block.check()
+        events = human_interactions.read_interaction_events(block.run_id)
         latest = _latest_request(events)
         revision = max(plan['next_revision'], latest['review_revision'] if latest else 1)
         digest, requests = review_requests(rules, revision)
@@ -101,7 +104,7 @@ def review(context):
             # A process can stop between saving an accepted edit and advancing
             # its coordination plan. Reconstruct only that Core-authorized edit.
             if _status(events, latest) == 'revised':
-                previous = read(context, f"reviews/state-{latest['rules_digest']}.json")
+                previous = read(block, f"reviews/state-{latest['rules_digest']}.json")
                 if review_requests(previous, revision)[0] != latest['rules_digest']:
                     raise RulesReviewRequired('The saved review state does not match Core.')
                 response = next(event['payload'] for event in reversed(events)
@@ -109,40 +112,40 @@ def review(context):
                                 and event.get('payload', {}).get('request_id') == latest['request_id'])
                 if rule_document.apply_edit(previous, response.get('notes', ''), latest) == rules:
                     plan['next_revision'] = revision + 1
-                    save(context, path.name, plan)
-                    text(context, 'rules.md', markdown(rules['rules']))
+                    save(block, path.name, plan)
+                    text(block, 'rules.md', markdown(rules['rules']))
                     continue
             raise RulesReviewRequired('Rules changed after review started outside an authorized rule edit.')
         status = _status(events, request)
         if status in {'rejected', 'expired'}:
-            save(context, 'rules-review.json', {'status': status, 'rules_digest': digest})
+            save(block, 'rules-review.json', {'status': status, 'rules_digest': digest})
             raise RulesReviewRequired('Rules were not approved or the review expired. Start a new run to review them.')
         if status == 'approved':
-            receipt = require_approved_rules(context, rules)
-            refs.append(save(context, 'rules-review.json', receipt))
-            return receipt, refs
+            receipt = require_approved_rules(block, rules)
+            save(block, 'rules-review.json', receipt)
+            return {"approval": receipt, "capture": capture_ref}
         remaining = (plan['expires_at'] - int(time.time() * 1000)) / 1000
         if remaining <= 0:
             raise RulesReviewRequired('Rule review expired. Start a new run to review the rules.')
         if status == 'missing':
-            save(context, f'reviews/state-{digest}.json', rules)
-            refs = [refs[0], text(context, request['markdown_review']['artifact_path'], rule_document.encoded_document(rules))]
+            save(block, f'reviews/state-{digest}.json', rules)
+            text(block, request['markdown_review']['artifact_path'], rule_document.encoded_document(rules))
             human_interactions.publish_human_interaction_event(
-                context['run_id'], 'human_input_requested', {**request, 'expires_at': plan['expires_at']})
+                block.run_id, 'human_input_requested', {**request, 'expires_at': plan['expires_at']})
         if status != 'revised':
             try:
-                human_interactions.await_human_decision(context['run_id'], request['request_id'], timeout=remaining)
+                human_interactions.await_human_decision(block.run_id, request['request_id'], timeout=remaining)
             except InteractionError as error:
                 if error.code == 'wait_timeout':
-                    save(context, 'rules-review.json', {'status': 'wait_expired', 'rules_digest': digest})
+                    save(block, 'rules-review.json', {'status': 'wait_expired', 'rules_digest': digest})
                     try:
                         human_interactions.publish_human_interaction_event(
-                            context['run_id'], 'human_input_timeout', {'request_id': request['request_id']})
+                            block.run_id, 'human_input_timeout', {'request_id': request['request_id']})
                     except InteractionError:
                         pass
                     raise RulesReviewRequired('Rule review timed out. Start a new run to review the rules.') from error
                 raise
-            events = human_interactions.read_interaction_events(context['run_id'])
+            events = human_interactions.read_interaction_events(block.run_id)
             status = _status(events, request)
         if status == 'revised':
             response = next(event['payload'] for event in reversed(events)
@@ -152,15 +155,15 @@ def review(context):
                 updated = rule_document.apply_edit(rules, response.get('notes', ''), request)
             except (ValueError, TypeError):
                 # Invalid edits never grant approval or destroy the current rules.
-                save(context, f'reviews/invalid-edit-{revision}.json', {'request_id': request['request_id'], 'status': 'invalid'})
+                save(block, f'reviews/invalid-edit-{revision}.json', {'request_id': request['request_id'], 'status': 'invalid'})
             else:
-                save(context, f'reviews/edit-{revision}.json', {'request_id': request['request_id'],
+                save(block, f'reviews/edit-{revision}.json', {'request_id': request['request_id'],
                      'previous_rules_digest': digest, 'edit': json.loads(response['notes'])})
-                save(context, 'rules.json', updated)
-                text(context, 'rules.md', markdown(updated['rules']))
+                save(block, 'rules.json', updated)
+                text(block, 'rules.md', markdown(updated['rules']))
                 rules = updated
             plan['next_revision'] = revision + 1
-            save(context, path.name, plan)
+            save(block, path.name, plan)
         elif status != 'approved':
-            save(context, 'rules-review.json', {'status': status, 'rules_digest': digest})
+            save(block, 'rules-review.json', {'status': status, 'rules_digest': digest})
             raise RulesReviewRequired('Rules were not approved. Review them in Chat before verification.')

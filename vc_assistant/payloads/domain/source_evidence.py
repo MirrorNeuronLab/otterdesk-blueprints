@@ -3,12 +3,12 @@
 from mn_sdk.source_query import source_text_query
 
 
-def local_source_text(record, terms):
+def local_source_text(record, terms, *, scope=None):
     reference = record.get("context_source")
     if reference is None:
         # Inputs with source query disabled retain their declared preview contract.
         return str(record.get("text_preview") or "")
-    sources = source_text_query({"source_context": {"enabled": True}}, principal="vc-company-analysis")
+    sources = source_text_query({"source_context": {"enabled": True}}, principal="vc-company-analysis", scope=scope)
     if sources is None:
         raise ValueError("pinned original source requires the source-query service")
     try:

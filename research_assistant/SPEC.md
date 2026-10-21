@@ -91,6 +91,10 @@ uses Membrane's source intelligence for exact, cited report sections, independen
 of this blueprint's disabled worker runtime-recall profile. Unavailable or oversized
 source evidence fails visibly; conversation does not substitute curated RAG.
 
+## Block composition (4.0.0)
+
+All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work. The research procedure records its start and completion: completed analysis replays without model calls; an interrupted analysis requires reconciliation before another attempt. Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

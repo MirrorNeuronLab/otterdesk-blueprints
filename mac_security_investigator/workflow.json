@@ -16,9 +16,6 @@
       "label": "Capture Mac logs",
       "goal": "Read permitted unified logs without inspecting OS files or performing remediation.",
       "needs": [],
-      "run": {
-        "definition": "steps.capture_mac_evidence"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {
@@ -34,9 +31,6 @@
       "needs": [
         "capture_mac_evidence"
       ],
-      "run": {
-        "definition": "steps.reconcile_evidence_history"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {
@@ -52,9 +46,6 @@
       "needs": [
         "reconcile_evidence_history"
       ],
-      "run": {
-        "definition": "steps.investigate_temporal_behavior"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {
@@ -70,9 +61,6 @@
       "needs": [
         "investigate_temporal_behavior"
       ],
-      "run": {
-        "definition": "steps.publish_security_review"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {

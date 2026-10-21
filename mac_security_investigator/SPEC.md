@@ -19,7 +19,7 @@ source execution, credential extraction, remote inference or blanket safety clai
 Four logical steps capture permitted unified logs, reconcile a persistent
 diagnostic history, evaluate available temporal evidence, and publish a local
 review with explicit limits.
-They bind to four specialist agents through the shared route-neutral lifecycle.
+They bind to four stock domain-operation blocks with explicit domain hooks.
 Core owns routing, idempotency and workflow completion. Domain policy lives in
 payloads/domain; generic temporal mechanics live in mn-skills/temporal_graph_skill.
 
@@ -104,3 +104,25 @@ No accuracy percentage, forensic authenticity or tamper-proof claim is made.
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Native block composition (3.0.0)
+
+Capture, reconciliation and investigation consume the SDK block context and
+committed input references directly. The final phase uses the stock
+`report_publication` block for required JSON/Markdown and an optional HTML view.
+There is no operation wrapper, context adapter, local renderer or local publisher.
+The temporal ledger still seals domain assessments; v3 stores its ReportDocument
+projection under a distinct presentation identity so older reports remain sealed.
+
+The optional preview uses the shared escaped layout and a bounded timeline table.
+It retains acquisition/time uncertainty, first-known revisions, witnesses and
+source references. CSP permits only bundled hashed UI scripts and blocks network
+connections and untrusted scripts. Preview rendering failures are recorded in the
+stock publication receipt and cannot prevent authoritative JSON/Markdown output.
+Rendering and aggregate block records have explicit shared capacity limits; a
+capacity failure is visible, without silently truncating evidence.
+
+This requires `mirrorneuron-web-report-skill >=1.3.61.dev4,<2` in addition to the
+declared SDK/block packages. Worker execution remains HostLocal on the submitting
+Mac. The empty runtime/agents/steps directories are SDK upload-layout placeholders,
+not Python entrypoints or compatibility adapters.

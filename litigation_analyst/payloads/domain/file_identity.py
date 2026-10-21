@@ -10,9 +10,9 @@ from mn_graph_analysis_skill import (FileIdentityRegistry, compute_content_hash,
 
 
 def capture_file_identities(source, run_dir, context, hashes):
-    settings = context['config']['investigation']
+    settings = context.config['investigation']
     explicit = settings.get('repository_id')
-    job = context.get('job_id') or os.environ.get('MN_JOB_ID')
+    job = context.job_id or os.environ.get('MN_JOB_ID')
     # Case/matter scope is supplied by the trusted owner, never an absolute path.
     scope = explicit or ("case:" + job if job else "case-scope:" + settings['access_scope'])
     ledger = Path(run_dir).parent / 'file-identities' / (compute_content_hash(scope.encode()) + '.json')

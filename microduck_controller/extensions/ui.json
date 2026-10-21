@@ -44,7 +44,7 @@
   "web_ui": {
     "enabled": true,
     "title": "Microduck Controller",
-    "node_id": "run_microduck_service__microduck_service",
+    "node_id": "run_microduck_service__block_run_microduck_service_specialist",
     "service_name": "microduck-controller-web-ui"
   }
 }

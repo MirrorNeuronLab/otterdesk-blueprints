@@ -75,15 +75,17 @@ Chat's introduction asks for the upload. The exact `conversation_file_upload:nif
 
 ## Verification
 
-Version 2 uses the optional SDK `blueprint-blocks` component for the native
-computation step. The blueprint keeps CT validation, the pinned model and report
-composition. Shared code owns worker binding, bounded artifact messages,
-invocation replay and uncertain-effect fencing. The volume is snapshotted before
-dispatch; a retry can reconcile a completed saved report without another model
-request. An interrupted request with no durable result remains uncertain and
-requires an explicit new run or reconciliation. Install the matching
-SDK/common/blocks family from `1.3.61.dev25` onward. The block migration is covered
-by offline tests; the historical live checks below predate this migration.
+Version 3 uses the stock native-computation capability with no blueprint-owned
+dispatch or reconciliation adapter. The blueprint retains scan preparation,
+research-only result validation and report composition. The shared block freezes
+the volume reference before dispatch; the SDK uses the declared native model,
+zero retries and a 600s transport timeout within the 900s block limit. A saved
+response recovers interrupted report publication without another model request.
+An interrupted request with no durable response remains uncertain and requires
+an explicit new run or reconciliation. Use SDK/blocks `>=1.3.61.dev26,<2` and
+common `>=1.3.61.dev25,<2`. Offline compiled-worker tests cover replay, invalid
+responses, frozen inputs, unknown outcomes and interrupted Markdown publication.
+The historical live checks below predate this migration.
 
 On 2026-10-14, `mirror-neuron/nv-reason-ct:0.1.1` built successfully on Spark
 (Linux ARM64, NVIDIA GB10). An isolated container loaded the pinned model from
@@ -118,3 +120,13 @@ scan interpretation, diagnosis, treatment, or follow-up schedule.
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Block composition (3.0.0)
+
+The native-computation block selects the declared `ct` model and invokes the
+existing managed `http_json` interface. Its request, validation and publication
+hooks contain only CT policy. Shared code owns request freezing, base64 encoding
+of the committed volume, dispatch fencing and response recovery. Production Python
+falls from 247 to 193 lines (−54; −21.9%), across 8 → 6 files, including unchanged
+model-serving code. CUDA placement, the pinned image and public report contracts
+remain unchanged. OpenShell remains optional; this worker retains Docker.

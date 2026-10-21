@@ -12,7 +12,7 @@ from ._shared import step_inputs
 
 STEP = StepSpec(
     input=InputSpec(
-        fields=step_inputs("assemble_company_packets", "company_packets")
+        fields=step_inputs("assemble_company_packets", "company_packets", result_ref=True)
     ),
     flow=sequence(
         agent("document_evidence_extractor", as_="extract"),

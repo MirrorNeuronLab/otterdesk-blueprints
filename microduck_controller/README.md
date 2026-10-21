@@ -2,11 +2,12 @@
 
 Microduck Controller packages the Microduck RL playground as a live OtterDesk service. Open its browser control tab, then use ordinary language in OtterDesk to inspect or control the visible robot. The stable Job agent reads the blueprint-owned control manual and invokes only the service's bounded MCP tools.
 
-Version 3 composes ordinary command admission with the SDK's
-`mn.blocks.controlled_operation@1` named operation. Shared code handles request
+Version 5 composes ordinary command admission with the SDK's native async-device
+transport and `mn.blocks.controlled_operation@1` named operation. Shared code handles request
 journals, replay, uncertainty fencing and bounded async transport. Browser physics,
 lease/readiness policy, live completion receipts and the priority stop path remain
-domain-owned. It requires SDK/common/blocks `>=1.3.61.dev25,<2`. Offline tests use
+domain-owned. It requires main SDK and blocks `>=1.3.61.dev27,<2`, with common
+`>=1.3.61.dev25,<2`. Offline tests use
 the real MCP/SDK/bridge path with a synthetic browser sender; this migration has
 not been qualified in a live simulator browser session.
 
@@ -56,6 +57,18 @@ npm --prefix payloads/web_app run build
 jq empty manifest.json
 jq empty config/default.json
 ```
+
+## Block composition (5.0.0)
+
+The service phase now uses the monitored-service block, and the terminal phase uses a domain-operation block. `domain/service_lifecycle.py` owns the ASGI listener resource; the SDK owns supervision, replay, health and shutdown. Command admission retains its controlled-operation block and priority stop path. Both staged source copies match. Health is checked every 60 seconds, bounded by 1,000,000 cycles and 64 MiB of checkpoints; rotate before capacity is exhausted.
+
+Command admission selects the SDK's native `async_device` transport, with no
+blueprint capability adapters. `BridgeHub` implements typed device observations
+and exact-command receipts; the SDK owns async calls, reconciliation and the
+pending-command invalidation check. The blueprint retains motion validation,
+lease rules and cancellation messages. Main SDK and blocks must both be
+`>=1.3.61.dev27,<2`; common remains `>=1.3.61.dev25,<2`. Browser receipts still
+establish actual completion, separately from durable admission evidence.
 
 ## Blueprint package format
 

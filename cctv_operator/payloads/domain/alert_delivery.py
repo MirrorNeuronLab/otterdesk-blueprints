@@ -36,3 +36,25 @@ def post_slack(
     if body.get("ok") is True:
         return "sent", {"channel": channel, "ts": body.get("ts")}
     return "error", {"channel": channel, "error": body.get("error", "unknown_slack_error")}
+
+
+def alert_text(camera_id: str, detection: dict[str, Any], frame_seq: int, source_uri: str) -> str:
+    prefix = os.environ.get("SLACK_MESSAGE_PREFIX", "Video detection alert")
+    detections = detection.get("detections") or []
+    detection_lines = []
+    for index, item in enumerate(detections[:8], start=1):
+        detection_lines.append(
+            f"{index}. {item.get('color', 'unknown')} {item.get('label', 'observed item')} - "
+            f"{item.get('position') or 'position unclear'}; {item.get('activity') or 'activity unclear'}"
+        )
+    detection_text = "\n".join(detection_lines) if detection_lines else "No per-detection details reported."
+    description = detection.get("detection_report") or detection["summary"]
+    activity = detection.get("activity_description") or "Activity not clearly visible."
+    return (
+        f"{prefix}: {detection.get('detection_count', 0)} configured target(s) observed on {camera_id}\n"
+        f"Confidence: {detection['confidence']:.2f} | Risk: {detection['risk_level']} | Frame: {frame_seq}\n"
+        f"{description}\n"
+        f"Activity: {activity}\n"
+        f"Detection details:\n{detection_text}\n"
+        f"Source: {source_uri}"
+    )

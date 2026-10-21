@@ -158,6 +158,46 @@ def test_caption_batch_uses_the_same_camera_override_as_person_events(tmp_path, 
     assert batch["camera_id"] == "approved-camera"
 
 
+def test_instruction_cannot_regress_while_its_public_view_is_delayed_or_after_restart(tmp_path):
+    old = {"instruction": "Old rule", "instruction_revision": 1, "last_command_id": "old"}
+    current = {"instruction": "Watch the exit", "instruction_revision": 2, "last_command_id": "current"}
+    schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
+    assert schedule.claim(current, invocation_id="command", now=100)["batch"] is None
+    # No pending window exists yet; a delayed old public projection still
+    # cannot become the intent for a later person-gated capture.
+    restarted = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
+    gated_capture(restarted, 1, 101, jpeg(), old)
+    batch = restarted.claim(old, invocation_id="tick", now=102)["batch"]
+    assert batch["instruction_revision"] == 2
+    assert batch["instruction"] == "Watch the exit" and batch["command_id"] == "current"
+
+
+def test_instruction_updated_during_jpeg_preprocessing_applies_to_the_offered_window(tmp_path):
+    from contextlib import contextmanager
+    entered, resume = threading.Event(), threading.Event()
+    metrics = Benchmarks(tmp_path)
+    @contextmanager
+    def preprocessing(*_args, **_kwargs):
+        entered.set()
+        assert resume.wait(5)
+        yield
+    metrics.measure = preprocessing
+    schedule = CaptionSchedule(tmp_path, "run", {"sampling": {"pre_roll_seconds": 1.5, "post_roll_seconds": .5}}, metrics)
+    schedule.person_sample(99, confirmed=True, episode=1)
+    old = {"instruction": "Old rule", "instruction_revision": 1}
+    current = {"instruction": "New rule", "instruction_revision": 2}
+    worker = threading.Thread(target=schedule.capture, args=(1, 100, jpeg(), old))
+    worker.start()
+    try:
+        assert entered.wait(5)
+        assert schedule.claim(current, now=100)["batch"] is None
+    finally:
+        resume.set()
+        worker.join(5)
+    assert not worker.is_alive()
+    assert schedule.claim(now=101)["batch"]["instruction"] == "New rule"
+
+
 def test_lost_caption_completion_is_explicit_and_never_starts_overlapping_work(tmp_path):
     schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
     now = time.time()
@@ -168,6 +208,68 @@ def test_lost_caption_completion_is_explicit_and_never_starts_overlapping_work(t
     assert schedule.snapshot()["inflight_status"] == "stalled"
     restarted = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
     assert restarted.snapshot()["inflight"]["batch_id"] == first["batch_id"]
+
+
+def test_late_completion_replay_cannot_erase_a_later_completed_window(tmp_path):
+    schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
+    gated_capture(schedule, 1, 100, jpeg(), {})
+    first = schedule.claim(invocation_id="first", now=101)["batch"]
+    complete_caption(tmp_path, first["batch_id"], status="ok")
+    first_receipt = (tmp_path / "caption_completions" / (first["batch_id"] + ".json")).read_bytes()
+    gated_capture(schedule, 2, 130, jpeg("white"), {})
+    second = schedule.claim(invocation_id="second", now=131)["batch"]
+    complete_caption(tmp_path, second["batch_id"], status="ok")
+    complete_caption(tmp_path, first["batch_id"], status="ok")
+    assert (tmp_path / "caption_completions" / (first["batch_id"] + ".json")).read_bytes() == first_receipt
+    assert schedule.claim(invocation_id="third", now=132)["batch"] is None
+    assert schedule.snapshot()["inflight"] is None
+    assert schedule.snapshot()["last_completion"]["batch_id"] == second["batch_id"]
+    with pytest.raises(ValueError, match="cannot change"):
+        complete_caption(tmp_path, first["batch_id"], status="error")
+
+
+def test_resident_completion_rpc_is_scoped_and_idempotent_without_starting_camera(tmp_path, monkeypatch):
+    from cctv_operator.payloads.domain import caption_schedule
+    monitor = LiveMonitor.__new__(LiveMonitor)
+    monitor.root = tmp_path
+    request = {"operation": "complete_caption", "batch_id": "caption-one", "status": "ok"}
+    expected = {"batch_id": "caption-one", "status": "ok"}
+    assert monitor.request(request) == expected
+    receipt = (tmp_path / "caption_completions/caption-one.json").read_bytes()
+    assert monitor.request(request) == expected
+    assert (tmp_path / "caption_completions/caption-one.json").read_bytes() == receipt
+    calls = []
+    def transport(binding, run_id, payload, *, timeout):
+        calls.append((binding, run_id, payload, timeout))
+        return monitor.request(payload)
+    monkeypatch.setattr(caption_schedule, "local_model_request", transport)
+    assert caption_schedule.acknowledge_caption(tmp_path, "camera-run", "caption-one", status="ok") == expected
+    assert calls == [(tmp_path / caption_schedule.BINDING_FILE, "camera-run", request, 20)]
+    for invalid in ({**request, "batch_id": None}, {**request, "status": {}}, {**request, "unexpected": True}):
+        with pytest.raises(ValueError):
+            monitor.request(invalid)
+
+
+@pytest.mark.parametrize("fault", ["batch", "status", "time", "shape"])
+def test_invalid_completion_receipt_cannot_release_inflight_admission(tmp_path, fault):
+    schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
+    gated_capture(schedule, 1, 100, jpeg(), {})
+    batch = schedule.claim(invocation_id="first", now=101)["batch"]
+    value = {"batch_id": batch["batch_id"], "status": "ok", "at": 102}
+    if fault == "batch":
+        value["batch_id"] = "other-batch"
+    elif fault == "status":
+        value["status"] = "assumed-complete"
+    elif fault == "time":
+        value["at"] = float("nan")
+    else:
+        value = []
+    directory = tmp_path / "caption_completions"
+    directory.mkdir()
+    (directory / (batch["batch_id"] + ".json")).write_text(json.dumps(value))
+    with pytest.raises(ValueError, match="receipt is invalid"):
+        schedule.claim(invocation_id="second", now=103)
+    assert schedule.snapshot()["inflight"]["batch_id"] == batch["batch_id"]
 
 
 @pytest.mark.parametrize("goal", ["A person is visible in the video.", "A visible person is not wearing a helmet."])

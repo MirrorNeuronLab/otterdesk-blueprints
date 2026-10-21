@@ -9,7 +9,9 @@ from workspace_paths import companion_workspace
 
 
 def review_task(ctx, reference, node, model):
-    from domain.sandbox_review import review_admitted
+    from dataclasses import asdict
+    from mn_sdk.integrations.block_worker import run
+    from mn_sdk.step_runtime import StepContext
     from domain.review_admission import reconcile
     from domain.catalog_store import CatalogStore
     from mn_sdk.artifact_handoff import resolve_committed, store_root, reference_key
@@ -30,11 +32,19 @@ def review_task(ctx, reference, node, model):
     core_store.handle({**base,'op':'started'})
     spec={**state,'workspace':str(workspace),'inputs':inputs,'max_bytes':8000000,'max_files':16}
     env={'MN_ARTIFACT_OUTPUT_DIR':str(workspace/'outputs'),'MN_ARTIFACT_INPUT_INDEX':str(workspace/'.inputs/index.json'),
-         'MN_ARTIFACT_PRODUCER':json.dumps(identity),'MN_ARTIFACT_COMMIT_ID':state['commit_id']}
+         'MN_ARTIFACT_PRODUCER':json.dumps(identity),'MN_ARTIFACT_COMMIT_ID':state['commit_id'],
+         'MN_RUN_DIR':str(workspace/'local/runs'/identity['run_id']),
+         'MN_SDK_COMPONENTS_JSON':'["blueprint-blocks"]'}
+    source=Path(__file__).resolve().parents[2]/'software_architecture_advisor'
+    parameters=json.loads((source/'execution.json').read_text())['agents']['registry']['architecture_packet_reviewer']['with']
     with patch.dict(os.environ,env):
-        result=review_admitted(node['review_input'],llm_client=model)
-    execution={'exit_code':0,'structured_result':{'outputs':result,'artifacts':[result['result']]},'stdout':'','stderr':''}
+        result=run(StepContext(step_id=node['id'],run_id=identity['run_id'],job_id=identity['job_id'],
+            agent_id='architecture_packet_reviewer',idempotency_key=identity['run_id']+'/'+node['id'],
+            environment=dict(os.environ),config=ctx['config'],message={'_mn_step':{'step_input':node}}),
+            resources={'llm':model},**parameters)
+    execution={'exit_code':0,'structured_result':asdict(result),'stdout':'','stderr':''}
     core_worker.seal(workspace,spec,execution)
+    assert 'seal_error' not in execution, execution
     # Transfer only sealed manifest and declared outputs, matching the runner.
     import shutil
     stage=workspace/'transfer'

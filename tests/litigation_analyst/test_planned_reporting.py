@@ -64,9 +64,9 @@ def test_large_deadline_survives_compilation(modules):
         "timeout_seconds" in step["control"]
         and step["control"]["timeout_seconds"] == 99999
     )
-    index_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "build_case_indexes__case_index_builder")
+    index_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "build_case_indexes__block_build_case_indexes_specialist")
     assert index_worker["config"]["timeout_seconds"] == 99999
-    preparation_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "prepare_case_sources__case_document_examiner")
+    preparation_worker = next(node for node in compiled["agents"]["nodes"] if node["node_id"] == "prepare_case_sources__block_prepare_case_sources_specialist")
     assert preparation_worker["config"]["timeout_seconds"] == 3600
     serialized = json.dumps(compiled)
     assert "mn-python-sdk-rag" in serialized
@@ -74,17 +74,15 @@ def test_large_deadline_survives_compilation(modules):
 
 def test_unaccepted_findings_are_withheld(modules, tmp_path):
     context = case_context(modules, tmp_path)
-    modules["research"].investigate(context, llm_client=ScriptedModel())
-    path = context["run_dir"] / "case/agent_checkpoint.json"
-    state = json.loads(path.read_text())
-    state["data"]["report_draft"]["findings"][0]["assessment"] = (
-        "UNSUPPORTED ACCUSATION"
-    )
-    state["data"]["report_review"] = {
-        "accepted_ids": [],
-        "issues": ["Evidence does not establish allegation."],
-    }
-    path.write_text(json.dumps(state))
+    class Rejected(ScriptedModel):
+        def completion_text(self, system, user):
+            action = json.loads(super().completion_text(system, user))
+            if action['name'] == 'submit_report':
+                action['arguments']['findings'][0]['assessment'] = 'UNSUPPORTED ACCUSATION'
+            elif action['name'] == 'review_report':
+                action['arguments'] = {'accepted_ids': [], 'issues': ['Evidence does not establish allegation.']}
+            return json.dumps(action)
+    modules["research"].investigate(context, llm_client=Rejected())
     modules["reporting"].write_review(context)
     text = (context["run_dir"] / "final_report.md").read_text()
     assert "UNSUPPORTED ACCUSATION" not in text
@@ -112,18 +110,22 @@ def test_report_rejects_unknown_citations_and_flagged_sources(modules, tmp_path)
         submit_report(data, report, store, data["investigation_id"])
 
 
-def test_guidance_changes_reject_resume(modules, tmp_path, monkeypatch):
+def test_guidance_changes_reject_interrupted_checkpoint_resume(modules, tmp_path, monkeypatch):
     from domain.app import agentic
-
+    from domain import state
     context = case_context(modules, tmp_path)
-    modules["research"].investigate(context, llm_client=ScriptedModel())
+    terminal = state.terminal
+    def interrupted(*args, **kwargs):
+        raise OSError('interrupted before terminal commit')
+    monkeypatch.setattr(state, 'terminal', interrupted)
+    with pytest.raises(OSError, match='interrupted before terminal commit'):
+        modules["research"].investigate(context, llm_client=ScriptedModel())
+    monkeypatch.setattr(state, 'terminal', terminal)
     original = agentic.InvestigationGuidance
-
     class Changed(original):
         def __init__(self):
             super().__init__()
-            self.fingerprint = "changed"
-
-    monkeypatch.setattr(agentic, "InvestigationGuidance", Changed)
-    with pytest.raises(ValueError, match="binding mismatch"):
+            self.fingerprint = 'changed'
+    monkeypatch.setattr(agentic, 'InvestigationGuidance', Changed)
+    with pytest.raises(ValueError, match='binding mismatch'):
         modules["research"].investigate(context, llm_client=ScriptedModel())

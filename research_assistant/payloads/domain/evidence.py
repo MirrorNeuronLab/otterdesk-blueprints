@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 import csv
 import io
@@ -13,10 +13,10 @@ from typing import Any
 
 from mn_public_research_orchestrator_skill import BrowserResearch, load_browser as _load_web_browser_skill
 
-from .common import DEFAULT_OUTPUT_FOLDER, runtime_asset_root
+from .common import BLUEPRINT_ID, runtime_asset_root
 from .inputs import expand_runtime_path, load_input_documents, resolve_input_folder
 from .knowledge import load_research_knowledge, prepare_research_rag, retrieve_research_rag_context
-from .state import _inputs, _save, _state
+from .state import read_state, save_state
 
 
 def prepare_evidence_context(
@@ -117,16 +117,6 @@ def _status_counts(records: list[dict[str, Any]]) -> dict[str, int]:
         counts[status] = counts.get(status, 0) + 1
     return counts
 
-
-def resolve_output_folder(config: dict[str, Any], inputs: dict[str, Any]) -> Path | None:
-    runtime_output_folder = os.environ.get("MN_JOB_OUTPUT_DIR")
-    if runtime_output_folder:
-        return expand_runtime_path(runtime_output_folder)
-    value = inputs.get("output_folder") or (config.get("outputs") or {}).get("folder_path") or DEFAULT_OUTPUT_FOLDER
-    value = str(value).strip()
-    if not value:
-        return None
-    return expand_runtime_path(value)
 
 
 def research_evidence(
@@ -253,18 +243,18 @@ def deterministic_research_posture(evidence: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@activity_operation('Preparing source evidence', completed='Preparing source evidence: completed')
-def prepare_evidence(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = _inputs(ctx)
-    llm_mode = str((ctx["config"].get("llm") or {}).get("mode") or "live")
+def prepare_evidence(block, inputs) -> dict[str, Any]:
+    report_activity("Preparing source evidence", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_state(block, inputs["previous"])
+    inputs = state["inputs"]
+    llm_mode = str((block.config.get("llm") or {}).get("mode") or "live")
     prepared = prepare_evidence_context(
-        ctx["config"], inputs, Path(ctx["blueprint_dir"]), ctx["run_id"],
-        quick_test=llm_mode in {"fake", "mock"} or bool((ctx["config"].get("execution") or {}).get("quick_test")),
+        block.config, inputs, runtime_asset_root(), block.run_id,
+        quick_test=llm_mode in {"fake", "mock"} or bool((block.config.get("execution") or {}).get("quick_test")),
     )
     state.update({"inputs": inputs, "documents": prepared["documents"], "rag": prepared["rag"], "sources": prepared["sources"], "evidence": prepared["evidence"], "posture": deterministic_research_posture(prepared["evidence"]), "warnings": prepared["warnings"]})
-    _save(ctx, state)
-    return {"source_count": len(prepared["sources"]), "document_count": len(prepared["documents"])}
+    return {"source_count": len(prepared["sources"]), "document_count": len(prepared["documents"]),
+            "state": save_state(block, state, "evidence")}
 
 
 __all__ = [
@@ -277,6 +267,5 @@ __all__ = [
     "prepare_evidence_context",
     "research_evidence",
     "research_public_sources",
-    "resolve_output_folder",
     "sanitize_public_text",
 ]

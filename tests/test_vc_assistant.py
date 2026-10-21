@@ -25,6 +25,7 @@ from vc_assistant.domain_test_support import load_domain_test_surface
 from workspace_paths import companion_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
+pytestmark = pytest.mark.usefixtures("workflow_budget_owner")
 WORKSPACE = companion_workspace(ROOT)
 for skill_name in (
     "evidence_engine_skill",
@@ -154,130 +155,18 @@ def _load_runner():
     return module
 
 
-def _run_vc_manifest_step(
-    runner,
-    step_id: str,
-    *,
-    inputs: dict | None = None,
-    config: dict | None = None,
-    runs_root: str | Path | None = None,
-    run_id: str | None = None,
-    llm_client=None,
-):
-    from mn_sdk.step_runtime import StepContext, invoke_handler
-
-    manifest = blueprint_definition(
-        read_blueprint(BLUEPRINT_DIR / "manifest.json")
-    )
-    step = next(item for item in manifest["workflow"]["steps"] if item["id"] == step_id)
-    registry = manifest["agents"]["registry"]
-    step_module = importlib.import_module(step["run"]["definition"])
-    flow = step_module.STEP.to_dict()["flow"]
-    resolved_run_id = str(
-        run_id or os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or ""
-    )
-    agent_outputs = {}
-    result = {}
-
-    def run_flow(flow_node, delivered_payload):
-        nonlocal result
-        kind = flow_node["type"]
-        if kind == "sequence":
-            current = delivered_payload
-            for item in flow_node["items"]:
-                current = run_flow(item, current)
-            return current
-        if kind == "parallel":
-            return {
-                (item.get("alias") or item["agent_id"]): run_flow(
-                    item, delivered_payload
-                )
-                for item in flow_node["items"]
-            }
-        assert kind == "agent"
-        agent_id = flow_node["agent_id"]
-        call_id = flow_node.get("alias") or agent_id
-        invocation_id = f"{step_id}__{call_id}"
-        definition = registry[agent_id]
-        parameters = {
-            **dict(definition.get("with") or {}),
-            "runs_root": str(runs_root) if runs_root is not None else None,
-            "llm_client": llm_client,
-        }
-        result = invoke_handler(
-            definition["handler"],
-            context=StepContext(
-                step_id=step["id"],
-                agent_id=agent_id,
-                invocation_id=invocation_id,
-                run_id=resolved_run_id,
-                idempotency_key=f"{resolved_run_id or 'test'}/{invocation_id}",
-                message={
-                    "body": {
-                        "outputs": dict(delivered_payload or {}),
-                        "artifacts": [],
-                        "_mn_step": {"step_input": dict(inputs or {})},
-                    }
-                },
-                config=dict(config or {}),
-            ),
-            parameters=parameters,
-        )
-        agent_outputs[agent_id] = dict(result.get("outputs") or {})
-        return dict(result.get("outputs") or {})
-
-    flow_outputs = run_flow(flow, dict(inputs or {}))
-    if flow["type"] == "parallel":
-        flattened = dict(flow_outputs)
-    else:
-        flattened = dict(result.get("outputs") or {})
-    return {
-        **flattened,
-        "outputs": flattened,
-        "agent_outputs": agent_outputs,
-        "workflow_step_id": step_id,
-        "run_id": str(resolved_run_id or flattened.get("run_id") or ""),
-        "runtime_step_mode": "agent_invocation",
-        "status": str(flattened.get("status") or result.get("status") or "completed"),
-    }
+def _run_vc_manifest_step(runner, step_id, *, inputs=None, config=None,
+    runs_root=None, run_id=None, llm_client=None):
+    from block_workflow_fixture import run_sample
+    return run_sample("vc_assistant", inputs=inputs, config=config,
+        runs_root=runs_root or os.environ.get("MN_RUNS_ROOT"),
+        run_id=run_id or os.environ.get("MN_RUN_ID"), llm_client=llm_client,
+        through_step=step_id)
 
 
-def _run_vc_manifest_handlers(
-    runner,
-    *,
-    inputs: dict | None = None,
-    config: dict | None = None,
-    runs_root: str | Path | None = None,
-    run_id: str | None = None,
-    llm_client=None,
-):
-    manifest = blueprint_definition(
-        read_blueprint(BLUEPRINT_DIR / "manifest.json")
-    )
-    result = {}
-    for step in manifest["workflow"]["steps"]:
-        result = _run_vc_manifest_step(
-            runner,
-            step["id"],
-            inputs=inputs,
-            config=config,
-            runs_root=runs_root,
-            run_id=run_id,
-            llm_client=llm_client,
-        )
-    # Redis messages intentionally carry only bounded artifact references.  The
-    # legacy end-to-end assertions inspect the durable payload, so resolve that
-    # reference at the test boundary instead of weakening the production API.
-    final_ref = result.get("final_artifact")
-    if isinstance(final_ref, dict) and final_ref.get("path"):
-        candidate = (
-            Path(runs_root or ROOT / "runs")
-            / str(result.get("run_id") or run_id or "")
-            / str(final_ref["path"])
-        )
-        if candidate.exists():
-            result["final_artifact"] = json.loads(candidate.read_text(encoding="utf-8"))
-    return result
+def _run_vc_manifest_handlers(runner, **options):
+    from block_workflow_fixture import run_sample
+    return run_sample("vc_assistant", **options)
 
 
 def _expand_source_manifest(source: dict) -> dict:
@@ -935,9 +824,9 @@ def test_debug_mode_writes_step_trace(tmp_path, monkeypatch):
     assert result["workflow_step_id"] == "detect_packet_changes"
     debug_trace = (run_dir / "debug_trace.jsonl").read_text(encoding="utf-8")
     events = (run_dir / "events.jsonl").read_text(encoding="utf-8")
-    assert "debug_workflow_step_started" in debug_trace
-    assert "debug_workflow_step_completed" in debug_trace
-    assert "debug_workflow_step_started" in events
+    assert "debug_block_started" in debug_trace
+    assert "debug_block_completed" in debug_trace
+    assert "debug_block_started" in events
 
 
 def test_debug_mode_is_off_by_default(monkeypatch):
@@ -949,7 +838,7 @@ def test_debug_mode_is_off_by_default(monkeypatch):
     assert runner.debug_mode_enabled({}) is False
 
 
-def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
+def test_actor_llm_init_failure_aborts_before_planning_checkpoint(tmp_path, monkeypatch):
     runner = _load_runner()
     docs = tmp_path / "startup-docs"
     outputs = tmp_path / "reports"
@@ -982,9 +871,8 @@ def test_actor_llm_init_failure_writes_failed_run(tmp_path, monkeypatch):
         )
 
     run_dir = tmp_path / "vc-llm-init-failed"
-    run_json = json.loads((run_dir / "run.json").read_text(encoding="utf-8"))
-    assert run_json["status"] == "failed"
-    assert "actor client init timed out" in run_json["error"]
+    assert not (run_dir / "vc/intake/research_planner.json").exists()
+    assert not (run_dir / "final_artifact.json").exists()
     events = (run_dir / "events.jsonl").read_text(encoding="utf-8")
     assert "actor_llm.init" in events
     assert "required_actor_llm_init_failed" in events
@@ -1475,7 +1363,7 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(runner, "require_ready_rag", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        importlib.import_module("agents.document_evidence_extractor"),
+        importlib.import_module("domain.intake_blocks"),
         "scan_documents",
         lambda folder, config=None, **kwargs: (_ for _ in ()).throw(
             runner.OcrRequiredError("PDF OCR did not produce usable text")
@@ -1496,17 +1384,14 @@ def test_vc_ocr_failure_marks_run_failed(monkeypatch, tmp_path):
             llm_client=FakeVCLLM(),
         )
 
-    run_json = json.loads(
-        (tmp_path / "vc-ocr-failed" / "run.json").read_text(encoding="utf-8")
-    )
     events = [
         json.loads(line)
         for line in (tmp_path / "vc-ocr-failed" / "events.jsonl")
         .read_text(encoding="utf-8")
         .splitlines()
     ]
-    assert run_json["status"] == "failed"
-    assert run_json["error"] == "PDF OCR did not produce usable text"
+    assert not (tmp_path / "vc-ocr-failed/final_artifact.json").exists()
+    assert not (tmp_path / "vc-ocr-failed/vc/intake/document_evidence_extractor.json").exists()
     assert any(
         event["type"] == "tool_call_failed"
         and event["payload"]["tool"] == "llm_ocr.extract_document_folder"
@@ -2325,24 +2210,26 @@ def test_complete_preprocessed_input_is_indexed_beyond_preview(tmp_path, text_me
 
 def test_actor_review_context_uses_markdown_and_keeps_witness_sideband(tmp_path, text_memory_transport):
     _load_runner()
-    from domain.text_memory import actor_memory_context
+    from domain.text_memory import snapshot_memory_context
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
     context = {"workflow_step_id": "review", "agent_id": "reviewer", "report_only": True}
-    ctx = {"run_dir": tmp_path, "config": {"text_memory": {"enabled": True, "max_results": 3, "max_context_bytes": 4000}}}
-    evidence_dir = tmp_path / 'workflow_state' / 'company_evidence'
-    evidence_dir.mkdir(parents=True)
-    (evidence_dir / 'company.json').write_text(json.dumps({
+    block = BlockContext(CommittedJsonStore(tmp_path), "review", "test@1", step_id="review",
+        job_id="test-memory-job", run_id="test-memory-run",
+        config={"text_memory": {"enabled": True, "max_results": 3, "max_context_bytes": 4000}})
+    state = {"evidence": {"company": {
         'source_records': [{'source_id': 'S1', 'source_type': 'founder_provided_document', 'retrieved_at': '2026-10-03T01:00:00Z'}],
         'evidence_items': [{'evidence_id': 'E1', 'source_id': 'S1', 'raw_excerpt': 'PRIVATE document body'}],
         'claim_records': [{'claim_id': 'C1', 'canonical_claim': 'ARR claim 120000', 'evidence_ids': ['E1'],
-                           'verification_status': 'self_reported_unverified'}]}))
+                           'verification_status': 'self_reported_unverified'}]}}}
     context['rag_context'] = {'context': 'EXTERNAL_KNOWLEDGE_CANARY', 'citations': [{'ref': 1}]}
-    packet = actor_memory_context(ctx, context, step_id="review", agent_id="reviewer")
+    packet = snapshot_memory_context(block, state, context, role="reviewer")
     assert packet['runtime_memory']['evidence']
     assert 'ARR claim 120000' in json.dumps(packet['runtime_memory'])
     assert 'EXTERNAL_KNOWLEDGE_CANARY' not in str(text_memory_transport.scopes)
     assert 'PRIVATE document body' not in str(text_memory_transport.scopes)
     assert 'fixture_witness' not in json.dumps(packet)
-    artifacts = list((tmp_path / 'workflow_state').glob('membrane-*.json'))
+    artifacts = list((tmp_path / 'vc' / 'memory').glob('*.json'))
     assert len(artifacts) == 1
     assert 'fixture_witness' in artifacts[0].read_text()
     assert packet['report_only'] is True
@@ -2967,6 +2854,7 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
         inputs={
             "document_folder": str(docs),
             "output_folder": str(outputs),
+            "monitoring": {"enabled": True, "poll_interval_seconds": 1, "max_cycles": 1},
         },
         config={
             "llm": {"mode": "fake", "require_live": False},
@@ -2986,9 +2874,9 @@ def test_runtime_steps_use_distributed_step_handlers(tmp_path):
     assert grouped_result["workflow_step_id"] == "assemble_company_packets"
     assert "final_artifact" not in grouped_result
     assert (run_dir / "workflow_state" / "company_packet_groups.json").exists()
-    assert (
-        run_dir / "assemble_company_packets__company_packet_grouper_result.json"
-    ).exists()
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+    checkpoint = CommittedJsonStore(run_dir).read(grouped_result["state"])
+    assert checkpoint["data"]["stage"] == "company_packet_grouper"
 
 
 def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(
@@ -3030,7 +2918,8 @@ def test_runtime_step_entrypoint_honors_mirror_neuron_run_environment(
     assert result["runtime_step_mode"] == "agent_invocation"
     assert result["workflow_step_id"] == "detect_packet_changes"
     assert not (run_dir / "run.json").exists()
-    assert (run_dir / "workflow_state" / "runtime_context.json").exists()
+    assert not (run_dir / "workflow_state" / "runtime_context.json").exists()
+    assert (run_dir / "vc/intake/startup_folder_watcher.json").exists()
     assert (run_dir / "workflow_state" / "document_files.json").exists()
     assert not (run_dir / "final_artifact.json").exists()
 

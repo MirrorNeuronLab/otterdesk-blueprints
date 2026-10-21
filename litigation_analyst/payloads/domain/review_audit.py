@@ -6,7 +6,7 @@ def attach(workspace, context, documents):
     allowed = {d.source_id for d in documents}
     rows = []
     for stage in ('assessment', 'review'):
-        for path in sorted((context['run_dir'] / 'case/rounds').glob(f'r*-{stage}.json')):
+        for path in sorted((context.store.run_dir / 'case/rounds').glob(f'r*-{stage}.json')):
             value = json.loads(path.read_text())
             assessment_path = path.with_name(path.name.removesuffix('-review.json') + '-assessment.json') if stage == 'review' else path
             assessment = json.loads(assessment_path.read_text()) if assessment_path.is_file() else {}
@@ -30,7 +30,7 @@ def attach(workspace, context, documents):
     from .review_packets import consistency_checks
     report = {'findings':workspace['findings']}
     checks = consistency_checks(report, workspace['financial_review'])
-    path = context['run_dir'] / 'case/consistency_review.json'
+    path = context.store.run_dir / 'case/consistency_review.json'
     if path.is_file():
         visible = {e['evidence_id'] for e in workspace['evidence']}
         checks.extend(c for c in json.loads(path.read_text()).get('checks', [])

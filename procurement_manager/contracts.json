@@ -138,6 +138,13 @@
       "privacy": "confidential",
       "required": false,
       "type": "domain_value"
+    },
+    "currency": {
+      "type": "domain_value",
+      "description": "Currency code for the purchase budget and comparison inputs.",
+      "example": "USD",
+      "required": false,
+      "privacy": "confidential"
     }
   },
   "outputs": {

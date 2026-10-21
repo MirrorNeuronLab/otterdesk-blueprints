@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import os
 from pathlib import Path
 from typing import Any
 
@@ -66,10 +67,9 @@ def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: P
         return None
     path = expand_runtime_path(value)
     if not path.is_absolute():
-        bundled_path = runtime_asset_root() / path
-        if bundled_path.exists():
-            return bundled_path
-        path = root / path
+        from mn_sdk.blueprint_support import BlueprintBundleLayout
+        runtime_dir = Path(os.environ["MN_WORKDIR"]) if os.environ.get("MN_WORKDIR") else BlueprintBundleLayout.discover(__file__).runtime_dir
+        path = runtime_dir / path
     return path
 
 

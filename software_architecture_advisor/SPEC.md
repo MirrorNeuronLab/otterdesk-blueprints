@@ -58,9 +58,9 @@ after its tasks have terminal durable results.
 The planner itself makes no model calls. No worker owns routing or completion.
 
 The parent investigation and its planner use `mn.blocks.bounded_investigation@1`
-from the optional SDK component. `domain/investigation_block.py` adapts the
-existing catalog initialization, admission/planning and terminal policy. The
-block supplies ordinary StepSpec/worker boundaries, invocation journals and
+from the optional SDK component. Direct functions in `domain/catalog_planning.py`
+own initialization, admission/planning and terminal policy. The block supplies
+ordinary StepSpec/worker boundaries, invocation journals and
 validated Core plans. The parent maps its hashed initialization into the `seed`
 port; each admitted reviewer receives its original domain `context`, task and
 review-input contracts. Core maps the terminal summary reference into the
@@ -641,3 +641,30 @@ distinct source files in the bounded function selection. Unsupported formats
 retain physical size without acquiring parsed structure (`syntax-3`).
 Hotspot history must distinguish unknown from zero. Out-of-scope entities are
 grey; partially measured function counts are marked as lower bounds.
+
+## Native block composition (7.0.0)
+
+All six entrypoints are direct `(block, inputs)` domain functions. Capture and
+structural analysis publish immutable evidence packets bound to original config,
+Job/run identity, source bytes and derived facts. Catalog initialization verifies
+that authority; planners return bounded domain tasks to the shared investigation
+block. Core remains the only child scheduler and completion owner.
+
+The owner-only catalog binds the structural packet by digest without exposing its
+ledger to reviewers. Packet reviews use the stock SDK worker and standard
+OpenShell handoff. Reconciliation validates task/request identity, usage receipts
+and exact source citations before accepting results. Publication requires the
+matching terminal summary and captured evidence, preserves required UI failures,
+and uses SDK artifact/file APIs. Original/effective settings and Job storage come
+from the native SDK context; no runtime-context dictionary or alternate local
+hypothesis runner remains. OpenShell remains optional per worker; the other
+phases retain Docker execution.
+
+The retired unregistered hypothesis implementation and its exclusive tests are
+removed. Named graph queries, source support/counterevidence, source safety,
+focused/full-catalog policies and history/review-import tests remain. The current
+suite covers the actual compiled native bindings, including zero model calls for
+explicit static-only requests, tampered-source rejection and interrupted required
+publication. SDK/blocks >=1.3.61.dev26 with matching native-context/OpenShell
+support are required. Offline tests do not qualify the RGX binary, live gateway,
+provider, policy provisioning or multi-node execution.

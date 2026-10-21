@@ -6,14 +6,14 @@ import re
 import time
 
 from mn_code_search_skill import TextSearchIndex
-from mn_sdk.agent_events import activity_operation, report_activity
+from mn_sdk.agent_events import report_activity
 from mn_sdk.llm import LLMError
 
 from .artifacts import read, save, text
 from .model import ask, client, failure_details
 from .extraction_outcome import require_rule_candidates
-from .publication import stage_available_outputs
-from .configuration import settings
+from .publication import deliver_reports
+from .configuration import BLUEPRINT_ID, settings
 from .rule_sources import (ExtractionContractError, SourceSelectionError,
                            source_lines, bind_sources, apply_source_repairs)
 from . import rule_cache
@@ -156,10 +156,10 @@ def extraction_gap(packet, error):
     return result
 
 
-def stop_failed_extraction(context, result):
+def stop_failed_extraction(block, result):
     if not result['rules'] and result.get('extraction_gaps'):
         gaps = result['extraction_gaps']
-        save(context, 'extraction-status.json', {
+        save(block, 'extraction-status.json', {
             'schema': 'mn.software_rules.extraction_status.v1', 'status': 'failed',
             'reason': 'no_rules_extracted', 'rules': 0, 'unresolved_sections': len(gaps),
             'model_failed_sections': sum(gap['reason'] == 'model_unavailable' for gap in gaps),
@@ -169,31 +169,32 @@ def stop_failed_extraction(context, result):
             'verification_started': False,
             'message': "Couldn't extract software rules. Verification did not start.",
         })
-        stage_available_outputs(context)
+        deliver_reports(block)
         require_rule_candidates(result)
 
 
-def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
+def extract_packet(block, llm, index, packet, name, policy, deadline, budget):
     cache = f'extraction/{name}.json'
-    if (Path(context['run_dir']) / cache).is_file():
-        result = read(context, cache)
+    if block.store.path(cache).is_file():
+        result = read(block, cache)
         packet_rules(index, packet, result)
         return result
     def validate(result):
         return packet_rules(index, packet, result)
     try:
-        checkpoint = rule_cache.load(context, packet, validate)
+        checkpoint = rule_cache.load(block, packet, validate)
     except (ValueError, KeyError, OSError):
-        save(context, f'extraction/cache-rejected/{name.replace("/", "-")}.json',
+        save(block, f'extraction/cache-rejected/{name.replace("/", "-")}.json',
              {'status': 'recompute', 'reason': 'checkpoint_validation_failed'})
         checkpoint = None
     if checkpoint is not None:
-        save(context, cache, checkpoint['response'])
-        save(context, f'extraction/reused/{name.replace("/", "-")}.json',
+        save(block, cache, checkpoint['response'])
+        save(block, f'extraction/reused/{name.replace("/", "-")}.json',
              {key: checkpoint[key] for key in ('identity', 'producer_run_id')})
         return checkpoint['response']
     feedback, pending, indices = None, None, []
     for attempt in range(policy['max_extraction_attempts']):
+        block.check()
         if time.monotonic() >= deadline:
             raise TimeoutError('Extraction deadline reached before source validation completed.')
         request = {'document': {**packet, 'numbered_lines': source_lines(packet)}}
@@ -207,19 +208,19 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
             result = ask(llm, 'repair_sources.md' if pending is not None else 'extract.md', request)
         except LLMError as error:
             if not malformed_response(error):
-                save(context, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json',
+                save(block, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json',
                      {'error': 'model_unavailable', 'diagnostic': failure_details(error)})
                 feedback = None
                 if attempt + 1 < policy['max_extraction_attempts']:
                     time.sleep(min(2 ** attempt, max(0, deadline - time.monotonic())))
                     continue
                 raise
-            save(context, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json',
+            save(block, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json',
                  {'error': 'invalid_json', 'output_tokens': error.usage.get('output_tokens')})
             feedback = 'Return one complete, compact JSON object. The previous response was invalid JSON.'
             split = True
         else:
-            save(context, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json', result)
+            save(block, f'extraction/drafts/{name.replace("/", "-")}-attempt-{attempt + 1}.json', result)
             split = result.get('complete') is False and isinstance(result.get('rules'), list)
             if not split:
                 try:
@@ -234,9 +235,9 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
                 except ExtractionContractError as error:
                     feedback = str(error)
                 else:
-                    save(context, cache, result)
+                    save(block, cache, result)
                     try:
-                        rule_cache.store(context, packet, result, validate)
+                        rule_cache.store(block, packet, result, validate)
                     except OSError:
                         pass  # Optional acceleration cannot prevent durable run output.
                     return result
@@ -247,13 +248,13 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
         if split and packet['start_line'] < packet['end_line']:
             split_name = f'extraction/splits/{name.replace("/", "-")}.json'
             identity = {k: packet[k] for k in ('path', 'start_line', 'end_line', 'sha256', 'snapshot_id')}
-            if (Path(context['run_dir']) / split_name).is_file():
-                if read(context, split_name) != identity:
+            if block.store.path(split_name).is_file():
+                if read(block, split_name) != identity:
                     raise ValueError('Saved extraction split does not match the captured source.')
             else:
                 if budget['packets'] + 2 > policy['max_extraction_packets']:
                     raise ExtractionCapacityError('Adaptive extraction reached review.max_extraction_packets.')
-                save(context, split_name, identity)
+                save(block, split_name, identity)
                 budget['packets'] += 2
             middle = (packet['start_line'] + packet['end_line']) // 2
             parts = [index.read(packet['path'], packet['start_line'], middle),
@@ -263,12 +264,12 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
             # Never accept a partial parent response or repair/truncate its text.
             for suffix, part in zip(('left', 'right'), parts):
                 try:
-                    child = extract_packet(context, llm, index, part,
+                    child = extract_packet(block, llm, index, part,
                         f'parts/{Path(name).name}-{suffix}', policy, deadline, budget)
                 except (ExtractionContractError, LLMError, TimeoutError) as error:
                     gap = extraction_gap(part, error)
                     gaps.append(gap)
-                    save(context, f'extraction/unresolved/{Path(name).name}-{suffix}.json', gap)
+                    save(block, f'extraction/unresolved/{Path(name).name}-{suffix}.json', gap)
                     continue
                 children.extend(child['rules'])
                 gaps.extend(child.get('extraction_gaps', []))
@@ -276,10 +277,10 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
             if gaps:
                 result['extraction_gaps'] = gaps
             packet_rules(index, packet, result)
-            save(context, cache, result)
+            save(block, cache, result)
             if not gaps:
                 try:
-                    rule_cache.store(context, packet, result, validate)
+                    rule_cache.store(block, packet, result, validate)
                 except OSError:
                     pass
             return result
@@ -288,15 +289,18 @@ def extract_packet(context, llm, index, packet, name, policy, deadline, budget):
         'Draft responses remain in extraction/drafts; this source section requires review.')
 
 
-@activity_operation('Extracting software rules', completed='Editable rules saved')
-def extract(context, llm=None):
-    policy = settings(context)
+def extract(block, inputs, *, llm=None):
+    report_activity("Extracting software rules", owner_blueprint=BLUEPRINT_ID,
+                    step_id=block.step_id, run_dir=block.store.run_dir)
+    capture_ref = inputs["previous"]["capture"]
+    capture = block.store.read(capture_ref)
+    llm = llm or block.resources.get("llm")
+    policy = settings(block)
     deadline = time.monotonic() + policy['extraction_timeout_seconds']
-    if (Path(context['run_dir']) / 'rules.json').is_file():
-        result = read(context, 'rules.json')
-        stop_failed_extraction(context, result)
-        return {'rules': len(result['rules'])}, [save(context, 'rules.json', result)]
-    capture = read(context, 'capture.json')
+    if block.store.path('rules.json').is_file():
+        result = read(block, 'rules.json')
+        stop_failed_extraction(block, result)
+        return {'rules': len(result['rules']), 'capture': capture_ref}
     sources = capture['sources']
     index, custom = TextSearchIndex(sources), {}
     for path in capture['custom_documents']:
@@ -307,7 +311,7 @@ def extract(context, llm=None):
     mode = policy['rules_mode']
     if mode not in {'augment', 'replace'}:
         raise ValueError('rules_mode must be augment or replace.')
-    rules, receipts, plan_refs, gaps = {}, [], [], []
+    rules, receipts, gaps = {}, [], []
     selection = {'scope': 'custom_rules_only', 'selected_documents': [], 'excluded_documents': []}
     if mode == 'augment':
         selection = select_documents(capture, policy['documentation_scope'])
@@ -319,32 +323,33 @@ def extract(context, llm=None):
                     raise ValueError(f"Selected documentation exceeds review.max_extraction_packets="
                                      f"{policy['max_extraction_packets']}. Choose project docs, "
                                      'increase the packet budget, or narrow the source folder.')
-        plan_refs.append(save(context, 'extraction-plan.json', {**selection, 'packet_count': len(packets),
-             'max_extraction_packets': policy['max_extraction_packets'], 'snapshot_id': index.snapshot_id}))
-        llm = llm or client(context, extraction=True)
-        split_count = len(list((Path(context['run_dir']) / 'extraction/splits').glob('*.json')))
+        save(block, 'extraction-plan.json', {**selection, 'packet_count': len(packets),
+             'max_extraction_packets': policy['max_extraction_packets'], 'snapshot_id': index.snapshot_id})
+        llm = llm or client(extraction=True)
+        split_count = len(list(block.store.path('extraction/splits').glob('*.json')))
         budget = {'packets': len(packets) + 2 * split_count}
         if budget['packets'] > policy['max_extraction_packets']:
             raise ValueError('Saved extraction exceeds review.max_extraction_packets.')
         unavailable = 0
         for number, packet in enumerate(packets):
+            block.check()
             report_activity(f'Reading document packet {number + 1} of {len(packets)}',
-                            kind='action', run_dir=context['run_dir'])
+                            kind='action', run_dir=block.store.run_dir, owner_blueprint=BLUEPRINT_ID)
             try:
                 if time.monotonic() >= deadline:
                     raise TimeoutError('Extraction deadline reached.')
                 if unavailable >= 3:
                     raise ExtractionNotAttempted('Model requests remain unavailable.')
-                result = extract_packet(context, llm, index, packet, f'packet-{number:04}', policy, deadline, budget)
+                result = extract_packet(block, llm, index, packet, f'packet-{number:04}', policy, deadline, budget)
                 admitted = packet_rules(index, packet, result)
             except (ExtractionContractError, LLMError, TimeoutError) as error:
                 unavailable = unavailable + 1 if isinstance(error, LLMError) else 0
                 gap = extraction_gap(packet, error)
                 gaps.append(gap)
-                save(context, f'extraction/unresolved/packet-{number:04}.json', gap)
+                save(block, f'extraction/unresolved/packet-{number:04}.json', gap)
                 receipts.append(gap)
                 report_activity('A document section needs review. Continuing with the remaining documents.',
-                                kind='action', run_dir=context['run_dir'])
+                                kind='action', run_dir=block.store.run_dir, owner_blueprint=BLUEPRINT_ID)
                 continue
             unavailable = 0
             gaps.extend(result.get('extraction_gaps', []))
@@ -358,6 +363,8 @@ def extract(context, llm=None):
     result['extraction_status'] = ('failed' if gaps and not rules else 'needs_review' if gaps
                                    else 'complete' if rules else 'no_rules')
     result['verification_rule_limit'] = policy['max_rules']
-    refs = [*plan_refs, text(context, 'rules.md', markdown(result['rules'])), save(context, 'rules.json', result)]
-    stop_failed_extraction(context, result)
-    return {'rules': len(rules), 'extraction_status': result['extraction_status'], 'unresolved_sections': len(gaps)}, refs
+    text(block, 'rules.md', markdown(result['rules']))
+    save(block, 'rules.json', result)
+    stop_failed_extraction(block, result)
+    return {'rules': len(rules), 'extraction_status': result['extraction_status'],
+            'unresolved_sections': len(gaps), 'capture': capture_ref}

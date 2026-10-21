@@ -580,8 +580,7 @@ def create_app(
     return app
 
 
-def main() -> int:
-    config = load_config()
+def prepare_server(config, run_dir):
     settings = service_settings(config)
     static_dir = Path(
         os.environ.get("MICRODUCK_STATIC_DIR")
@@ -589,24 +588,19 @@ def main() -> int:
     ).resolve()
     if not static_dir.is_dir():
         raise RuntimeError(f"Microduck static bundle is unavailable: {static_dir}")
-    run_dir = configured_run_dir()
     listener, port = _open_listener(settings["host"], settings["port"])
     public_url = _replace_url_port(settings["public_url"], port)
-    app = create_app(static_dir=static_dir, run_dir=run_dir, public_url=public_url)
-    _web_ui_endpoint_artifact(
-        run_dir=run_dir,
-        proxy_url=_replace_url_port(settings["proxy_url"], port),
-        port=port,
-    )
+    try:
+        app = create_app(static_dir=static_dir, run_dir=run_dir, public_url=public_url)
+        _web_ui_endpoint_artifact(
+            run_dir=run_dir,
+            proxy_url=_replace_url_port(settings["proxy_url"], port),
+            port=port,
+        )
+    except BaseException:
+        listener.close()
+        raise
+
     import uvicorn
 
-    server = uvicorn.Server(uvicorn.Config(app, log_level="info"))
-    try:
-        server.run(sockets=[listener])
-    finally:
-        listener.close()
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+    return uvicorn.Server(uvicorn.Config(app, log_level="info")), listener

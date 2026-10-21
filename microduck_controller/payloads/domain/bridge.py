@@ -10,6 +10,8 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from mn_sdk.integrations.block_device import DeviceObservation, DeviceReceipt
+
 from .protocol import (
     compact_command_progress,
     compact_navigation_result,
@@ -262,6 +264,28 @@ class BridgeHub:
             if command.fingerprint != (kind, _freeze(dict(payload))):
                 return self._rejected_receipt(command_id, kind, "command_id_reused_for_different_effect")
             return command.receipt()
+
+    async def observe(self) -> DeviceObservation:
+        state = await self.state()
+        connection = state["connection"]
+        age = connection["state_age_ms"]
+        return DeviceObservation(
+            connected=connection["connected"],
+            observed_at=None if age is None else time.time() - age / 1000,
+            state=state,
+        )
+
+    async def execute(self, command: Mapping[str, Any]) -> DeviceReceipt:
+        value = await self.enqueue(
+            command_id=command["request_id"], kind=command["kind"], payload=command["payload"]
+        )
+        return DeviceReceipt(dict(command), value)
+
+    async def receipt(self, command: Mapping[str, Any]) -> DeviceReceipt | None:
+        value = await self.receipt_for(
+            command_id=command["request_id"], kind=command["kind"], payload=command["payload"]
+        )
+        return None if value is None else DeviceReceipt(dict(command), value)
 
     async def state(self) -> dict[str, Any]:
         async with self._lock:

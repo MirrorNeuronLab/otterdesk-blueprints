@@ -3,7 +3,7 @@ from __future__ import annotations
 from mn_sdk.step_graph import run_input, upstream
 
 
-def step_inputs(previous_step: str = "", previous_field: str = ""):
+def step_inputs(previous_step: str = "", previous_field: str = "", *, result_ref=False):
     fields = {
         "document_folder": run_input("document_folder"),
         "output_folder": run_input("output_folder"),
@@ -12,6 +12,7 @@ def step_inputs(previous_step: str = "", previous_field: str = ""):
     }
     if previous_step:
         fields["previous"] = upstream(
-            previous_step, *([previous_field] if previous_field else [])
+            previous_step, *([previous_field] if previous_field else []),
+            *(["result"] if result_ref else []),
         )
     return fields

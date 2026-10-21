@@ -1,6 +1,8 @@
+from native_test_support import block_context
 """Real syntax facts, graph joins, focused model workflow and publication."""
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -8,7 +10,7 @@ from support import configuration
 
 
 def captured(tmp_path, sources):
-    root = tmp_path / 'run'
+    root = tmp_path / 'submission/outputs/runs' / os.environ.get('MN_WORKFLOW_RUN_ID', 'run')
     folder = root / 'evidence/snapshots/frozen'
     folder.mkdir(parents=True)
     records = {p:{'text':t, 'sha256':hashlib.sha256(t.encode()).hexdigest()} for p,t in sources.items()}
@@ -52,7 +54,7 @@ def test_static_artifacts_whole_function_support_and_hostile_text(tmp_path):
     sources={'a.c':'// </script><script>throw 1</script>\nvoid start(void) { init(); }',
              'b.c':'void init(void) { }'}
     root,_=captured(tmp_path,sources);cfg=configuration()
-    refs=build({'run_dir':root,'config':cfg})
+    refs=build(block_context({'run_dir':root,'config':cfg}))
     assert all((root/ref['path']).exists() for ref in refs)
     store=CatalogStore(root)
     query,evidence=source_context(store,load_snapshot(root),{'kind':'aspect_analysis','aspect_id':'AR-02-01'},'start')
@@ -63,17 +65,17 @@ def test_static_artifacts_whole_function_support_and_hostile_text(tmp_path):
     assert '</script><script>throw 1' not in html
     assert "connect-src 'self'" in html and 'map-data' not in html
     assert store.read('data/function-evolution.json')['status']=='unavailable'
-    assert build({'run_dir':root,'config':cfg})==refs
+    assert build(block_context({'run_dir':root,'config':cfg}))==refs
     (root/'data/static-code.json').write_text('{}')
     with pytest.raises(RuntimeError,match='different content'):
-        build({'run_dir':root,'config':cfg})
+        build(block_context({'run_dir':root,'config':cfg}))
 
 
 def test_focused_plan_has_no_inventory_model_scans_and_preserves_phase_barriers(tmp_path,monkeypatch):
     from domain.static_analysis import build
-    from domain.catalog_planning import initializer, planner
+    from native_test_support import initializer, planner
     from domain.catalog_store import CatalogStore
-    from domain.catalog_publication import publish
+    from native_test_support import publish
     from handoff_test_support import review_task
     from test_catalog_review import fake
     monkeypatch.setenv('MN_WORKFLOW_RUN_ID','focused-fixture')
@@ -83,7 +85,7 @@ def test_focused_plan_has_no_inventory_model_scans_and_preserves_phase_barriers(
     root,_=captured(tmp_path,{'core.c':'int helper(void) { return 1; }\nint run(void) { return helper(); }'})
     context={'run_dir':root,'config':cfg,'payload':{'goal':'Explain components and function changes'},
              'output_folder':str(tmp_path/'delivery')}
-    build(context)
+    build(block_context(context))
     value,_=initializer(context);ref=value['context'];store=CatalogStore(root)
     plan=store.load_ref(store.read('catalog/context.json')['plan'])
     assert len(plan['tasks'])==19
@@ -128,7 +130,7 @@ def test_source_context_stale_snapshot_rejected(tmp_path):
     from domain.catalog_contract import load_snapshot
     from domain.catalog_store import CatalogStore
     root,_=captured(tmp_path,{'a.c':'void a(void) {}'})
-    build({'run_dir':root,'config':configuration()})
+    build(block_context({'run_dir':root,'config':configuration()}))
     snapshot=load_snapshot(root);snapshot['snapshot_id']='other'
     with pytest.raises(ValueError,match='snapshot changed'):
         source_context(CatalogStore(root),snapshot,{},'a')
@@ -167,12 +169,12 @@ def test_replaying_an_older_run_cannot_replace_the_latest_code_map(tmp_path):
         for filename in ('static-code.json','function-evolution.json'):
             (Path(context['run_dir'])/'data'/filename).write_text(marker)
         return context,workspace
-    first,one=prepare('first-map','first-map-data');publish(first,{}, {},workspace=one)
+    first,one=prepare('first-map','first-map-data');publish(block_context(first),{}, {},workspace=one, review_file=(first).get('payload', {}).get('review_file'))
     retained=Path(first['job_data_dir'])/'architecture_results'
     (retained/'web/maps'/f"{one['id']}.html").write_text('obsolete template')
-    second,two=prepare('second-map','second-map-data');publish(second,{}, {},workspace=two)
+    second,two=prepare('second-map','second-map-data');publish(block_context(second),{}, {},workspace=two, review_file=(second).get('payload', {}).get('review_file'))
     assert 'tab-overview' in (retained/'web/maps'/f"{one['id']}.html").read_text()
-    publish(first,{}, {},workspace=one)
+    publish(block_context(first),{}, {},workspace=one, review_file=(first).get('payload', {}).get('review_file'))
     root=Path(first['job_data_dir'])/'architecture_results'
     assert '../data/snapshots/'+two['id'] in (root/'web/code-map.html').read_text()
     assert (root/'data/snapshots'/one['id']/'static-code.json').read_text()=='first-map-data'
@@ -192,8 +194,8 @@ def test_replaying_an_older_run_cannot_replace_the_latest_code_map(tmp_path):
 
 def test_provider_failures_stop_spending_and_publish_static_review(tmp_path, monkeypatch):
     from domain.static_analysis import build
-    from domain.catalog_planning import initializer, planner
-    from domain.catalog_publication import publish
+    from native_test_support import initializer, planner
+    from native_test_support import publish
     from domain.catalog_store import CatalogStore
     from handoff_test_support import review_task
     monkeypatch.setenv('MN_WORKFLOW_RUN_ID','provider-fail-fixture')
@@ -202,7 +204,7 @@ def test_provider_failures_stop_spending_and_publish_static_review(tmp_path, mon
     cfg=configuration();cfg['offline']=False;cfg['text_memory']['enabled']=False
     root,_=captured(tmp_path,{'core.c':'int run(void) { return 1; }'})
     ctx={'run_dir':root,'config':cfg,'payload':{'goal':'Explain code growth'}}
-    build(ctx);value,_=initializer(ctx);ref=value['context']
+    build(block_context(ctx));value,_=initializer(ctx);ref=value['context']
     decision=planner(ctx,{'context':ref,'_child':{'revision':0}})
     def failed(prompt):
         task=json.loads(prompt)['task']
@@ -230,7 +232,7 @@ def test_history_budget_exhaustion_keeps_current_facts_and_explicit_unknown(tmp_
     snapshot=load_snapshot(root);snapshot['manifest']['repository']=str(tmp_path)
     def exceeded(*args,**kwargs):raise HistoryLimitError('History timeline fact limit exceeded')
     monkeypatch.setattr('domain.static_analysis.analyze_history',exceeded)
-    build({'run_dir':root,'config':configuration()},snapshot)
+    build(block_context({'run_dir':root,'config':configuration()}),snapshot)
     store=CatalogStore(root)
     assert len(store.read('data/static-code.json')['functions'])==1
     history=store.read('data/function-evolution.json')
@@ -262,7 +264,7 @@ def test_capture_and_static_publication_include_rust_and_node_module_variants(tm
     manifest=capture(repository,root/'evidence',cfg)
     (root/'snapshot.json').write_text(json.dumps(manifest))
     assert set(manifest['sources'])==set(sources)
-    refs=build({'run_dir':root,'config':cfg})
+    refs=build(block_context({'run_dir':root,'config':cfg}))
     facts=json.loads((root/'data/static-code.json').read_text())
     assert {'rust','typescript'} <= facts['language_coverage'].keys()
     assert {'lib.rs::run','main.mts::run'} <= {f['id'] for f in facts['functions']}
@@ -275,8 +277,8 @@ def test_capture_and_static_publication_include_rust_and_node_module_variants(tm
 
 def test_static_only_capture_does_not_dispatch_unnecessary_review_workers(tmp_path, monkeypatch):
     from domain.static_analysis import build
-    from domain.catalog_planning import initializer, planner
-    from domain.catalog_publication import publish
+    from native_test_support import initializer, planner
+    from native_test_support import publish
     from domain.catalog_store import CatalogStore
     cfg=configuration();cfg['text_memory']['enabled']=False;cfg['offline']=True
     root,_=captured(tmp_path,{'core.c':'int run(void) { return 1; }'})
@@ -284,7 +286,7 @@ def test_static_only_capture_does_not_dispatch_unnecessary_review_workers(tmp_pa
     def forbidden(*args,**kwargs):pytest.fail('Static-only review must not admit a sandbox/model task')
     monkeypatch.setattr('domain.review_admission.admit',forbidden)
     monkeypatch.setattr('domain.catalog_planning.prepare_gateway',forbidden)
-    build(ctx);value,_=initializer(ctx);work={'context':value['context'],'_child':{'revision':0}}
+    build(block_context(ctx));value,_=initializer(ctx);work={'context':value['context'],'_child':{'revision':0}}
     decision=planner(ctx,work)
     assert decision['child_plan']['decision']=='stop'
     assert planner(ctx,work)==decision
@@ -310,7 +312,7 @@ def test_static_witnesses_seed_graph_scope_before_retrieval_even_without_memory(
     root,manifest=captured(tmp_path,sources);cfg=configuration();cfg['text_memory']['enabled']=False
     manifest['modules']={p:{'path':p} for p in sources}
     (root/'snapshot.json').write_text(json.dumps(manifest))
-    build({'run_dir':root,'config':cfg});store=CatalogStore(root);snapshot=load_snapshot(root)
+    build(block_context({'run_dir':root,'config':cfg}));store=CatalogStore(root);snapshot=load_snapshot(root)
     task={'task_id':'analysis-AR-04-02','kind':'aspect_analysis','aspect_id':'AR-04-02'}
     captured_seeds=[]
     def graph(store,snapshot,task,focus,config,evidence,request):
@@ -334,11 +336,11 @@ def test_static_witnesses_seed_graph_scope_before_retrieval_even_without_memory(
 
 def test_focused_review_challenges_measured_cycles_before_broad_mapping(tmp_path, monkeypatch):
     from domain.static_analysis import build
-    from domain.catalog_planning import initializer, planner
+    from native_test_support import initializer, planner
     cfg=configuration();cfg['text_memory']['enabled']=False;cfg['catalog_review']['tasks_per_round']=1
     root,_=captured(tmp_path,{'a.c':'void a(void) { b(); }','b.c':'void b(void) { a(); }'})
     ctx={'run_dir':root,'config':cfg,'payload':{'goal':'Understand the architecture'}}
     monkeypatch.setattr('domain.review_admission.admit',lambda *args,**kwargs:{'fixture':'frozen-input'})
-    build(ctx);value,_=initializer(ctx,llm_client=lambda _:None)
+    build(block_context(ctx));value,_=initializer(ctx,llm_client=lambda _:None)
     decision=planner(ctx,{'context':value['context'],'_child':{'revision':0}})
     assert decision['child_plan']['steps'][0]['id']=='analysis-AR-04-02'

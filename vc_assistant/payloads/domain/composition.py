@@ -17,15 +17,17 @@ def build_company_analysis_from_method_scores(
     research_ledger: dict[str, list[dict[str, Any]]],
     methods: dict[str, dict[str, Any]],
     fund_profile: str | None = None,
+    fact_table: dict[str, Any] | None = None,
+    source_scope=None,
 ) -> dict[str, Any]:
     sources = [source for stage_sources in research_ledger.values() for source in stage_sources]
-    facts = build_fact_table(company, records, sources)
+    facts = build_fact_table(company, records, sources) if fact_table is None else fact_table
     ordered_methods = {method_id: methods[method_id] for method_id in METHOD_IDS}
     audit = audit_method_scores(ordered_methods, facts)
     scored = [item["score"] for item in ordered_methods.values() if isinstance(item.get("score"), (int, float))]
     missing_methods = [method_id for method_id, method in ordered_methods.items() if method["status"] == "insufficient_evidence"]
     substantive_sources = [source for source in sources if is_substantive_public_source(source)]
-    evidence_layer = build_company_evidence_layer(company, records, sources, fund_profile=fund_profile)
+    evidence_layer = build_company_evidence_layer(company, records, sources, fund_profile=fund_profile, source_scope=source_scope)
     evidence_summary_layer = evidence_layer["company_evidence_summary"]
     composite_score = evidence_summary_layer["investment_score"]
     method_average_score = round(sum(scored) / len(scored), 2) if scored else None
@@ -97,19 +99,20 @@ def build_company_analysis_from_method_scores(
         "decision_policy": "report_only_user_decides",
     }
 
-def hydrate_cached_company_state(
-    ctx: dict[str, Any],
+def hydrate_cached_companies(
+    output_folder: Path,
+    config: dict[str, Any],
     company_records: dict[str, list[dict[str, Any]]],
     company_work_queue: list[dict[str, Any]],
     knowledge_rag: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
-    store = ctx.get("state_store") or WorkflowStateStore(ctx["run_dir"])
+) -> dict[str, dict[str, Any]]:
+    cached = {name: {} for name in ("analyses", "research_ledgers", "reconciliations", "method_scores", "research_plans", "agent_tool_traces")}
     for item in company_work_queue:
         if item.get("status") != "unchanged_skipped":
             continue
         company = str(item["company_name"])
-        cached_analysis = load_cached_company_analysis(ctx["output_folder"], company)
-        cached_ledger = load_cached_research_ledger(ctx["output_folder"], company)
+        cached_analysis = load_cached_company_analysis(output_folder, company)
+        cached_ledger = load_cached_research_ledger(output_folder, company)
         if not cached_analysis or cached_ledger is None:
             item["status"] = "new_or_changed"
             item["cache_status"] = "missing_cached_report_reprocessed"
@@ -129,15 +132,15 @@ def hydrate_cached_company_state(
             "decision": "reuse_cached_outputs",
         }
         if "research_plan" not in cached_analysis:
-            internet = ctx["config"].get("internet_research") if isinstance(ctx["config"].get("internet_research"), dict) else {}
+            internet = config.get("internet_research") if isinstance(config.get("internet_research"), dict) else {}
             cached_analysis["research_plan"] = build_adaptive_research_plan(company, records, internet)
         cached_analysis.setdefault("agent_tool_trace", [])
         cached_analysis.setdefault("research_plan", {}).setdefault("knowledge_rag", public_knowledge_rag_state(knowledge_rag))
-        store.write_entity("analyses", str(cached_analysis["company_slug"]), cached_analysis)
-        store.write_entity("research_ledgers", company, normalized_research_ledger(cached_ledger))
-        store.write_entity("reconciliations", company, reconciliation)
-        store.write_entity("method_scores", company, cached_analysis.get("methods") or {})
-        store.write_entity("research_plans", company, cached_analysis.get("research_plan") or {})
-        store.write_entity("agent_tool_traces", company, cached_analysis.get("agent_tool_trace") or [])
-    return company_work_queue
+        cached["analyses"][company] = cached_analysis
+        cached["research_ledgers"][company] = normalized_research_ledger(cached_ledger)
+        cached["reconciliations"][company] = reconciliation
+        cached["method_scores"][company] = cached_analysis.get("methods") or {}
+        cached["research_plans"][company] = cached_analysis.get("research_plan") or {}
+        cached["agent_tool_traces"][company] = cached_analysis.get("agent_tool_trace") or []
+    return cached
 

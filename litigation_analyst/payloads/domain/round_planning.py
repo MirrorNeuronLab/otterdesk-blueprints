@@ -3,10 +3,10 @@
 from mn_sdk.agent_events import activity_operation
 import time
 from copy import deepcopy
-from mn_sdk.child_workflow import round_plan, stop_plan
 from .app.planning import object_schema
 from .round_state import open_round, read, save, finish
-from .round_model import complete
+from .round_model import complete, evidence_room
+from .planning_context import discover
 from .review_scope import limits
 from .matter_intake import prompt_scope
 from .graph_queries import QUERIES
@@ -24,12 +24,17 @@ ENQUIRY = object_schema({
 
 
 @activity_operation('Planning the investigation round', completed='Planning the investigation round: completed')
-def plan_round(context, work, *, llm_client=None):
-    root, frozen = open_round(context, work)
+def plan_round(context, work):
+    reference = work["seed"]["context"]
+    root, frozen = open_round(context, reference)
+    llm_client = context.resources.get("llm")
     revision = work["_child"]["revision"]
     name = f"case/rounds/plan-{revision:02d}.json"
     if (root / name).exists():
-        return read(root / name)
+        saved = read(root / name)
+        if saved["context"] != reference:
+            raise ValueError("Cached litigation plan belongs to another context")
+        return saved["plan"]
     cfg = limits(frozen["config"])
     reason = None
     if (root / "case/cancel.request").exists():
@@ -41,8 +46,9 @@ def plan_round(context, work, *, llm_client=None):
     if reason:
         value = {"decision": "stop", "rationale": reason, "hypotheses": []}
     else:
-        schema = object_schema({"decision": {"enum": ["execute", "stop"]}, "rationale": TEXT,
-            "hypotheses": {"type": "array", "maxItems": cfg["hypotheses_per_round"], "items": deepcopy(ENQUIRY)}})
+        schema = object_schema({"decision": {"enum": ["execute"] if not revision else ["execute", "stop"]}, "rationale": TEXT,
+            "hypotheses": {"type": "array", "minItems": 1 if not revision else 0,
+                           "maxItems": cfg["hypotheses_per_round"], "items": deepcopy(ENQUIRY)}})
         issue_ids = [i["id"] for i in frozen.get("matter", {}).get("issues", [])]
         field = schema["properties"]["hypotheses"]["items"]["properties"]["counsel_issue_ids"]
         if issue_ids:
@@ -50,8 +56,12 @@ def plan_round(context, work, *, llm_client=None):
         else:
             field["maxItems"] = 0
         previous = [] if not revision else read(root / f"case/rounds/summary-{revision:02d}.json")["findings"]
-        value = complete(root, frozen, f"plan-{revision:02d}", "plan", 
-            "Choose execute or stop. Execute selects concrete falsifiable enquiries with distinct support and counter searches. "
+        instruction = (
+            "On revision zero choose execute with at least one enquiry; later choose execute or stop. "
+            "The source_overview contains authorized current-case navigation. Use its filenames and complete source examples "
+            "to discover names, events and search terms even when counsel_scope and historical runtime_memory are empty. "
+            "Empty historical memory is not an empty source corpus. Navigation is not a report finding: collect support "
+            "and counterevidence before making factual claims. Execute selects concrete falsifiable enquiries with distinct support and counter searches. "
             "support_query and counter_query must be short lexical case terms (names, transaction IDs, approval, reversal), "
             "never tool names, graph views, filter instructions or a description of an operation. "
             "Select zero to two named graph_tools from the admitted views only when they reduce uncertainty. Never write RGQL. "
@@ -64,9 +74,21 @@ def plan_round(context, work, *, llm_client=None):
             "Tag each enquiry with its supplied counsel_issue_ids, or [] when no counsel issue matches. "
             "Prioritize the supplied counsel questions and intended decision; counsel scope is review direction, not source evidence or verified law. "
             "Track distinct issues; do not silently equate approval, posting, reversal, bank settlement and loss. "
-            "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. ",
-            {"goal": frozen["payload"]["goal"], "counsel_scope": prompt_scope(frozen.get("matter", {})) if frozen.get("matter") else {}, "revision": revision, "prior_findings": previous,
-             "remaining_rounds": cfg["max_rounds"] - revision, "graph_views": {**QUERIES, **VIEWS, **TEMPORAL_VIEWS}}, schema, llm_client)
+            "Stop requires a concrete reason and an empty hypotheses list. Do not stop before examining evidence. ")
+        data = {"goal": frozen["payload"]["goal"], "counsel_scope": prompt_scope(frozen.get("matter", {})) if frozen.get("matter") else {},
+                "revision": revision, "prior_findings": previous, "remaining_rounds": cfg["max_rounds"] - revision,
+                "graph_views": {**QUERIES, **VIEWS, **TEMPORAL_VIEWS}}
+        room = min(evidence_room(frozen, 'plan', instruction, data, schema),
+                   frozen['config'].get('text_memory', {}).get('max_context_bytes', 32768), 16384)
+        # Include the field wrapper and final coverage envelope in the allowance.
+        overview = discover(root, frozen, max(0, room - 256))
+        data['source_overview'] = overview or {}
+        if overview is not None and not overview['authorized_readable_sources']:
+            value = {"decision": "stop", "rationale": "no_authorized_readable_sources", "hypotheses": []}
+        elif not revision and (overview is None or not overview['samples']):
+            value = {"decision": "stop", "rationale": "planning_source_context_unavailable", "hypotheses": []}
+        else:
+            value = complete(root, frozen, f"plan-{revision:02d}", "plan", instruction, data, schema, llm_client)
         if value["decision"] == "execute" and not value["hypotheses"]:
             if not revision:
                 raise ValueError("Execute requires distinct enquiries")
@@ -85,22 +107,43 @@ def plan_round(context, work, *, llm_client=None):
             signatures = {(h["question"], h["support_query"], h["counter_query"], tuple(h["graph_tools"])) for p in earlier for h in p["hypotheses"]}
             if all((h["question"], h["support_query"], h["counter_query"], tuple(h["graph_tools"])) in signatures for h in value["hypotheses"]):
                 value = {"decision": "stop", "rationale": "no_new_evidence_work_proposed", "hypotheses": []}
-        elif value["hypotheses"] or not revision:
+        elif value["hypotheses"] or (not revision and value['rationale'] not in {
+                'no_authorized_readable_sources', 'planning_source_context_unavailable'}):
             raise ValueError("Planner cannot skip initial evidence collection or execute work while stopping")
     save(root, f"case/rounds/proposal-{revision:02d}.json", {"proposal": value})
     if value["decision"] == "stop":
-        result = stop_plan(revision=revision, reason=value["rationale"], output=finish(root, frozen, value["rationale"]))
+        output = finish(context, frozen, value["rationale"], reference, revision)
+        result = {"done": True, "tasks": [], "rationale": value["rationale"]}
     else:
+        output = None
         steps, previous = [], []
         for h in value["hypotheses"]:
             prefix = f"r{revision+1:02d}-{h['id']}"
             task = save(root, f"case/rounds/tasks/{prefix}.json", {"hypothesis": h, "prefix": prefix})
+            packet = save(root, f"case/rounds/work/{prefix}.json", {"context": reference, "task": task})
             for suffix, template in (("evidence", "collect_litigation_evidence"), ("assessment", "assess_litigation_hypothesis"), ("review", "review_litigation_finding")):
                 key = f"{h['id']}-{suffix}"
-                steps.append({"id": key, "template": template, "needs": previous, "input": {"task": task}})
+                steps.append({"id": key, "template": template, "needs": previous, "input": {"task": packet}})
                 previous = [key]
         task = save(root, f"case/rounds/tasks/summary-{revision+1:02d}.json", {"revision": revision+1})
-        steps.append({"id": "summarize", "template": "summarize_litigation_round", "needs": previous, "input": {"task": task}})
-        result = round_plan(revision=revision, steps=steps, rationale=f"Execute committed litigation enquiries for round {revision+1}", evidence_refs=[])
-    save(root, name, result)
+        packet = save(root, f"case/rounds/work/summary-{revision+1:02d}.json", {"context": reference, "task": task})
+        steps.append({"id": "summarize", "template": "summarize_litigation_round", "needs": previous, "input": {"task": packet}})
+        result = {"done": False, "tasks": steps, "rationale": f"Execute committed litigation enquiries for round {revision+1}", "evidence_refs": []}
+    save(root, name, {"context": reference, "plan": result, "output": output})
     return result
+
+
+def summarize(context, inputs):
+    from .state import read_seal
+    work = inputs["input"]
+    revision = work["_child"]["revision"]
+    saved = read(context.store.path(f"case/rounds/plan-{revision:02d}.json"))
+    if saved["context"] != work["seed"]["context"] or saved["plan"]["done"] is not True:
+        raise ValueError("A litigation summary requires its terminal domain plan")
+    output = saved["output"]
+    terminal = read_seal(context, output["terminal"], "terminal")
+    if terminal["context"] != saved["context"] or terminal["revision"] != revision:
+        raise ValueError("Litigation terminal authority changed")
+    from .state import verify_files
+    verify_files(context, [terminal["investigation"], terminal["checkpoint"]])
+    return output

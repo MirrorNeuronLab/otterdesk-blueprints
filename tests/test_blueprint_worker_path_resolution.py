@@ -9,7 +9,7 @@ from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_conf
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_procurement_runner_uses_embedded_config_when_default_file_is_not_mounted(tmp_path):
+def test_procurement_native_worker_uses_embedded_config_when_default_file_is_not_mounted(tmp_path):
     blueprint = ROOT / "procurement_manager"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data
@@ -39,14 +39,13 @@ os.environ.pop('MN_BLUEPRINT_CONFIG_PATH', None)
 os.environ.pop('MN_BLUEPRINT_BUNDLE_DIR', None)
 os.environ.pop('MN_BUNDLE_ROOT', None)
 sys.path.insert(0, str(worker / 'payloads'))
-from domain.runtime_services import runtime_context_for_step
-context = runtime_context_for_step(
-    inputs={{'output_folder': str(worker / 'output')}},
-    runs_root=str(worker / 'runs'), run_id='embedded-config',
-)
-print(json.dumps({{'config': context['config'],
-                  'run_id': context['run_id'],
-                  'module_root': str(context['bundle_layout'].payload_root)}}))
+from mn_sdk.step_runtime import StepContext
+from domain.state import bundle_layout
+os.environ['MN_RUN_ID'] = 'embedded-config'
+context = StepContext.from_environment()
+print(json.dumps({{'config': context.effective_config,
+                  'run_id': context.run_id,
+                  'module_root': str(bundle_layout().payload_root)}}))
 """)
     assert result["config"] == json.loads(embedded)
     assert result["run_id"] == "embedded-config"

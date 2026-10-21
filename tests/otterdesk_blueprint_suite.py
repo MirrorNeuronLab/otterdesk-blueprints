@@ -710,100 +710,31 @@ def test_cctv_operator_report_writer_emits_cumulative_reports(tmp_path):
             "completed_sources": ["sample.mp4"],
         },
     }
-    input_file = tmp_path / "report_input.json"
-    input_file.write_text(json.dumps(detector_payload), encoding="utf-8")
-    env = dict(os.environ)
-    env.update({"MN_INPUT_FILE": str(input_file), "MN_RUN_DIR": str(tmp_path)})
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(
-                ROOT
-                / "cctv_operator"
-                / "payloads"
-                / "agents"
-                / "report_writer"
-                / "scripts"
-                / "write_cctv_report.py"
-            ),
-        ],
-        cwd=tmp_path,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    report = json.loads((tmp_path / "cctv_report.json").read_text())
+    from cctv_native_test_support import NativeReport
+    worker = NativeReport(tmp_path)
+    worker.execute(detector_payload["next_state"], detector_payload["events"])
+    report = json.loads((worker.store.run_dir / "cctv_report.json").read_text())
     assert report["source_mode"] == "folder"
-    assert report["frames_analyzed"] == 1
-    assert report["detection_count"] == 1
+    assert report["frames_analyzed"] == 1 and report["detection_count"] == 1
     assert report["completed_sources"] == ["sample.mp4"]
-    assert "sample.mp4" in (tmp_path / "cctv_report.md").read_text()
-    assert (
-        json.loads((tmp_path / "final_artifact.json").read_text())["type"]
-        == "cctv_operator_review"
-    )
+    assert "sample.mp4" in (worker.store.run_dir / "cctv_report.md").read_text()
+    assert json.loads((worker.store.run_dir / "final_artifact.json").read_text())["type"] == "cctv_operator_review"
+    worker.execute({"source_mode": "folder", "frames_seen": 2, "detections": 1}, [
+        {"type": "cctv_operator_frame_observed", "payload": {"frame_seq": 2, "source_name": "sample.mp4", "summary": "The target left."}}])
+    report = json.loads((worker.store.run_dir / "cctv_report.json").read_text())
+    assert report["frames_analyzed"] == 2 and len(report["observations"]) == 2
+    assert report["detection_count"] == 1 and len(report["detections"]) == 1
 
 
 def test_cctv_operator_report_writer_derives_run_dir_from_runtime_environment(tmp_path):
-    input_file = tmp_path / "report_input.json"
-    input_file.write_text(
-        json.dumps(
-            {
-                "events": [
-                    {
-                        "type": "cctv_operator_frame_observed",
-                        "payload": {
-                            "frame_seq": 1,
-                            "source_name": "sample.mp4",
-                            "confidence": 0.8,
-                            "summary": "One configured target was observed.",
-                        },
-                    }
-                ],
-                "next_state": {"source_mode": "folder", "frames_seen": 1},
-            }
-        ),
-        encoding="utf-8",
-    )
-    runs_root = tmp_path / "runs"
-    env = dict(os.environ)
-    env.pop("MN_RUN_DIR", None)
-    env.update(
-        {
-            "MN_INPUT_FILE": str(input_file),
-            "MN_RUNS_ROOT": str(runs_root),
-            "MN_RUN_ID": "runtime-run",
-        }
-    )
-
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(
-                ROOT
-                / "cctv_operator"
-                / "payloads"
-                / "agents"
-                / "report_writer"
-                / "scripts"
-                / "write_cctv_report.py"
-            ),
-        ],
-        cwd=tmp_path,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert (runs_root / "runtime-run" / "cctv_report.json").is_file()
-    assert (runs_root / "runtime-run" / "cctv_report.md").is_file()
-    assert (runs_root / "runtime-run" / "final_artifact.json").is_file()
+    from cctv_native_test_support import NativeReport
+    worker = NativeReport(tmp_path, derive=True)
+    worker.execute({"source_mode": "stream", "frames_seen": 1}, [
+        {"type": "cctv_operator_frame_observed", "payload": {"frame_seq": 1, "source_name": "camera", "summary": "A cart is visible."}}])
+    root = tmp_path / "runs/runtime-run"
+    assert (root / "cctv_report.json").is_file()
+    assert (root / "cctv_report.md").is_file()
+    assert (root / "final_artifact.json").is_file()
 
 
 def test_otterdesk_blueprints_declare_markdown_context_profiles():
@@ -1352,7 +1283,9 @@ def test_procurement_manager_final_artifact_uses_product_output_fields(tmp_path)
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, "procurement_manager")
 
 root = Path({str((ROOT / "procurement_manager").resolve())!r})
 output = Path({str(tmp_path.resolve())!r}) / "output"
@@ -1717,17 +1650,11 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert not visual_node.get("resources")
     assert not nodes["ingress"].get("resources")
     assert not nodes["report_writer"].get("resources")
-    assert sampler_node["config"]["command"] == [
-        "bash",
-        "scripts/run_sampler_on_nvidia.sh",
-    ]
-    assert sampler_node["config"]["workdir"] == "/mn/job/adaptive_frame_sampler"
+    assert sampler_node["config"]["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
+    assert sampler_node["config"]["workdir"] == "/mn/job"
     assert sampler_node["config"].get("output_message_type") is None
-    assert visual_node["config"]["workdir"] == "/mn/job/agents/visual_detector"
-    assert visual_node["config"]["command"] == [
-        "bash",
-        "scripts/run_detector_on_nvidia.sh",
-    ]
+    assert visual_node["config"]["workdir"] == "/mn/job"
+    assert visual_node["config"]["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
     visual_model_environment = visual_node["config"]["environment"]
     assert visual_model_environment["MN_VLM_PROVIDER"] == "docker_model_runner"
     assert visual_model_environment["MN_VLM_API_BASE"] == "auto"
@@ -1741,10 +1668,6 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
         visual_model_environment["MN_RUNTIME_MODEL_NATIVE_TARGET"] == "127.0.0.1:55052"
     )
     assert visual_node["config"]["upload_paths"] == [
-        {
-            "source": "agents/visual_detector",
-            "target": "agents/visual_detector",
-        },
         {"source": "domain", "target": "domain"},
         {"source": "prompts", "target": "prompts"},
     ]
@@ -1767,32 +1690,10 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     assert "rtsp://127.0.0.1:8554/cctv-demo" in demo_script
     assert "-stream_loop -1" in demo_script
 
-    sampler_launch_script = (
-        blueprint_dir
-        / "payloads"
-        / "agents"
-        / "adaptive_frame_sampler"
-        / "scripts"
-        / "run_sampler_on_nvidia.sh"
-    ).read_text()
-    assert "demo_profile" in sampler_launch_script
-    assert "/opt/cctv-demo/start_demo_stream.sh" in sampler_launch_script
-    assert (
-        "/opt/cctv-demo/start_demo_stream.sh >/dev/null 2>&1" in sampler_launch_script
-    )
+    sampler_hook = (blueprint_dir / "payloads/domain/sampling.py").read_text()
+    assert "def await_demo(config):" in sampler_hook
+    assert '[DEMO_LAUNCHER, "--wait"]' in sampler_hook
 
-    launch_script = (
-        blueprint_dir
-        / "payloads"
-        / "agents"
-        / "visual_detector"
-        / "scripts"
-        / "run_detector_on_nvidia.sh"
-    ).read_text()
-    assert "nvidia-smi" not in launch_script
-    assert "ffmpeg -hide_banner -hwaccels" in launch_script
-    assert "CCTV_MEDIA_ACCELERATOR" in launch_script
-    assert "nvidia_cuda" in launch_script
     assert manifest["runtime"]["models"]["primary"]["type"] == "vlm"
     assert manifest["runtime"]["placement"]["mode"] == "single_node"
     assert manifest["runtime"]["models"]["primary"]["provider"] == "docker_model_runner"
@@ -1859,7 +1760,8 @@ def test_cctv_operator_start_stage_completes_before_stream_routing():
     assert runtime_node["config"].get("output_message_type") is None
     assert runtime_node["config"]["command"] == [
         "python3",
-        "agents/validation/start_video_monitor.py",
+        "-m",
+        "mn_sdk.step_runtime",
     ]
 
 
@@ -1892,19 +1794,9 @@ def test_cctv_operator_declares_only_routed_schema_validated_live_input():
     }
 
 
-def test_cctv_operator_detector_script_compiles_with_shared_helper_import():
-    py_compile.compile(
-        str(
-            ROOT
-            / "cctv_operator"
-            / "payloads"
-            / "agents"
-            / "visual_detector"
-            / "scripts"
-            / "analyze_video_frame.py"
-        ),
-        doraise=True,
-    )
+def test_cctv_operator_native_detection_policy_modules_compile():
+    for name in ("vision", "vision_model", "visual_detection", "observations", "report_publication"):
+        py_compile.compile(str(ROOT / "cctv_operator/payloads/domain" / (name + ".py")), doraise=True)
 
 
 def test_cctv_operator_owns_external_web_ui_and_uses_generic_skills():

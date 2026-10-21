@@ -1,41 +1,35 @@
-"""Durable research-state access shared by bounded specialists."""
-
-from __future__ import annotations
-
+"""Captured research inputs and immutable evidence handoffs."""
+import os
 from pathlib import Path
-from typing import Any
-
-from mn_sdk.blueprint_support import WorkflowStateStore
-
+from mn_sdk_common.committed_artifacts import validate_embedded_references
+from .common import INPUT_KEYS
 from .inputs import normalize_inputs
 
-STATE_FILE = "research_assistant_state.json"
+
+def research_inputs(block, inputs):
+    configured = (block.config.get("inputs") or {}).get("payload") or {}
+    values = {key: value for key, value in configured.items() if key in INPUT_KEYS}
+    values.update({key: value for key, value in inputs.items() if key in INPUT_KEYS and _has_runtime_value(value)})
+    return normalize_inputs(values)
 
 
-def _inputs(ctx: dict[str, Any]) -> dict[str, Any]:
-    configured = ((ctx["config"].get("inputs") or {}).get("payload") or {})
-    payload = ctx.get("payload") if isinstance(ctx.get("payload"), dict) else {}
-    overrides = {
-        key: value
-        for key, value in payload.items()
-        if _has_runtime_value(value)
-    }
-    return normalize_inputs({**configured, **overrides})
-
-
-def _has_runtime_value(value: Any) -> bool:
+def _has_runtime_value(value):
     if value is None:
         return False
     if isinstance(value, str):
         return bool(value.strip())
-    if isinstance(value, (dict, list, tuple, set)):
-        return bool(value)
-    return True
+    return bool(value) if isinstance(value, (dict, list, tuple, set)) else True
 
 
-def _state(ctx: dict[str, Any]) -> dict[str, Any]:
-    return WorkflowStateStore(Path(ctx["run_dir"])).read(STATE_FILE, {})
+def read_state(block, previous):
+    state = block.store.read(previous["state"])
+    validate_embedded_references(block.store, state)
+    return state
 
 
-def _save(ctx: dict[str, Any], state: dict[str, Any]) -> None:
-    WorkflowStateStore(Path(ctx["run_dir"])).write(STATE_FILE, state)
+def save_state(block, state, phase):
+    return block.store.commit(f"research/{phase}.json", state, kind="research_evidence").to_dict()
+
+
+def output_directory(block):
+    return Path(os.environ["MN_JOB_OUTPUT_DIR"]) if os.environ.get("MN_JOB_OUTPUT_DIR") else block.store.run_dir

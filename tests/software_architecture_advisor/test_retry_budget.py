@@ -4,12 +4,15 @@ import time
 
 def test_retry_reuses_verified_source_capture_without_ingesting_again(tmp_path, monkeypatch, architecture_paths):
     from domain import intake
+    from native_test_support import block_context
     source = tmp_path / "source"
     source.mkdir()
     run = tmp_path / "run"
     run.mkdir()
     snapshot = {"id": "frozen", "coverage": {"source_files": 3}, "modules": {"a": {}}}
     (run / "snapshot.json").write_text(json.dumps(snapshot))
+    folder=run/'evidence/snapshots/frozen';folder.mkdir(parents=True)
+    (folder/'sources.json').write_text('{}')
     before = (run / "snapshot.json").read_bytes()
     monkeypatch.setattr(intake, "policy", lambda _: {"offline": True})
     monkeypatch.setattr(intake, "load_snapshot", lambda _: {"manifest": snapshot})
@@ -17,23 +20,11 @@ def test_retry_reuses_verified_source_capture_without_ingesting_again(tmp_path, 
         raise AssertionError("Committed source capture must not ingest source again")
     monkeypatch.setattr(intake, "ingest_source", forbidden)
     context = {"payload": {"input_folder": str(source)}, "run_dir": str(run), "config": {}}
-    assert intake.capture_input(context)[0]["source_files"] == 3
-    assert intake.capture_input(context)[0]["source_files"] == 3
+    assert intake.capture_input(block_context(context), context['payload'])["source_files"] == 3
+    assert intake.capture_input(block_context(context), context['payload'])["source_files"] == 3
     assert (run / "snapshot.json").read_bytes() == before
 
 
-def test_retry_allowance_preserves_usage_and_immutable_investigation_context(tmp_path, monkeypatch, architecture_paths):
-    from domain.investigation_store import InvestigationStore
-    original = {"config": {"investigation": {"timeout_seconds": 1200}, "llm": {"max_calls": 10}}, "deadline": time.time() - 86400}
-    file = tmp_path / "investigation-context.json"
-    file.write_text(json.dumps(original))
-    before = file.read_bytes()
-    monkeypatch.setenv("MN_RUN_RETRY_JSON", json.dumps({"configuration_overrides": {"investigation.timeout_seconds": 3600}, "consumed_seconds": 1200}))
-    began = time.time()
-    store = InvestigationStore(tmp_path)
-    assert store.config["investigation"]["timeout_seconds"] == 3600
-    assert 2399 <= store.context["deadline"] - began <= 2401
-    assert file.read_bytes() == before
 
 
 def test_retry_budget_layers_settings_without_rewriting_original(monkeypatch, architecture_paths):

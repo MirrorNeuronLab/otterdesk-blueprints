@@ -1,14 +1,16 @@
 """Publish every rule, its admitted citations, and explicit static-review limits."""
 from collections import Counter
 from urllib.parse import quote
-from pathlib import Path
 import re
+import json
+from hashlib import sha256
 
-from mn_sdk.agent_events import activity_operation, report_activity
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.agent_events import report_activity
+from mn_sdk_common.publication import ArtifactWrite, publish_bundle
 
-from .artifacts import read, save, text
-from .publication import stage_outputs
+from .artifacts import read, save
+from .publication import deliver_reports
+from .configuration import BLUEPRINT_ID
 from .rule_review import require_approved_rules
 
 
@@ -17,15 +19,18 @@ def cell(value):
     return re.sub(r'([\\`*\[\]|])', r'\\\1', value)
 
 
-@activity_operation('Writing the rules report', completed='Rules report saved')
-def publish(context):
-    capture, rules, verification = read(context, 'capture.json'), read(context, 'rules.json'), read(context, 'verification.json')
+def publish(block, inputs):
+    report_activity("Writing the rules report", owner_blueprint=BLUEPRINT_ID,
+                    step_id=block.step_id, run_dir=block.store.run_dir)
+    capture = block.store.read(inputs["previous"]["capture"])
+    verification = block.store.read(inputs["previous"]["verification"])
+    rules = read(block, "rules.json")
     if not (capture['snapshot_id'] == rules['snapshot_id'] == verification['snapshot_id']):
         raise ValueError('Report inputs have different source identities.')
     results = {r['rule_id']: r for r in verification['results']}
     if len(results) != len(verification['results']) or set(results) != {r['id'] for r in rules['rules']}:
         raise ValueError('Every rule must have exactly one verification result.')
-    approval = require_approved_rules(context, rules)
+    approval = require_approved_rules(block, rules)
     if verification.get('rules_review') != approval:
         raise ValueError('Verification does not match the approved rules.')
     counts = dict(Counter(r['status'] for r in results.values()))
@@ -81,9 +86,6 @@ def publish(context):
                   '| Source section | Status | Reason |', '| --- | --- | --- |']
         lines += [f"| {cell(gap['path'])}:{gap['start_line']}–{gap['end_line']} | Unknown | {cell(gap['reason'])} |"
                   for gap in gaps]
-    refs = [text(context, 'report.md', '\n'.join(lines) + '\n')]
-    for path, value in capture['sources'].items():
-        text(context, 'source/' + path, value)
     final = {'schema_version': 'mn.software_rules.report.v1', 'snapshot_id': capture['snapshot_id'],
              'rules': rules['rules'], 'results': verification['results'], 'summary': counts,
              'source_execution': False, 'report': 'report.md', 'rules_markdown': 'rules.md',
@@ -92,23 +94,45 @@ def publish(context):
              'coverage': {'documents': rules['extraction_coverage'], 'omitted': capture['omitted'],
                           'extraction_status': rules.get('extraction_status', 'complete'), 'extraction_gaps': gaps,
                           'documentation_selection': selection}}
-    refs += [save(context, 'final_artifact.json', final), save(context, 'result.json', final)]
-    artifacts = source_manifest(__file__)['contracts']['outputs']['artifacts']
-    stage_outputs(context, [item['path'] for item in artifacts
-                            if item['artifact_id'] not in {'web_report', 'web_ui'} and
-                            (item.get('required') or (Path(context['run_dir']) / item['path']).exists())])
+    # Captured evidence is committed individually; large repositories do not
+    # consume the publication bundle's limit of 128 top-level report artifacts.
+    for path, content in capture["sources"].items():
+        block.check()
+        block.store.commit_bytes("source/" + path, content.encode("utf-8"), kind="captured_source")
+    encoded = json.dumps(final, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
+    revision = sha256(encoded).hexdigest()
+
+    def page():
+        try:
+            from .workspace_web import render
+            return render(final, capture).encode("utf-8")
+        except Exception as error:
+            save(block, "presentation-status.json", {"status": "unavailable", "error_type": type(error).__name__})
+            raise
+
+    def handle():
+        from mn_sdk_web_ui import static_run_report_handle
+        if not block.store.path("web/index.html").is_file():
+            raise ValueError("Optional report page is unavailable.")
+        return json.dumps(static_run_report_handle(block.store.run_dir, "web/index.html",
+            title="Code verification", optional=True)).encode("utf-8")
+
+    receipt = publish_bundle(block.store, [
+        ArtifactWrite("final_artifact", "final_artifact.json", encoded, kind="json", authoritative=True),
+        ArtifactWrite("result", "result.json", encoded, kind="json", authoritative=True),
+        ArtifactWrite("report", "report.md", ("\n".join(lines) + "\n").encode("utf-8"), kind="markdown"),
+        ArtifactWrite("web_report", "web/index.html", page, kind="html", required=False, revision=revision),
+        ArtifactWrite("web_ui", "web_ui.json", handle, kind="json", required=False, revision=revision, mode=0o644),
+    ], receipt_path=block.root + "/publication.json")
+    if receipt["warnings"] and not block.store.path("presentation-status.json").exists():
+        save(block, "presentation-status.json", {"status": "unavailable",
+            "failed_artifact_ids": [warning["artifact_id"] for warning in receipt["warnings"]]})
+    deliver_reports(block, complete=True)
     try:
-        from .workspace_web import render
-        page = render(final, capture)
-        refs.append(text(context, 'web/index.html', page))
-        page_path = (Path(context['run_dir']) / 'web/index.html').resolve()
-        refs.append(save(context, 'web_ui.json', {'kind': 'output', 'adapter': 'static_html',
-            'title': 'Code verification', 'path': str(page_path), 'url': page_path.as_uri(),
-            'metadata': {'renderer': 'static_html', 'snapshot': capture['snapshot_id'], 'source_execution': False}}))
-        stage_outputs(context, ['web', 'web_ui.json'])
+        deliver_reports(block, presentation=True)
     except Exception as error:
-        refs.append(save(context, 'presentation-status.json',
-                         {'status': 'unavailable', 'error_type': type(error).__name__}))
-        report_activity('The Markdown report is ready. The optional web view could not be created.',
-                        kind='action', run_dir=context['run_dir'])
-    return {'rules': len(results), 'summary': counts, 'report': 'report.md'}, refs
+        save(block, "presentation-status.json", {"status": "unavailable", "error_type": type(error).__name__})
+        report_activity("The Markdown report is ready. The optional web view could not be delivered.",
+                        kind="action", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    return {"rules": len(results), "summary": counts, "report": "report.md",
+            "artifacts": receipt["artifacts"], "warnings": receipt["warnings"]}

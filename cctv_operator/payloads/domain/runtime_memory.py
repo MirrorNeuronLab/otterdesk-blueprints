@@ -67,7 +67,7 @@ class CameraMemory:
         self.last_recall_receipt = receipt
         return packet
 
-    def remember(self, observation):
+    def remember(self, observation, *, publish=True):
         if self.memory is None:
             return
         fields = ("observed_at", "camera_id", "frame_seq", "batch_id", "frame_batch_ref",
@@ -102,7 +102,9 @@ class CameraMemory:
                 "run_id": value["run_id"], "instruction_revision": value["instruction_revision"]}])
         write_json(self.run_dir / "runtime_memory" / f"frame-{observation['frame_seq']}-observation.json",
                    {"observation": value, "markdown": record.markdown(), "receipt": receipt})
-        publish_camera_markdown(self.config, self.run_dir, value, record.markdown())
+        if publish:
+            publish_camera_markdown(self.config, self.run_dir, value, record.markdown())
+        return {"observation": value, "markdown": record.markdown(), "receipt": receipt}
 
     def close(self):
         if self.memory is not None:

@@ -61,10 +61,10 @@ Agents and steps are separate concepts:
 ## Code Ownership
 
 - `payloads/steps/` contains only logical step contracts, input/output mappings, and internal collaboration graphs.
-- `payloads/agents/` contains executable specialist workers. Each valuation agent has a discoverable module matching its registry ID; for example, `agents/first_chicago_scorer.py` binds the First Chicago worker.
+- Registry entries select the SDK block worker and explicit domain hooks; valuation methods are manifest-owned lifecycle metadata.
 - `payloads/domain/` contains blueprint-specific diligence policy and deterministic behavior. Valuation formulas are split by method under `domain/valuation/`; the First Chicago formula is in `valuation/first_chicago.py`.
-- `payloads/runtime/` contains dependency bootstrap and runtime/service preparation only. It must not import agent behavior.
-- Shared, domain-neutral mechanisms stay in the SDK, skills, or reusable agent packages. Route-neutral message parsing and artifact references live in `mn_sdk.step_runtime`; durable message-agent replay lives in `prototype_stateful_step_agent`; document hashing, grouping, and common PII redaction live in `docs_to_markdown_skill`.
+- `payloads/runtime/` carries the SDK-staged descriptor; there is no blueprint runtime wrapper.
+- Shared, domain-neutral mechanisms stay in the SDK, skills, or reusable agent packages. Route-neutral message parsing and artifact references live in `mn_sdk.step_runtime`; durable block replay lives in `mn-blueprint-blocks`; document hashing, grouping, and common PII redaction live in `docs_to_markdown_skill`.
 
 There is intentionally no `payloads/agents/domain.py`. Agents import only the VC domain modules they own, while reusable skills remain independent of VC terminology.
 
@@ -174,6 +174,67 @@ skill, and agent checkouts available:
 python -m pytest vc_assistant/tests -q
 git diff --check
 ```
+
+## Block composition (5.0.0)
+
+The four intake specialists use direct native hooks in `domain/intake_blocks.py`.
+They capture immutable source bytes through the SDK, carry scoped checkpoints,
+and keep original and processed files in the standard artifact graph. Intake does
+not reconstruct a runtime-context dictionary. Optional actor reviews retain RAG,
+qualified runtime memory and privacy policy, with SDK-journaled model calls.
+Company cache identity uses source-relative names and content hashes, so changing
+worker directories does not force unchanged packets to run again. Older cache
+fingerprints refresh once after this migration.
+
+The research planner also consumes verified intake checkpoints directly, runs
+the existing entity queue and research policy, and freezes its planning response
+before optional review. Interrupted planning outcomes fence another dispatch.
+The SDK journals action reservations, including an uncertain optional review's
+charge; the native review uses the input ledger rather than mutable state files.
+
+The five public-research specialists and research reconciler also use native
+hooks. Each branch carries its exact planning authority, company coverage,
+sources and tool traces. Reconciliation accepts exactly the declared branches,
+checks their shared base and merges evidence in manifest order. Private workers
+use the standard SDK/Core artifact handoff rather than shared mutable files.
+The joined snapshot retains branch references, frozen review contexts and memory
+witnesses, so the evidence behind each review survives private-worker cleanup.
+
+Native action admission uses one durable Core-owned allowance for the actual
+workflow run. `execution.json` binds `policies.workflow_budgets.research_actions`
+to `research_budget.default_actions`; the compiler resolves the integer limit.
+Concurrent private workers cannot spend separate copies of the allowance. Unknown
+starts remain charged and conflicting requests/completions reject. Completed
+phase checkpoints freeze once, so another worker's later spending cannot change
+replay or trigger model/research work again.
+
+The seven valuation specialists and score auditor also use native hooks. The
+reconciler freezes each company's fact table once; every scorer and the auditor
+use that same table, including its timestamp. Scoring retains the existing
+formula functions. The auditor requires all seven declared branches, matching
+research authority, company coverage, method identity and facts. Review recalls
+the actual method outcome, formula, inputs, details and qualifications through
+the scoped memory witness. Prepared audits freeze before optional model review,
+so retry preserves the audit time and cannot repeat a known model call.
+
+The company and batch report writers also use direct native hooks. They read
+scoped audit checkpoints, compose domain reports and publish through the SDK's
+verified file manifest. Required JSON/Markdown, input/output source subjects,
+watch state and review qualifications survive private-worker handoff. Logical
+file names are relative, so reports do not depend on another worker's paths.
+Batch review and report data freeze before publication; interrupted delivery
+reuses the same bytes and cannot repeat model work. All 21 roles now use the
+Core-owned action allowance. The runtime-context bridge, local counter loader
+and blueprint runtime wrapper are removed.
+
+The ten StepSpec graphs retain extractor sequencing and parallel joins.
+`workflow_state/` files remain inspection views; native workers read explicit
+scoped checkpoints. Metadata traces combine local records and qualified upstream
+specialist records; initialization diagnostics in private workers can remain local.
+Main SDK requires `1.3.61.dev31`, blocks `1.3.61.dev30`, common
+`1.3.61.dev25`, and matching Core workflow-budget/private-output support.
+OpenShell remains optional; publishers select `artifact_handoff.export_outputs`
+for Core-owned delivery. This source is not a release or live-provider qualification.
 
 ## Blueprint package format
 

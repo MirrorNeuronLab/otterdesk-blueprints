@@ -12,7 +12,7 @@ from ._shared import step_inputs
 
 STEP = StepSpec(
     input=InputSpec(
-        fields=step_inputs("reconcile_research_evidence", "reconciled_evidence")
+        fields=step_inputs("reconcile_research_evidence", "reconciled_evidence", result_ref=True)
     ),
     flow=parallel(
         agent("berkus_scorer"),

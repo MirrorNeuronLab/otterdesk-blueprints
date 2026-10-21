@@ -9,5 +9,5 @@ STEP = StepSpec(
         agent("financial_folder_watcher", as_="inventory"),
         agent("financial_document_reader", as_="extract"),
     ),
-    output=OutputSpec(fields={"financial_packet": flow_output()}),
+    output=OutputSpec(fields={"financial_packet": flow_output("result")}),
 )

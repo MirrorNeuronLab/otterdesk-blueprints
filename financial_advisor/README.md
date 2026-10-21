@@ -91,12 +91,12 @@ runs do not need a live model.
 
 ## Payload layout
 
-`payloads/steps/` contains only logical contracts and collaboration graphs.
-`payloads/agents/` binds each specialist. `payloads/domain/` is split into
-intake, source ingestion, cash flow, tax, portfolio, public research,
-reconciliation, reporting, model-review services, durable state, and runtime
-preparation. `composition.py` is the local sample runner; deployed agents call
-the same focused functions.
+`payloads/steps/` contains logical contracts and collaboration graphs.
+The 17 stock SDK block workers call their owning domain functions directly.
+Focused modules retain intake, cash flow, tax, portfolio, reconciliation,
+reporting and model-review policy. No blueprint runtime or compatibility adapter
+is used; offline samples exercise compiled worker bindings, and Core owns
+production run completion.
 
 ## Persistent conversation
 
@@ -116,6 +116,10 @@ and later runs retain earlier reports. The runtime responder uses Membrane sourc
 intelligence for these report questions. Raw financial inputs and JSON audit
 records are excluded. SDK >=1.3.58.dev86 is required for bounded whole-section
 selection; review and downstream approval requirements remain unchanged.
+
+## Block composition (4.0.0)
+
+All 17 specialist bindings reference their owning native domain functions. The seven ordered logical steps and their StepSpec specialist sequences remain intact. Intake commits the approved source bytes; every specialist consumes a verified immutable evidence packet. Model reviews retain SDK budgets, backpressure and diagnostics, with evidence-bound completion receipts for publication retries. An interrupted model review with no completed response requires reconciliation before another model attempt. SDK publication commits the customer report and audit bundle, then the document skill prepares the complete saved Markdown as the conversation subject. Publication requires a completed audit and preserves review-only financial policy; Core owns scheduling and logical completion.
 
 ## Blueprint package format
 

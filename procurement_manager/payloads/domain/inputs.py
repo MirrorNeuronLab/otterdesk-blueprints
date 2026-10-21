@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import ipaddress
 import re
+import os
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -382,7 +383,9 @@ def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: P
         return None
     path = expand_runtime_path(value)
     if not path.is_absolute():
-        path = root / path
+        from .state import bundle_layout
+        runtime_dir = Path(os.environ["MN_WORKDIR"]) if os.environ.get("MN_WORKDIR") else bundle_layout().runtime_dir
+        path = runtime_dir / path
     return path
 
 

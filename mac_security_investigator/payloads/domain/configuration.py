@@ -1,5 +1,9 @@
 """Fixed investigation budgets; the output folder is the only operator setting."""
 
+from mn_sdk.blueprint_support import source_manifest
+
+BLUEPRINT_ID = source_manifest(__file__)["metadata"]["blueprint_id"]
+
 
 def investigation_policy():
     return {"max_records": 20000, "max_scan_bytes": 8388608,

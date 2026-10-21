@@ -1,3 +1,4 @@
+from native_test_support import block_context
 """Data-grounded output, cumulative Job storage, exact drill-through and unsafe-source tests."""
 from copy import deepcopy
 import hashlib
@@ -44,7 +45,7 @@ def fixture(tmp_path, *, run='first', body='from beta import pay\n', job='job-on
             'confidence':'medium', 'confidence_rationale':'Captured source import', 'status':'provisional'}]
     context = {'run_dir':root, 'run_id':run, 'job_id':job, 'job_data_dir':tmp_path/job,
         'config':{'opencode':{'model':model}, 'outputs':{'folder_path':str(tmp_path/run/'delivery')}}, 'payload':{}}
-    return context, project(context, report, registers)
+    return context, project(block_context(context), report, registers)
 
 
 def test_projection_uses_real_captured_source_and_rejects_bad_edge(tmp_path):
@@ -62,7 +63,7 @@ def test_projection_uses_real_captured_source_and_rejects_bad_edge(tmp_path):
     path.write_text(json.dumps(value))
     with pytest.raises(ValueError, match='source does not match'):
         # Only fields consumed by this invalid projection need a minimal report.
-        project(ctx, {'analysis_started':'now'}, {'evidence':[]})
+        project(block_context(ctx), {'analysis_started':'now'}, {'evidence':[]})
 
 
 def test_cochange_exact_sets_and_asymmetric_denominators(tmp_path):
@@ -85,23 +86,23 @@ def test_cochange_exact_sets_and_asymmetric_denominators(tmp_path):
 def test_job_snapshots_accumulate_and_earlier_replay_cannot_roll_back_latest(tmp_path):
     from domain.workspace_history import retain
     first_ctx, first = fixture(tmp_path)
-    one, index, root = retain(first_ctx,first)
+    one, index, root = retain(block_context(first_ctx),first, review_file=(first_ctx).get('payload', {}).get('review_file'))
     first_bytes = (root/'data/snapshots'/one['id']/'workspace.json').read_bytes()
     second_ctx, second = fixture(tmp_path,run='second',body='from beta import pay\n# changed\n')
-    two,index,_ = retain(second_ctx,second)
+    two,index,_ = retain(block_context(second_ctx),second, review_file=(second_ctx).get('payload', {}).get('review_file'))
     assert len(index['snapshots']) == 2
     assert index['latest'] == two['id']
     assert two['changes']['files'][0]['path'] == 'src/checkout/a.py'
     assert (root/'data/snapshots'/one['id']/'workspace.json').read_bytes() == first_bytes
-    again,index,_ = retain(first_ctx,first)
+    again,index,_ = retain(block_context(first_ctx),first, review_file=(first_ctx).get('payload', {}).get('review_file'))
     assert again == one and len(index['snapshots']) == 2 and index['latest'] == two['id']
     assert json.loads((root/'data/workspace.json').read_text())['id'] == two['id']
     other_ctx, other = fixture(tmp_path,run='third',job='job-two')
-    _,other_index,other_root = retain(other_ctx,other)
+    _,other_index,other_root = retain(block_context(other_ctx),other, review_file=(other_ctx).get('payload', {}).get('review_file'))
     assert other_root != root and len(other_index['snapshots']) == 1
     changed = deepcopy(first); changed['executive'] = 'altered'
     with pytest.raises(ValueError,match='changed on replay'):
-        retain(first_ctx,changed)
+        retain(block_context(first_ctx),changed, review_file=(first_ctx).get('payload', {}).get('review_file'))
 
 
 def test_comparison_paths_keep_baseline_citations_and_unknown_behavior(tmp_path):
@@ -145,7 +146,7 @@ def test_render_real_records_safely_and_publish_required_web_handle(tmp_path, mo
     from domain.workspace_web import render
     from domain.workspace_history import retain
     ctx,w=fixture(tmp_path,body='value = "</script><script>alert(1)</script>"\n')
-    w,index,root=retain(ctx,w)
+    w,index,root=retain(block_context(ctx),w, review_file=(ctx).get('payload', {}).get('review_file'))
     page=render(w,index)
     assert 'connect-src &#x27;self&#x27;' in page
     assert '</script><script>alert(1)' not in page
@@ -181,11 +182,11 @@ def test_web_failure_is_explicit_after_durable_data_and_success_has_valid_handle
         raise OSError('Cannot render dashboard')
     monkeypatch.setattr(workspace_web,'render',broken)
     with pytest.raises(OSError,match='Cannot render'):
-        workspace_web.publish(ctx,{}, {})
+        workspace_web.publish(block_context(ctx),{}, {})
     assert (ctx['run_dir']/'data/workspace.json').exists()
     assert not (ctx['run_dir']/'web_ui.json').exists()
     monkeypatch.setattr(workspace_web,'render',real_render)
-    result,refs=workspace_web.publish(ctx,{}, {})
+    result,refs=workspace_web.publish(block_context(ctx),{}, {})
     assert all((ctx['run_dir']/ref['path']).is_file() for ref in refs)
     handle=json.loads((ctx['run_dir']/'web_ui.json').read_text())
     assert handle['adapter']=='static_html'
@@ -197,10 +198,10 @@ def test_replayed_page_handle_and_public_contract_stay_bound_to_latest_snapshot(
     from domain import workspace_web
     ctx, first = fixture(tmp_path)
     second_ctx, second = fixture(tmp_path, run='second', body='from beta import pay\n# new\n')
-    monkeypatch.setattr(workspace_web, 'project', lambda context, *_: deepcopy(first if context is ctx else second))
-    workspace_web.publish(ctx, {}, {})
-    workspace_web.publish(second_ctx, {}, {})
-    result, refs = workspace_web.publish(ctx, {}, {})
+    monkeypatch.setattr(workspace_web, 'project', lambda block, *_: deepcopy(first if block.store.run_dir == ctx['run_dir'] else second))
+    workspace_web.publish(block_context(ctx), {}, {})
+    workspace_web.publish(block_context(second_ctx), {}, {})
+    result, refs = workspace_web.publish(block_context(ctx), {}, {})
     latest = json.loads((ctx['run_dir']/'data/workspace.json').read_text())
     handle = json.loads((ctx['run_dir']/'web_ui.json').read_text())
     assert handle['metadata']['snapshot'] == latest['snapshot_id'] == second['snapshot_id']
@@ -216,18 +217,18 @@ def test_review_material_binds_source_scope_and_model_but_not_delivery_folders(t
     f['review_history'] = [{'id':'r1', 'continuity_key':f['continuity_key'], 'material_digest':f['material_digest'],
         'actor':'Engineer', 'at':'2026-10-08T14:30:00Z', 'rationale':'Inspected import', 'action':'Dismiss'}]
     f['review_state'] = 'Dismiss'
-    retain(ctx, first)
+    retain(block_context(ctx), first, review_file=(ctx).get('payload', {}).get('review_file'))
     ctx, identical = fixture(tmp_path, run='second', include_finding=True)
-    saved, _, _ = retain(ctx, identical)
+    saved, _, _ = retain(block_context(ctx), identical, review_file=(ctx).get('payload', {}).get('review_file'))
     assert saved['changes']['analysis_comparable'] and saved['findings'][0]['review_state'] == 'Dismiss'
     ctx, new_source = fixture(tmp_path, run='third', include_finding=True, body='from beta import pay\n# new context\n')
-    saved, _, _ = retain(ctx, new_source)
+    saved, _, _ = retain(block_context(ctx), new_source, review_file=(ctx).get('payload', {}).get('review_file'))
     assert saved['findings'][0]['review_state'] == 'Needs reassessment'
     ctx, new_scope = fixture(tmp_path, run='fourth', include_finding=True, body='from beta import pay\n# new context\n', exclude=['tests'])
-    saved, _, _ = retain(ctx, new_scope)
+    saved, _, _ = retain(block_context(ctx), new_scope, review_file=(ctx).get('payload', {}).get('review_file'))
     assert not saved['changes']['scope_comparable'] and saved['findings'][0]['review_state'] == 'Needs reassessment'
     ctx, new_model = fixture(tmp_path, run='fifth', include_finding=True, body='from beta import pay\n# new context\n', exclude=['tests'], model='other-model')
-    saved, _, _ = retain(ctx, new_model)
+    saved, _, _ = retain(block_context(ctx), new_model, review_file=(ctx).get('payload', {}).get('review_file'))
     assert not saved['changes']['analysis_comparable'] and saved['findings'][0]['review_state'] == 'Needs reassessment'
 
 
@@ -354,7 +355,7 @@ def test_main_report_and_retained_dashboard_share_identical_coding_prompts(tmp_p
     monkeypatch.setattr(catalog_publication,'project',lambda *_: deepcopy(rich))
     (ctx['run_dir']/'data/report.json').unlink()
     (ctx['run_dir']/'reports/report.md').unlink()
-    catalog_publication.publish(ctx)
+    catalog_publication.write_review(block_context(ctx), deepcopy(report), deepcopy(files), {})
     root = ctx['run_dir']
     implementation = next(p for p in rich['improvement_prompts']['prompts'] if p['mode']=='Implement')
     assert implementation['prompt'].rstrip() in (root/'reports/report.md').read_text()
@@ -364,7 +365,7 @@ def test_main_report_and_retained_dashboard_share_identical_coding_prompts(tmp_p
     assert json.loads((root/'data/improvement_prompts.json').read_text()) == rich['improvement_prompts']
     assert json.loads((root/'data/report.json').read_text())['improvement_prompts'] == rich['improvement_prompts']
     assert json.loads((retained/'workspace.json').read_text())['improvement_prompts'] == rich['improvement_prompts']
-    assert catalog_publication.publish(ctx)[0]['status'] == 'partial'
+    assert catalog_publication.write_review(block_context(ctx), deepcopy(report), deepcopy(files), {})[0]['status'] == 'partial'
 
 
 def workspace_data_not_embedded(page, workspace):
@@ -376,15 +377,15 @@ def test_growth_history_tracks_metrics_and_marks_scope_changes_incomparable(tmp_
     first_ctx,first=fixture(tmp_path,run='growth-one')
     first['graph_growth']={'schema_version':'mn.architecture.growth.v1','files':2,'functions':4,
         'file_dependencies':1,'call_pairs':2,'method':'syntax-v1','scope_identity':'same'}
-    retain(first_ctx,first)
+    retain(block_context(first_ctx),first, review_file=(first_ctx).get('payload', {}).get('review_file'))
     second_ctx,second=fixture(tmp_path,run='growth-two')
     second['graph_growth']={**first['graph_growth'],'files':3,'functions':8,'call_pairs':4}
-    _,_,root=retain(second_ctx,second)
+    _,_,root=retain(block_context(second_ctx),second, review_file=(second_ctx).get('payload', {}).get('review_file'))
     data=json.loads((root/'data/growth.json').read_text())['snapshots']
     assert data[-1]['comparable'] and data[-1]['delta']['functions']==4
     third_ctx,third=fixture(tmp_path,run='growth-three')
     third['graph_growth']={**second['graph_growth'],'scope_identity':'new-exclusions'}
-    retain(third_ctx,third)
+    retain(block_context(third_ctx),third, review_file=(third_ctx).get('payload', {}).get('review_file'))
     data=json.loads((root/'data/growth.json').read_text())['snapshots']
     assert not data[-1]['comparable'] and data[-1]['delta'] is None
     assert not list((root/'data').rglob('*.md'))

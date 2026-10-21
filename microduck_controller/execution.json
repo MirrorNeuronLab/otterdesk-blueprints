@@ -22,16 +22,7 @@
     }
   },
   "agents": {
-    "registry": {
-      "microduck_service": {
-        "handler": "agents.microduck_service",
-        "role": "Browser-backed Microduck Simulation Service"
-      },
-      "finalize": {
-        "handler": "agents.finalize",
-        "role": "Microduck Service Finalizer"
-      }
-    },
+    "registry": {},
     "auxiliary_entrypoints": [
       "microduck_web_ui_registrar"
     ],
@@ -130,10 +121,6 @@
           "workdir": "/app",
           "timeout_seconds": 86400,
           "upload_paths": [
-            {
-              "source": "agents",
-              "target": "agents"
-            },
             {
               "source": "domain",
               "target": "domain"

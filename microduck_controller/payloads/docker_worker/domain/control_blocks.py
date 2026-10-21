@@ -2,7 +2,6 @@
 
 from concurrent.futures import CancelledError
 from pathlib import Path
-import time
 
 from mn_sdk.integrations.block_async import AsyncBlockOperation
 from mn_sdk.step_runtime import StepContext
@@ -46,7 +45,7 @@ class ControlBlocks:
             result = await self.runner.invoke(
                 request_id=command_id,
                 inputs={"command_id": command_id, "kind": kind, "payload": payload},
-                resources={"hub": self.hub},
+                resources={"controlled_device": self.hub},
             )
             admission = CommittedJsonStore(self.run_dir).read(result.outputs["result"])[
                 "receipt"
@@ -60,7 +59,7 @@ class ControlBlocks:
                             command_id=command_id, kind=kind, payload=payload
                         )
                     )
-                    or self.hub._rejected_receipt(command_id, kind, "command_not_found")
+                    or self._unknown(command_id, kind)
                 )
                 if admission.get("accepted")
                 else admission
@@ -160,66 +159,7 @@ def policy(block, inputs):
     return inputs["state"].get("ready") is True
 
 
-def receipt(block, inputs):
-    return block.observe("command_receipt", inputs, key=inputs["request_id"])
-
-
-def command_receipt(block, inputs):
-    resources = block.resources
-    value = resources["async_operation"].call(
-        lambda: resources["hub"].receipt_for(
-            command_id=inputs["request_id"],
-            kind=inputs["kind"],
-            payload=inputs["payload"],
-        )
+def cancel(block, command):
+    return block.resources["controlled_device"]._rejected_receipt(
+        command["request_id"], command["kind"], "stopped_by_operator"
     )
-    return (
-        {"request_id": inputs["request_id"], "receipt": value}
-        if value is not None
-        else None
-    )
-
-
-def device_state(block, inputs):
-    resources = block.resources
-    state = resources["async_operation"].call(resources["hub"].state)
-    age = state["connection"]["state_age_ms"]
-    return {
-        **state,
-        "connected": state["connection"]["connected"],
-        "observed_at": time.time() - (age or 0) / 1000,
-    }
-
-
-def command(block, inputs):
-    resources = block.resources
-    hub = resources["hub"]
-
-    async def admit():
-        if not resources["async_operation"].is_current():
-            receipt = hub._rejected_receipt(
-                inputs["request_id"], inputs["kind"], "stopped_by_operator"
-            )
-        else:
-            receipt = await hub.enqueue(
-                command_id=inputs["request_id"],
-                kind=inputs["kind"],
-                payload=inputs["payload"],
-            )
-        return {"request_id": inputs["request_id"], "receipt": receipt}
-
-    return resources["async_operation"].call(admit)
-
-
-def reconcile(block, request):
-    inputs = request["data"]
-    resources = block.resources
-    receipt = resources["async_operation"].call(
-        lambda: resources["hub"].command_status(inputs["request_id"])
-    )
-    if receipt.get("reason") == "command_not_found":
-        return {"state": "unknown"}
-    return {
-        "state": "succeeded",
-        "value": {"request_id": inputs["request_id"], "receipt": receipt},
-    }

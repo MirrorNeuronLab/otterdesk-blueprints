@@ -1,0 +1,187 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "target_discovery": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.native_stages:discover_targets"
+      },
+      "inputs": {
+        "assay_constraints": {
+          "$ref": "run_input",
+          "path": [
+            "assay_constraints"
+          ]
+        },
+        "candidate_seed_set": {
+          "$ref": "run_input",
+          "path": [
+            "candidate_seed_set"
+          ]
+        },
+        "disease": {
+          "$ref": "run_input",
+          "path": [
+            "disease"
+          ]
+        },
+        "disease_or_target_profile": {
+          "$ref": "run_input",
+          "path": [
+            "disease_or_target_profile"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        },
+        "literature_corpus": {
+          "$ref": "run_input",
+          "path": [
+            "literature_corpus"
+          ]
+        },
+        "output_folder": {
+          "$ref": "run_input",
+          "path": [
+            "output_folder"
+          ]
+        },
+        "screening_criteria": {
+          "$ref": "run_input",
+          "path": [
+            "screening_criteria"
+          ]
+        },
+        "targets": {
+          "$ref": "run_input",
+          "path": [
+            "targets"
+          ]
+        }
+      },
+      "outputs": {
+        "targets": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "structure_generation": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.native_stages:generate_structures"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "target_discovery",
+          "path": [
+            "targets"
+          ]
+        }
+      },
+      "outputs": {
+        "structures": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "candidate_generation": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.continuous_service:run_discovery_service"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "structure_generation",
+          "path": [
+            "structures"
+          ]
+        }
+      },
+      "outputs": {
+        "candidate_service": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 86400
+      }
+    },
+    "binding_evaluation": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.native_stages:evaluate_binding"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "candidate_generation",
+          "path": [
+            "candidate_service"
+          ]
+        }
+      },
+      "outputs": {
+        "evaluations": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "ranking_reporting": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.reporting:publish_ranking"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "binding_evaluation",
+          "path": [
+            "evaluations"
+          ]
+        }
+      },
+      "outputs": {
+        "discovery_report": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    }
+  }
+}

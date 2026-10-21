@@ -1,0 +1,113 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "capture_mac_evidence": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.operations:capture"
+      },
+      "inputs": {},
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      }
+    },
+    "reconcile_evidence_history": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.operations:reconcile"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "capture_mac_evidence"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      }
+    },
+    "investigate_temporal_behavior": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.operations:investigate"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "reconcile_evidence_history"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      }
+    },
+    "publish_security_review": {
+      "uses": "mn.blocks.report_publication@1",
+      "hooks": {
+        "project": "domain.reporting:project"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "investigate_temporal_behavior"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      },
+      "config": {
+        "artifact_ids": [
+          "final_artifact",
+          "evidence",
+          "report",
+          "preview"
+        ]
+      }
+    }
+  }
+}

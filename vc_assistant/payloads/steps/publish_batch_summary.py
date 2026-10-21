@@ -4,7 +4,7 @@ from ._shared import step_inputs
 
 
 STEP = StepSpec(
-    input=InputSpec(fields=step_inputs("write_company_reports", "company_reports")),
+    input=InputSpec(fields=step_inputs("write_company_reports", "company_reports", result_ref=True)),
     flow=agent("batch_index_writer"),
     output=OutputSpec(fields={"batch_summary": flow_output()}),
 )

@@ -1,171 +1,98 @@
-"""Native BioTarget stage bindings for the discovery specialist agents."""
-
-from __future__ import annotations
-
-from mn_sdk.agent_events import activity_operation
-
-import copy
-import json
-import os
+"""Native scientific operations consuming immutable predecessor state."""
 import re
-import subprocess
-import sys
 from pathlib import Path
-from typing import Any
+from mn_sdk_common.committed_artifacts import validate_embedded_references
+from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint_support import write_json
+from biotarget.stages.stage_a_discovery import stage_a_target_discovery
+from biotarget.stages.stage_b_structure import stage_b_structure_generation
+from service.scripts.continuous_service import fake_fold, is_fake
 
-from mn_sdk.blueprint_support import WorkflowStateStore
-
+from .configuration import BLUEPRINT_ID, research_inputs
 from .conversation_sources import publish_inputs, publish_results
 
-STATE_FILE = "drug_discovery_state.json"
-SCRIPTS = Path(__file__).resolve().parents[1] / "service" / "scripts"
+
+def read_discovery_state(block, inputs):
+    state = block.store.read(inputs["previous"]["state"])
+    validate_embedded_references(block.store, state)
+    return state
 
 
-def read_discovery_state(ctx: dict[str, Any]) -> dict[str, Any]:
-    return WorkflowStateStore(Path(ctx["run_dir"])).read(STATE_FILE, {})
+def write_discovery_state(block, state, phase):
+    reference = block.store.commit(f"discovery/{phase}.json", state, kind="discovery_evidence")
+    write_json(block.store.path("workflow_state/drug_discovery_state.json"), state)
+    publish_results(block, state)
+    return reference.to_dict()
 
 
-def write_discovery_state(ctx: dict[str, Any], state: dict[str, Any]) -> None:
-    WorkflowStateStore(Path(ctx["run_dir"])).write(STATE_FILE, state)
-    publish_results(ctx, state)
+def selected_targets(targets, *, discovered):
+    if not isinstance(targets, list) or not targets:
+        raise ValueError("Protein targets must be a nonempty list of UniProt identifiers.")
+    selected = []
+    fields = ("protein_id", "gene", "score_opentargets") if discovered else ("protein_id", "gene")
+    for target in targets:
+        protein_id = target.get("protein_id") if isinstance(target, dict) else None
+        gene = target.get("gene") if isinstance(target, dict) else None
+        if not isinstance(protein_id, str) or not re.fullmatch(r"[A-Z][A-Z0-9]{5}(?:[A-Z0-9]{4})?(?:-[1-9][0-9]*)?", protein_id):
+            raise ValueError("Each target requires a UniProt protein_id.")
+        if not isinstance(gene, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", gene):
+            raise ValueError("Each target requires a gene symbol without path characters.")
+        selected.append({key: target[key] for key in fields if key in target})
+    return selected
 
 
-def _resolved_inputs(ctx: dict[str, Any]) -> dict[str, Any]:
-    payload = dict((ctx["config"].get("inputs") or {}).get("payload") or {})
-    # Optional run_input mappings use None when absent. They must not erase
-    # configured research inputs; explicit empty lists still clear a selection.
-    payload.update({key: value for key, value in (ctx.get("payload") or {}).items()
-                    if value is not None})
-    return payload
-
-
-def _stage_config(ctx: dict[str, Any], state: dict[str, Any]) -> dict[str, Any]:
-    config = copy.deepcopy(ctx["config"])
-    config.setdefault("inputs", {}).setdefault("payload", {}).update(
-        _resolved_inputs(ctx)
-    )
-    if state.get("targets"):
-        config["inputs"]["payload"]["targets"] = state["targets"]
-    config["inputs"]["payload"]["output_folder"] = str(ctx["output_folder"])
-    return config
-
-
-def run_stage_script(
-    ctx: dict[str, Any],
-    state: dict[str, Any],
-    script: str,
-    payload: dict[str, Any],
-    *,
-    timeout: int | None = 900,
-) -> dict[str, Any]:
-    """Run one bundled native stage with the resolved worker configuration."""
-    run_dir = Path(ctx["run_dir"])
-    message = run_dir / f"{script}.message.json"
-    message.write_text(json.dumps({"body": payload}), encoding="utf-8")
-    environment = dict(os.environ)
-    bundled_source = Path(__file__).resolve().parents[1]
-    if not (bundled_source / "biotarget" / "pipeline.py").is_file():
-        raise RuntimeError(
-            "Bundled BioTarget package is missing from the staged payload: "
-            f"{bundled_source}"
-        )
-    environment["BIOTARGET_SOURCE_DIR"] = str(bundled_source)
-    environment.update(
-        {
-            "MN_MESSAGE_FILE": str(message),
-            "MN_RUN_DIR": str(run_dir),
-            "MN_BLUEPRINT_CONFIG_JSON": json.dumps(_stage_config(ctx, state)),
-            "MN_SCIENCE_FAKE_MODE": "1"
-            if str(ctx["config"].get("mode") or "").lower()
-            in {"fake", "mock"}
-            else "0",
-        }
-    )
-    # The continuous service emits the DockerWorker liveness beacon on stdout.
-    # Capturing it would make a model-loading service look idle to the runtime.
-    capture_output = script != "run_continuous_service.py"
-    completed = subprocess.run(
-        [sys.executable, str(SCRIPTS / script)],
-        cwd=run_dir,
-        env=environment,
-        capture_output=capture_output,
-        text=True,
-        check=False,
-        timeout=timeout,
-    )
-    if completed.returncode:
-        stderr = (completed.stderr or "").strip()
-        stdout = (completed.stdout or "").strip()
-        raise RuntimeError(f"{script} failed: {stderr or stdout}")
-    if not capture_output:
-        return {}
-    for line in reversed(completed.stdout.splitlines()):
-        try:
-            parsed = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    raise RuntimeError(f"{script} completed without a JSON result")
-
-
-@activity_operation('Researching target biology', completed='Researching target biology: completed')
-def discover_targets(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = read_discovery_state(ctx)
-    inputs = _resolved_inputs(ctx)
-    publish_inputs(ctx, inputs)
+def discover_targets(block, inputs):
+    report_activity("Researching target biology", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    inputs = research_inputs(block, inputs)
+    publish_inputs(block, inputs)
+    block.store.commit("inputs.json", inputs, kind="discovery_inputs")
     targets = inputs.get("targets")
     if targets is not None and not isinstance(targets, list):
-        raise ValueError("Protein targets must be a list of UniProt identifiers")
-    if targets:
-        selected = []
-        for target in targets:
-            protein_id = target.get("protein_id") if isinstance(target, dict) else None
-            if not isinstance(protein_id, str) or not re.fullmatch(r"[A-Z][A-Z0-9]{5}(?:[A-Z0-9]{4})?(?:-[1-9][0-9]*)?", protein_id):
-                raise ValueError("Each provided target requires a UniProt protein_id")
-            gene = target.get("gene")
-            if not isinstance(gene, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,63}", gene):
-                raise ValueError("Each provided target requires a gene symbol without path characters")
-            selected.append({key: target[key] for key in ("protein_id", "gene") if key in target})
-        state.update({"targets": selected, "disease": inputs.get("disease") or "",
-                      "target_source": "provided_protein_targets"})
-    else:
+        raise ValueError("Protein targets must be a list of UniProt identifiers.")
+    source = "provided_protein_targets"
+    if not targets:
         disease = inputs.get("disease")
         if not isinstance(disease, str) or not disease.strip():
-            raise ValueError("Provide protein targets or a disease name for target discovery")
-        result = run_stage_script(ctx, state, "stage_a.py", {"disease": disease.strip()})
-        state.update({"disease": disease.strip(), "targets": result.get("targets") or [],
-                      "target_source": "open_targets_disease_associations"})
-    write_discovery_state(ctx, state)
-    return {"target_count": len(state["targets"])}
+            raise ValueError("Provide protein targets or a disease name for target discovery.")
+        block.check()
+        if is_fake(block.config):
+            targets = [{"protein_id": "P05067", "gene": "APP"},
+                       {"protein_id": "P02649", "gene": "APOE"}, {"protein_id": "P37840", "gene": "SNCA"}]
+            source = "synthetic_smoke_test"
+        else:
+            targets = stage_a_target_discovery(disease.strip())[:3]
+            source = "open_targets_disease_associations"
+    state = {"targets": selected_targets(targets, discovered=source == "open_targets_disease_associations"), "disease": inputs.get("disease") or "",
+             "target_source": source, "research_inputs": inputs}
+    return {"target_count": len(state["targets"]), "state": write_discovery_state(block, state, "targets")}
 
 
-@activity_operation('Generating candidate structures', completed='Generating candidate structures: completed')
-def generate_structures(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = read_discovery_state(ctx)
-    result = run_stage_script(
-        ctx,
-        state,
-        "stage_b.py",
-        {
-            "disease": state.get("disease") or "",
-            "targets": state.get("targets") or [],
-        },
-    )
-    state["structures"] = result.get("structures") or []
-    write_discovery_state(ctx, state)
-    return {"structure_count": len(state["structures"])}
+def generate_structures(block, inputs):
+    report_activity("Generating candidate structures", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_discovery_state(block, inputs)
+    folder = block.store.path("structures")
+    if is_fake(block.config):
+        structures = []
+        for target in state["targets"]:
+            block.check()
+            structures.append(fake_fold(target, folder))
+    else:
+        structures = stage_b_structure_generation(state["targets"], engine="openfold3", output_dir=folder, check=block.check)
+    state["structure_artifacts"] = [block.store.commit_bytes(
+        Path(structure["path"]).relative_to(block.store.run_dir), Path(structure["path"]).read_bytes(),
+        kind="protein_structure").to_dict() for structure in structures]
+    state["structures"] = structures
+    return {"structure_count": len(structures), "state": write_discovery_state(block, state, "structures")}
 
 
-@activity_operation('Evaluating binding evidence', completed='Evaluating binding evidence: completed')
-def evaluate_binding(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = read_discovery_state(ctx)
-    result = run_stage_script(
-        ctx,
-        state,
-        "stage_d.py",
-        {"reports": state.get("service_reports") or []},
-    )
-    state["evaluations"] = result.get("evaluations") or []
-    write_discovery_state(ctx, state)
-    return {"evaluation_count": len(state["evaluations"])}
+def evaluate_binding(block, inputs):
+    report_activity("Evaluating binding evidence", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_discovery_state(block, inputs)
+    reports = state.get("service_reports") or []
+    if len(reports) != 1 or reports[0].get("candidate_count") != 5:
+        raise ValueError("Review requires one completed five-candidate discovery cycle.")
+    evaluations = reports[0].get("top_candidates")
+    if not isinstance(evaluations, list) or len(evaluations) != 5:
+        raise ValueError("Review requires evaluation evidence for all five candidates.")
+    state["evaluations"] = evaluations
+    return {"evaluation_count": len(evaluations), "state": write_discovery_state(block, state, "evaluations")}

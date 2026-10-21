@@ -558,3 +558,30 @@ The blueprint owns its domain-specific views, source scope and evidence semantic
 The web page is local/offline with a minimal header, Actions dropdown, progressive
 tabs and a non-modal evidence Sheet. Presentation adds no model calls, source
 execution, external sharing, runtime changes or approval authority.
+
+## Native block composition (5.0.0)
+
+All parent phases and child templates bind directly to the SDK block worker and
+native domain functions. No blueprint capability adapters, runtime-context
+factory or old handler bridge remains. Core owns the serial child DAG, task
+identity, delivery and round limits. Legal evidence selection, handling policy,
+counter-search, acceptance, financial reconciliation and report content remain
+domain responsibilities. The autonomous explorer is preserved as an unregistered
+native entrypoint and is never a fallback.
+
+Source, index and terminal checkpoints bind the expected phase path, Job, run
+and original configuration. Consumers verify captured JSON references, original
+bytes, normalized-source hashes and index receipts. Terminal finalization writes
+the review ledger once; publication reads it without changing audit timestamps.
+Publication verifies frozen citations and records streamed path/hash/size
+postconditions for large domain files. The optional domain-operation verifier
+runs before first success and on replay, rejecting missing or modified output
+without rerunning the completed operation. A failed export before result commit
+can repeat the idempotent publication while reusing the terminal investigation.
+
+Messages carry bounded committed references. The existing 32 MiB per-source and
+256 MiB total-source limits remain; large workspace/audit files are verified by
+streamed hashes rather than copied into a 64 MiB common JSON record. Optional UI
+failure remains contained. SDK/blocks >=1.3.61.dev26 and common >=1.3.61.dev25 are
+required together. Offline compiled-binding tests establish these boundaries,
+not live model, graph-engine or deployment readiness.

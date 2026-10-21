@@ -9,5 +9,5 @@ STEP = StepSpec(
         agent("research_packet_auditor", as_="audit"),
         agent("research_report_writer", as_="publish"),
     ),
-    output=OutputSpec(fields={"research_packet": flow_output()}),
+    output=OutputSpec(fields={"research_packet": flow_output("result")}),
 )

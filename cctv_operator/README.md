@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 4 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -10,8 +10,9 @@ The live camera/UI owner now uses `mn.blocks.monitored_service@1` through
 `extensions/blocks.json`. Core retains the same entrypoints, routing and four
 processing phases. Domain hooks own camera resources and first-frame readiness;
 the shared block owns periodic listener health, durable checkpoints, replay and
-cleanup after partial startup or stopping. This requires SDK/common/blocks
-`>=1.3.61.dev25,<2` and supervised-service agent `>=1.3.61.dev5,<2`.
+cleanup after partial startup or stopping. Native event workers require matching main
+SDK `>=1.3.61.dev34,<2`, blocks `>=1.3.61.dev33,<2`, common `>=1.3.61.dev25,<2`, the coordinated Core
+event/publication protocol, and supervised-service agent `>=1.3.61.dev5,<2`.
 The migration is qualified by offline listener and process-group tests; the
 historical Spark measurements below predate this path.
 
@@ -237,3 +238,40 @@ had 968 passes, 36 skips and one unrelated VC environment-contract failure.
 See [SPEC.md](SPEC.md) for the contract and [BENCHMARKS.md](BENCHMARKS.md) for
 measurement boundaries. Source bundles use canonical blueprint/v1 documents;
 workflow topology, execution/model recipes, contracts and defaults remain separate.
+
+## Block composition (5.1.0)
+
+The camera/UI owner uses the SDK monitored-service block. Ingress now uses a
+direct `domain.monitor_ingress:process` event hook: SDK owns immutable scoped
+state/replay, and Core resolves the start/steering ports and logical completion.
+The old ingress script is removed. The submission validator and native start
+share one source-validation policy; completed replay never probes the camera again.
+Sampling also uses a direct `domain.sampling:process` event hook. It freezes each
+instruction and completed resident admission, captures all selected frame bytes
+with their hashes, and emits a typed evidence reference. The SDK publishes
+immutable files; Core accepts state before delivering their public names. Replay
+and receipt repair reuse the same window even after the original files disappear.
+The resident queue remembers the latest instruction while public views lag.
+Vision and reporting also use direct native event hooks. Vision reads the typed
+frame evidence, freezes its request, and uses the shared SDK's durable managed
+model call. A raw response receipt precedes interpretation; an uncertain result
+cannot dispatch another call or release the resident slot. Known invalid replies
+produce qualified errors. Private reasoning stays out of reports/history. Resident
+completion uses idempotent per-batch RPC receipts, so an older retry cannot erase
+a newer completion. The report worker consumes a scoped observation reference,
+keeps cumulative history through immutable references, and publishes the same
+JSON, Markdown and final-artifact fields. Camera Markdown uses accepted prior
+source bytes; public projections wait for Core acceptance.
+All custom processing executables are removed. The offline CCTV/catalog
+regression passes 277 cases, including the full 13-blueprint native binding gate.
+Installed SDK dev34 / blocks dev33 / common dev30 test candidates execute all
+four compiled CLI workers, prepare real synthetic JPEG/MP4 media, and replay in
+fresh processes with one claim, one model call, one completion and no early
+publication. Resident/model transports are synthetic; a human notice and report
+are verified. Core's fake OpenShell event-runner test also passes with the
+installed candidates. These are source/test candidates, not published releases.
+No live camera/GPU qualification or deployment is claimed for this source change.
+Supervision is bounded to 1,000,000 health cycles and 64 MiB of checkpoints;
+rotate the service before either bound. Camera timing is independent of the
+60-second health interval. OpenShell remains optional for compatible workers,
+using the same SDK/Core transport when selected; current Docker placement stays.

@@ -16,9 +16,6 @@
       "label": "Run Microduck Simulation Service",
       "goal": "Keep the browser simulator, WebSocket bridge, and bounded MCP endpoint available until the service is deliberately stopped.",
       "needs": [],
-      "run": {
-        "definition": "steps.run_microduck_service"
-      },
       "control": {
         "timeout_seconds": 86400
       }
@@ -31,9 +28,6 @@
       "needs": [
         "run_microduck_service"
       ],
-      "run": {
-        "definition": "steps.finalize_service"
-      },
       "control": {
         "timeout_seconds": 30
       }

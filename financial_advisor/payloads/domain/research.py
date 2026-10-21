@@ -3,11 +3,14 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .review_services import listify
 
 @activity_operation('Researching public finance evidence', completed='Researching public finance evidence: completed')
-def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_public_finance_researcher(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    workflow = state["workflow"]
     cash_flow = workflow["cash_flow_normalizer"]
     cash_llm = workflow.get("cash_flow_llm_analyst", {})
     tax = workflow["tax_workpaper_preparer"]
@@ -31,7 +34,7 @@ def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
         source for source in PUBLIC_GUIDANCE_SOURCES
         if any(token in source["topic"] for token in ("budget", "bank", "tax", "portfolio", "risk"))
     ]
-    return {
+    return save_result(block, state, "public_finance_researcher", {
         "topics": topics,
         "sources": sources,
         "source_refs": [source["url"] for source in sources],
@@ -48,6 +51,4 @@ def step_public_finance_researcher(ctx: dict[str, Any]) -> dict[str, Any]:
                 if str(item)
             }
         ),
-    }
-
-__all__ = ["step_public_finance_researcher"]
+    })

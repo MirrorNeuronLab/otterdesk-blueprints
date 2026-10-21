@@ -46,7 +46,7 @@ def _schema():
 
 def _model(context, client):
     from mn_sdk.llm import LLMClient
-    settings = context['config'].get('source_relationships', {})
+    settings = context.config.get('source_relationships', {})
     if client is not None:
         return client, str(getattr(client, 'model', 'injected')), getattr(client, 'model_revision', None)
     current = LLMClient.from_env(strict=True)
@@ -65,10 +65,10 @@ def _model(context, client):
 
 
 def build(context, documents, *, llm_client=None):
-    root = Path(context['run_dir']); case = root / 'case'
+    root = Path(context.store.run_dir); case = root / 'case'
     inventory = json.loads((case/'source_inventory.json').read_text())
-    settings = context['config'].get('source_relationships', {})
-    mode = limits(context['config'])['relationship_mode']
+    settings = context.config.get('source_relationships', {})
+    mode = limits(context.config)['relationship_mode']
     if mode not in {'hybrid', 'structural'}:
         raise ValueError('source_relationships.mode must be hybrid or structural')
     bounds = {key:settings.get(key, default) for key, default in
@@ -116,8 +116,8 @@ def build(context, documents, *, llm_client=None):
 
         from .app.planning import validate
         client, model, model_revision = _model(context, llm_client)
-        scope = {'job_id':context.get('job_id') or os.environ.get('MN_JOB_ID'),
-                 'run_id':context.get('run_id') or os.environ.get('MN_WORKFLOW_RUN_ID') or os.environ.get('MN_RUN_ID')}
+        scope = {'job_id':context.job_id or os.environ.get('MN_JOB_ID'),
+                 'run_id':context.run_id or os.environ.get('MN_WORKFLOW_RUN_ID') or os.environ.get('MN_RUN_ID')}
         if not all(scope.values()):
             raise ValueError('Relationship indexing requires a trusted job/run scope')
         for doc_coverage, document in zip(coverage, documents):

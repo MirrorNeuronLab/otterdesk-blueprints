@@ -12,14 +12,14 @@ from .round_state import save
 
 
 def publish(context, workspace):
-    scope = {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
-        "run_id": context.get("run_id") or os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")}
-    memory = runtime_text_memory(context["config"], principal="round-specialists", scope=scope)
+    scope = {"job_id": context.job_id or os.environ.get("MN_JOB_ID"),
+        "run_id": context.run_id or os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")}
+    memory = runtime_text_memory(context.config, principal="round-specialists", scope=scope)
     if memory is None:
         return {"status": "Disabled by configuration"}
     try:
         receipts = []
-        catalog = json.loads((Path(context["run_dir"]) / "case/source-query.json").read_text())
+        catalog = json.loads((Path(context.store.run_dir) / "case/source-query.json").read_text())
         for finding in workspace["findings"]:
             identifier = "case-finding-" + fingerprint([scope, workspace["matter_id"], finding["id"], finding["material_digest"]])
             relations = tuple((identifier, relation, "case-evidence-" + fingerprint([scope, workspace["matter_id"], evidence_id]))
@@ -52,7 +52,7 @@ def publish(context, workspace):
                 upstream=[{"source_ref": "case/workspace.json"}], allow=["round-specialists"]))
         receipt = {"status": "Published", "qualification": "Membrane authored graph navigation; frozen source corpus is evidence authority",
                    "receipts": receipts}
-        save(context["run_dir"], "case/workspace_memory.json", receipt)
+        save(context.store.run_dir, "case/workspace_memory.json", receipt)
         return {"status": receipt["status"], "qualification": receipt["qualification"]}
     finally:
         memory.close()

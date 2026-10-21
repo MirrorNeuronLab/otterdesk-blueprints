@@ -4,6 +4,10 @@ This document records the previous explorer. It is not the default workflow in v
 The implementation remains in `payloads/domain/app/agentic.py` and its direct
 `domain.research.investigate` entrypoint, with its tests. Re-enabling it requires
 an explicit workflow change and fresh live validation; it is never an automatic fallback.
+Version 5.0 uses the native block context and explicit indexed-evidence input.
+The preserved loop still checks its own guidance/manual/configuration binding
+when resuming an interrupted checkpoint. A completed stock block reuses its
+verified terminal artifacts without starting the explorer again.
 
 ---
 

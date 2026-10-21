@@ -1,7 +1,7 @@
 # Procurement Manager
 
 `Blueprint ID:` `procurement_manager`
-`Category:` `Finance`
+`Category:` `Business`
 
 Procurement Manager turns a business purchase request into a source-grounded,
 review-only procurement decision packet. It supports property, rentals, cars,
@@ -27,15 +27,12 @@ preparation to evaluate an optional selected `procurement_case.json` while
 total-cost, and risk specialists in order; `audit_purchase_recommendation`
 runs the recommendation auditor as an independent logical review; and
 `publish_purchase_decision_packet` joins both branches and runs the report writer. Step modules declare
-only contracts and collaboration. Each same-named agent module binds one
-specialist to its focused implementation under `payloads/domain/`. In version 3,
-the case branch is declared in `extensions/blocks.json` and uses the SDK's
-`domain_operation` block. Its local step/agent wrappers are removed. Shared code
-owns invocation replay, deadlines and hashed result references; the blueprint
-retains decimal calculations, fit policy and report composition. The existing
-report worker verifies the bound case packet before publication. This is an
-incremental migration; the narrative, research and report specialists retain
-their existing behavior and explicit fallback policy.
+only contracts and collaboration. Five phases are declared in
+`extensions/blocks.json`; the comparison StepSpec retains the market → cost →
+risk sequence. Registry bindings call stock SDK workers and direct native domain functions. Shared blocks own invocation replay, deadlines
+and hashed results. Decimal calculations, fit policy, bounded narrative calls,
+explicit fallback policy and report composition remain domain-owned. The report
+hook verifies the bound case packet before publication.
 
 Five existing specialists use one bounded LLM call apiece: intake framing,
 TCO interpretation, risk interpretation, recommendation explanation, and
@@ -133,16 +130,16 @@ provider, broker, landlord, dealer, or airline. All output requires human review
 
 ## Payload layout
 
-- `payloads/steps/`: five logical `StepSpec` graphs; the sixth step uses a block.
-- `payloads/agents/`: seven route-neutral specialist bindings.
+- `extensions/blocks.json`: five declared block phases; `payloads/steps/` retains the comparison graph.
+- `domain/state.py`: immutable procurement handoffs using SDK storage.
 - `payloads/domain/inputs.py`, `intake.py`: request and evidence intake.
 - `payloads/domain/knowledge.py`, `research.py`: local and public evidence.
 - `payloads/domain/comparison.py`: cost, risk, recommendation, and audit policy.
 - `payloads/domain/llm_analysis.py`: bounded prompts, structured validation,
   reference controls, usage provenance, and deterministic fallback.
 - `payloads/domain/reporting.py`: durable customer artifacts.
-- `payloads/domain/composition.py`: local end-to-end sample runner.
-- `payloads/domain/runtime_services.py`: runtime context preparation only.
+- `tests/block_workflow_fixture.py`: offline samples using compiled worker bindings.
+- `payloads/domain/intake.py`: native request capture and evidence retrieval.
 - `payloads/docker_worker/Dockerfile`: shared Python/w3m worker build context
   used by the compiled specialist nodes.
 
@@ -165,6 +162,28 @@ Conversation reads cannot approve a purchase or send supplier messages.
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+## Native block composition (5.0.0)
+
+Every specialist binds directly to its native domain function in `intake.py`,
+`comparison.py`, `case_packet.py` or `reporting.py`. Each consumes `BlockContext`;
+legacy context creation and phase adapters are removed. The first block captures
+the declared purchase request and configuration defaults. It retains structured
+analysis inputs and excludes undeclared fields before narrative generation.
+
+Each phase returns immutable evidence references. The case assessor and the
+market → cost → risk comparison consume the same captured evidence independently.
+Publication verifies both the audit and case handoffs; the case packet cannot be
+replaced by a stale mutable file. Core retains the six logical phases, internal
+comparison sequence and publication join.
+
+SDK bundles commit all required JSON and Markdown, verify replayed bytes and own
+atomic copying. The completed Markdown report remains the sole conversation
+source. A bounded narrative checkpoint permits delivery retry within the five-call
+budget; it can restore narrative fields only, validates its audit binding and
+revalidates cached claims against deterministic evidence. Decimal calculations,
+prices, fit checks, rankings, review authority and explicit fallback policy remain
+domain-owned. Unused tool-loop and artifact-finalizer dependencies are removed.
 
 ## Blueprint package format
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 from pathlib import Path
 from typing import Any
@@ -11,7 +11,8 @@ from .inputs import load_input_documents, resolve_input_folder, resolve_request_
 from .knowledge import load_purchase_knowledge, prepare_purchase_rag, retrieve_purchase_rag_context
 from .llm_analysis import generate_structured_analysis
 from .research import _normalize_intake_plan, build_public_queries
-from .state import _inputs, _save, _state
+from .state import purchase_inputs, save_state, read_state, bundle_layout
+from .common import BLUEPRINT_ID
 
 
 def _validate_intake_plan(
@@ -44,17 +45,21 @@ def _validate_intake_plan(
     return normalized, []
 
 
-@activity_operation('Collecting purchase requirements', completed='Collecting purchase requirements: completed')
 def collect_context(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    inputs = _inputs(ctx)
-    root = Path(ctx["blueprint_dir"])
-    folder = resolve_input_folder(ctx["config"], inputs, root)
-    documents, warnings = load_input_documents(folder, ctx["config"])
+    report_activity("Collecting purchase requirements", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    llm_client = llm_client or block.resources.get("llm")
+    inputs = purchase_inputs(block, inputs["request"])
+    layout = bundle_layout()
+    root = layout.root
+    folder = resolve_input_folder(block.config, inputs, root)
+    documents, warnings = load_input_documents(folder, block.config)
     inputs, request = resolve_request_from_documents(inputs, documents)
-    knowledge = load_purchase_knowledge(root)
+    knowledge = load_purchase_knowledge(layout.payload_root / "knowledge")
     state = {
+        "input_artifact": block.store.commit("inputs.json", inputs, kind="purchase_inputs").to_dict(),
         "inputs": inputs,
         "request": request,
         "research_links": request["research_links"],
@@ -65,7 +70,7 @@ def collect_context(
     fallback = _normalize_intake_plan({}, inputs)
     intake_plan = generate_structured_analysis(
         state=state,
-        config=ctx["config"],
+        config=block.config,
         agent_id="purchase_intake_analyst",
         prompt_name="purchase-intake-task.md",
         payload={
@@ -91,28 +96,28 @@ def collect_context(
         llm_client=llm_client,
     )
     state["intake_plan"] = intake_plan
-    _save(ctx, state)
     return {
+        "state": save_state(block, state, "intake"),
         "document_count": len(documents),
         "request_source_ref": request["source_ref"],
         "research_link_count": len(request["research_links"]),
     }
 
 
-@activity_operation('Retrieving purchase policy and evidence', completed='Retrieving purchase policy and evidence: completed')
-def retrieve_knowledge(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = state.get("inputs") or _inputs(ctx)
-    root = Path(ctx["blueprint_dir"])
+def retrieve_knowledge(block, inputs) -> dict[str, Any]:
+    report_activity("Retrieving purchase policy and evidence", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_state(block, inputs["previous"])
+    inputs = state["inputs"]
+    layout = bundle_layout()
+    root = layout.root
     documents = state.get("documents") or []
-    knowledge = state.get("knowledge") or load_purchase_knowledge(root)
-    rag = prepare_purchase_rag(ctx["config"], root, knowledge, documents, ctx["run_id"])
+    knowledge = state.get("knowledge") or load_purchase_knowledge(layout.payload_root / "knowledge")
+    rag = prepare_purchase_rag(block.config, root, knowledge, documents, block.run_id)
     queries = build_public_queries(inputs, state.get("intake_plan") or {})
-    retrieval = retrieve_purchase_rag_context(" ".join(queries), rag, knowledge, documents, max_chars=int((ctx["config"].get("knowledge_rag") or {}).get("max_context_chars", 6000)))
+    retrieval = retrieve_purchase_rag_context(" ".join(queries), rag, knowledge, documents, max_chars=int((block.config.get("knowledge_rag") or {}).get("max_context_chars", 6000)))
     rag.update({key: retrieval[key] for key in ("context", "citations", "chunks")})
     if retrieval.get("warning"):
         rag.setdefault("warnings", []).append(retrieval["warning"])
     rag.pop("_rag_config", None)
     state.update({"inputs": inputs, "knowledge": knowledge, "rag": rag, "research_queries": queries})
-    _save(ctx, state)
-    return {"citation_count": len(rag.get("citations") or [])}
+    return {"citation_count": len(rag.get("citations") or []), "state": save_state(block, state, "evidence")}

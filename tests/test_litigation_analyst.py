@@ -35,10 +35,35 @@ def modules(monkeypatch, text_memory_transport):
     for repo in ["mn-skills", "mn-agents"]:
         for path in (WORKSPACE / repo).glob("*/src"):
             monkeypatch.syspath_prepend(str(path))
-    return {
+    values = {
         name: importlib.import_module("domain." + name)
         for name in ["intake", "research", "reporting", "sample_data", "indexing"]
     }
+    from litigation_native_test_support import phase, native_helper, round_worker
+    for module, function, step in (("intake", "prepare_sources", "prepare_case_sources"),
+            ("indexing", "build_indexes", "build_case_indexes"),
+            ("reporting", "write_review", "write_review_draft"),
+            ("research", "investigate", "preserved_autonomous_explorer")):
+        monkeypatch.setattr(values[module], function, phase(getattr(values[module], function), step))
+    rounds = importlib.import_module("domain.round_state")
+    monkeypatch.setattr(rounds, "initialize", phase(rounds.initialize, "investigate_case_evidence"))
+    planner = importlib.import_module("domain.round_planning")
+    monkeypatch.setattr(planner, "plan_round", round_worker(planner.plan_round))
+    tasks = importlib.import_module("domain.round_tasks")
+    for function, template in (("collect_evidence", "collect_litigation_evidence"),
+            ("assess_hypothesis", "assess_litigation_hypothesis"),
+            ("review_finding", "review_litigation_finding"), ("summarize_round", "summarize_litigation_round")):
+        monkeypatch.setattr(tasks, function, round_worker(getattr(tasks, function), template))
+    for name, functions in (("model_preflight", ("check",)),
+            ("relationship_index", ("_model", "build")), ("source_query", ("publish",)),
+            ("file_identity", ("capture_file_identities",)),
+            ("workspace_projection", ("build",)), ("workspace_history", ("publish",)),
+            ("workspace_memory", ("publish",)), ("workspace_web", ("publish",)),
+            ("conversation_sources", ("publish_outputs",))):
+        helper = importlib.import_module("domain." + name)
+        for function in functions:
+            monkeypatch.setattr(helper, function, native_helper(getattr(helper, function)))
+    return values
 
 
 def make_context(tmp_path, folder=None):
@@ -193,7 +218,7 @@ def test_custom_folder_never_downloads_and_freezes_sources(
     assert "changed after intake" not in draft
     assert "SHA-256" in draft and "1 of 2 source records" in draft
     assert payload["status"] == "draft_for_human_review"
-    assert len(json.dumps(payload)) < 1000
+    assert len(json.dumps(context["_native_write_review_draft"])) < 1000
     from domain.evidence.store import EvidenceStore
 
     store = EvidenceStore(context["run_dir"] / "case/evidence.sqlite3")
@@ -267,7 +292,16 @@ def test_shared_agent_replay_is_durable(modules, tmp_path, monkeypatch):
     monkeypatch.setenv("MN_RUN_DIR", str(context["run_dir"]))
     monkeypatch.setenv("MN_BLUEPRINT_BUNDLE_DIR", str(BLUEPRINT))
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(tmp_path / "output"))
-    worker = importlib.import_module("agents.case_document_examiner")
+    from mn_sdk.integrations.block_worker import run as worker
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
+    from mn_sdk.blueprints import compile_blueprint
+    package = read_blueprint(BLUEPRINT)
+    compiled = compile_blueprint(package).manifest
+    descriptor = tmp_path / "manifest.json"
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled)))
+    monkeypatch.setenv("MN_BLUEPRINT_MANIFEST_PATH", str(descriptor))
+    monkeypatch.setenv("MN_SDK_COMPONENTS_JSON", '["blueprint-blocks"]')
+    options = {"block_step_id": "prepare_case_sources", "revision": compiled["metadata"]["mn_blocks_lock"]["revision"]}
     invocation = StepContext(
         step_id="prepare_case_sources",
         agent_id="case_document_examiner",
@@ -278,9 +312,9 @@ def test_shared_agent_replay_is_durable(modules, tmp_path, monkeypatch):
         config=context["config"],
         message={"body": {"input_folder": str(folder)}},
     )
-    first = worker.run(invocation)
+    first = worker(invocation, **options)
     (folder / "notice.txt").write_text("changed")
-    second = worker.run(invocation)
+    second = worker(invocation, **options)
     assert first.outputs == second.outputs
     assert all((context["run_dir"] / r["path"]).exists() for r in first.artifacts)
     snapshot = (context["run_dir"] / "case/sources.json").read_text()
@@ -373,6 +407,7 @@ def test_invalid_model_json_is_audited_and_not_a_success(modules, tmp_path):
     folder.mkdir()
     (folder / "notice.txt").write_text("Review notice")
     context = make_context(tmp_path, folder)
+    context["config"]["investigation"]["max_model_decisions"] = 2
     modules["intake"].prepare_sources(context)
 
     class InvalidModel:
@@ -382,7 +417,6 @@ def test_invalid_model_json_is_audited_and_not_a_success(modules, tmp_path):
             return "not json"
 
     modules["indexing"].build_indexes(context)
-    context["config"]["investigation"]["max_model_decisions"] = 2
     payload, _ = modules["research"].investigate(context, llm_client=InvalidModel())
     assert payload["stop_reason"] == "iteration_limit_exhausted"
     state = json.loads((context["run_dir"] / "case/agent_checkpoint.json").read_text())
@@ -392,7 +426,7 @@ def test_invalid_model_json_is_audited_and_not_a_success(modules, tmp_path):
 
 
 def test_final_report_export_is_grounded_and_uses_configured_destination(
-    modules, tmp_path
+    modules, tmp_path, monkeypatch
 ):
     folder = tmp_path / "input"
     folder.mkdir()
@@ -407,11 +441,13 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     )
     modules["intake"].prepare_sources(context)
     modules["indexing"].build_indexes(context)
+    original = modules["research"].build_review
+    def cached_narrative(*args):
+        summary = original(*args)
+        summary["report"]["markdown"] = "FABRICATED ASSERTION: someone confessed."
+        return summary
+    monkeypatch.setattr(modules["research"], "build_review", cached_narrative)
     modules["research"].investigate(context, llm_client=ScriptedModel())
-    path = context["run_dir"] / "case/investigation.json"
-    data = json.loads(path.read_text())
-    data["report"]["markdown"] = "FABRICATED ASSERTION: someone confessed."
-    path.write_text(json.dumps(data))
     modules["reporting"].write_review(context)
     report = (context["output_folder"] / "final_report.md").read_text()
     assert quotation in report

@@ -8,20 +8,27 @@ import json
 import os
 from pathlib import Path
 
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.integrations.block_inputs import declared_inputs
 from .ingestion.corpus import CaseCorpus
 from .sample_data import prepare_emc2, EMC2_DOCUMENTATION, attribution
 
 
 @activity_operation('Examining case documents', completed='Examining case documents: completed')
-def prepare_sources(context, *, llm_client=None):
-    run_dir = Path(context["run_dir"])
-    payload = context["payload"]
+def prepare_sources(context, inputs):
+    from .state import capture, capture_result, json_reference, read_capture
+    run_dir = context.store.run_dir
+    payload = declared_inputs(context, inputs, runtime_file=__file__)
+    llm_client = context.resources.get("llm")
+    if context.store.path("case/capture.json").exists():
+        ref = json_reference(context, "case/capture.json", kind="block_checkpoint")
+        if read_capture(context, ref)["request"] != payload:
+            raise ValueError("Case source selection changed")
+        return capture_result(context, ref)
     from .matter_intake import prepare as prepare_matter
     from .model_preflight import check as check_model
     from .review_scope import limits
-    matter = prepare_matter(context)
-    review_plan = limits(context["config"])
+    matter = prepare_matter(context, payload)
+    review_plan = limits(context.config)
     (run_dir / "case/review_plan.json").write_text(json.dumps(review_plan, indent=2))
     check_model(context, llm_client)
     folder = payload.get("input_folder")
@@ -40,7 +47,7 @@ def prepare_sources(context, *, llm_client=None):
         raise ValueError(
             "run output must be outside input_folder to avoid indexing generated evidence"
         )
-    policy = context["config"]["investigation"]
+    policy = context.config["investigation"]
     corpus = CaseCorpus(source, access_scope=policy["access_scope"],
                         excluded_paths=EMC2_DOCUMENTATION if folder is None else ())
     paths = list(corpus._source_paths())
@@ -66,6 +73,7 @@ def prepare_sources(context, *, llm_client=None):
     originals = case / "originals"
     originals.mkdir(exist_ok=True)
     for path, expected in original_hashes.items():
+        context.check()
         content = path.read_bytes()
         if hashlib.sha256(content).hexdigest() != expected:
             raise ValueError("source changed before original snapshot was frozen")
@@ -116,23 +124,17 @@ def prepare_sources(context, *, llm_client=None):
         json.dumps(inventory, indent=2), encoding="utf-8"
     )
     from .source_query import publish
-    publish({**context, 'run_dir': run_dir}, documents, {
-        'job_id': context.get('job_id') or os.environ.get('MN_JOB_ID'),
-        'run_id': os.environ.get('MN_WORKFLOW_RUN_ID') or context.get('run_id') or os.environ.get('MN_RUN_ID'),
+    publish(context, documents, {
+        'job_id': context.job_id or os.environ.get('MN_JOB_ID'),
+        'run_id': context.run_id or os.environ.get('MN_WORKFLOW_RUN_ID') or os.environ.get('MN_RUN_ID'),
     })
-    refs = [
-        artifact_reference("source_inventory", "case/source_inventory.json"),
-        artifact_reference("normalized_sources", "case/sources.json"),
-        artifact_reference("original_sources", "case/originals"),
-        artifact_reference("matter_intake", "case/matter.json"),
-        artifact_reference("handling_decisions", "case/handling.json"),
-        artifact_reference("review_plan", "case/review_plan.json"),
-    ]
-    return {
-        "source_inventory": refs[0],
-        "document_count": len(records),
-        "unreadable_count": len(inventory["unreadable_sources"]),
-    }, refs
+    return capture_result(context, capture(context, payload))
+
+
+def verified(context, result):
+    from .state import read_capture
+    read_capture(context, result["evidence"])
+    return True
 
 
 class PreparedCorpus:

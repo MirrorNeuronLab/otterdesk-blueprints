@@ -1,0 +1,132 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "prepare_case_sources": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:prepare_sources",
+        "verify": "domain.intake:verified"
+      },
+      "inputs": {
+        "goal": {
+          "$ref": "run_input",
+          "path": [
+            "goal"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        },
+        "matter_file": {
+          "$ref": "run_input",
+          "path": [
+            "matter_file"
+          ]
+        },
+        "output_folder": {
+          "$ref": "run_input",
+          "path": [
+            "output_folder"
+          ]
+        },
+        "review_file": {
+          "$ref": "run_input",
+          "path": [
+            "review_file"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3600
+      }
+    },
+    "build_case_indexes": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.indexing:build_indexes",
+        "verify": "domain.indexing:verified"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "prepare_case_sources"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 99999
+      }
+    },
+    "investigate_case_evidence": {
+      "uses": "mn.blocks.bounded_investigation@1",
+      "hooks": {
+        "initialize": "domain.round_state:initialize",
+        "plan": "domain.round_planning:plan_round",
+        "summarize": "domain.round_planning:summarize"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "build_case_indexes"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 99999
+      }
+    },
+    "write_review_draft": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.reporting:write_review",
+        "verify": "domain.reporting:verified"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "investigate_case_evidence"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3600
+      }
+    }
+  }
+}

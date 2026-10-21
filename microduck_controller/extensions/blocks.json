@@ -4,30 +4,13 @@
     "simulator_command": {
       "uses": "mn.blocks.controlled_operation@1",
       "config": {
-        "max_state_age_seconds": 1
+        "max_state_age_seconds": 1,
+        "transport": "async_device"
       },
       "hooks": {
         "validate": "domain.control_blocks:validate",
         "policy": "domain.control_blocks:policy",
-        "receipt": "domain.control_blocks:receipt"
-      },
-      "adapters": {
-        "device_state": {
-          "call": "domain.control_blocks:device_state",
-          "read_only": true,
-          "idempotent": false
-        },
-        "command": {
-          "call": "domain.control_blocks:command",
-          "reconcile": "domain.control_blocks:reconcile",
-          "read_only": false,
-          "idempotent": false
-        },
-        "command_receipt": {
-          "call": "domain.control_blocks:command_receipt",
-          "read_only": true,
-          "idempotent": false
-        }
+        "cancel": "domain.control_blocks:cancel"
       },
       "input_schema": {
         "type": "object",
@@ -68,6 +51,72 @@
       "limits": {
         "max_calls": 3,
         "timeout_seconds": 3
+      }
+    }
+  },
+  "steps": {
+    "run_microduck_service": {
+      "uses": "mn.blocks.monitored_service@1",
+      "hooks": {
+        "start": "domain.service_lifecycle:start",
+        "health": "domain.service_lifecycle:health",
+        "cycle": "domain.service_lifecycle:cycle",
+        "stop": "domain.service_lifecycle:stop"
+      },
+      "inputs": {
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        },
+        "output_folder": {
+          "$ref": "run_input",
+          "path": [
+            "output_folder"
+          ]
+        }
+      },
+      "outputs": {
+        "service": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1
+      },
+      "config": {
+        "interval_seconds": 60,
+        "max_cycles": 1000000,
+        "buffer_policy": "latest",
+        "max_checkpoint_bytes": 67108864
+      }
+    },
+    "finalize_service": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.service_lifecycle:finalize"
+      },
+      "inputs": {
+        "service": {
+          "$ref": "upstream",
+          "step_id": "run_microduck_service"
+        }
+      },
+      "outputs": {
+        "final_service_result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 30
       }
     }
   }

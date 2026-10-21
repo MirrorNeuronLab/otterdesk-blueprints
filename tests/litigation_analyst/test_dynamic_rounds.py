@@ -99,15 +99,19 @@ def test_cancel_before_planning_writes_explicit_partial_draft(dynamic_case, modu
     assert 'cancelled' in (context['run_dir']/'final_report.md').read_text()
 
 
-def test_missing_required_context_returns_inconclusive_without_model(dynamic_case):
-    from domain.round_state import save,read,load
+def test_missing_required_context_returns_inconclusive_without_model(modules, tmp_path):
+    from domain.round_state import save,read,initialize
     from domain.round_tasks import assess_hypothesis
-    context,ref=dynamic_case
+    folder = tmp_path / "input"
+    folder.mkdir()
+    (folder / "notice.txt").write_text("Approval notice. Routine duties explain the correspondence.")
+    context = make_context(tmp_path, folder)
+    context['config']['text_memory']['quality_verification'] = True
+    modules['intake'].prepare_sources(context)
+    modules['indexing'].build_indexes(context)
+    initialized, _ = initialize(context)
+    ref = initialized['context']
     root=context['run_dir']
-    frozen=load(root,ref)
-    context['config']['text_memory']['quality_verification']=True
-    frozen['config']=context['config']
-    ref=save(root,'case/rounds/quality-enabled-context.json',frozen)
     task={'prefix':'missing-context','hypothesis':{'id':'H01','question':'Did approval occur?'}}
     task_ref=save(root,'case/rounds/missing-context-task.json',task)
     save(root,'case/rounds/missing-context-evidence.json',{'evidence_ids':[],
@@ -154,21 +158,22 @@ def test_first_round_still_requires_an_enquiry(dynamic_case):
 
 
 def test_task_hash_and_graph_mutations_are_rejected(dynamic_case):
+    from mn_sdk_common.committed_artifacts import CommittedArtifactIntegrityError
     from domain.round_planning import plan_round
     from domain.round_tasks import collect_evidence, validate_graph_query
     context,ref=dynamic_case
     result=plan_round(context,{'context':ref,'_child':{'revision':0}},llm_client=RoundModel())
     node=result['child_plan']['steps'][0]
     (context['run_dir']/node['input']['task']['path']).write_text('{}')
-    with pytest.raises(ValueError,match='hash'):
+    with pytest.raises(CommittedArtifactIntegrityError,match='mismatch'):
         collect_evidence(context,{'context':ref,**node['input']})
     for q in ('MATCH (n) DELETE n RETURN n LIMIT 2','MATCH (n) RETURN n','MATCH (n) RETURN n LIMIT 51'):
         with pytest.raises(ValueError): validate_graph_query(q)
 
 
 def test_autonomous_explorer_preserved_but_not_default(modules):
-    source=(BLUEPRINT/'payloads/agents/litigation_investigator.py').read_text()
-    assert 'round_state import initialize' in source
+    blocks=json.loads((BLUEPRINT/'extensions/blocks.json').read_text())
+    assert blocks['steps']['investigate_case_evidence']['hooks']['initialize']=='domain.round_state:initialize'
     assert callable(importlib.import_module('domain.app.agentic').run_investigation)
     assert callable(modules['research'].investigate)
     workflow=json.loads((BLUEPRINT/'workflow.json').read_text())
@@ -361,3 +366,57 @@ def test_enquiry_memory_keeps_opposing_evidence_and_source_links(dynamic_case, t
     puts = len(text_memory_transport.calls)
     execute_round(context, ref, plan, model)
     assert len(text_memory_transport.calls) == puts
+
+
+def test_compiled_blocks_run_real_child_tasks_and_terminal_summary(dynamic_case, monkeypatch, tmp_path):
+    """Exercise the deployed bindings, with synthetic model replies and no Core scheduler."""
+    from mn_sdk.blueprints import read_blueprint, compile_blueprint
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
+    from mn_sdk.integrations.block_worker import run
+    from mn_sdk.step_runtime import StepContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    context, reference = dynamic_case
+    package = read_blueprint(BLUEPRINT)
+    compiled = compile_blueprint(package).manifest
+    descriptor = tmp_path / 'worker-descriptor.json'
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled)))
+    environment = {'MN_RUN_DIR': str(context['run_dir']), 'MN_BLUEPRINT_MANIFEST_PATH': str(descriptor),
+                   'MN_SDK_COMPONENTS_JSON': '["blueprint-blocks"]'}
+    for key, value in environment.items():
+        monkeypatch.setenv(key, value)
+    store = CommittedJsonStore(context['run_dir'])
+    seed = store.commit('test-seed.json', {'context': reference}).to_dict()
+    options = {'block_step_id': 'investigate_case_evidence',
+               'revision': compiled['metadata']['mn_blocks_lock']['revision']}
+    child = compiled['workflow']['child_workflows']['investigate_case_evidence']
+    model = RoundModel()
+
+    def invoke(identity, inputs, parameters, phase='execute'):
+        from litigation_native_test_support import block_context
+        native = block_context(context)
+        worker = StepContext(step_id='investigate_case_evidence', run_id=native.run_id, job_id=native.job_id,
+            idempotency_key=identity, environment=environment, config=context['config'],
+            message={'body': {'step_input': inputs}})
+        return run(worker, phase=phase, resources={'llm': model}, **parameters)
+
+    for revision in (0, 1):
+        plan = invoke(f'plan-{revision}', {'seed': seed, '_child': {'round': revision, 'revision': revision}}, options, 'plan')
+        assert plan.outputs['child_plan']['decision'] == 'execute'
+        completed = set()
+        for task in plan.outputs['child_plan']['steps']:
+            assert set(task['needs']) <= completed
+            implementation = child['templates'][task['template']]['implementation']
+            assert implementation['handler'] == 'mn_sdk.integrations.block_worker'
+            inputs = {**task['input'], '_child': {'round': revision, 'revision': revision}}
+            result = invoke(f"{revision}/{task['id']}", inputs, implementation['with'])
+            assert store.read(result.outputs['result'])
+            assert invoke(f"{revision}/{task['id']}", inputs, implementation['with']) == result
+            completed.add(task['id'])
+    stopped = invoke('terminal', {'seed': seed, '_child': {'round': 2, 'revision': 2}}, options, 'plan')
+    assert stopped.outputs['child_plan']['decision'] == 'stop'
+    summary = store.read(stopped.outputs['child_plan']['output']['result'])
+    assert summary['investigation']['path'] == 'case/investigation.json'
+    assert (store.run_dir / summary['investigation']['path']).is_file()
+    assert 'stop_reason' in summary
+    assert len(model.calls) > 0

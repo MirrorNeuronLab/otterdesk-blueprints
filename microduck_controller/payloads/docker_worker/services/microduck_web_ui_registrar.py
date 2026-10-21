@@ -17,7 +17,7 @@ from urllib.parse import urlparse, urlsplit
 
 
 WEB_UI_ENDPOINT_ARTIFACT = "microduck_web_ui_endpoint.json"
-WEB_UI_NODE_ID = "run_microduck_service__microduck_service"
+WEB_UI_NODE_ID = "run_microduck_service__block_run_microduck_service_specialist"
 WEB_UI_SERVICE_NAME = "microduck-controller-web-ui"
 REGISTRATION_TIMEOUT_SECONDS = 60.0
 # The sidecar runs inside the Core container. Bind every container interface so

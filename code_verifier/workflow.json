@@ -13,9 +13,6 @@
       "label": "Capture source and docs",
       "goal": "Capture source and docs with exact source references and explicit limits.",
       "needs": [],
-      "run": {
-        "definition": "steps.capture_software_sources"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {
@@ -31,9 +28,6 @@
       "needs": [
         "capture_software_sources"
       ],
-      "run": {
-        "definition": "steps.extract_software_rules"
-      },
       "control": {
         "timeout_seconds": 2000,
         "retry": {
@@ -49,9 +43,6 @@
       "needs": [
         "extract_software_rules"
       ],
-      "run": {
-        "definition": "steps.review_software_rules"
-      },
       "control": {
         "timeout_seconds": 3900,
         "retry": {
@@ -67,9 +58,6 @@
       "needs": [
         "review_software_rules"
       ],
-      "run": {
-        "definition": "steps.verify_software_rules"
-      },
       "control": {
         "timeout_seconds": 3900,
         "retry": {
@@ -85,9 +73,6 @@
       "needs": [
         "verify_software_rules"
       ],
-      "run": {
-        "definition": "steps.publish_rules_report"
-      },
       "control": {
         "timeout_seconds": 300,
         "retry": {

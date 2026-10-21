@@ -3,9 +3,13 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result, output_directory
+from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 from .conversation_sources import publish_outputs
 from .knowledge import financial_knowledge_reference, load_prompt
-from .review_services import actor_review, effective_llm_usage, review_artifact
+from .review_services import actor_review
 from .source_ingestion import money
 
 def build_customer_action_queue(workflow: dict[str, Any]) -> list[dict[str, Any]]:
@@ -171,8 +175,8 @@ def build_customer_report(final_artifact: dict[str, Any]) -> dict[str, Any]:
         "source_refs": final_artifact.get("source_refs", []),
     }
 
-def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def build_final_artifact(block, state) -> dict[str, Any]:
+    workflow = state["workflow"]
     cash = workflow["cash_flow_normalizer"]
     cash_llm = workflow["cash_flow_llm_analyst"]
     tax = workflow["tax_workpaper_preparer"]
@@ -198,8 +202,8 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
     artifact = {
         "type": OUTPUT_TYPE,
         "blueprint_id": BLUEPRINT_ID,
-        "run_id": ctx["run_id"],
-        "generated_at": utc_now_iso(),
+        "run_id": block.run_id,
+        "generated_at": state["created_at"],
         "executive_summary": " ".join(summary_parts),
         "recommended_action": RECOMMENDED_ACTION,
         "confidence": confidence,
@@ -227,7 +231,7 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         },
         "research_sources": workflow["public_finance_researcher"].get("sources", []),
         "research_warnings": warnings,
-        "knowledge_grounding": financial_knowledge_reference(ctx.get("active_knowledge")),
+        "knowledge_grounding": financial_knowledge_reference(state["knowledge"]),
         "document_ingestion": {
             "document_count": workflow["financial_document_reader"].get("document_count", 0),
             "kind_counts": workflow["financial_document_reader"].get("kind_counts", {}),
@@ -247,32 +251,14 @@ def build_final_artifact(ctx: dict[str, Any]) -> dict[str, Any]:
         "tax_form_ocr_capture": tax_capture,
         "portfolio_risk_review": portfolio,
         "auditor_review": auditor,
-        "model_profiles_used": ctx["state"].get("model_profiles_used", {}),
-        "llm_usage": effective_llm_usage(ctx),
+        "model_profiles_used": state.get("model_profiles_used", {}),
+        "llm_usage": state.get("llm_usage") or {},
         "review_only": True,
-        "blocked_actions": (ctx["config"].get("human_control") or {}).get("blocked_actions") or [],
+        "blocked_actions": (block.config.get("human_control") or {}).get("blocked_actions") or [],
     }
     artifact["customer_report"] = build_customer_report(artifact)
     artifact["review_status"] = "review_required"
     return artifact
-
-def markdown_review_section(title: str, review: dict[str, Any]) -> list[str]:
-    findings = [str(item) for item in listify(review.get("key_findings"))] or ["No additional LLM findings returned."]
-    questions = [str(item) for item in listify(review.get("review_questions"))] or ["No additional review questions returned."]
-    gaps = [str(item) for item in listify(review.get("evidence_gaps"))] or ["none"]
-    risks = [str(item) for item in listify(review.get("risk_flags"))] or ["none"]
-    return [
-        f"## {title}",
-        "",
-        str(review.get("summary") or "LLM review completed."),
-        "",
-        f"- Key findings: {'; '.join(findings)}",
-        f"- Review questions: {'; '.join(questions)}",
-        f"- Evidence gaps: {'; '.join(gaps)}",
-        f"- Risk flags: {'; '.join(risks)}",
-        f"- Confidence: {review.get('confidence')}",
-        "",
-    ]
 
 def markdown_report(final_artifact: dict[str, Any]) -> str:
     customer = final_artifact.get("customer_report") or build_customer_report(final_artifact)
@@ -364,8 +350,10 @@ def markdown_report(final_artifact: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 @activity_operation('Writing financial advice', completed='Writing financial advice: completed')
-def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_financial_advice_reporter(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    workflow = state["workflow"]
     review_briefs = {
         lane: {
             "summary": str((workflow.get(agent_id) or {}).get("summary") or "")[:180],
@@ -380,9 +368,11 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
         )
     }
     audit = workflow.get("advisor_review_auditor") or {}
+    if audit.get("review_required") is not True:
+        raise ValueError("Financial publication requires a completed review audit")
     finding = actor_review(
-        ctx["config"],
-        ctx["llm"],
+        block,
+        state,
         "financial_advice_reporter",
         "Integrated financial advisor report written for human review.",
         {
@@ -400,12 +390,11 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("financial-advice-reporter.md"),
-        active_knowledge=ctx.get("active_knowledge"),
+        active_knowledge=state["knowledge"],
     )
-    ctx["state"].setdefault("actor_findings", {})["financial_advice_reporter"] = finding
-    final_artifact = build_final_artifact(ctx)
-    output_folder = ctx["run_dir"]
-    export_folder = ctx["output_folder"]
+    state.setdefault("actor_findings", {})["financial_advice_reporter"] = finding
+    final_artifact = build_final_artifact(block, state)
+    export_folder = output_directory(block)
     artifacts = {
         "bank_statement_extraction.json": final_artifact["bank_statement_extraction"],
         "household_finance_summary.json": final_artifact["household_finance_summary"],
@@ -438,25 +427,19 @@ def step_financial_advice_reporter(ctx: dict[str, Any]) -> dict[str, Any]:
             "llm_usage": final_artifact["llm_usage"],
         },
     }
-    written = []
-    for name, value in artifacts.items():
-        path = output_folder / name
-        write_json(path, value)
-        written.append(name)
-        if export_folder.resolve() != output_folder.resolve():
-            write_json(export_folder / name, value)
-    report_path = output_folder / "financial_advisor_report.md"
-    write_text(report_path, markdown_report(final_artifact))
-    written.append(report_path.name)
-    if export_folder.resolve() != output_folder.resolve():
-        write_text(export_folder / report_path.name, markdown_report(final_artifact))
-    publish_outputs(ctx)
-    final_artifact["output_files"] = [*written, "final_artifact.json"]
-    return {
-        "final_artifact": final_artifact,
-        "output_files": written,
-        "actor_finding": finding,
-        "markdown_report": str(report_path),
-    }
-
-__all__ = ["step_financial_advice_reporter"]
+    final_artifact["output_files"] = [*artifacts, "financial_advisor_report.md", "final_artifact.json", "result.json"]
+    artifacts["final_artifact.json"] = final_artifact
+    artifacts["result.json"] = {"blueprint_id": BLUEPRINT_ID, "run_id": block.run_id,
+        "review_only": True, "final_artifact": final_artifact}
+    writes = [ArtifactWrite(name, name, json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False).encode(),
+        kind="json", authoritative=True) for name, value in artifacts.items()]
+    writes.append(ArtifactWrite("financial_report", "financial_advisor_report.md", markdown_report(final_artifact).encode(), kind="markdown"))
+    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
+    if export_folder != block.store.run_dir:
+        exported = CommittedJsonStore(export_folder)
+        for item in receipt["artifacts"]:
+            relative = item["reference"]["path"]
+            copy_path_to_host(block.store.path(relative), exported.path(relative))
+    publish_outputs(block)
+    return {**save_result(block, state, "financial_advice_reporter", {"review_only": True, "output_files": final_artifact["output_files"]}),
+        "artifacts": receipt["artifacts"]}

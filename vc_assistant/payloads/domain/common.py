@@ -255,13 +255,13 @@ RESEARCH_AGENT_IDS = [
     agent_id
     for agent_id, definition in _AGENT_REGISTRY.items()
     if isinstance(definition, dict)
-    and definition.get("handler") == "agents.public_researcher"
+    and (definition.get("lifecycle") or {}).get("public_research") is True
 ]
 SCORER_AGENT_BY_METHOD = {
     str(parameters["method"]): agent_id
     for agent_id, definition in _AGENT_REGISTRY.items()
     if isinstance(definition, dict)
-    and isinstance((parameters := definition.get("with")), dict)
+    and isinstance((parameters := definition.get("lifecycle")), dict)
     and str(parameters.get("method") or "").strip()
 }
 METHOD_IDS = list(SCORER_AGENT_BY_METHOD)

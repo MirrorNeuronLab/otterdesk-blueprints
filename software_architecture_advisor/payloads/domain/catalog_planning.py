@@ -5,13 +5,12 @@ from mn_sdk.agent_events import activity_operation
 import math
 import os
 import time
-from mn_sdk.child_workflow import round_plan, stop_plan
-from mn_sdk.step_runtime import artifact_reference
 from .opencode_models import DEFAULT_MODEL, normalize_model, prepare_gateway
 from .catalog_store import CatalogStore, fingerprint
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot, build_full_task_list
-from .retry_budget import effective_config, effective_deadline
+from .retry_budget import effective_deadline
+from .state import read_state, catalog_reference
 
 DEFAULTS = {
     "profile": "full_catalog",
@@ -74,19 +73,22 @@ def catalog_settings(config):
 
 
 @activity_operation('Preparing the architecture investigation', completed='Preparing the architecture investigation: completed')
-def initializer(context, *, llm_client=None):
-    review, opener = catalog_settings(context["config"])
-    store = CatalogStore(context["run_dir"])
-    catalog, snapshot = load_catalog(), load_snapshot(context["run_dir"])
+def initializer(block, inputs):
+    reference = inputs['previous']['result']['evidence']
+    evidence = read_state(block, reference, 'structure')
+    review, opener = catalog_settings(block.original_config)
+    store = CatalogStore(block.store.run_dir)
+    catalog, snapshot = load_catalog(), load_snapshot(block.store.run_dir)
     request = {
         "review": review,
         "opencode": opener,
         "catalog": catalog["digest"],
         "snapshot": fingerprint(snapshot["manifest"]),
-        "goal": context["payload"].get("goal", ""),
-        "retrieval_config": context["config"],
-        "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
-                         "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
+        "goal": evidence['inputs'].get("goal", ""),
+        "retrieval_config": block.original_config,
+        'structure_evidence': {key: reference[key] for key in ('sha256', 'size_bytes')},
+        "memory_scope": {"job_id": block.job_id or os.environ.get("MN_JOB_ID"),
+                         "run_id": block.run_id or os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")},
     }
     from .catalog_retrieval import publish_inputs
 
@@ -96,9 +98,7 @@ def initializer(context, *, llm_client=None):
             raise ValueError("Initialization inputs changed")
         publish_inputs(store, request, snapshot)
         ref = store.write("catalog/context.json", saved)
-        return {"context": ref, "status": "planning"}, [
-            artifact_reference("catalog_context", ref["path"])
-        ]
+        return {"context": catalog_reference(block, ref, 'catalog/context.json'), "status": "planning"}
     publish_inputs(store, request, snapshot)
     packets = chunk_snapshot(snapshot, review["chunk_bytes"])
     # Reserve catalog/report tasks and up to two rounds of dynamic investigation.
@@ -141,13 +141,11 @@ def initializer(context, *, llm_client=None):
         "plan": plan_ref,
         "started": time.time(),
         "deadline": time.time() + review["walltime_seconds"],
-        "gateway": None if review["offline"] or llm_client is not None else prepare_gateway(opener),
+        "gateway": None if review["offline"] or block.resources.get('llm') is not None else prepare_gateway(opener),
     }
     ref = store.write("catalog/context.json", value)
-    return {"context": ref, "status": "planning", "planned_tasks": len(tasks)}, [
-        artifact_reference("catalog_context", ref["path"]),
-        artifact_reference("catalog_plan", plan_ref["path"]),
-    ]
+    block.check()
+    return {"context": catalog_reference(block, ref, 'catalog/context.json'), "status": "planning", "planned_tasks": len(tasks)}
 
 
 def _followups(store, tasks, results, packets, limit):
@@ -213,14 +211,17 @@ def task_label(task):
 
 
 @activity_operation('Planning the architecture investigation', completed='Planning the architecture investigation: completed')
-def planner(context, work, *, llm_client=None):
-    store = CatalogStore(context["run_dir"])
-    saved = store.load_ref(work["context"])
+def planner(block, work):
+    block.check()
+    reference = work['seed']['context']
+    catalog_reference(block, reference, 'catalog/context.json')
+    store = CatalogStore(block.store.run_dir)
+    saved = store.load_ref(reference)
     plan = store.load_ref(saved["plan"])
-    review, opener = catalog_settings(context["config"])
-    if saved["request"]["review"] != review or saved["request"]["opencode"] != opener or saved["request"]["retrieval_config"] != context["config"]:
+    review, opener = catalog_settings(block.original_config)
+    if saved["request"]["review"] != review or saved["request"]["opencode"] != opener or saved["request"]["retrieval_config"] != block.original_config:
         raise ValueError("Review configuration changed after initialization")
-    review, opener = catalog_settings(effective_config(context["config"]))
+    review, opener = catalog_settings(block.config)
     deadline = effective_deadline(saved["deadline"], review["walltime_seconds"])
     revision = work["_child"]["revision"]
     if type(revision) is not int or revision < 0:
@@ -237,9 +238,8 @@ def planner(context, work, *, llm_client=None):
             'pending_task_ids':[t['task_id'] for t in plan['tasks'] if t['task_id'] not in results],
             'rejected_followups':[], 'omitted':plan['omitted'], 'usage':store.usage()}
         ref = store.write('catalog/terminal.json', terminal)
-        result = stop_plan(revision=revision, reason=terminal['stop_reason'],
-                           output={'status':'partial','catalog':ref})
-        store.write(cache, {'context':work['context'],'plan':result})
+        result = {'done': True, 'tasks': [], 'rationale': terminal['stop_reason']}
+        store.write(cache, {'context':reference,'plan':result})
         return result
     from .review_admission import reconcile
     reconcile(store)
@@ -251,9 +251,9 @@ def planner(context, work, *, llm_client=None):
     dispatch_order = []
     for r in range(revision):
         prior = store.read(f"catalog/plans/decision-{r:02d}.json")
-        if prior["plan"]["child_plan"]["decision"] != "execute":
+        if prior["plan"]['done']:
             raise ValueError("Cannot plan after terminal decision")
-        for node in prior["plan"]["child_plan"]["steps"]:
+        for node in prior["plan"]['tasks']:
             task = store.load_ref(node["input"]["task"])
             admitted.add(task["task_id"])
             dispatch_order.append(task["task_id"])
@@ -303,16 +303,7 @@ def planner(context, work, *, llm_client=None):
             "usage": store.usage(),
         }
         ref = store.write("catalog/terminal.json", terminal)
-        result = stop_plan(
-            revision=revision,
-            reason=reason,
-            output={
-                "status": "partial"
-                if pending or plan["omitted"]["truncated"]
-                else "review_draft",
-                "catalog": ref,
-            },
-        )
+        result = {'done': True, 'tasks': [], 'rationale': reason}
     else:
         # In focused mode, challenge each completed wave before spending on
         # another wave. This yields reviewed decisions early in a bounded run.
@@ -328,6 +319,7 @@ def planner(context, work, *, llm_client=None):
         import os
         actual_run_id = os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")
         for task in batch:
+            block.check()
             admitted_input = admit(store, saved, plan, task, review, opener, run_id=actual_run_id)
             if admitted_input is None:
                 break
@@ -338,14 +330,23 @@ def planner(context, work, *, llm_client=None):
                     "template": "review_architecture_packet",
                     "label": task_label(task),
                     "needs": [],
-                    "input": {"task": ref, "review_input": admitted_input},
+                    "input": {"task": ref, "review_input": admitted_input, 'context': reference},
                 }
             )
-        result = round_plan(
-            revision=revision,
-            steps=nodes,
-            rationale=f"Review {len(nodes)} bounded {phase} tasks",
-            evidence_refs=[saved["plan"]],
-        )
-    store.write(cache, {"context": work["context"], "plan": result})
+        result = {'done': False, 'tasks': nodes, 'rationale': f"Review {len(nodes)} bounded {phase} tasks", 'evidence_refs': [saved['plan']]}
+    store.write(cache, {"context": reference, "plan": result})
     return result
+
+
+def summarize(block, inputs):
+    work = inputs['input']
+    store = CatalogStore(block.store.run_dir)
+    reference = work['seed']['context']
+    catalog_reference(block, reference, 'catalog/context.json')
+    decision = store.read(f"catalog/plans/decision-{work['_child']['revision']:02d}.json")
+    if decision['context'] != reference or not decision['plan']['done']:
+        raise ValueError('Architecture summary requires the matching terminal decision')
+    terminal = store.read('catalog/terminal.json')
+    ref = store.write('catalog/terminal.json', terminal)
+    return {'status': 'partial' if terminal['pending_task_ids'] or terminal['omitted']['truncated'] else 'review_draft',
+        'catalog': catalog_reference(block, ref, 'catalog/terminal.json')}

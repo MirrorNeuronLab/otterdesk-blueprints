@@ -1,0 +1,194 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "frame_research_problem": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:frame_goal"
+      },
+      "inputs": {
+        "constraints": {
+          "$ref": "run_input",
+          "path": [
+            "constraints"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        },
+        "output_folder": {
+          "$ref": "run_input",
+          "path": [
+            "output_folder"
+          ]
+        },
+        "research_domain": {
+          "$ref": "run_input",
+          "path": [
+            "research_domain"
+          ]
+        },
+        "research_goal": {
+          "$ref": "run_input",
+          "path": [
+            "research_goal"
+          ]
+        },
+        "research_question": {
+          "$ref": "run_input",
+          "path": [
+            "research_question"
+          ]
+        },
+        "scope": {
+          "$ref": "run_input",
+          "path": [
+            "scope"
+          ]
+        },
+        "seed_hypotheses": {
+          "$ref": "run_input",
+          "path": [
+            "seed_hypotheses"
+          ]
+        },
+        "success_criteria": {
+          "$ref": "run_input",
+          "path": [
+            "success_criteria"
+          ]
+        }
+      },
+      "outputs": {
+        "research_problem": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "build_research_evidence": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.evidence:prepare_evidence"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "frame_research_problem",
+          "path": [
+            "research_problem"
+          ]
+        }
+      },
+      "outputs": {
+        "research_evidence": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 1800
+      }
+    },
+    "assess_evidence_coverage": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.preflight:assess_evidence_coverage"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "build_research_evidence",
+          "path": [
+            "research_evidence"
+          ]
+        }
+      },
+      "outputs": {
+        "evidence_coverage": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "assess_experiment_readiness": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.preflight:assess_experiment_readiness"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "build_research_evidence",
+          "path": [
+            "research_evidence"
+          ]
+        }
+      },
+      "outputs": {
+        "experiment_readiness": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "develop_and_challenge_hypotheses": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.autonomous:autonomous_research"
+      },
+      "inputs": {
+        "evidence_coverage": {
+          "$ref": "upstream",
+          "path": [
+            "evidence_coverage"
+          ],
+          "step_id": "assess_evidence_coverage"
+        },
+        "experiment_readiness": {
+          "$ref": "upstream",
+          "path": [
+            "experiment_readiness"
+          ],
+          "step_id": "assess_experiment_readiness"
+        }
+      },
+      "outputs": {
+        "hypothesis_analysis": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 2400
+      }
+    }
+  }
+}

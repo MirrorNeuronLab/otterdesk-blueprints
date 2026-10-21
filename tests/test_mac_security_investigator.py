@@ -7,6 +7,30 @@ import sys
 import pytest
 from mn_sdk.blueprints import read_blueprint, compile_blueprint
 from mn_temporal_graph_skill import EvidenceHistory
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+
+def native_block(config, directory, *, run_id="run", job_id="job"):
+    return BlockContext(store=CommittedJsonStore(directory), invocation_id=run_id,
+        revision="native-mac-test", config=config, job_id=job_id, run_id=run_id)
+
+
+def publish(block, analysis):
+    """Run the actual stock publication family, rather than a domain publisher."""
+    from dataclasses import replace
+    from mn_blueprint_blocks import validate_instance
+    from mn_sdk.components import ComponentRegistry
+    execute_block = ComponentRegistry(["blueprint-blocks"]).service("blueprint-blocks", "execute_block")
+    from mn_sdk.integrations.block_adapters import capabilities_for
+    from mn_sdk.step_runtime import StepContext
+    from domain.reporting import project
+    compiled = compile_blueprint(read_blueprint(ROOT)).manifest
+    instance = validate_instance(compiled["metadata"]["mn_blocks_lock"]["steps"]["publish_security_review"])
+    context = replace(block, hooks={"project": project})
+    context.capabilities = capabilities_for(instance, context, StepContext(step_id="publish_security_review"))
+    return context.store.read(execute_block(instance, {"previous": analysis}, context))
+
 
 ROOT = Path(__file__).resolve().parents[1] / "mac_security_investigator"
 
@@ -36,7 +60,7 @@ def config():
 def seed_capture(context, scans):
     root = Path(context["run_dir"])
     root.mkdir(parents=True, exist_ok=True)
-    (root / "scan_batch.json").write_text(json.dumps(scans))
+    CommittedJsonStore(root).commit("scan_batch.json", scans, kind="mac_security_scans")
 
 
 @pytest.fixture
@@ -55,10 +79,13 @@ def test_catalog_compiles_four_bounded_host_specialists():
     assert package.extension("mn.storage")["resources"][0]["path"] == "state"
     assert package.extension("mn.context")["text_memory"]["enabled"]
     sdk = next(p for p in package.document("dependencies")["packages"] if p["name"] == "mirrorneuron-python-sdk")
-    assert sdk["version"] == ">=1.3.61.dev12,<2"
+    assert sdk["version"] == ">=1.3.61.dev25,<2"
     assert "mirrorneuron-macos-logs-skill" in {p["name"] for p in package.document("dependencies")["skills"]}
-    assert all(n["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-               for n in manifest["agents"]["nodes"] if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_AGENT_ID") in package.document("execution")["agents"]["registry"])
+    workers = [n for n in manifest["agents"]["nodes"]
+               if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_STEP_HANDLER")]
+    assert len(workers) == 4
+    assert all(n["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal" for n in workers)
+    assert all(n["config"]["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_worker" for n in workers)
 
 
 def test_output_folder_is_the_only_setup_and_configuration_field():
@@ -78,10 +105,10 @@ def test_automatic_capture_needs_no_input_payload_and_replays_without_rereading(
         calls.append(run_id)
         return scans[0]
     monkeypatch.setattr(operations, "acquire_mac", acquire)
-    context = {"config": {"outputs": config["outputs"]}, "run_dir": tmp_path / "run", "run_id": "automatic"}
-    operations.capture(context)
+    context = native_block({"outputs": config["outputs"]}, tmp_path / "run", run_id="automatic")
+    operations.capture(context, {})
     before = (tmp_path / "run/scan_batch.json").read_bytes()
-    operations.capture(context)
+    operations.capture(context, {})
     assert calls == ["automatic"]
     assert (tmp_path / "run/scan_batch.json").read_bytes() == before
 
@@ -111,7 +138,8 @@ def test_log_history_scope_uses_host_and_user_without_inspecting_os_files(domain
 def test_automatic_acquisition_reads_only_native_logs(domain, tmp_path, monkeypatch, config, availability, enumeration):
     import os
     from domain import acquisition, discovery, system_logs
-    from domain.reporting import render_markdown, render_html
+    from domain.reporting import document
+    from mn_web_report_skill import render_report_markdown, render_report_html
     monkeypatch.setattr(discovery.platform, "system", lambda: "Darwin")
     monkeypatch.setattr(discovery.platform, "node", lambda: "fixture-mac")
     monkeypatch.setattr(discovery.os, "getuid", lambda: 501)
@@ -147,11 +175,12 @@ def test_automatic_acquisition_reads_only_native_logs(domain, tmp_path, monkeypa
         assert not report["cases"]
         assert report["completeness"]["status"] == ("complete_for_declared_log_scope"
                                                      if availability == "available" else "INCOMPLETE_SEARCH")
-        text = render_markdown(report)
-        assert "unified-log metadata only" in text and "No supported startup concerns" not in text
-        assert "Startup configuration changes and attributed executions are not evaluable" in render_html(report, {})
+        text = render_report_markdown(document(report))
+        assert "unified-log metadata only" in document(report)["sections"][0]["blocks"][0]["text"]
+        assert "No supported startup concerns" not in text
+        assert "Startup configuration changes and attributed executions are not evaluable" in render_report_html(document(report))
         if availability == "denied":
-            assert "permission_denied" in text
+            assert "permission_denied" in text.replace("\\_", "_")
     finally:
         store.close()
 
@@ -312,51 +341,62 @@ def test_report_revisions_and_exact_historical_replay(domain, scans, config, tmp
     reports = []
     for i, scan in enumerate(scans):
         monkeypatch.setattr(operations, "acquire_mac", lambda *args: scan)
-        ctx = {"config": config, "payload": {}, "run_dir": tmp_path / f"run-{i}",
-               "job_data_dir": tmp_path / "job", "job_id": "job", "run_id": f"run-{i}"}
-        operations.capture(ctx); operations.reconcile(ctx); operations.investigate(ctx); operations.publish(ctx)
-        reports.append(json.loads((ctx["run_dir"] / "final_artifact.json").read_text()))
+        monkeypatch.setenv("MN_JOB_DATA_DIR", str(tmp_path / "job"))
+        ctx = native_block(config, tmp_path / f"run-{i}", run_id=f"run-{i}")
+        capture = operations.capture(ctx, {})
+        revision = operations.reconcile(ctx, {"previous": capture})
+        analysis = operations.investigate(ctx, {"previous": revision})
+        publish(ctx, analysis)
+        reports.append(ctx.store.read_path("final_artifact.json"))
     assert [r["cases"][0]["case_revision"] for r in reports[1:]] == [1, 2, 3]
     assert reports[2]["cases"][0]["review_state"] == "open"
     # Revisit the sealed earlier run after later knowledge was committed.
-    ctx["run_dir"] = tmp_path / "run-2"
-    operations.capture(ctx); operations.reconcile(ctx); operations.investigate(ctx); operations.publish(ctx)
-    assert json.loads((ctx["run_dir"] / "final_artifact.json").read_text()) == reports[2]
+    ctx = native_block(config, tmp_path / "run-2", run_id="run-2")
+    capture = operations.capture(ctx, {})
+    revision = operations.reconcile(ctx, {"previous": capture})
+    analysis = operations.investigate(ctx, {"previous": revision})
+    publish(ctx, analysis)
+    assert ctx.store.read_path("final_artifact.json") == reports[2]
 
 
 def test_timeline_and_html_keep_untrusted_content_inert(domain, scans, config, store):
-    from domain.reporting import render_html
+    from domain.reporting import document
+    from mn_web_report_skill import render_report_html
     from domain.timeline import project
     for s in scans: store.ingest_scan(s)
     result = domain.analyze(store, 4, config["investigation"])
     result["cases"][0]["title"] = "<script>fetch('https://example.invalid')</script>"
     result["cases"][0]["evidence_refs"] = []
     result["timeline"] = project(store, 4, 256)
-    page = render_html(result, {})
-    assert "<script>" not in page
+    page = render_report_html(document(result))
+    assert "<script>fetch('https://example.invalid')</script>" not in page
     assert "&lt;script&gt;" in page
-    assert "Content-Security-Policy" in page and "default-src 'none'" in page
+    assert "Content-Security-Policy" in page and "default-src 'none'" in __import__("html").unescape(page)
     assert "Evidence timeline" in page and "Scan acquisition" in page
 
 
-def test_full_domain_pipeline_persists_reports_and_isolated_jobs(domain, scans, config, tmp_path):
+def test_full_domain_pipeline_persists_reports_and_isolated_jobs(domain, scans, config, tmp_path, monkeypatch):
     ops = importlib.import_module("domain.operations")
     config["text_memory"]["enabled"] = False
-    context = {"config": config, "payload": {}, "run_dir": tmp_path / "run",
-               "job_data_dir": tmp_path / "job", "job_id": "job-a", "run_id": "run-a", "started_at": "2026-10-07T12:00:00Z"}
-    seed_capture(context, scans)
-    for fn in (ops.capture, ops.reconcile, ops.investigate, ops.publish):
-        output, refs = fn(context)
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(tmp_path / "job"))
+    context = native_block(config, tmp_path / "run", run_id="run-a", job_id="job-a")
+    seed_capture({"run_dir": context.store.run_dir}, scans)
+    previous = {}
+    for fn in (ops.capture, ops.reconcile, ops.investigate):
+        output = fn(context, {"previous": previous})
+        previous = output
+        refs = [value for value in output.values() if isinstance(value, dict) and value.get("type") == "artifact_ref"]
         assert refs
-        assert all((Path(context["run_dir"]) / r["path"]).exists() for r in refs)
-    first = (context["run_dir"] / "final_artifact.json").read_bytes()
-    ops.publish(context)
-    assert (context["run_dir"] / "final_artifact.json").read_bytes() == first
+        for reference in refs: context.store.validate(reference)
+    result = publish(context, output)
+    first = context.store.path("final_artifact.json").read_bytes()
+    assert publish(context, output) == result
+    assert context.store.path("final_artifact.json").read_bytes() == first
     report = json.loads(first)
     assert report["cases"][0]["review_state"] == "explained"
     assert len(report["cases"]) == 1
     from mn_sdk.run_outputs import output_metadata
-    outputs = output_metadata(Path(context["run_dir"]))
+    outputs = output_metadata(context.store.run_dir)
     assert {item["relative_path"] for item in outputs} == {
         "final_artifact.json", "evidence.json", "report.md",
     }
@@ -364,28 +404,34 @@ def test_full_domain_pipeline_persists_reports_and_isolated_jobs(domain, scans, 
     # A replicated run must resolve its own files without the writer's paths.
     import shutil
     replicated = tmp_path / "replicated-run"
-    shutil.copytree(context["run_dir"], replicated)
+    shutil.copytree(context.store.run_dir, replicated)
     assert [(item["relative_path"], item["sha256"]) for item in output_metadata(replicated)] == [
         (item["relative_path"], item["sha256"]) for item in outputs
     ]
-    assert (context["run_dir"] / "web/index.html").is_file()
-    new = {**context, "job_data_dir": tmp_path / "different-job", "job_id": "job-b"}
+    assert (context.store.run_dir / "web/index.html").is_file()
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(tmp_path / "different-job"))
+    new = native_block(config, context.store.run_dir, job_id="job-b")
     from domain.history import history
-    other = history(new)
+    other = history(new, report["host_epoch_id"])
     try: assert other.revision == 0
     finally: other.close()
 
 
 def test_optional_preview_failure_does_not_block_report(domain, scans, config, tmp_path, monkeypatch):
-    from domain import operations, reporting
+    from domain import operations
+    import mn_web_report_skill
     config["text_memory"]["enabled"] = False
-    ctx = {"config": config, "payload": {}, "run_dir": tmp_path / "run", "job_data_dir": tmp_path / "job", "job_id": "a", "run_id": "a"}
-    seed_capture(ctx, scans)
-    operations.capture(ctx); operations.reconcile(ctx); operations.investigate(ctx)
-    monkeypatch.setattr(reporting, "render_html", lambda *a: (_ for _ in ()).throw(ValueError("preview failure")))
-    reporting.publish_report(ctx)
-    assert (ctx["run_dir"] / "report.md").is_file()
-    assert json.loads((ctx["run_dir"] / "preview_status.json").read_text())["status"] == "unavailable"
+    monkeypatch.setenv("MN_JOB_DATA_DIR", str(tmp_path / "job"))
+    ctx = native_block(config, tmp_path / "run", run_id="a", job_id="a")
+    seed_capture({"run_dir": ctx.store.run_dir}, scans)
+    capture = operations.capture(ctx, {})
+    revision = operations.reconcile(ctx, {"previous": capture})
+    analysis = operations.investigate(ctx, {"previous": revision})
+    monkeypatch.setattr(mn_web_report_skill, "render_report_html", lambda *a: (_ for _ in ()).throw(ValueError("preview failure")))
+    result = publish(ctx, analysis)
+    assert ctx.store.path("report.md").is_file()
+    assert ctx.store.path("final_artifact.json").is_file()
+    assert result["warnings"] == [{"code": "optional_artifact_failed", "artifact_id": "preview"}]
 
 
 def test_context_graph_is_local_scoped_and_replay_safe(domain, scans, config, store, monkeypatch, text_memory_transport):
@@ -425,13 +471,13 @@ def test_context_graph_is_local_scoped_and_replay_safe(domain, scans, config, st
     monkeypatch.setenv("MN_CONTEXT_ADDR", "127.0.0.1:50052")
     for s in scans: store.ingest_scan(s)
     result = domain.analyze(store, 4, config["investigation"])
-    ctx = {"config": config, "job_id": "security-job", "run_id": "run-1", "started_at": "2026-10-07T12:00:00Z"}
+    ctx = native_block(config, store.path.parent / "run", run_id="run-1", job_id="security-job")
     graph = enrich(ctx, store, result)
     assert graph["status"] == "ready" and len(graph["queries"]) == 1
     registrations = [request for operation, request, _ in text_memory_transport.calls if operation == "register_records"]
     assert registrations and all(len(request["records"]) <= 256 for request in registrations)
     assert sum(len(request["records"]) for request in registrations) == len(store.assertions(4))
-    old = enrich({**ctx, "run_id": "run-2"}, store, domain.analyze(store, 2, config["investigation"]))
+    old = enrich(native_block(config, store.path.parent / "run-2", run_id="run-2", job_id="security-job"), store, domain.analyze(store, 2, config["investigation"]))
     source_ids = old["queries"][0]["receipt"]["request"]["sources"]
     assert source_ids
     assert all("assertion-" in s for s in source_ids)
@@ -458,27 +504,90 @@ def test_shared_sdk_agent_handlers_run_end_to_end_without_live_services(config, 
     config["outputs"]["folder_path"] = str(tmp_path / "outputs")
     message = tmp_path / "message.json"
     message.write_text(json.dumps({"body": {"step_input": {"kwargs": {}}, "agent_outputs": {}, "artifact_refs": []}}))
-    execution = json.loads((ROOT / "execution.json").read_text())
-    workflow = json.loads((ROOT / "workflow.json").read_text())
-    companion = ROOT.parent.parent / "mirror-neuron-set"
-    sources = [ROOT / "payloads", companion / "mn-python-sdk", *sorted((companion / "mn-skills").glob("*/src")),
-               *sorted((companion / "mn-agents").glob("*/src")), *sorted((companion / "mn-python-sdk/packages").glob("*/src"))]
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
+    package = read_blueprint(ROOT)
+    compiled = compile_blueprint(package).manifest
+    descriptor = tmp_path / "worker-descriptor.json"
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled)))
+    # Use the compiler process's dependency order, including editable metadata.
+    # Promoting every source root ahead of site-packages can change distribution
+    # versions while loading identical code, correctly invalidating the lock.
+    sources = [ROOT / "payloads", *(Path(path).resolve() for path in sys.path if path)]
     environment = {**os.environ, "MN_HOME": str(tmp_path / "home"), "MN_MESSAGE_FILE": str(message),
         "MN_JOB_ID": "security-handler-job", "MN_RUN_ID": "security-handler-run", "MN_RUN_DIR": str(tmp_path / "run"),
         "MN_JOB_DATA_DIR": str(tmp_path / "job-data"), "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
         "MN_WORKDIR": str(tmp_path / "work"), "MN_RUNS_ROOT": str(tmp_path / "runs"),
         "MN_BLUEPRINT_BUNDLE_DIR": str(ROOT), "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
-        "PYTHONPATH": os.pathsep.join([*(str(p) for p in sources), os.environ.get("PYTHONPATH", "")])}
+        "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor), "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]',
+        "PYTHONPATH": os.pathsep.join(str(path) for path in sources)}
     seed_capture({"run_dir": tmp_path / "run"}, scans)
-    for step, (id, agent) in zip(workflow["steps"], execution["agents"]["registry"].items()):
-        environment.update(MN_WORKFLOW_STEP_ID=step["id"], MN_WORKFLOW_AGENT_ID=id,
-                           MN_WORKFLOW_INVOCATION_ID=id, MN_WORKFLOW_IDEMPOTENCY_KEY=id)
-        completed = subprocess.run([sys.executable, "-m", "mn_sdk.step_runtime", "--handler", agent["handler"]],
+    workers = [node for node in compiled["agents"]["nodes"] if node.get("config", {}).get("environment", {}).get("MN_WORKFLOW_STEP_HANDLER")]
+    assert len(workers) == 4
+    previous = None
+    for worker in workers:
+        message.write_text(json.dumps({"body": {"step_input": {"previous": previous} if previous is not None else {}}}))
+        binding = worker["config"]["environment"]
+        environment.update({k: v for k, v in binding.items() if k != "MN_BLUEPRINT_CONFIG_JSON"})
+        environment["MN_WORKFLOW_IDEMPOTENCY_KEY"] = binding["MN_WORKFLOW_INVOCATION_ID"]
+        completed = subprocess.run([sys.executable, "-m", "mn_sdk.step_runtime"],
             cwd=ROOT / "payloads", env=environment, capture_output=True, text=True, timeout=30)
         assert completed.returncode == 0, completed.stderr
         records = [json.loads(line.removeprefix("__MN_EVENT__")) for line in completed.stdout.splitlines() if line.startswith("__MN_EVENT__")]
         assert records and all(record["schema"] == "mn.runtime.event.v1" for record in records)
         assert any(record["owner_blueprint"] == "mac_security_investigator" for record in records)
-        assert json.loads("\n".join(line for line in completed.stdout.splitlines() if not line.startswith("__MN_EVENT__")))["status"] == "completed"
+        result = json.loads("\n".join(line for line in completed.stdout.splitlines() if not line.startswith("__MN_EVENT__")))
+        assert result["status"] == "completed"
+        previous = result["outputs"]["result"]
     artifact = json.loads((tmp_path / "run/final_artifact.json").read_text())
     assert artifact["cases"][0]["distinct_execution_count"] == 2
+
+
+@pytest.mark.parametrize('path', ['analysis.json', 'report.md'])
+def test_native_publication_replay_rejects_tampered_inputs_and_outputs(domain, scans, config, tmp_path, monkeypatch, path):
+    from domain import operations
+    from mn_sdk_common.committed_artifacts import CommittedArtifactIntegrityError
+    config['text_memory']['enabled'] = False
+    monkeypatch.setenv('MN_JOB_DATA_DIR', str(tmp_path / 'job'))
+    block = native_block(config, tmp_path / 'run')
+    seed_capture({'run_dir': block.store.run_dir}, scans)
+    captured = operations.capture(block, {})
+    reconciled = operations.reconcile(block, {'previous': captured})
+    analyzed = operations.investigate(block, {'previous': reconciled})
+    receipt = publish(block, analyzed)
+    assert receipt['publication']['type'] == 'artifact_ref'
+    block.store.path(path).write_text('{}')
+    with pytest.raises(CommittedArtifactIntegrityError):
+        publish(block, analyzed)
+
+
+def test_native_report_preserves_unknown_time_bounds(domain, scans, config, store):
+    from domain.reporting import document
+    for scan in scans:
+        store.ingest_scan(scan)
+    report = domain.analyze(store, store.revision, config['investigation'])
+    report['timeline'] = {'items': [{'lane': 'Source', 'label': 'Unknown event time', 'kind': 'event',
+        'time': {'earliest': None, 'latest': None}, 'known_from_revision': 1}]}
+    timeline = next(section for section in document(report)['sections'] if section['id'] == 'timeline')
+    assert timeline['blocks'][0]['rows'][0][3:5] == ['Unknown', 'Unknown']
+
+
+def test_native_report_keeps_an_earlier_presentation_revision_sealed(domain, scans, config, tmp_path, monkeypatch):
+    from domain import operations
+    from domain.history import history
+    from mn_temporal_graph_skill import fingerprint
+    config['text_memory']['enabled'] = False
+    monkeypatch.setenv('MN_JOB_DATA_DIR', str(tmp_path / 'job'))
+    block = native_block(config, tmp_path / 'run')
+    seed_capture({'run_dir': block.store.run_dir}, scans)
+    captured = operations.capture(block, {})
+    reconciled = operations.reconcile(block, {'previous': captured})
+    analyzed = operations.investigate(block, {'previous': reconciled})
+    earlier = {'graph_revision': len(scans), 'cases': [], 'report_text': 'Exact earlier presentation.'}
+    ledger = history(block, scans[0]['host_epoch_id'])
+    try:
+        ledger.save_report('assessment-earlier-format', len(scans), fingerprint(earlier), earlier)
+        publish(block, analyzed)
+        assert ledger.get_report('assessment-earlier-format') == earlier
+        assert block.store.read_path('final_artifact.json')['report_id'].startswith('assessment-v3-')
+    finally:
+        ledger.close()

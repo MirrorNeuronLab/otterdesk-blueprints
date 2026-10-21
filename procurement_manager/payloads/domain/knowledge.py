@@ -16,7 +16,7 @@ from .common import BLUEPRINT_ID, quick_test_enabled
 
 def load_purchase_knowledge(root: Path) -> dict[str, Any]:
     return {
-        **load_text_knowledge(root / "payloads" / "knowledge"),
+        **load_text_knowledge(root),
         "id": "procurement_manager_playbook",
         "title": "Procurement Manager Evidence And Review Playbook",
         "grounding_rule": "Use retrieved guidance as a checklist; facts must come from user documents or cited public sources.",

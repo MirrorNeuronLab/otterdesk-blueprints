@@ -9,7 +9,6 @@ from pathlib import Path
 
 from mn_graph_analysis_skill import GraphClient
 from mn_prototype_bounded_tool_loop_agent.checkpoint import atomic_json
-from mn_sdk.step_runtime import artifact_reference
 
 from .intake import PreparedCorpus
 from .graph_projection.projector import CaseGraphProjector
@@ -52,9 +51,13 @@ def validate_indexes(case, scope):
 
 
 @activity_operation('Indexing case evidence', completed='Indexing case evidence: completed')
-def build_indexes(context, *, llm_client=None):
-    case = Path(context["run_dir"]) / "case"
-    scope = context["config"]["investigation"]["access_scope"]
+def build_indexes(context, inputs):
+    from .state import read_capture, indexed, read_seal
+    capture_reference = inputs["previous"]["result"]["evidence"]
+    read_capture(context, capture_reference)
+    case = context.store.run_dir / "case"
+    scope = context.config["investigation"]["access_scope"]
+    llm_client = context.resources.get("llm")
     corpus = PreparedCorpus(case, scope)
     receipt_path = case / "indexes.json"
     if receipt_path.exists():
@@ -92,12 +95,11 @@ def build_indexes(context, *, llm_client=None):
                 },
             },
         )
-    refs = [
-        artifact_reference(key, "case/" + name)
-        for key, name in (
-            ("document_index", "source-query.json"),
-            ("evidence_graph", "evidence.rgx"),
-            ("index_receipt", "indexes.json"),
-        )
-    ]
-    return {"index_receipt": refs[-1]}, refs
+    evidence = indexed(context, capture_reference)
+    return {"index_receipt": read_seal(context, evidence, "indexed")["index_receipt"], "evidence": evidence}
+
+
+def verified(context, result):
+    from .state import read_indexed
+    read_indexed(context, result["evidence"])
+    return True

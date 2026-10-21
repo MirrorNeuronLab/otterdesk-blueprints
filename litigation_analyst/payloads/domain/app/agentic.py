@@ -21,7 +21,7 @@ from ..handling import review_flags
 from ..matter_intake import load as load_matter
 
 
-def run_investigation(case, corpus, receipt, context, llm_client=None, *, declared):
+def run_investigation(case, corpus, receipt, context, llm_client=None, *, declared, goal):
     guidance = InvestigationGuidance()
     try:
         return _run_investigation(
@@ -32,21 +32,22 @@ def run_investigation(case, corpus, receipt, context, llm_client=None, *, declar
             llm_client,
             declared=declared,
             guidance=guidance,
+            goal=goal,
         )
     finally:
         guidance.index.close()
 
 
 def _run_investigation(
-    case, corpus, receipt, context, llm_client=None, *, declared, guidance
+    case, corpus, receipt, context, llm_client=None, *, declared, guidance, goal
 ):
-    policy = context["config"]["investigation"]
+    policy = context.config["investigation"]
     memory = None
     if llm_client is None or isinstance(llm_client, LLMClient):
         memory = ContextSession(
-            case / "context-memory", job_id=context.get("job_id") or os.environ["MN_JOB_ID"],
-            run_id=context.get("run_id") or os.environ["MN_RUN_ID"], principal="investigator",
-            policy=ContextPolicy(**context["config"].get("context_memory", {}).get("policy", {})),
+            case / "context-memory", job_id=context.job_id or os.environ["MN_JOB_ID"],
+            run_id=context.run_id or os.environ["MN_RUN_ID"], principal="investigator",
+            policy=ContextPolicy(**context.config.get("context_memory", {}).get("policy", {})),
             cancelled=lambda: (case / "cancel.request").exists(),
         )
     model = SDKInvestigationModel(llm_client, context_session=memory)
@@ -58,16 +59,16 @@ def _run_investigation(
         existing[0]["id"]
         if existing
         else store.create_investigation(
-            context["payload"]["goal"],
+            goal,
             corpus.access_scope,
             llm_model=model.model,
             graph_path=case / "evidence.rgx",
         )
     )
     runtime = bind_skills(case, corpus, store, investigation_id, declared,
-        config=context["config"], scope={
-            "job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
-            "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID"),
+        config=context.config, scope={
+            "job_id": context.job_id or os.environ.get("MN_JOB_ID"),
+            "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.run_id or os.environ.get("MN_RUN_ID"),
         })
     manuals = {
         skill["id"]: runtime.read_skill(skill["id"])["sha256"]
@@ -78,8 +79,8 @@ def _run_investigation(
         case / "agent_checkpoint.json",
         {
             "receipt": receipt,
-            "config": context["config"],
-            "goal": context["payload"]["goal"],
+            "config": context.config,
+            "goal": goal,
             "model": model.model,
             "manuals": manuals,
             "descriptors": runtime.descriptors,
@@ -150,7 +151,7 @@ def _run_investigation(
         active = cycle.state["plans"][-1] if cycle.state["plans"] else {}
         phase = "report_review" if "pending_review_ids" in data else cycle.phase
         knowledge = guidance.retrieve(
-            phase, json.dumps(active or {"goal": context["payload"]["goal"]})
+            phase, json.dumps(active or {"goal": goal})
         )
         emit_agent_event(
             "investigation_phase",
@@ -168,7 +169,7 @@ def _run_investigation(
                 "recovery": state.get("progress_guard", {}).get("recovery"),
                 "instruction": "Choose only an allowed action. In execution, read an appropriate skill manual before invoking its operations. An empty approved_operations map means no manual has yet been read; it does not mean no skills exist.",
             },
-            "goal": context["payload"]["goal"],
+            "goal": goal,
             "phase": phase,
             "synthesis_only": synthesis,
             "active_plan": active,
@@ -255,7 +256,7 @@ def _run_investigation(
         try:
             response = model.complete_json(
                 messages, invocation_id=f"decision-{len(state['records'])}",
-                focus=f"{phase}: {active.get('question', context['payload']['goal'])}", final=(phase == "report_review" or synthesis),
+                focus=f"{phase}: {active.get('question', goal)}", final=(phase == "report_review" or synthesis),
                 required_fields=("control", "goal", "phase", "synthesis_only", "actions_before_review", "action_schemas", "skills", "read_manual_hashes", "approved_operations", "latest_observations", "decisions_remaining", "review_evidence", "report_draft", "memory_tools", "memory_note"),
             )
         except Exception as exc:

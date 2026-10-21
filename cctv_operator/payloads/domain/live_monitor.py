@@ -125,6 +125,12 @@ class LiveMonitor:
                 "timestamp_basis": "worker_frame_availability"})
 
     def request(self, payload):
+        if payload.get("operation") == "complete_caption":
+            from .caption_schedule import complete_caption
+            if set(payload) != {"operation", "batch_id", "status"}:
+                raise ValueError("invalid caption completion request")
+            complete_caption(self.root, payload["batch_id"], status=payload["status"])
+            return {"batch_id": payload["batch_id"], "status": payload["status"]}
         if payload.get("operation") == "claim_caption":
             monitoring = payload.get("monitoring") or {}
             if not isinstance(monitoring, dict) or len(str(monitoring.get("instruction") or "")) > 500:

@@ -27,14 +27,20 @@ DOMAIN_MODULES = (
     "domain.review",
     "domain.outputs",
     "domain.execution_policy",
-    "domain.runtime_services",
-    "domain.agent_review",
     "domain.composition",
+    "domain.intake_blocks",
+    "domain.intake_review",
+    "domain.research_services",
+    "domain.research_planner",
     # Import agent modules as well so legacy monkeypatch-based integration
     # tests update names that agents imported from their owning domain module.
     # This compatibility surface is test-only and is never bundled as payload.
-    "agents.public_researcher",
-    "agents.valuation_scorer",
+    "domain.public_researcher",
+    "domain.research_reconciler",
+    "domain.valuation_scorer",
+    "domain.score_consistency_auditor",
+    "domain.company_report_writer",
+    "domain.batch_index_writer",
 )
 
 

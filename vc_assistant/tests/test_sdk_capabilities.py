@@ -14,15 +14,16 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_compiled_dependencies_enable_only_required_sdk_capabilities():
     source = blueprint_definition(read_blueprint(ROOT))
     compiled = expand_manifest_source(source, root_dir=ROOT)
-    expected = {
-        "mn-python-sdk-common==0.1.0",
-        "mn-python-sdk-models==0.1.0",
-        "mn-python-sdk-rag==0.1.0",
-        "mn-python-sdk-job-response==0.1.0",
-        "mn-python-sdk-mcp==0.1.0",
-    }
-    assert set(component_requirement_lines(source)) == expected
-    assert set(component_requirement_lines(compiled)) == expected
+    from packaging.requirements import Requirement
+    expected = {"mn-python-sdk-common", "mn-python-sdk-models", "mn-python-sdk-rag",
+                "mn-python-sdk-job-response", "mn-python-sdk-mcp", "mn-blueprint-blocks"}
+    source_requirements = set(component_requirement_lines(source))
+    assert {Requirement(item).name for item in source_requirements} == expected
+    assert set(component_requirement_lines(compiled)) == source_requirements
+    assert "mn-python-sdk-common>=1.3.61.dev25,<2" in source_requirements
+    assert "mn-blueprint-blocks>=1.3.61.dev30,<2" in source_requirements
+    assert any(item["name"] == "mirrorneuron-python-sdk" and item["version"] == ">=1.3.61.dev31,<2"
+        for item in source["packages"])
     assert compiled["packages"] == source["packages"]
     retired = {
         "mirrorneuron-blueprint-support-skill",

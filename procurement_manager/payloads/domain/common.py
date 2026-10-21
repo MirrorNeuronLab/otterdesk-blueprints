@@ -4,36 +4,30 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
-
-
-
-
-
 
 
 from mn_sdk.blueprint_support import DeterministicFallbackLLM
 from mn_sdk_common.prompts import PromptLibrary
 from mn_prototype_actor_review_agent.actors import get_actor_llm_client
-from mn_sdk.blueprint_support import default_config_path as sdk_default_config_path, source_manifest
+from mn_sdk.blueprint_support import source_manifest
 
 
-BLUEPRINT_ID = "procurement_manager"
+_SOURCE_MANIFEST = source_manifest(__file__)
+INPUT_KEYS = frozenset(_SOURCE_MANIFEST["contracts"]["inputs"])
+BLUEPRINT_ID = _SOURCE_MANIFEST["identity"]["id"]
 
 
-BLUEPRINT_NAME = "Procurement Manager"
+BLUEPRINT_NAME = _SOURCE_MANIFEST["identity"]["name"]
 
 
-CATEGORY = "Finance"
+CATEGORY = _SOURCE_MANIFEST["identity"]["category"]
 
 
 OUTPUT_TYPE = "procurement_manager_report"
 
 
-DEFAULT_OUTPUT_FOLDER = "~/Downloads/purchasing-manager"
+DEFAULT_OUTPUT_FOLDER = _SOURCE_MANIFEST["config"]["data"]["outputs"]["folder_path"]
 
 
 SUPPORTED_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".txt", ".md", ".json", ".csv"}
@@ -55,7 +49,6 @@ PURCHASE_TYPES = {
 RECOMMENDATIONS = {"buy", "consider", "wait", "avoid", "insufficient_evidence"}
 
 
-_SOURCE_MANIFEST = source_manifest(__file__)
 BLOCKED_ACTIONS = list(
     (((_SOURCE_MANIFEST.get("workflow") or {}).get("policy") or {}).get("human") or {}).get("blocked_actions")
     or []
@@ -63,15 +56,6 @@ BLOCKED_ACTIONS = list(
 
 
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
-
-
-class QuickTestLLM(DeterministicFallbackLLM):
-    def __init__(self) -> None:
-        super().__init__(
-            "deterministic-purchase-research",
-            default_summary="Deterministic purchase review completed from local evidence.",
-            confidence=0.7,
-        )
 
 
 def quick_test_enabled(config: dict[str, Any]) -> bool:
@@ -84,38 +68,13 @@ def purchase_llm(config: dict[str, Any], provided: Any | None = None) -> Any:
     if provided is not None:
         return provided
     if quick_test_enabled(config):
-        return QuickTestLLM()
+        return DeterministicFallbackLLM("deterministic-purchase-research",
+            default_summary="Deterministic purchase review completed from local evidence.", confidence=.7)
     return get_actor_llm_client(config, None)
 
 
 def load_prompt(name: str) -> str:
     return PROMPTS.load(name)
-
-
-def _script_blueprint_root() -> Path:
-    script = Path(__file__).resolve()
-    for parent in script.parents:
-        if (parent / "manifest.json").exists():
-            return parent
-    return script.parents[3]
-
-
-def default_config_path() -> Path:
-    configured = os.environ.get("MN_BLUEPRINT_CONFIG_PATH")
-    if configured and Path(configured).expanduser().exists():
-        return Path(configured).expanduser()
-    bundle = os.environ.get("MN_BLUEPRINT_BUNDLE_DIR")
-    if bundle and (Path(bundle).expanduser() / "config" / "default.json").exists():
-        return Path(bundle).expanduser() / "config" / "default.json"
-    if os.environ.get("MN_BLUEPRINT_CONFIG_JSON"):
-        # Docker worker attempts may carry embedded config without mounting
-        # the bundle's config file. Resolve relative to the attempt root.
-        return sdk_default_config_path(__file__)
-    return _script_blueprint_root() / "config" / "default.json"
-
-
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
 def _sha256(value: str | bytes) -> str:
@@ -138,6 +97,3 @@ def _json_safe(value: Any) -> Any:
 def _compact(value: Any, limit: int = 1800) -> str:
     text = value if isinstance(value, str) else json.dumps(_json_safe(value), sort_keys=True, default=str)
     return text if len(text) <= limit else text[: limit - 3] + "..."
-
-
-__all__ = ['RUNTIME_SKILL_PACKAGES', '_bootstrap_runtime', 'BLUEPRINT_ID', 'BLUEPRINT_NAME', 'CATEGORY', 'OUTPUT_TYPE', 'DEFAULT_OUTPUT_FOLDER', 'SUPPORTED_SUFFIXES', 'TEXT_SUFFIXES', 'PURCHASE_TYPES', 'RECOMMENDATIONS', 'BLOCKED_ACTIONS', 'PROMPTS', 'QuickTestLLM', 'quick_test_enabled', 'purchase_llm', 'load_prompt', '_script_blueprint_root', 'default_config_path', '_now', '_sha256', '_json_safe', '_compact']

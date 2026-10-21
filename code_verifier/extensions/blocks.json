@@ -1,0 +1,139 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "capture_software_sources": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:capture"
+      },
+      "inputs": {
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      }
+    },
+    "extract_software_rules": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.rules:extract"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "capture_software_sources"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 2000
+      }
+    },
+    "review_software_rules": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.rule_review:review"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "extract_software_rules"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3900
+      }
+    },
+    "verify_software_rules": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.verification:verify"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "review_software_rules"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3900
+      }
+    },
+    "publish_rules_report": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.reporting:publish"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "verify_software_rules"
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 300
+      }
+    }
+  }
+}

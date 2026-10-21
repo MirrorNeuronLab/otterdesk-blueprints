@@ -1,152 +1,98 @@
 from __future__ import annotations
 
-import importlib.util
+import importlib
 import json
 from pathlib import Path
 import sys
-from typing import Any
+from types import SimpleNamespace
 
 import pytest
-
+from mn_blueprint_blocks.event_processing import scope
+from mn_blueprint_blocks.testing import BlockHarness
+from mn_live_video_analysis_skill import write_frame_batch
+from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
+from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
+from mn_sdk.integrations import block_model_request
+from mn_sdk.integrations.block_worker import run
+from mn_sdk.integrations.block_publication_files import deliver_files
+from mn_sdk.step_runtime import StepContext
 
 ROOT = Path(__file__).resolve().parents[1]
-DETECTOR_PATH = (
-    ROOT
-    / "cctv_operator"
-    / "payloads"
-    / "agents"
-    / "visual_detector"
-    / "scripts"
-    / "analyze_video_frame.py"
-)
+PAYLOADS = ROOT / "cctv_operator/payloads"
 
 
 def _load_detector():
-    original_path = list(sys.path)
-    original_domain_modules = {
-        key: value
-        for key, value in sys.modules.items()
-        if key == "domain" or key.startswith("domain.")
-    }
-    for key in original_domain_modules:
-        sys.modules.pop(key, None)
-    spec = importlib.util.spec_from_file_location("cctv_operator_analyze_video_frame", DETECTOR_PATH)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.path[:] = original_path
-        for key in list(sys.modules):
-            if key == "domain" or key.startswith("domain."):
-                sys.modules.pop(key, None)
-        sys.modules.update(original_domain_modules)
-    return module
+    sys.path.insert(0, str(PAYLOADS))
+    return importlib.import_module("domain.vision")
 
 
-def _write_json(path: Path, value: dict[str, Any]) -> Path:
-    path.write_text(json.dumps(value), encoding="utf-8")
-    return path
-
-
-def _run_detector(
-    module,
-    monkeypatch,
-    tmp_path,
-    capsys,
-    *,
-    payload,
-    detection,
-    state=None,
-    message=None,
-    config=None,
-    gate=None,
-    review_approved=None,
-):
+def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
+                  state=None, message=None, config=None, gate=None, review_approved=None):
+    # Tests select explicit domain settings while executing the actual compiled
+    # binding, event admission, scoped state, effects and publication contracts.
+    config = config or {"video_source": {"mode": "stream", "uri": "rtsp://camera.example/unit-test"}}
+    count = getattr(module, "_fixture_count", 0) + 1
+    module._fixture_count = count
     run_dir = tmp_path / "run"
-    batch_dir = run_dir / "frame_batches" / "batch-test"
-    batch_dir.mkdir(parents=True)
-    frame_path = batch_dir / "frame-01.jpg"
-    frame_path.write_bytes(b"\xff\xd8jpeg-frame\xff\xd9")
-    batch_ref = "frame_batches/batch-test/batch.json"
-    instruction = str(payload.get("instruction") or "")
+    harness = BlockHarness(run_dir)
+    batch_id = "batch-test" if count == 1 else "batch-test-" + str(count)
+    camera = payload.get("camera_id") or "cctv"
+    instruction = module.normalize_attention_instruction(payload.get("instruction"))
     revision = int(payload.get("instruction_revision") or 0)
-    _write_json(
-        batch_dir / "batch.json",
-        {
-            "schema": "otterdesk.cctv_operator.frame_batch.v2",
-            "batch_id": "batch-test",
-            "trigger": "on_demand" if instruction else "baseline",
-            "source": {
-                "mode": "stream",
-                "uri": "rtsp://camera.example/unit-test",
-                "name": "rtsp://camera.example/unit-test",
-                "position_seconds": 0,
-            },
-            "instruction": instruction,
-            "instruction_revision": revision,
-            "candidate_count": 1,
-            "selected_count": 1,
-            "selected_frames": [
-                {
-                    "path": "frame_batches/batch-test/frame-01.jpg",
-                    "timestamp": 1.0,
-                    "score": 0.5,
-                    "sha256": "test",
-                }
-            ],
-            "metrics": {},
-            "candidate_gate": {"detector": "RF-DETR", "condition": "person", "confirmed": True},
-        },
-    )
-    payload = {
-        **payload,
-        "batch_id": "batch-test",
-        "frame_batch_ref": batch_ref,
-        "trigger": "on_demand" if instruction else "baseline",
-        "candidate_count": 1,
-        "selected_count": 1,
-    }
-    input_file = _write_json(tmp_path / "input.json", payload)
-    message_file = _write_json(tmp_path / "message.json", message or {"stream": {"stream_id": "unit-stream"}})
-    context_file = _write_json(tmp_path / "context.json", {"agent_state": state or module.initial_state()})
-    prompts: list[str] = []
-
-    monkeypatch.setenv("MN_INPUT_FILE", str(input_file))
-    monkeypatch.setenv("MN_MESSAGE_FILE", str(message_file))
-    monkeypatch.setenv("MN_CONTEXT_FILE", str(context_file))
+    selected = [{"timestamp": 1.0, "score": .5, "content": b"\xff\xd8jpeg-frame\xff\xd9"}]
+    path, batch = write_frame_batch(run_dir, batch_id=batch_id, trigger="on_demand" if instruction else "baseline",
+        source={"mode": "stream", "uri": "rtsp://camera.example/unit-test", "name": "rtsp://camera.example/unit-test", "position_seconds": 0},
+        instruction=instruction, instruction_revision=revision, candidates=selected, selected=selected,
+        schema="otterdesk.cctv_operator.frame_batch.v2", metadata={"camera_id": camera, "command_id": payload.get("command_id", ""),
+            "candidate_gate": {"detector": "RF-DETR", "condition": "person", "confirmed": True}})
+    incoming = {key: batch[key] for key in ("batch_id", "trigger", "instruction", "instruction_revision", "camera_id", "command_id", "candidate_count", "selected_count")}
+    incoming.update(frame_batch_ref=path.relative_to(run_dir).as_posix(), tick_seq=int(payload.get("tick_seq") or (state or {}).get("frames_seen", 0) + 1))
     monkeypatch.setenv("MN_RUN_DIR", str(run_dir))
     monkeypatch.setenv("MN_RUN_ID", "test-run")
-    monkeypatch.setenv(
-        "MN_BLUEPRINT_CONFIG_JSON",
-        json.dumps(
-            config
-            or {
-                "video_source": {
-                    "mode": "stream",
-                    "uri": "rtsp://camera.example/unit-test",
-                }
-            }
-        ),
-    )
-    monkeypatch.delenv("VIDEO_SOURCE_URI", raising=False)
     monkeypatch.setenv("SLACK_ALERT_ENABLED", "false")
+    monkeypatch.delenv("VIDEO_SOURCE_URI", raising=False)
     monkeypatch.delenv("MOCK_VLM_DETECTION", raising=False)
-    monkeypatch.delenv("VISUAL_DETECTION_PROMPT", raising=False)
-    def fake_call_ollama(_frame, prompt, *, response_schema=None):
-        if response_schema:
-            return gate or {"condition_met": True, "confidence": 0.95}
-        prompts.append(prompt)
+    evidence = importlib.import_module("domain.frame_evidence")
+    producer = harness.context(invocation_id="sample-fixture-" + str(count), config=config, job_id="test-job", run_id="test-run", agent_id="adaptive_frame_sampler")
+    incoming["frame_evidence"] = evidence.capture_batch(producer, incoming, max_frames=10)
+    package = read_blueprint(ROOT / "cctv_operator")
+    resolved = resolve_config(package)
+    compiled = compile_blueprint(package, resolved).manifest
+    node = next(row for row in compiled["agents"]["nodes"] if row["node_id"] == "visual_detector")
+    options = json.loads(node["config"]["environment"]["MN_WORKFLOW_STEP_WITH_JSON"])
+    descriptor = tmp_path / "native-runtime.json"
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, resolved)))
+    environment = {**node["config"]["environment"], "MN_RUN_DIR": str(run_dir), "MN_CONTEXT_FILE": str(tmp_path / "native-context.json"),
+        "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor), "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]',
+        "MN_BLOCK_EVENT_PROTOCOL": "mn.block_events/v1", "MN_BLOCK_EVENT_PUBLICATION_PROTOCOL": "mn.published_files/v1"}
+    prior = {}
+    if state:
+        owner = harness.context(invocation_id="seed-state", config=config, job_id="test-job", run_id="test-run", agent_id="visual_detector")
+        owner.revision = options["revision"]
+        reference = harness.store.commit("seed-state-" + str(count) + ".json", {"version": "mn.block_event_state/v1", "scope": scope(owner), "data": state}, kind="block_event_state")
+        prior = {"agent_state": {"version": "mn.block_event_state/v1", "reference": reference.to_dict()}}
+    Path(environment["MN_CONTEXT_FILE"]).write_text(json.dumps(prior))
+    prompts = []
+    def encoder(prompt, frames, *, media_format):
+        return [{"type": "text", "text": prompt}, {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dmlkZW8="}}]
+    monkeypatch.setattr(module.vision_model, "model_user_content", encoder)
+    def model(*args, **kwargs):
+        prompts.append(args[3]["messages"][0]["content"][0]["text"])
         matched = detection.get("detected_target", detection.get("detected")) is True
-        return module.normalize_detection({"goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None, **detection})
-
-    monkeypatch.setattr(module, "call_ollama", fake_call_ollama)
-    if review_approved is not None:
-        monkeypatch.setattr(module, "await_operator_review", lambda **_kwargs: review_approved)
-
-    module.main()
-    output = json.loads(capsys.readouterr().out)
-    return output, prompts
+        value = {"scene_understanding": detection.get("summary", "Sampled scene account"), "risk_predictions": [], "uncertainties": [],
+            "goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None, **detection}
+        return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(value)}}]}
+    monkeypatch.setattr(block_model_request, "runtime_model_json_request", model)
+    schedule = importlib.import_module("domain.caption_schedule")
+    monkeypatch.setattr(module, "acknowledge_caption", lambda root, run_id, batch_id, *, status: schedule.complete_caption(root, batch_id, status=status))
+    context = StepContext(step_id="detect_visual_targets", job_id="test-job", run_id="test-run", agent_id="visual_detector", config=config,
+        environment=environment, message={"envelope": {"message_id": "vision-fixture-" + str(count)}, "body": incoming})
+    result = run(context, **options)
+    # Model the owner publication boundary after successful event acceptance;
+    # separate native transition tests assert the worker never copies early.
+    if getattr(result, "publication", None):
+        deliver_files(SimpleNamespace(check=lambda: None, store=harness.store, environment={}, agent_id="visual_detector"), result.publication)
+    return {"next_state": harness.store.read(result.event_result["next"])["data"], "events": result.events}, prompts
 
 
 def test_quiet_scene_is_analyzed_without_target_screening(monkeypatch, tmp_path, capsys):
@@ -190,17 +136,16 @@ def test_default_helmet_notices_use_cosmos_understanding_only(monkeypatch, tmp_p
 
 def test_ungated_batch_is_rejected_before_cosmos_or_memory(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
-    original = detector.load_frame_batch
-    def ungated(reference):
-        batch, frames = original(reference)
+    original = detector.read_batch
+    def ungated(*args, **kwargs):
+        batch, frames, view = original(*args, **kwargs)
         batch.pop("candidate_gate")
-        return batch, frames
-    monkeypatch.setattr(detector, "load_frame_batch", ungated)
-    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
-        payload={"tick_seq": 1}, detection={"detected_target": True})
-    assert prompts == []
-    assert "confirmed RF-DETR person gate" in output["next_state"]["last_error"]
-    assert not any(event["type"] == "human_notice" for event in output["events"])
+        return batch, frames, view
+    monkeypatch.setattr(detector, "read_batch", ungated)
+    with pytest.raises(ValueError, match="confirmed RF-DETR person gate"):
+        _run_detector(detector, monkeypatch, tmp_path, capsys,
+            payload={"tick_seq": 1}, detection={"detected_target": True})
+    assert not list((tmp_path / "run").glob("blocks/*/model-responses/*.json"))
 
 
 def test_uncertain_scene_does_not_block_observation_for_approval(monkeypatch, tmp_path, capsys):
@@ -325,7 +270,6 @@ def test_monitoring_goal_match_emits_timed_chat_notice_with_frame(monkeypatch, t
     )
 
     notice = next(event for event in output["events"] if event["type"] == "human_notice")
-    assert notice["channel"] == "human"
     assert notice["payload"]["kind"] == "configured_target_detection"
     assert notice["payload"]["chat_delivery"] == "otterdesk_worker_chat"
     assert notice["payload"]["title"] == "Monitoring goal detected"
@@ -512,7 +456,7 @@ def test_cctv_operator_uses_configured_targets_and_notice_policy(
     )
 
 
-def test_cctv_operator_batch_revision_can_clear_attention_state():
+def test_cctv_operator_batch_revision_can_clear_attention_state(monkeypatch, tmp_path, capsys):
     detector = _load_detector()
     state = {
         **detector.initial_state(),
@@ -521,12 +465,10 @@ def test_cctv_operator_batch_revision_can_clear_attention_state():
         "instruction_revision": 1,
     }
 
-    event = detector.apply_attention_request(
-        state,
-        {"instruction": "", "instruction_revision": 2},
-        {},
-        "camera-1",
-    )
+    result, _ = _run_detector(detector, monkeypatch, tmp_path, capsys, state=state,
+        payload={"instruction": "", "instruction_revision": 2}, detection={"detected_target": False})
+    state = result["next_state"]
+    event = next(event for event in result["events"] if event["type"] == "cctv_operator_attention_updated")
 
     assert state["attention_instruction"] == ""
     assert state["attention_targets"] == []
@@ -568,9 +510,10 @@ def test_floor_focus_replaces_default_targets_in_model_request(monkeypatch, tmp_
     assert "person, vehicle" not in prompts[0]
     assert output["next_state"]["attention_instruction"] == instruction
     assert output["next_state"]["instruction_revision"] == 2
-    restored = detector.detection_prompt("camera", "", ["person"])
-    assert "person, vehicle" in restored
-    assert instruction not in restored
+    restored, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys, state=output["next_state"],
+        payload={"instruction": "", "instruction_revision": 3}, detection={"detected_target": False})
+    assert restored["next_state"]["attention_instruction"] == ""
+    assert "A visible person is not wearing a helmet." in prompts[0]
 
 
 def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_path):

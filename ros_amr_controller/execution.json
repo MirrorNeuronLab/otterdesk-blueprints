@@ -254,16 +254,23 @@
         "config": {
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "command": [
-            "bash",
-            "finish_service.sh"
+            "python3",
+            "-m",
+            "mn_sdk.step_runtime"
           ],
           "output_message_type": "final_result",
           "idempotent": true,
           "safe_to_retry": true,
           "max_attempts": 1,
-          "upload_as": "worker",
-          "upload_path": "worker",
-          "workdir": "/sandbox/job/worker"
+          "upload_as": "domain",
+          "upload_path": "domain",
+          "workdir": "/sandbox/job",
+          "environment": {
+            "MN_WORKFLOW_STEP_HANDLER": "mn_sdk.integrations.block_worker",
+            "MN_WORKFLOW_AGENT_ID": "finalize",
+            "MN_SDK_COMPONENTS_JSON": "[\"blueprint-blocks\"]",
+            "MN_WORKFLOW_STEP_WITH_JSON": "{\"instance\": {\"hooks\": {\"operation\": \"domain.finalization:record_stop\"}, \"limits\": {\"max_calls\": 1, \"timeout_seconds\": 30}, \"uses\": \"mn.blocks.domain_operation@1\"}, \"revision\": \"ros_amr_controller@3.0.0\"}"
+          }
         }
       }
     ]

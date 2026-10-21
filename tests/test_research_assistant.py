@@ -116,10 +116,10 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     autonomous_workers = [
         node
         for node in expanded["agents"]["nodes"]
-        if node["node_id"] == "develop_and_challenge_hypotheses__autonomous_researcher"
+        if node["node_id"] == "develop_and_challenge_hypotheses__block_develop_and_challenge_hypotheses_specialist"
     ]
     assert [node["node_id"] for node in autonomous_workers] == [
-        "develop_and_challenge_hypotheses__autonomous_researcher"
+        "develop_and_challenge_hypotheses__block_develop_and_challenge_hypotheses_specialist"
     ]
     assert (
         autonomous_workers[0]["config"]["runner_module"]
@@ -141,43 +141,26 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     assert set(source_node["config"]["fields"]) == set(source["contracts"]["inputs"])
 
 
-def test_research_preflight_branches_write_independent_artifacts(tmp_path):
-    import importlib.util
-    import sys
-    import types
-
-    package = types.ModuleType("research_preflight_test")
-    package.__path__ = []
-    state_module = types.ModuleType("research_preflight_test.state")
-    state_module._state = lambda _ctx: {
-        "inputs": {"seed_hypotheses": [{"statement": "A"}]},
-        "documents": [{"name": "observations.csv"}],
-        "evidence": {
-            "usable_evidence_present": True,
-            "source_refs": ["local:observations.csv"],
-            "evidence_gaps": ["No external validation"],
-            "usable_local_document_count": 1,
-        },
-    }
-    sys.modules[package.__name__] = package
-    sys.modules[state_module.__name__] = state_module
-    path = ROOT / "research_assistant" / "payloads" / "domain" / "preflight.py"
-    spec = importlib.util.spec_from_file_location("research_preflight_test.preflight", path)
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-        context = {"run_dir": str(tmp_path)}
-        coverage = module.assess_evidence_coverage(context)
-        readiness = module.assess_experiment_readiness(context)
-        loaded = module.load_preflight(tmp_path)
-        assert coverage["status"] == "ready_for_hypothesis_review"
-        assert readiness["status"] == "planning_only"
-        assert loaded["evidence_coverage"]["source_refs"] == ["local:observations.csv"]
-        assert loaded["experiment_readiness"]["local_csv_count"] == 1
-        assert loaded["experiment_readiness"]["missing_for_execution"]
-    finally:
-        sys.modules.pop(package.__name__, None)
-        sys.modules.pop(state_module.__name__, None)
+def test_research_preflight_branches_write_independent_artifacts(tmp_path, monkeypatch):
+    import importlib
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+    monkeypatch.syspath_prepend(str(ROOT / "research_assistant/payloads"))
+    module = importlib.import_module("domain.preflight")
+    context = BlockContext(store=CommittedJsonStore(tmp_path), invocation_id="preflight", revision="v4")
+    state = {"inputs": {"seed_hypotheses": [{"statement": "A"}]},
+        "documents": [{"name": "observations.csv"}], "evidence": {"usable_evidence_present": True,
+        "source_refs": ["local:observations.csv"], "evidence_gaps": ["No external validation"],
+        "usable_local_document_count": 1}}
+    source = context.store.commit("research/evidence.json", state, kind="research_evidence").to_dict()
+    coverage = module.assess_evidence_coverage(context, {"previous": {"state": source}})
+    readiness = module.assess_experiment_readiness(context, {"previous": {"state": source}})
+    captured, loaded = module.load_preflight(context, {"evidence_coverage": coverage, "experiment_readiness": readiness})
+    assert coverage["status"] == "ready_for_hypothesis_review" and readiness["status"] == "planning_only"
+    assert captured == state
+    assert loaded["evidence_coverage"]["source_refs"] == ["local:observations.csv"]
+    assert loaded["experiment_readiness"]["local_csv_count"] == 1
+    assert loaded["experiment_readiness"]["missing_for_execution"]
 
 
 def test_research_packet_review_request_is_bound_to_durable_packet(tmp_path):
@@ -188,11 +171,13 @@ def test_research_packet_review_request_is_bound_to_durable_packet(tmp_path):
 import json
 from pathlib import Path
 from domain.reporting import request_packet_review
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from mn_sdk.blueprint_support import read_human_events
 root = Path({root!r})
 run_dir = root / 'review-run'
 run_dir.mkdir()
-ctx = {{'run_dir': str(run_dir), 'run_id': 'review-run'}}
+ctx = BlockContext(store=CommittedJsonStore(run_dir), invocation_id='review', revision='v4', run_id='review-run')
 packet = {{'hypothesis_ledger': [{{'hypothesis_id': 'H1'}}]}}
 path = run_dir / 'final_artifact.json'
 path.write_text(json.dumps(packet))
@@ -393,7 +378,9 @@ def test_research_assistant_preserves_configured_inputs_and_accepts_ocr_records(
 import json
 from pathlib import Path
 from domain import inputs as input_module
-from domain.state import _inputs
+from domain.state import research_inputs
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 configured = {{
     "research_goal": "Evaluate robotics simulation infrastructure",
@@ -404,14 +391,10 @@ configured = {{
         "prediction": "Median setup time falls by at least 20%.",
     }}],
 }}
-resolved = _inputs({{
-    "config": {{"inputs": {{"payload": configured}}}},
-    "payload": {{"research_goal": "", "research_domain": "", "constraints": {{}}}},
-}})
-overridden = _inputs({{
-    "config": {{"inputs": {{"payload": configured}}}},
-    "payload": {{"research_goal": "Compare simulator reproducibility"}},
-}})
+block = BlockContext(store=CommittedJsonStore(Path({str(tmp_path)!r}) / 'run'),
+    invocation_id='inputs', revision='v4', config={{"inputs": {{"payload": configured}}}})
+resolved = research_inputs(block, {{"research_goal": "", "research_domain": "", "constraints": {{}}}})
+overridden = research_inputs(block, {{"research_goal": "Compare simulator reproducibility"}})
 
 class Record:
     def to_dict(self):
@@ -742,7 +725,9 @@ def test_research_sample_audits_falsifiable_hypotheses(tmp_path):
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'research_assistant')
 
 root = Path({str((ROOT / "research_assistant").resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"

@@ -138,9 +138,10 @@ edits. Run inputs, outputs, logs, and artifacts remain run-scoped. Two jobs
 created from the same blueprint receive different job-data directories and RAG
 databases.
 
-The standard payload layout is consistent across the catalog: `runtime/` contains
-the blueprint context adapter, `steps/` contains manifest-facing handlers, and
-`agents/` contains domain workers or services. Docker, native-host, OpenShell,
+The standard payload layout places product policy in `domain/` and logical
+collaboration graphs in `steps/`. Native block compositions use SDK workers and
+can leave `runtime/` and `agents/` empty. All thirteen catalog packages use native
+blocks. Docker, native-host, OpenShell,
 and Beam worker assets stay as sibling payload directories (`docker_worker/`,
 `openshell_worker/`, or `beam_modules/`) rather than nested under a script
 wrapper. Python workflow steps are launched with the shared SDK module
@@ -341,5 +342,95 @@ uses only a supervisor-edited list. Source and tests are never executed.
 
 The blueprint uses the static-code-analysis and code-search skills. Its additive
 offline `TextSearchIndex` API needs the code-search skill release
-`>=1.3.62.dev0,<2` before binary distribution; local mode uses current sibling
+`>=1.3.61.dev5,<2` before binary distribution; local mode uses current sibling
 skill source. No runtime changes are required.
+
+## Reusable block composition
+
+**All thirteen catalog packages use stock blocks with direct native domain hooks.**
+The catalog gate rejects legacy entrypoint wrappers and blueprint-owned capability
+adapters. Shared blocks own execution receipts, effect reconciliation, managed
+model access, native-device transport and verified file publication. Core owns
+scheduling, joins, child workflows, physical delivery and accepted event-state
+transitions. Blueprints retain their domain formulas, evidence qualifications,
+prompts, review authority and report content.
+
+The offline catalog regression (`python -m pytest tests vc_assistant/tests -q`)
+passes **1,378 cases with 29 skips** at this source checkpoint. SDK CI passes
+3,571 cases at its existing coverage floor; the block gate passes 473 cases at
+its existing floor. Installed SDK dev34 / blocks dev33 / common dev30 test
+candidates execute and replay all four compiled CCTV workers in fresh processes,
+with synthetic resident/model transports and real JPEG/MP4 preparation. Earlier
+installed-package probes cover Litigation's child workflow, all 21 VC specialists
+and Microduck's native binding. These are source/test candidates, not releases.
+
+Current packaged Python, measured against `HEAD` before this migration:
+
+| Blueprint | Before | Current | Change | Python files |
+| --- | ---: | ---: | ---: | ---: |
+| Architecture Advisor | 9,241 | 7,158 | -2,083 (-22.5%) | 79 → 50 |
+| CCTV Operator | 6,893 | 6,046 | -847 (-12.3%) | 44 → 46 |
+| Code Verifier | 1,354 | 1,321 | -33 (-2.4%) | 30 → 15 |
+| CT Reader | 247 | 193 | -54 (-21.9%) | 8 → 6 |
+| Drug Discovery Research Assistant | 3,590 | 2,887 | -703 (-19.6%) | 46 → 23 |
+| Financial Advisor | 3,462 | 2,796 | -666 (-19.2%) | 46 → 23 |
+| Litigation Analyst | 6,604 | 6,687 | +83 (+1.3%) | 79 → 62 |
+| Mac Security Investigator | 752 | 593 | -159 (-21.1%) | 24 → 11 |
+| Microduck Controller | 3,884 | 3,810 | -74 (-1.9%) | 23 → 16 |
+| Procurement Manager | 4,223 | 3,859 | -364 (-8.6%) | 34 → 17 |
+| Research Assistant | 3,131 | 2,782 | -349 (-11.1%) | 34 → 17 |
+| ROS AMR Controller | 5,925 | 5,935 | +10 (+0.2%) | 32 → 34 |
+| VC Assistant | 9,294 | 8,344 | -950 (-10.2%) | 69 → 55 |
+| **All thirteen** | **58,600** | **52,411** | **-6,189 (-10.6%)** | **548 → 375** |
+
+These counts cover `payloads/**/*.py`, excluding directories named `tests`.
+Vendored test files shipped directly inside payload directories are included in
+both baselines. Repository tests, shared dependencies, documentation and generated
+files are excluded. Retained custom domain policy is included.
+The size audit retains two small increases: Litigation's case-source,
+terminal-decision and audit-database integrity checks exceed its removed wrappers
+by 83 lines; ROS adds a 10-line domain hook recording completed service shutdown.
+Those product-specific checks remain in the blueprint. The catalog-wide reduction
+includes their full cost and both staged Microduck source copies.
+
+All thirteen catalog blueprints declare the existing `mn-blueprint-blocks` package.
+Single-specialist phases declare blocks in `extensions/blocks.json`; custom
+collaboration graphs keep their `StepSpec` and bind each specialist to the stock
+SDK worker. Core continues to schedule joins, child workflows, native Compose
+projects and the camera event loop. Domain hooks retain product decisions,
+evidence rules, prompts, native protocols and report content.
+
+New blueprints should start with the smallest suitable existing block, including
+structured assessment, report publication or native computation when their
+contracts fit. Custom policy compositions use domain-operation hooks. Declare
+inputs, outputs, hook references, package versions, deadlines and call limits once.
+Do not add local agent factories or another workflow runner. Keep domain hooks
+small by calling focused policy functions and existing skill APIs. Custom code is
+appropriate for specialized review authority, native protocols and domain policy.
+Canonical declarations get a compiler lock; inline workers use an explicit
+blueprint release revision and installed package pins. These are distinct revision
+contracts, and an inline binding does not claim canonical lock verification.
+
+Each blueprint may opt compatible workers into OpenShell. When selected, retain
+the stock SDK block or auxiliary-service handler
+with `runner_module: "MirrorNeuron.Runner.OpenShell"` and
+`artifact_handoff: {"version": "mn.artifact_handoff/v1"}`. Declare the custom
+image, domain uploads and scoped network/filesystem policy in the blueprint. The SDK
+includes the compiled descriptor automatically, and Core binds its discovery to
+the private invocation. The shared integration stages verified inputs into private run storage, transports
+nested JSON/byte artifacts and commits outputs before downstream delivery. Domain
+hooks keep using `block.store`; no blueprint handoff wrapper is needed. Architecture
+Advisor's packet reviewer uses this path. Other worker choices remain unchanged.
+SDK file publishers use private logical output storage and typed export manifests;
+select `artifact_handoff.export_outputs: true` for Core-owned output-folder
+delivery. Required copy failures reject. Optional copy failures remain qualified
+and can recover from committed receipts without rerunning domain work.
+Deploy matching SDK/Core support together; offline tests do not qualify the live
+OpenShell gateway, provider or policy installation.
+
+`tests/test_catalog_block_migration.py` checks all catalog packages, block locks,
+custom collaboration graphs and native placement against the pre-migration
+contract. Focused suites exercise worker replay, verified publication barriers,
+human approvals, child-round tasks, partial service startup and cleanup. Offline
+sample fixtures execute compiled worker bindings; they do not replace Core's
+scheduler or establish live model, CUDA, camera or robot qualification.

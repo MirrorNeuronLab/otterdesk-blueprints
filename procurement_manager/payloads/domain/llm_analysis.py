@@ -351,7 +351,10 @@ def generate_structured_analysis(
     phases = generation.setdefault("phases", {})
     cached_results = state.setdefault("_llm_analysis_results", {})
     if agent_id in phases and isinstance(cached_results.get(agent_id), dict):
-        return deepcopy(cached_results[agent_id])
+        normalized, errors = validator(cached_results[agent_id], fallback, settings)
+        if errors:
+            raise ValueError("Saved procurement narrative no longer matches the evidence.")
+        return deepcopy(normalized)
     if not llm_agent_selected(config, agent_id):
         phases[agent_id] = {
             "status": "not_selected",
@@ -396,7 +399,7 @@ def generate_structured_analysis(
             fallback=normalized_fallback,
         )
     except Exception as exc:  # model availability is optional for this blueprint
-        error = str(exc)
+        error = type(exc).__name__
         raw = fallback
     after = llm_usage(llm)
     normalized, validation_errors = validator(raw, fallback, settings)

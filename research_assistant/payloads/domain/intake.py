@@ -2,23 +2,24 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 from typing import Any
 
 from mn_autonomous_research_skill import create_research_goal
 
-from .state import _inputs, _save
+from .state import research_inputs, save_state
+from .common import BLUEPRINT_ID
 
-@activity_operation('Clarifying the research goal', completed='Clarifying the research goal: completed')
-def frame_goal(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    inputs = _inputs(ctx)
+def frame_goal(block, inputs) -> dict[str, Any]:
+    report_activity("Clarifying the research goal", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    inputs = research_inputs(block, inputs)
     goal = create_research_goal(
         inputs.get("research_goal") or "Investigate the supplied research question",
         question=inputs.get("research_question") or "",
         success_criteria=list(inputs.get("success_criteria") or []),
         constraints=inputs.get("constraints") or {},
     )
-    state = {"inputs": inputs, "goal": goal}
-    _save(ctx, state)
-    return {"goal": goal}
+    state = {"inputs": inputs, "goal": goal,
+        "input_artifact": block.store.commit("inputs.json", inputs, kind="research_inputs").to_dict()}
+    return {"goal": goal, "state": save_state(block, state, "goal")}

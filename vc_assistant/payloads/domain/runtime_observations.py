@@ -3,14 +3,12 @@
 import json
 from pathlib import Path
 
-from mn_sdk.blueprint_support import WorkflowStateStore
 from mn_sdk.context_session.contracts import digest
 from .runtime_knowledge import authored_record, event_timestamp, latest_source_timestamp, publication_clock
 
 
-def runtime_observations(ctx):
-    store = ctx.get("state_store") or WorkflowStateStore(ctx["run_dir"])
-    for company, evidence in store.list_entity_objects("company_evidence").items():
+def observation_records(company_evidence, analyses, run_dir):
+    for company, evidence in company_evidence.items():
         source_map = {s["source_id"]: s for s in evidence.get("source_records", [])}
         evidence_map = {e["evidence_id"]: e for e in evidence.get("evidence_items", [])}
         for claim in evidence.get("claim_records", []):
@@ -46,15 +44,19 @@ def runtime_observations(ctx):
                    "quality": source.get("source_quality_score"),
                    "qualification": source.get("source_quality_label", "unverified"),
                    "timestamp": source.get("retrieved_at") or ""}
-    for company, analysis in store.list_entity_objects("analyses").items():
+    for company, analysis in analyses.items():
         for method_id, method in analysis.get("methods", {}).items():
             yield {"company": company, "kind": "method", "observation_id": company + ":" + method_id,
                    "method_id": method_id, "status": method.get("status"), "score": method.get("score"),
                    "missing_evidence": method.get("missing_evidence", []),
                    "assumptions": method.get("assumptions", []), "warnings": method.get("warnings", []),
+                   "inputs_used": method.get("inputs_used", []),
+                   "formula_or_weighting": method.get("formula_or_weighting"),
+                   "details": method.get("details", {}),
+                   "source_refs": method.get("source_refs", []),
                    "evidence_refs": method.get("evidence_refs", []),
                    "qualification": "runtime_method_result", "timestamp": analysis.get("generated_at") or ""}
-    trace = Path(ctx["run_dir"]) / "llm_rag_trace.jsonl"
+    trace = Path(run_dir) / "llm_rag_trace.jsonl"
     if trace.is_file():
         for line in trace.read_text().splitlines():
             event = json.loads(line)
@@ -74,9 +76,8 @@ def runtime_observations(ctx):
                    "qualification": "recorded_tool_outcome_not_external_confirmation"}
 
 
-def ingest_runtime_observations(memory, ctx):
+def publish_observations(memory, records):
     receipts = []
-    records = list(runtime_observations(ctx))
     snapshot_id = digest(records)
     if not records:
         return receipts, snapshot_id
@@ -92,6 +93,7 @@ def ingest_runtime_observations(memory, ctx):
             allow=["vc-actor-review"], upstream=[{"artifact": "workflow_state", "company": record["company"],
                                                 "observation_id": record["observation_id"]}])
         receipts.append({**receipt, "runtime_kind": record["kind"],
-                         "agent_id": record.get("agent_id"), "claim_family": record.get("claim_family"),
+                         "agent_id": record.get("agent_id"), "method_id": record.get("method_id"),
+                         "claim_family": record.get("claim_family"),
                          "event_time_status": "known" if event_timestamp(record.get("timestamp")) else "unknown"})
     return receipts, snapshot_id

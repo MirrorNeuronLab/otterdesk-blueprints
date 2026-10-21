@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
+from mn_blueprint_blocks.contracts import BlockError, fingerprint
 
 import json
 import os
@@ -12,18 +13,18 @@ from typing import Any
 from mn_autonomous_research_skill import create_research_goal, create_research_prompt
 from mn_prototype_bounded_tool_loop_agent.session import ToolSession, ToolRegistry
 from mn_prototype_bounded_tool_loop_agent.execution import GeneratedCodePolicy
-from mn_prototype_actor_review_agent.actors import llm_usage, resolve_actor_specs, run_actor_reviews
+from mn_prototype_actor_review_agent.actors import llm_usage, resolve_actor_specs, run_actor_review, actor_findings as reviewed_findings
 
-from .common import RESEARCH_ACTIONS, _json_safe, load_prompt, quick_test_enabled
+from .common import BLUEPRINT_ID, RESEARCH_ACTIONS, _json_safe, load_prompt, quick_test_enabled
 from .evidence import (
     deterministic_research_posture,
     research_evidence,
     research_public_sources,
     sanitize_public_text,
 )
-from .state import _inputs, _save, _state
+from .state import save_state, read_state
 from .synthesis import evidence_digest, evidence_links_for_hypothesis, normalize_source_refs
-from .runtime_services import init_research_llm
+from .model import init_research_llm
 from .preflight import load_preflight
 
 
@@ -153,8 +154,11 @@ def _phase_generate_json(
     context: dict[str, Any],
     fallback: dict[str, Any],
     phase_trace: list[dict[str, Any]],
+    check=None,
 ) -> dict[str, Any]:
     """Run one explicit research phase and retain bounded call provenance."""
+    if check is not None:
+        check()
     phase_fallback = {"actor_id": f"research_phase:{phase}", **fallback}
     before_calls = int(getattr(llm, "calls", 0) or 0)
     before_fallbacks = int(getattr(llm, "fallback_calls", 0) or 0)
@@ -172,6 +176,8 @@ def _phase_generate_json(
         user_prompt=json.dumps(context, sort_keys=True, default=str),
         fallback=phase_fallback,
     )
+    if check is not None:
+        check()
     if not isinstance(response, dict):
         raise RuntimeError(f"Research LLM phase {phase!r} returned a non-object response.")
     phase_trace.append(
@@ -374,6 +380,7 @@ def _prepare_deep_research(
     posture: dict[str, Any],
     documents: list[dict[str, Any]],
     sources: list[dict[str, Any]],
+    *, check=None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Read evidence, decompose the question, generate rivals, and plan probes."""
     phase_trace: list[dict[str, Any]] = []
@@ -397,7 +404,7 @@ def _prepare_deep_research(
             "deterministic_evidence": evidence,
         },
         fallback=source_analysis_fallback,
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     source_analysis = _normalize_source_analysis(
         source_analysis, source_analysis_fallback, set(source_refs)
@@ -437,7 +444,7 @@ def _prepare_deep_research(
             "source_analysis": source_analysis,
         },
         fallback=question_decomposition_fallback,
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     question_decomposition = _normalize_question_decomposition(
         question_decomposition, question_decomposition_fallback
@@ -465,7 +472,7 @@ def _prepare_deep_research(
             **posture,
             "candidate_hypotheses": seed_candidates,
         },
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     candidates = _normalize_hypotheses(
         generation.get("candidate_hypotheses"), inputs, evidence, documents, sources
@@ -500,7 +507,7 @@ def _prepare_deep_research(
                 ],
                 "revision_recommendation": "Retain as a review-only hypothesis pending the named test.",
             },
-            phase_trace=phase_trace,
+            phase_trace=phase_trace, check=check,
         )
         critique_response["hypothesis_id"] = hypothesis["hypothesis_id"]
         critiques.append(critique_response)
@@ -530,7 +537,7 @@ def _prepare_deep_research(
             ],
         },
         fallback={"tool_requests": [], "generated_python": ""},
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     recommendation = {
         "recommended_action": str(
@@ -566,6 +573,7 @@ def _finalize_deep_research(
     deep_state: dict[str, Any],
     observations: list[dict[str, Any]],
     code_result: dict[str, Any] | None,
+    *, check=None,
 ) -> dict[str, Any]:
     """Revise against observations, design tests, then perform meta-review."""
     phase_trace = deep_state["phase_trace"]
@@ -598,7 +606,7 @@ def _finalize_deep_research(
             "recommended_action": recommendation.get("recommended_action"),
             "confidence": recommendation.get("confidence"),
         },
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     candidates = _normalize_hypotheses(
         revision.get("candidate_hypotheses"), inputs, evidence, documents, sources
@@ -694,7 +702,7 @@ def _finalize_deep_research(
             "rationale": revision.get("rationale") or posture["rationale"],
             "unresolved_gaps": list(evidence.get("evidence_gaps") or []),
         },
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     ranking_items = _dict_items(meta_review.get("ranking"))
     ranking_by_id = {
@@ -759,7 +767,7 @@ def _finalize_deep_research(
                 meta_review.get("unresolved_gaps"), limit=20
             ),
         },
-        phase_trace=phase_trace,
+        phase_trace=phase_trace, check=check,
     )
     executive_synthesis = {
         "executive_summary": str(
@@ -900,6 +908,7 @@ def run_autonomous_research(
     sources: list[dict[str, Any]],
     *,
     workspace: Path,
+    check=None,
 ) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
     """Run every autonomous subphase through one auditable session.
 
@@ -988,10 +997,12 @@ def run_autonomous_research(
     )
 
     recommendation, deep_state, phase_trace = _prepare_deep_research(
-        llm, inputs, evidence, rag, posture, documents, sources
+        llm, inputs, evidence, rag, posture, documents, sources, check=check
     )
     observations: list[dict[str, Any]] = []
     for index, request in enumerate(recommendation.pop("tool_requests", [])[: session.max_tool_calls], start=1):
+        if check is not None:
+            check()
         if not isinstance(request, dict):
             continue
         tool = str(request.get("tool") or "")
@@ -1018,7 +1029,7 @@ def run_autonomous_research(
         recommendation,
         deep_state,
         observations,
-        code_result,
+        code_result, check=check,
     )
 
     autonomous = {
@@ -1063,47 +1074,60 @@ def _experiment_concepts(hypotheses: list[dict[str, Any]], inputs: dict[str, Any
     return concepts
 
 
-@activity_operation('Investigating the research question', completed='Investigating the research question: completed')
 def autonomous_research(
-    ctx: dict[str, Any], *, llm_client: Any | None = None, **_options: Any
+    block, inputs, *, llm_client: Any | None = None
 ) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = _inputs(ctx)
-    preflight = load_preflight(ctx["run_dir"])
-    llm, action_budget = init_research_llm(ctx, llm_client)
+    report_activity("Investigating the research question", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    block.check()
+    state, preflight = load_preflight(block, inputs)
+    state["preflight_artifacts"] = {name: inputs[name]["assessment"] for name in preflight}
+    identity = {"preflight": state["preflight_artifacts"], "configuration": fingerprint(block.config)}
+    completed = "research/completed-analysis.json"
+    if block.store.path(completed).exists():
+        reference = block.store.read_path(completed)
+        saved = read_state(block, {"state": reference})
+        if saved["analysis_identity"] != identity:
+            raise ValueError("Completed research belongs to different evidence or configuration")
+        return {"tool_calls": (saved["autonomous"].get("session") or {}).get("tool_calls_used", 0), "state": reference}
+    started = "research/analysis-started.json"
+    if block.store.path(started).exists():
+        block.store.commit(started, identity, kind="research_analysis_start")
+        raise BlockError("outcome_unknown", "Reconcile the interrupted research analysis before another attempt.")
+    research = state["inputs"]
+    llm, action_budget = init_research_llm(block, llm_client or block.resources.get("llm"))
     documents = state.get("documents") or []
     sources = state.get("sources") or []
-    evidence = state.get("evidence") or research_evidence(inputs, documents, sources)
+    evidence = state.get("evidence") or research_evidence(research, documents, sources)
     posture = {**(state.get("posture") or deterministic_research_posture(evidence)), "preflight": preflight}
+    block.store.commit(started, identity, kind="research_analysis_start")
     recommendation, autonomous, autonomous_warnings = run_autonomous_research(
-        llm, inputs, evidence, state.get("rag") or {}, posture, ctx["config"], documents, sources,
-        workspace=Path(os.environ.get("MN_WORKDIR") or Path(ctx["run_dir"]) / "workspace"),
+        llm, research, evidence, state.get("rag") or {}, posture, block.config, documents, sources,
+        workspace=Path(os.environ.get("MN_WORKDIR") or block.store.run_dir / "workspace"), check=block.check,
     )
-    verified_evidence = research_evidence(inputs, documents, sources)
-    actor_findings = run_actor_reviews(
-        config=ctx["config"], llm=llm, actor_ids=list(resolve_actor_specs(ctx["config"]).keys()), state={},
-        task=load_prompt("research-review-task.md"),
-        context=_actor_review_context(
-            inputs,
-            verified_evidence,
-            recommendation,
-            state.get("rag") or {},
-            sources,
-        ),
-    )
+    verified_evidence = research_evidence(research, documents, sources)
+    review_state = {}
+    review_context = _actor_review_context(research, verified_evidence, recommendation, state.get("rag") or {}, sources)
+    for actor_id in resolve_actor_specs(block.config):
+        block.check()
+        run_actor_review(config=block.config, llm=llm, actor_id=actor_id, state=review_state,
+            task=load_prompt("research-review-task.md"), context=review_context)
+        block.check()
+    actor_findings = reviewed_findings(review_state)
     usage = llm_usage(llm)
-    llm_config = ctx["config"].get("llm") if isinstance(ctx["config"].get("llm"), dict) else {}
+    llm_config = block.config.get("llm") if isinstance(block.config.get("llm"), dict) else {}
     if (
         bool(llm_config.get("require_live", False))
-        and not quick_test_enabled(ctx["config"])
+        and not quick_test_enabled(block.config)
         and int(usage.get("fallback_calls") or 0) > 0
     ):
         raise RuntimeError(
             "Research Assistant requires live model-backed synthesis; one or more research phases used fallback output."
         )
-    state.update({"inputs": inputs, "evidence": verified_evidence, "posture": deterministic_research_posture(verified_evidence), "preflight": preflight, "recommendation": recommendation, "autonomous": autonomous, "actor_findings": actor_findings, "warnings": [*(state.get("warnings") or []), *autonomous_warnings], "llm_usage": usage, "llm_action_budget": action_budget.summary(include_actions=True)})
-    _save(ctx, state)
-    return {"tool_calls": (autonomous.get("session") or {}).get("tool_calls_used", 0)}
+    state.update({"inputs": research, "evidence": verified_evidence, "posture": deterministic_research_posture(verified_evidence), "preflight": preflight, "recommendation": recommendation, "autonomous": autonomous, "actor_findings": actor_findings, "warnings": [*(state.get("warnings") or []), *autonomous_warnings], "llm_usage": usage, "llm_action_budget": action_budget.summary(include_actions=True)})
+    state["analysis_identity"] = identity
+    reference = save_state(block, state, "autonomous")
+    block.store.commit(completed, reference, kind="completed_research_analysis")
+    return {"tool_calls": (autonomous.get("session") or {}).get("tool_calls_used", 0), "state": reference}
 
 
 __all__ = [

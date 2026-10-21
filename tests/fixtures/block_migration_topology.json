@@ -1,0 +1,736 @@
+{
+  "cctv_operator": {
+    "steps": [
+      {
+        "id": "start_video_monitor",
+        "needs": []
+      },
+      {
+        "id": "adaptively_sample_video",
+        "needs": [
+          "start_video_monitor"
+        ]
+      },
+      {
+        "id": "detect_visual_targets",
+        "needs": [
+          "adaptively_sample_video"
+        ]
+      },
+      {
+        "id": "write_cctv_report",
+        "needs": [
+          "detect_visual_targets"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "video_monitor_start",
+        "from": "start_video_monitor",
+        "id": "start_video_monitor_to_adaptively_sample_video",
+        "required": true,
+        "to": "adaptively_sample_video"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "cctv_operator_frame_batch_ready",
+        "from": "adaptively_sample_video",
+        "id": "adaptively_sample_video_to_detect_visual_targets",
+        "required": true,
+        "to": "detect_visual_targets"
+      },
+      {
+        "accepts": [
+          "done"
+        ],
+        "event": "cctv_operator_detection",
+        "from": "detect_visual_targets",
+        "id": "detect_visual_targets_to_write_cctv_report",
+        "required": true,
+        "to": "write_cctv_report"
+      }
+    ],
+    "collaboration": {},
+    "native": {}
+  },
+  "drug_discovery_research_assistant": {
+    "steps": [
+      {
+        "id": "target_discovery",
+        "needs": []
+      },
+      {
+        "id": "structure_generation",
+        "needs": [
+          "target_discovery"
+        ]
+      },
+      {
+        "id": "candidate_generation",
+        "needs": [
+          "structure_generation"
+        ]
+      },
+      {
+        "id": "binding_evaluation",
+        "needs": [
+          "candidate_generation"
+        ]
+      },
+      {
+        "id": "ranking_reporting",
+        "needs": [
+          "binding_evaluation"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "software_architecture_advisor": {
+    "steps": [
+      {
+        "id": "capture_repository",
+        "needs": []
+      },
+      {
+        "id": "analyze_dependency_structure",
+        "needs": [
+          "capture_repository"
+        ]
+      },
+      {
+        "id": "investigate_architecture",
+        "needs": [
+          "analyze_dependency_structure"
+        ]
+      },
+      {
+        "id": "publish_architecture_review",
+        "needs": [
+          "investigate_architecture"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "code_verifier": {
+    "steps": [
+      {
+        "id": "capture_software_sources",
+        "needs": []
+      },
+      {
+        "id": "extract_software_rules",
+        "needs": [
+          "capture_software_sources"
+        ]
+      },
+      {
+        "id": "review_software_rules",
+        "needs": [
+          "extract_software_rules"
+        ]
+      },
+      {
+        "id": "verify_software_rules",
+        "needs": [
+          "review_software_rules"
+        ]
+      },
+      {
+        "id": "publish_rules_report",
+        "needs": [
+          "verify_software_rules"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "litigation_analyst": {
+    "steps": [
+      {
+        "id": "prepare_case_sources",
+        "needs": []
+      },
+      {
+        "id": "build_case_indexes",
+        "needs": [
+          "prepare_case_sources"
+        ]
+      },
+      {
+        "id": "investigate_case_evidence",
+        "needs": [
+          "build_case_indexes"
+        ]
+      },
+      {
+        "id": "write_review_draft",
+        "needs": [
+          "investigate_case_evidence"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "vc_assistant": {
+    "steps": [
+      {
+        "id": "detect_packet_changes",
+        "needs": []
+      },
+      {
+        "id": "assemble_company_packets",
+        "needs": [
+          "detect_packet_changes"
+        ]
+      },
+      {
+        "id": "prepare_company_evidence",
+        "needs": [
+          "assemble_company_packets"
+        ]
+      },
+      {
+        "id": "plan_public_research",
+        "needs": [
+          "prepare_company_evidence"
+        ]
+      },
+      {
+        "id": "collect_public_research",
+        "needs": [
+          "plan_public_research"
+        ]
+      },
+      {
+        "id": "reconcile_research_evidence",
+        "needs": [
+          "collect_public_research"
+        ]
+      },
+      {
+        "id": "calculate_valuation_scores",
+        "needs": [
+          "reconcile_research_evidence"
+        ]
+      },
+      {
+        "id": "audit_valuation_analysis",
+        "needs": [
+          "calculate_valuation_scores"
+        ]
+      },
+      {
+        "id": "write_company_reports",
+        "needs": [
+          "audit_valuation_analysis"
+        ]
+      },
+      {
+        "id": "publish_batch_summary",
+        "needs": [
+          "write_company_reports"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {
+      "prepare_company_evidence": {
+        "items": [
+          {
+            "agent_id": "document_evidence_extractor",
+            "alias": "extract",
+            "type": "agent"
+          },
+          {
+            "agent_id": "claim_normalizer",
+            "alias": "normalize",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      },
+      "collect_public_research": {
+        "items": [
+          {
+            "agent_id": "company_identity_researcher",
+            "type": "agent"
+          },
+          {
+            "agent_id": "funding_researcher",
+            "type": "agent"
+          },
+          {
+            "agent_id": "market_comp_researcher",
+            "type": "agent"
+          },
+          {
+            "agent_id": "traction_verifier",
+            "type": "agent"
+          },
+          {
+            "agent_id": "rendered_page_researcher",
+            "type": "agent"
+          }
+        ],
+        "type": "parallel"
+      },
+      "calculate_valuation_scores": {
+        "items": [
+          {
+            "agent_id": "berkus_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "scorecard_bill_payne_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "risk_factor_summation_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "venture_capital_method_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "first_chicago_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "comparables_market_multiple_scorer",
+            "type": "agent"
+          },
+          {
+            "agent_id": "cost_to_duplicate_scorer",
+            "type": "agent"
+          }
+        ],
+        "type": "parallel"
+      }
+    },
+    "native": {}
+  },
+  "financial_advisor": {
+    "steps": [
+      {
+        "id": "prepare_financial_packet",
+        "needs": []
+      },
+      {
+        "id": "analyze_household_finances",
+        "needs": [
+          "prepare_financial_packet"
+        ]
+      },
+      {
+        "id": "prepare_tax_review",
+        "needs": [
+          "analyze_household_finances"
+        ]
+      },
+      {
+        "id": "analyze_portfolio_risk",
+        "needs": [
+          "prepare_tax_review"
+        ]
+      },
+      {
+        "id": "collect_public_finance_guidance",
+        "needs": [
+          "analyze_portfolio_risk"
+        ]
+      },
+      {
+        "id": "reconcile_advisor_evidence",
+        "needs": [
+          "collect_public_finance_guidance"
+        ]
+      },
+      {
+        "id": "publish_financial_review_packet",
+        "needs": [
+          "reconcile_advisor_evidence"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {
+      "prepare_financial_packet": {
+        "items": [
+          {
+            "agent_id": "financial_folder_watcher",
+            "alias": "inventory",
+            "type": "agent"
+          },
+          {
+            "agent_id": "financial_document_reader",
+            "alias": "extract",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      },
+      "analyze_household_finances": {
+        "items": [
+          {
+            "agent_id": "bank_statement_extractor",
+            "alias": "statements",
+            "type": "agent"
+          },
+          {
+            "agent_id": "cash_flow_normalizer",
+            "alias": "normalize",
+            "type": "agent"
+          },
+          {
+            "agent_id": "cash_flow_llm_analyst",
+            "alias": "review",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      },
+      "prepare_tax_review": {
+        "items": [
+          {
+            "agent_id": "tax_document_router",
+            "alias": "route",
+            "type": "agent"
+          },
+          {
+            "agent_id": "tax_form_ocr_capturer",
+            "alias": "capture",
+            "type": "agent"
+          },
+          {
+            "agent_id": "tax_workpaper_preparer",
+            "alias": "workpapers",
+            "type": "agent"
+          },
+          {
+            "agent_id": "tax_llm_reviewer",
+            "alias": "review",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      },
+      "analyze_portfolio_risk": {
+        "items": [
+          {
+            "agent_id": "portfolio_context_loader",
+            "alias": "holdings",
+            "type": "agent"
+          },
+          {
+            "agent_id": "portfolio_market_data_loader",
+            "alias": "market_data",
+            "type": "agent"
+          },
+          {
+            "agent_id": "portfolio_risk_engine",
+            "alias": "risk",
+            "type": "agent"
+          },
+          {
+            "agent_id": "portfolio_llm_reviewer",
+            "alias": "review",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      },
+      "reconcile_advisor_evidence": {
+        "items": [
+          {
+            "agent_id": "advisor_evidence_reconciler",
+            "alias": "reconcile",
+            "type": "agent"
+          },
+          {
+            "agent_id": "advisor_review_auditor",
+            "alias": "audit",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      }
+    },
+    "native": {}
+  },
+  "research_assistant": {
+    "steps": [
+      {
+        "id": "frame_research_problem",
+        "needs": []
+      },
+      {
+        "id": "build_research_evidence",
+        "needs": [
+          "frame_research_problem"
+        ]
+      },
+      {
+        "id": "assess_evidence_coverage",
+        "needs": [
+          "build_research_evidence"
+        ]
+      },
+      {
+        "id": "assess_experiment_readiness",
+        "needs": [
+          "build_research_evidence"
+        ]
+      },
+      {
+        "id": "develop_and_challenge_hypotheses",
+        "needs": [
+          "assess_evidence_coverage",
+          "assess_experiment_readiness"
+        ]
+      },
+      {
+        "id": "verify_and_publish_research_packet",
+        "needs": [
+          "develop_and_challenge_hypotheses"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {
+      "verify_and_publish_research_packet": {
+        "items": [
+          {
+            "agent_id": "research_packet_auditor",
+            "alias": "audit",
+            "type": "agent"
+          },
+          {
+            "agent_id": "research_report_writer",
+            "alias": "publish",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      }
+    },
+    "native": {}
+  },
+  "procurement_manager": {
+    "steps": [
+      {
+        "id": "frame_purchase_request",
+        "needs": []
+      },
+      {
+        "id": "build_purchase_evidence",
+        "needs": [
+          "frame_purchase_request"
+        ]
+      },
+      {
+        "id": "assess_procurement_case",
+        "needs": [
+          "build_purchase_evidence"
+        ]
+      },
+      {
+        "id": "compare_purchase_options",
+        "needs": [
+          "build_purchase_evidence"
+        ]
+      },
+      {
+        "id": "audit_purchase_recommendation",
+        "needs": [
+          "compare_purchase_options"
+        ]
+      },
+      {
+        "id": "publish_purchase_decision_packet",
+        "needs": [
+          "audit_purchase_recommendation",
+          "assess_procurement_case"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {
+      "compare_purchase_options": {
+        "items": [
+          {
+            "agent_id": "purchase_market_researcher",
+            "alias": "market",
+            "type": "agent"
+          },
+          {
+            "agent_id": "purchase_total_cost_analyst",
+            "alias": "cost",
+            "type": "agent"
+          },
+          {
+            "agent_id": "purchase_risk_reviewer",
+            "alias": "risk",
+            "type": "agent"
+          }
+        ],
+        "type": "sequence"
+      }
+    },
+    "native": {}
+  },
+  "microduck_controller": {
+    "steps": [
+      {
+        "id": "run_microduck_service",
+        "needs": []
+      },
+      {
+        "id": "finalize_service",
+        "needs": [
+          "run_microduck_service"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "ros_amr_controller": {
+    "steps": [
+      {
+        "id": "warehouse_service",
+        "needs": []
+      },
+      {
+        "id": "finalize",
+        "needs": [
+          "warehouse_service"
+        ]
+      }
+    ],
+    "edges": [
+      {
+        "accepts": [
+          "done"
+        ],
+        "from": "warehouse_service",
+        "id": "warehouse_service_to_finalize",
+        "required": true,
+        "to": "finalize"
+      }
+    ],
+    "collaboration": {},
+    "native": {
+      "warehouse_service": {
+        "resources": {
+          "cpu_cores": 4,
+          "devices": [
+            {
+              "count": 1,
+              "driver": "cuda",
+              "kind": "gpu",
+              "memory_operator": ">=",
+              "min_memory_mb": 49152,
+              "type": "nvidia/gpu",
+              "vendor": "nvidia"
+            }
+          ],
+          "disk_mb": 10240,
+          "gpu_count": 1,
+          "memory_mb": 8192,
+          "ports": [
+            {
+              "label": "video",
+              "port": 8080,
+              "protocol": "http"
+            },
+            {
+              "label": "dashboard",
+              "port": 8088,
+              "protocol": "http"
+            },
+            {
+              "label": "robot-mcp",
+              "port": 8090,
+              "protocol": "http"
+            },
+            {
+              "label": "rosbridge",
+              "port": 9090,
+              "protocol": "tcp"
+            }
+          ],
+          "runtime_driver": "docker_compose"
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "runner_module": "MirrorNeuron.Runner.DockerCompose"
+      }
+    }
+  },
+  "mac_security_investigator": {
+    "steps": [
+      {
+        "id": "capture_mac_evidence",
+        "needs": []
+      },
+      {
+        "id": "reconcile_evidence_history",
+        "needs": [
+          "capture_mac_evidence"
+        ]
+      },
+      {
+        "id": "investigate_temporal_behavior",
+        "needs": [
+          "reconcile_evidence_history"
+        ]
+      },
+      {
+        "id": "publish_security_review",
+        "needs": [
+          "investigate_temporal_behavior"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "ct_reader": {
+    "steps": [
+      {
+        "id": "read_ct_volume",
+        "needs": []
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  }
+}

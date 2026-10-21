@@ -225,7 +225,16 @@ ctx = {
         }
     },
 }
-step_portfolio_llm_reviewer(ctx)
+from tempfile import TemporaryDirectory
+from mn_blueprint_blocks.context import BlockContext
+from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+with TemporaryDirectory() as directory:
+    ctx["config"]["execution"] = {"quick_test": True}
+    block = BlockContext(store=CommittedJsonStore(directory), config=ctx["config"], invocation_id="portfolio-review", revision="test", resources={"llm": llm})
+    state = {**ctx["state"], "configuration": fingerprint(block.config), "inputs": {}, "knowledge": {}}
+    reference = block.store.commit("fixture.json", state).to_dict()
+    step_portfolio_llm_reviewer(block, {"result": {"state": reference}})
 print(json.dumps({"prompt": llm.user_prompt}))
 """,
     )
@@ -237,96 +246,58 @@ print(json.dumps({"prompt": llm.user_prompt}))
 def test_financial_payload_is_modular_and_handlers_resolve():
     assert_modular_payload("financial_advisor")
     assert_registry_handlers_import("financial_advisor")
-    execution = (
-        ROOT.parent
-        / "mn-blueprints"
-        / "financial_advisor"
-        / "payloads"
-        / "domain"
-        / "execution.py"
-    ).read_text()
-    assert "workflow_step_id" not in execution
-    assert "WORKFLOW_STEPS[-1]" not in execution
+    payload = blueprint_path("financial_advisor") / "payloads"
+    assert not (payload / "domain" / "execution.py").exists()
+    assert not (payload / "domain" / "runtime_services.py").exists()
+    assert not list((payload / "runtime").glob("*.py"))
 
 
-def test_financial_runtime_uses_shared_job_context_and_persistence(tmp_path):
-    result = run_payload_script(
-        "financial_advisor",
-        f"""
-import json
-import os
+def test_financial_native_intake_uses_sdk_identity_and_job_output(tmp_path):
+    result = run_payload_script("financial_advisor", f"""
+import json, os
 from pathlib import Path
-
-from domain.runtime_services import build_context
-from domain.state import persist_runtime_context, runtime_context_path
-
-documents = Path({str((blueprint_path("financial_advisor") / "examples" / "sample_inputs").resolve())!r})
-output_folder = Path({str((tmp_path / "job-output").resolve())!r})
-runs_root = Path({str((tmp_path / "runs").resolve())!r})
-os.environ['MN_JOB_ID'] = 'financial-runtime-job'
-os.environ['MN_WORKFLOW_ATTEMPT_ID'] = 'attempt-3'
-os.environ['MN_JOB_OUTPUT_DIR'] = str(output_folder)
-os.environ['MN_RUNS_ROOT'] = str(runs_root)
-
-context = build_context(
-    inputs={{
-        'document_folder': str(documents),
-        'output_folder': str(Path({str((tmp_path / "ignored-local-output").resolve())!r})),
-    }},
-    config={{'llm': {{'mode': 'fake', 'require_live': False}}}},
-    config_json=None,
-    runs_root=None,
-    run_id='financial-runtime-run',
-    llm_client=None,
-)
-persist_runtime_context(context)
-stored = json.loads(runtime_context_path(context['run_dir']).read_text(encoding='utf-8'))
-print(json.dumps({{
-    'job_id': context['job_id'],
-    'attempt_id': context['attempt_id'],
-    'run_dir': str(context['run_dir']),
-    'output_folder': str(context['output_folder']),
-    'document_folder': str(context['document_folder']),
-    'stored_document_folder': stored['document_folder'],
-    'stored_payload_folder': stored['payload']['document_folder'],
-}}))
-""",
-    )
-
-    assert result["job_id"] == "financial-runtime-job"
-    assert result["attempt_id"] == "attempt-3"
-    assert result["run_dir"] == str(tmp_path / "runs" / "financial-runtime-run")
-    assert result["output_folder"] == str(tmp_path / "job-output")
-    assert result["document_folder"] == str(
-        blueprint_path("financial_advisor") / "examples" / "sample_inputs"
-    )
-    assert result["stored_document_folder"] == result["document_folder"]
-    assert result["stored_payload_folder"] == result["document_folder"]
-
-
-def test_financial_runtime_reads_staged_folder_when_message_payload_is_dot(tmp_path):
-    staged = tmp_path / "staged-documents"
-    staged.mkdir()
-    (staged / "statement.txt").write_text("Sample statement", encoding="utf-8")
-    result = run_payload_script(
-        "financial_advisor",
-        f"""
-import json
-from domain.runtime_services import build_context
+from mn_sdk.step_runtime import StepContext
+from mn_sdk.blueprints import read_blueprint, resolve_config
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from domain.intake import step_financial_folder_watcher
+from domain.state import output_directory
+root = Path({str(blueprint_path("financial_advisor"))!r})
+os.environ.update(MN_JOB_ID='financial-runtime-job', MN_WORKFLOW_ATTEMPT_ID='attempt-3', MN_RUN_ID='financial-runtime-run', MN_JOB_OUTPUT_DIR={str(tmp_path / 'job-output')!r})
+context = StepContext.from_environment()
+block = BlockContext(store=CommittedJsonStore(Path({str(tmp_path / 'runs')!r}) / context.run_id),
+    config=resolve_config(read_blueprint(root), {{'execution': {{'quick_test': True}}}}).data,
+    job_id=context.job_id, run_id=context.run_id, invocation_id='intake', revision='test')
+first = step_financial_folder_watcher(block, {{'request': {{'document_folder': str(root / 'examples/sample_inputs'), 'output_folder': 'ignored-local-output'}}}})
+assert step_financial_folder_watcher(block, {{'request': {{'document_folder': str(root / 'examples/sample_inputs'), 'output_folder': 'ignored-local-output'}}}}) == first
+state = block.store.read(first['state'])
+print(json.dumps({{'job_id': block.job_id, 'attempt_id': context.attempt_id, 'run_dir': str(block.store.run_dir),
+    'output_folder': str(output_directory(block)), 'document_folder': state['inputs']['document_folder'],
+    'stored_payload_folder': block.store.read(state['input_artifact'])['document_folder']}}))
+""")
+    assert result['job_id'] == 'financial-runtime-job' and result['attempt_id'] == 'attempt-3'
+    assert result['run_dir'] == str(tmp_path / 'runs/financial-runtime-run')
+    assert result['output_folder'] == str(tmp_path / 'job-output')
+    assert result['document_folder'] == result['stored_payload_folder'] == str(blueprint_path('financial_advisor') / 'examples/sample_inputs')
 
-context = build_context(
-    inputs={{"document_folder": ".", "input_folder": "."}},
-    config={{"document_sources": {{"folder_path": {str(staged)!r}}}, "llm": {{"mode": "fake", "require_live": False}}}},
-    config_json=None,
-    runs_root={str(tmp_path / "runs")!r},
-    run_id="staged-folder-test",
-    llm_client=None,
-)
-print(json.dumps({{"folder": str(context["document_folder"]), "files": [item["name"] for item in step_financial_folder_watcher(context)["files"]]}}))
-""",
-    )
-    assert result == {"folder": str(staged), "files": ["statement.txt"]}
+
+def test_financial_native_intake_reads_staged_folder_when_message_payload_is_dot(tmp_path):
+    staged = tmp_path / 'staged-documents'
+    staged.mkdir()
+    (staged / 'statement.txt').write_text('Sample statement')
+    result = run_payload_script('financial_advisor', f"""
+import json
+from mn_sdk.blueprints import read_blueprint, resolve_config
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from domain.intake import step_financial_folder_watcher
+block = BlockContext(store=CommittedJsonStore({str(tmp_path / 'run')!r}), invocation_id='intake', revision='test',
+    config=resolve_config(read_blueprint({str(blueprint_path('financial_advisor'))!r}), {{'document_sources': {{'folder_path': {str(staged)!r}}}, 'execution': {{'quick_test': True}}}}).data)
+result = step_financial_folder_watcher(block, {{'request': {{'document_folder': '.', 'input_folder': '.'}}}})
+state = block.store.read(result['state'])
+print(json.dumps({{'folder': state['inputs']['document_folder'], 'files': [item['name'] for item in state['workflow']['financial_folder_watcher']['files']]}}))
+""")
+    assert result == {'folder': str(staged), 'files': ['statement.txt']}
 
 
 def test_financial_sample_builds_customer_and_audit_layers(tmp_path):
@@ -335,7 +306,9 @@ def test_financial_sample_builds_customer_and_audit_layers(tmp_path):
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'financial_advisor')
 
 root = Path({str((blueprint_path("financial_advisor")).resolve())!r})
 out = Path({str(tmp_path)!r}) / "output"
@@ -356,7 +329,7 @@ print(json.dumps({{
     "top_priority": artifact["customer_report"]["top_actions"][0]["priority"],
     "top_action": artifact["customer_report"]["top_actions"][0]["customer_action"],
     "run_artifact_exists": (out / "runs" / "financial-quality" / "final_artifact.json").exists(),
-    "customer_report_exists": (out / "customer_report.json").exists(),
+    "customer_report_exists": (out / "runs" / "financial-quality" / "customer_report.json").exists(),
 }}))
 """,
     )
@@ -380,8 +353,7 @@ def test_deployed_financial_report_is_run_scoped_and_discoverable_without_finali
 import hashlib
 import json
 from pathlib import Path
-from domain.composition import LOCAL_AGENT_SEQUENCE
-from domain.execution import execute_runtime_handler
+from block_workflow_fixture import run_sample
 from mn_sdk.run_outputs import output_metadata
 
 root = Path({str(blueprint_path("financial_advisor"))!r})
@@ -389,21 +361,18 @@ runs = Path({str(tmp_path / "runs")!r})
 exports = Path({str(tmp_path / "exports")!r})
 proofs = []
 for run_id in ('first-review', 'second-review'):
-    for agent_id, handler in LOCAL_AGENT_SEQUENCE:
-        result = execute_runtime_handler(
-            agent_id, handler,
-            inputs={{'document_folder': str(root / 'examples' / 'sample_inputs'),
-                    'output_folder': str(exports), 'quick_test': True}},
-            config={{'execution': {{'quick_test': True}}}},
-            runs_root=runs, run_id=run_id,
-        )
+    result = run_sample('financial_advisor',
+        inputs={{'document_folder': str(root / 'examples' / 'sample_inputs'),
+                'output_folder': str(exports), 'quick_test': True}},
+        config={{'execution': {{'quick_test': True}}}},
+        runs_root=runs, run_id=run_id)
     directory = runs / run_id
     refs = output_metadata(directory)
     proofs.append({{
         'run_id': json.loads((directory / 'final_artifact.json').read_text())['run_id'],
         'files': [ref['relative_path'] for ref in refs],
         'all_contained': all(not ref['external'] for ref in refs),
-        'run_status': json.loads((directory / 'run.json').read_text())['status'],
+        'run_metadata_exists': (directory / 'run.json').exists(),
         'result_exists': (directory / 'result.json').exists(),
         'report_hash': hashlib.sha256((directory / 'financial_advisor_report.md').read_bytes()).hexdigest(),
     }})
@@ -416,13 +385,13 @@ print(json.dumps({{'proofs': proofs, 'first_hash_after_second': hashlib.sha256((
     )
     assert [proof["run_id"] for proof in result["proofs"]] == ["first-review", "second-review"]
     for proof in result["proofs"]:
-        assert len(proof["files"]) == 14
+        assert len(proof["files"]) == 15
         assert "financial_advisor_report.md" in proof["files"]
         assert "customer_report.json" in proof["files"]
         assert "final_artifact.json" in proof["files"]
         assert proof["all_contained"] is True
-        assert proof["run_status"] == "running"
-        assert proof["result_exists"] is False
+        assert proof["run_metadata_exists"] is False
+        assert proof["result_exists"] is True
     assert result["proofs"][0]["report_hash"] == result["first_hash_after_second"]
     assert result["export_exists"] is True
     assert result["prepared_report_hashes"] == sorted(proof["report_hash"] for proof in result["proofs"])

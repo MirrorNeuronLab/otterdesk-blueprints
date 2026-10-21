@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 
 import pytest
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from vc_assistant.domain_test_support import load_domain_test_surface
 
 
@@ -14,7 +16,9 @@ def modules(text_memory_transport):
 
 
 def context(tmp_path,*,budget=32768):
-    return {'run_dir':tmp_path,'config':{'text_memory':{'enabled':True,'max_results':6,'max_context_bytes':budget}}}
+    return BlockContext(store=CommittedJsonStore(tmp_path), invocation_id='memory-review',
+        revision='knowledge-test', step_id='review', job_id='test-memory-job', run_id='test-memory-run',
+        config={'text_memory':{'enabled':True,'max_results':6,'max_context_bytes':budget}})
 
 
 def evidence(tmp_path,*,unknown=False):
@@ -52,9 +56,11 @@ def trace(tmp_path,*,unknown=False):
 
 def test_markdown_preserves_conflict_source_roles_recent_three_and_external_boundary(modules,tmp_path,text_memory_transport):
     _,adapter,_,_ = modules
-    evidence(tmp_path);trace(tmp_path)
+    state = {'evidence': {'Sample': evidence(tmp_path)}}
+    trace(tmp_path)
     current = {'rag_context':{'context':'RAG_CANARY','citations':[{'ref':1}],'status':'ready'}}
-    rendered = adapter.actor_memory_context(context(tmp_path),current,step_id='review',agent_id='traction_verifier')
+    block = context(tmp_path)
+    rendered = adapter.snapshot_memory_context(block,state,current,role='traction_verifier')
     packet = rendered['runtime_memory']
     serialized = json.dumps(packet,ensure_ascii=False)
     assert packet['status']=='ready' and len(packet['evidence'])==5
@@ -67,15 +73,14 @@ def test_markdown_preserves_conflict_source_roles_recent_three_and_external_boun
     assert 'RAG_CANARY' not in bodies and 'PRIVATE_BODY' not in bodies and 'PRIVATE_BLOCKED_BODY' not in bodies
     assert rendered['rag_context']==current['rag_context']
     assert 'fixture_witness' not in serialized
-    sidecar = json.loads(next((tmp_path/'workflow_state').glob('membrane-*.json')).read_text())
+    sidecar = block.store.read(state['memory_witnesses']['traction_verifier'])
     assert all(handles[0]['end_byte']>handles[0]['start_byte'] for handles in sidecar['receipt']['citations'].values())
     assert 'FROM_SOURCE' in str(text_memory_transport.scopes) and 'EVIDENCED_BY' in str(text_memory_transport.scopes)
 
 
 def test_source_outcome_does_not_become_retrieval_default_confirmation(modules,tmp_path):
     _,_,observations,knowledge = modules
-    evidence(tmp_path)
-    records = list(observations.runtime_observations(context(tmp_path)))
+    records = list(observations.observation_records({'Sample': evidence(tmp_path)}, {}, tmp_path))
     blocked = next(record for record in records if record['observation_id']=='S-blocked')
     assert blocked['status']=='blocked' and blocked['retrieval_status']=='full_text'
     counter = next(record for record in records if record['observation_id']=='C-counter')
@@ -88,11 +93,12 @@ def test_source_outcome_does_not_become_retrieval_default_confirmation(modules,t
 
 def test_publication_clock_is_stable_unknown_event_is_not_recent(modules,tmp_path,text_memory_transport):
     _,adapter,_,_ = modules
-    evidence(tmp_path,unknown=True);trace(tmp_path,unknown=True)
+    state = {'evidence': {'Sample': evidence(tmp_path,unknown=True)}}
+    trace(tmp_path,unknown=True)
     ctx = context(tmp_path)
-    first = adapter.actor_memory_context(ctx,{},step_id='review',agent_id='traction_verifier')
+    first = adapter.snapshot_memory_context(ctx,state,{},role='traction_verifier')
     original = {key:dict(value) for key,value in text_memory_transport.scopes.items()}
-    second = adapter.actor_memory_context(ctx,{},step_id='review',agent_id='traction_verifier')
+    second = adapter.snapshot_memory_context(ctx,state,{},role='traction_verifier')
     assert first == second and text_memory_transport.scopes == original
     text = json.dumps(first['runtime_memory'])
     assert 'tool-4' in text and 'runtime_publication' in text and 'unknown' in text
@@ -143,8 +149,8 @@ def test_oversized_whole_knowledge_is_explicit_capacity_not_clipped(modules,tmp_
     _,adapter,_,_ = modules
     value = evidence(tmp_path)
     value['claim_records'][0]['canonical_claim']='qualified claim | 中🙂 '*800
-    (tmp_path/'workflow_state/company_evidence/sample.json').write_text(json.dumps(value))
-    rendered = adapter.actor_memory_context(context(tmp_path,budget=8192),{},step_id='review',agent_id='reviewer')
+    rendered = adapter.snapshot_memory_context(context(tmp_path,budget=8192),
+        {'evidence': {'Sample': value}}, {},role='reviewer')
     packet = rendered['runtime_memory']
     assert packet['incomplete'] and packet['omitted_count']==1
     assert len(json.dumps(packet,ensure_ascii=False,separators=(',',':')).encode())<=8192
@@ -153,7 +159,7 @@ def test_oversized_whole_knowledge_is_explicit_capacity_not_clipped(modules,tmp_
 
 def test_no_runtime_observations_remains_no_evidence(modules,tmp_path):
     _,adapter,_,_ = modules
-    rendered = adapter.actor_memory_context(context(tmp_path),{},step_id='review',agent_id='reviewer')
+    rendered = adapter.snapshot_memory_context(context(tmp_path),{}, {},role='reviewer')
     assert rendered['runtime_memory']['status']=='no_evidence'
 
 
@@ -183,11 +189,12 @@ def test_output_json_is_markdown_source_and_never_runtime_body(modules,tmp_path,
     import hashlib
     _,_,_,_=modules
     from domain.artifact_sources import index_output_artifacts
-    folder=tmp_path/'shared';folder.mkdir()
+    folder=tmp_path/'run';folder.mkdir()
     original=folder/'report.json';original.write_text('{"claim":"Complete output 中🙂"}')
-    ctx={'run_dir':tmp_path/'run','output_folder':folder,
-         'config':{'source_context':{'enabled':True},'text_memory':{'enabled':False}}}
-    index_output_artifacts(ctx,[{'path':str(original),'kind':'report'}])
+    ctx=BlockContext(store=CommittedJsonStore(folder), invocation_id='source-publication',
+        revision='knowledge-test', job_id='test-memory-job', run_id='test-memory-run',
+        config={'source_context':{'enabled':True},'text_memory':{'enabled':False}})
+    index_output_artifacts(ctx,[{'path':'report.json','kind':'report'}])
     path=folder/'context_sources/outputs/report.json.md'
     assert 'Complete output' in path.read_text()
     inventory=json.loads((folder/'context_sources/outputs.json').read_text())

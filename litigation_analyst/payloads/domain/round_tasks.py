@@ -56,7 +56,7 @@ def assessment_schema(task, evidence_ids):
 
 
 @activity_operation('Collecting investigation evidence', completed='Collecting investigation evidence: completed')
-def collect_evidence(context, work, *, llm_client=None):
+def collect_evidence(context, work):
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-evidence.json"
     if (root / name).exists():
@@ -126,7 +126,8 @@ def collect_evidence(context, work, *, llm_client=None):
 
 
 @activity_operation('Assessing the investigation hypothesis', completed='Assessing the investigation hypothesis: completed')
-def assess_hypothesis(context, work, *, llm_client=None):
+def assess_hypothesis(context, work):
+    llm_client = context.resources.get("llm")
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-assessment.json"
     if (root / name).exists():
@@ -225,7 +226,8 @@ def assess_hypothesis(context, work, *, llm_client=None):
 
 
 @activity_operation('Reviewing an investigation finding', completed='Reviewing an investigation finding: completed')
-def review_finding(context, work, *, llm_client=None):
+def review_finding(context, work):
+    llm_client = context.resources.get("llm")
     root, frozen, task = task_input(context, work)
     name = f"case/rounds/{task['prefix']}-review.json"
     if (root / name).exists():
@@ -329,7 +331,7 @@ def review_finding(context, work, *, llm_client=None):
 
 
 @activity_operation('Summarizing the investigation round', completed='Summarizing the investigation round: completed')
-def summarize_round(context, work, *, llm_client=None):
+def summarize_round(context, work):
     root, frozen, task = task_input(context, work)
     state = checkpoint(root, frozen)
     findings = [{"id": h["id"], "question": h["question"], "status": h["status"],

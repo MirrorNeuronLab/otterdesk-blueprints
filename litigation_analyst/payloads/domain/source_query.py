@@ -1,7 +1,6 @@
 """Case policy binding for separate, immutable original-document retrieval."""
 from dataclasses import asdict
 import hashlib
-import json
 from pathlib import PurePosixPath
 
 from mn_sdk.source_query import source_text_query
@@ -27,8 +26,8 @@ def _adapters(documents):
 
 
 def publish(context, documents, scope):
-    root = context['run_dir']; case = root / 'case'
-    session = source_text_query(context['config'], principal=PRINCIPAL, scope=scope)
+    root = context.store.run_dir; case = root / 'case'
+    session = source_text_query(context.config, principal=PRINCIPAL, scope=scope)
     if session is None:
         return
     try:

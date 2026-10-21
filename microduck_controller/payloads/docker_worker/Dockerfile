@@ -16,4 +16,4 @@ COPY services/ /app/services/
 COPY --from=web-build /build/dist/ /app/web_dist/
 ENV MICRODUCK_STATIC_DIR=/app/web_dist
 EXPOSE 8080
-CMD ["python3.12", "services/duck_control_service.py"]
+CMD ["python3.12", "-m", "mn_sdk.step_runtime"]

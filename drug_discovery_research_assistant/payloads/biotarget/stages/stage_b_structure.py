@@ -1,6 +1,7 @@
 import os
 import requests
 import time
+from pathlib import Path
 
 
 ALPHAFOLD_API_URL = "https://alphafold.ebi.ac.uk/api/prediction/{protein_id}"
@@ -87,7 +88,7 @@ def ensure_openfold3_weights():
     return True
 
 
-def stage_b_structure_generation(targets, engine):
+def stage_b_structure_generation(targets, engine, *, output_dir="./runs/structures", check=None):
     print(f"\n[Stage B] Protein Structure Generation")
     print(f"[*] Using engine: {engine}")
 
@@ -95,16 +96,19 @@ def stage_b_structure_generation(targets, engine):
 
     structures = []
 
-    os.makedirs("./runs/structures", exist_ok=True)
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
     for t in targets:
+        if check is not None:
+            check()
         gene = t["gene"]
         protein_id = t["protein_id"]
         print(
             f"[*] Fetching 3D conformation for {gene} ({protein_id}) from AlphaFold DB..."
         )
 
-        pdb_path = f"./runs/structures/{gene}_{protein_id}.pdb"
+        pdb_path = str(output_dir / f"{gene}_{protein_id}.pdb")
 
         # Download PDB file if it doesn't exist
         if not os.path.exists(pdb_path):
@@ -120,11 +124,6 @@ def stage_b_structure_generation(targets, engine):
             structures.append({"gene": gene, "path": pdb_path})
 
     if not structures:
-        print(
-            "[!] Could not fetch any structures. Exiting to prevent pipeline failure."
-        )
-        import sys
-
-        sys.exit(1)
+        raise RuntimeError("Could not fetch any target structures.")
 
     return structures

@@ -18,38 +18,38 @@ def mail(mid, sender, recipient, date, body="Original record."):
         f"Message-ID: <{mid}@example.test>\n" if mid else "") + f"\n{body}\n"
 
 
-def prepared(modules, tmp_path):
+def prepared(modules, tmp_path, *, config=None):
     folder = tmp_path / "input"
     folder.mkdir()
     (folder / "notice.eml").write_text(mail("m1", "a@example.test", "b@example.test",
         "Mon, 03 Mar 2025 09:14:00 -0500", "Approval notice. Material identity remains unresolved."))
     (folder / "counter.txt").write_text("Approval was routine. Public material provides an alternative explanation.")
     context = make_context(tmp_path, folder)
+    for section, values in (config or {}).items():
+        context['config'][section].update(values)
     modules["intake"].prepare_sources(context)
     modules["indexing"].build_indexes(context)
-    modules["research"].investigate(context, llm_client=ScriptedModel())
-    # A deterministic, two-sided fixture for the flagship review flow.
-    from domain.evidence.store import EvidenceStore
+    # The synthetic producer supplies two-sided evidence before terminal sealing.
+    from unittest.mock import patch
     from domain.intake import PreparedCorpus
     from mn_sdk_rag import EvidenceSpan
-    from domain.app.review import build_review
-    case = context["run_dir"] / "case"
-    state = json.loads((case / "agent_checkpoint.json").read_text())
-    store = EvidenceStore(case / "evidence.sqlite3")
-    ids = {}
-    for source in PreparedCorpus(case, "case").scan():
-        ident = hashlib.sha256(f"{source.source_id}|{source.content_sha256}|0|{len(source.text)}".encode()).hexdigest()[:32]
-        ids[source.source_id] = ident
-        store.add_evidence(state["data"]["investigation_id"], EvidenceSpan(evidence_id=ident,
-            source_id=source.source_id, content_sha256=source.content_sha256,
-            start_offset=0, end_offset=len(source.text), text=source.text, provenance_kind="observed"))
-    h = next(iter(state["data"]["hypotheses"].values()))
-    h["supporting_evidence"] = [ids["case:notice.eml"]]
-    h["contradictory_evidence"] = [ids["case:counter.txt"]]
-    f = state["data"]["report_draft"]["findings"][0]
-    f["evidence_ids"] = [ids["case:notice.eml"]]
-    (case / "agent_checkpoint.json").write_text(json.dumps(state))
-    (case / "investigation.json").write_text(json.dumps(build_review(state, store, context["payload"]["goal"])))
+    original = modules["research"].run_investigation
+    def produce(case, *args, **kwargs):
+        state, store = original(case, *args, **kwargs)
+        ids = {}
+        for source in PreparedCorpus(case, "case").scan():
+            ident = hashlib.sha256(f"{source.source_id}|{source.content_sha256}|0|{len(source.text)}".encode()).hexdigest()[:32]
+            ids[source.source_id] = ident
+            store.add_evidence(state["data"]["investigation_id"], EvidenceSpan(evidence_id=ident,
+                source_id=source.source_id, content_sha256=source.content_sha256,
+                start_offset=0, end_offset=len(source.text), text=source.text, provenance_kind="observed"))
+        hypothesis = next(iter(state["data"]["hypotheses"].values()))
+        hypothesis["supporting_evidence"] = [ids["case:notice.eml"]]
+        hypothesis["contradictory_evidence"] = [ids["case:counter.txt"]]
+        state["data"]["report_draft"]["findings"][0]["evidence_ids"] = [ids["case:notice.eml"]]
+        return state, store
+    with patch.object(modules["research"], "run_investigation", produce):
+        modules["research"].investigate(context, llm_client=ScriptedModel())
     return context
 
 
@@ -122,7 +122,8 @@ def test_workspace_is_grounded_and_does_not_promote_model_review(modules, tmp_pa
     assert workspace["findings"][0]["counter_evidence"]
     assert "not attorney review" in workspace["findings"][0]["model_review"]
     assert workspace["memory"]["status"] == "Published"
-    assert {r["path"] for r in refs} >= {"case/workspace.json", "web/index.html"}
+    assert {r["path"] for r in result["files"]} >= {"case/workspace.json", "web/index.html"}
+    assert len(json.dumps(refs)) < 1000
     handle = json.loads((context['run_dir'] / 'web_ui.json').read_text())
     assert handle['adapter'] == 'static_html'
     assert handle['url'] == (context['run_dir'] / 'web/index.html').resolve().as_uri()
@@ -230,11 +231,10 @@ def test_finding_identity_survives_title_revision(modules, tmp_path):
 
 
 def test_preview_failure_keeps_verified_output_and_removes_stale_page(modules, tmp_path):
-    context = prepared(modules, tmp_path)
+    context = prepared(modules, tmp_path, config={"workspace": {"max_page_bytes": 1}})
     web = context["run_dir"] / "web"
     web.mkdir()
     (web / "index.html").write_text("STALE SECRET")
-    context["config"]["workspace"]["max_page_bytes"] = 1
     modules["reporting"].write_review(context)
     assert not web.exists()
     assert (context["run_dir"] / "case/workspace.json").exists()

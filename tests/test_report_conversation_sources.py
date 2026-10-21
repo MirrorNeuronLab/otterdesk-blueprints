@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 import pytest
+from mn_blueprint_blocks.context import BlockContext
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 
 @pytest.mark.parametrize("blueprint,report_name", [
@@ -18,6 +20,7 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
     monkeypatch.syspath_prepend(str(payloads))
     publisher = importlib.import_module("domain.conversation_sources")
     output = tmp_path / "job-output"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output))
     saved = []
     for number in (1, 2):
         root = tmp_path / str(number)
@@ -27,8 +30,10 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
         (root / report_name).write_text(text, encoding="utf-8")
         (root / "private-audit.json").write_text('{"private":"not a chat subject"}')
         (root / "raw-input.md").write_text("Not a selected report.")
-        context = {"run_dir": root, "output_folder": output, "run_id": f"run/../{number}"}
-        records = publisher.publish_outputs(context)
+        context = BlockContext(store=CommittedJsonStore(root), invocation_id=f"publication-{number}",
+            revision="conversation-test", run_id=f"run/../{number}")
+        options = {"output_folder": output} if blueprint == "software_architecture_advisor" else {}
+        records = publisher.publish_outputs(context, **options)
         assert len(records) == 1
         record = records[0]
         target = Path(record["markdown_path"])
@@ -38,7 +43,7 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
         assert receipt["original_sha256"] == hashlib.sha256(text.encode()).hexdigest()
         assert receipt["markdown_sha256"] == hashlib.sha256(target.read_bytes()).hexdigest()
         assert target.is_relative_to(output / "context_sources" / "outputs")
-        assert publisher.publish_outputs(context)[0]["reused"] is True
+        assert publisher.publish_outputs(context, **options)[0]["reused"] is True
         saved.append((target, target.read_bytes()))
     assert saved[0][0] != saved[1][0]
     assert all(path.read_bytes() == body for path, body in saved)
@@ -62,8 +67,12 @@ def test_missing_or_linked_reports_never_create_a_queryable_source(
         (root / report_name).parent.mkdir(parents=True, exist_ok=True)
         (root / report_name).symlink_to(other)
     output = tmp_path / "output"
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output))
+    context = BlockContext(store=CommittedJsonStore(root), invocation_id="publication",
+        revision="conversation-test", run_id="run")
+    options = {"output_folder": output} if blueprint == "software_architecture_advisor" else {}
     with pytest.raises(ValueError, match="complete"):
-        publisher.publish_outputs({"run_dir": root, "output_folder": output, "run_id": "run"})
+        publisher.publish_outputs(context, **options)
     assert not output.exists()
 
 
@@ -75,9 +84,11 @@ def test_architecture_publishes_only_explicit_completed_sections(tmp_path, monke
     (tmp_path / "reports/sections").mkdir()
     (tmp_path / "reports/sections/01-finding.md").write_text("# Finding\nComplete supported section.\n")
     (tmp_path / "reports/sections/private-draft.md").write_text("Unpublished draft.")
-    context = {"run_dir": tmp_path, "run_id": "run", "output_folder": tmp_path / "output"}
+    context = BlockContext(store=CommittedJsonStore(tmp_path), invocation_id="publication",
+        revision="conversation-test", run_id="run")
+    output = tmp_path / "output"
     with pytest.raises(ValueError, match="complete"):
-        publisher.publish_outputs(context, section_paths=["reports/sections/missing.md"])
-    assert not context["output_folder"].exists()
-    records = publisher.publish_outputs(context, section_paths=["reports/sections/01-finding.md"])
+        publisher.publish_outputs(context, output_folder=output, section_paths=["reports/sections/missing.md"])
+    assert not output.exists()
+    records = publisher.publish_outputs(context, output_folder=output, section_paths=["reports/sections/01-finding.md"])
     assert {record["source_ref"] for record in records} == {"reports/report.md", "reports/sections/01-finding.md"}

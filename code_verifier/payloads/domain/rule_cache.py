@@ -1,9 +1,9 @@
 """Job-scoped candidate checkpoints; every reuse is revalidated, never approval."""
 from hashlib import sha256
 import json
-from pathlib import Path
 
 from mn_sdk.blueprint_support import write_json
+from .configuration import job_directory
 
 
 def identity(packet):
@@ -13,14 +13,14 @@ def identity(packet):
             ('snapshot_id', 'path', 'sha256', 'start_line', 'end_line')}}
 
 
-def location(context, packet):
-    root = Path(context['job_data_dir']) / 'cache/code-verifier/extraction'
+def location(block, packet):
+    root = job_directory(block) / 'cache/code-verifier/extraction'
     key = sha256(json.dumps(identity(packet), sort_keys=True).encode()).hexdigest()
     return root / f'{key}.json'
 
 
-def load(context, packet, validate):
-    path = location(context, packet)
+def load(block, packet, validate):
+    path = location(block, packet)
     if not path.is_file():
         return None
     if path.is_symlink() or path.stat().st_size > 1_000_000:
@@ -30,20 +30,20 @@ def load(context, packet, validate):
         raise ValueError('Invalid extraction checkpoint structure.')
     if value['response'].get('extraction_gaps'):
         raise ValueError('Incomplete source coverage cannot be a reusable checkpoint.')
-    if value.get('identity') != identity(packet) or value.get('job_scope') != Path(context['job_data_dir']).name:
+    if value.get('identity') != identity(packet) or value.get('job_scope') != job_directory(block).name:
         raise ValueError('Extraction checkpoint does not match this job and source.')
     validate(value['response'])
     return value
 
 
-def store(context, packet, response, validate):
+def store(block, packet, response, validate):
     validate(response)
     if response.get('extraction_gaps'):
         return
-    path = location(context, packet)
-    value = {'identity': identity(packet), 'job_scope': Path(context['job_data_dir']).name,
-             'producer_execution_id': context['job_id'],
-             'producer_run_id': context['run_id'], 'response': response}
+    path = location(block, packet)
+    value = {'identity': identity(packet), 'job_scope': job_directory(block).name,
+             'producer_execution_id': block.job_id,
+             'producer_run_id': block.run_id, 'response': response}
     if len(json.dumps(value).encode()) > 1_000_000:
         return  # Run artifacts remain authoritative; caching is only an optimization.
     path.parent.mkdir(parents=True, exist_ok=True)

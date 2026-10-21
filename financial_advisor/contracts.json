@@ -132,6 +132,48 @@
       "privacy": "internal",
       "required": false,
       "type": "domain_value"
+    },
+    "benchmark_portfolio": {
+      "description": "Optional benchmark weights for portfolio review.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "risk_policy": {
+      "description": "Review screening thresholds or customer risk policy.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "risk_policy_metadata": {
+      "description": "Risk policy provenance and customer-specific status.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "decision_constraints": {
+      "description": "Constraints retained for human decision review.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "customer_profile": {
+      "description": "Goals, horizon, liquidity, risk tolerance and tax context.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "investment_profile": {
+      "description": "Alternative customer investment profile.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
+    },
+    "taxpayer_profile": {
+      "description": "Review-only taxpayer context.",
+      "privacy": "regulated",
+      "required": false,
+      "type": "domain_value"
     }
   },
   "outputs": {

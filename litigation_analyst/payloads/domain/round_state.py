@@ -6,16 +6,12 @@ import os
 import time
 from pathlib import Path
 
-from mn_prototype_bounded_tool_loop_agent.checkpoint import atomic_json
 from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.committed_artifacts import (
-    COMMITTED_JSON_VERSION,
     CommittedArtifactConflict,
     CommittedArtifactError,
-    CommittedArtifactRef,
     CommittedJsonStore,
 )
-from mn_sdk.step_runtime import artifact_reference
 from .indexing import validate_indexes
 from .evidence.store import EvidenceStore
 from .handling import review_flags
@@ -32,66 +28,68 @@ def save(root, name, value):
         committed = CommittedJsonStore(root).commit(name, value)
     except CommittedArtifactConflict as error:
         raise ValueError("Committed litigation artifact changed: " + name) from error
-    return {"path": committed.path, "sha256": committed.sha256}
+    return committed.to_dict()
 
 
 def load(root, ref):
     store = CommittedJsonStore(root)
-    path = store.path(ref["path"])
-    committed = CommittedArtifactRef(
-        type="artifact_ref",
-        version=COMMITTED_JSON_VERSION,
-        kind="json",
-        path=ref["path"],
-        sha256=ref["sha256"],
-        size_bytes=path.stat().st_size,
-    )
     try:
-        return store.read(committed)
+        return store.read(ref)
     except (CommittedArtifactError, OSError) as error:
         raise ValueError("Committed litigation artifact path or hash mismatch") from error
 
 
-def open_round(context, work):
-    root = Path(context["run_dir"])
-    frozen = load(root, work["context"])
-    if frozen["config"] != context["config"]:
+def open_round(context, reference):
+    from .state import read_indexed
+    root = context.store.run_dir
+    if reference.get("path") != "case/rounds/context.json":
+        raise ValueError("Investigation requires its admitted case context")
+    frozen = load(root, reference)
+    if (frozen["config"] != context.original_config or frozen["memory_scope"] != {
+            "job_id": context.job_id or os.environ.get("MN_JOB_ID"),
+            "run_id": context.run_id or os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")}):
         raise ValueError("Investigation configuration changed")
+    read_indexed(context, frozen["indexed"])
     return root, frozen
 
 
 def task_input(context, work):
-    root, frozen = open_round(context, work)
-    return root, frozen, load(root, work["task"])
+    packet = work["task"]
+    root, frozen = open_round(context, packet["context"])
+    return root, frozen, load(root, packet["task"])
 
 
 @activity_operation('Preparing the case investigation', completed='Preparing the case investigation: completed')
-def initialize(context, *, llm_client=None):
-    root = Path(context["run_dir"])
+def initialize(context, inputs):
+    from .state import read_indexed
+    indexed = inputs["previous"]["result"]["evidence"]
+    _, captured = read_indexed(context, indexed)
+    payload = captured["inputs"]
+    root = context.store.run_dir
     case = root / "case"
-    corpus, receipt = validate_indexes(case, context["config"]["investigation"]["access_scope"])
+    corpus, receipt = validate_indexes(case, context.config["investigation"]["access_scope"])
     descriptor = source_manifest(__file__)["workflow"]["child_workflows"]["investigate_case_evidence"]
-    cfg = limits(context["config"])
+    cfg = limits(context.original_config)
     if not 1 <= cfg["max_rounds"] <= descriptor["max_rounds"] or not 1 <= cfg["hypotheses_per_round"] <= 2:
         raise ValueError("Dynamic investigation exceeds the admitted workflow bounds")
     store = EvidenceStore(case / "evidence.sqlite3")
     store.add_sources(corpus.scan())
     existing = store.query_readonly("SELECT id FROM investigations ORDER BY id")
     identifier = existing[0]["id"] if existing else store.create_investigation(
-        context["payload"]["goal"], corpus.access_scope, llm_model="default", graph_path=case / "evidence.rgx")
+        payload["goal"], corpus.access_scope, llm_model="default", graph_path=case / "evidence.rgx")
     name = "case/rounds/context.json"
     if not (root / name).exists():
-        save(root, name, {"config": context["config"], "payload": context["payload"],
-            "memory_scope": {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
-                             "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")},
+        save(root, name, {"config": context.original_config, "payload": payload, "indexed": indexed,
+            "memory_scope": {"job_id": context.job_id or os.environ.get("MN_JOB_ID"),
+                             "run_id": context.run_id or os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID")},
             "investigation_id": identifier, "indexes": receipt,
             "deadline": time.time() + cfg["seconds"], "review_plan": cfg, "matter": load_matter(root),
             "source_review_flags": review_flags(corpus.scan(), load_matter(root)["exclusions"])})
     frozen = read(root / name)
-    if frozen["indexes"] != receipt or frozen["config"] != context["config"] or frozen["payload"] != context["payload"]:
+    if frozen["indexes"] != receipt or frozen["config"] != context.original_config or frozen["payload"] != payload or frozen["indexed"] != indexed:
         raise ValueError("Investigation binding changed")
     ref = save(root, name, frozen)
-    return {"context": ref, "status": "planning"}, [artifact_reference("investigation_context", name)]
+    return {"context": ref, "status": "planning"}
 
 
 def checkpoint(root, frozen):
@@ -119,12 +117,11 @@ def checkpoint(root, frozen):
         "report_review": {"accepted_ids": sorted(accepted), "issues": list(dict.fromkeys(issues))}}}
 
 
-def finish(root, frozen, reason):
+def finish(context, frozen, reason, reference, revision):
     from .app.review import build_review
+    from .state import terminal
+    root = context.store.run_dir
     state = checkpoint(root, frozen)
     state["stop_reason"] = reason
-    atomic_json(root / "case/agent_checkpoint.json", state)
     summary = build_review(state, EvidenceStore(root / "case/evidence.sqlite3"), frozen["payload"]["goal"])
-    atomic_json(root / "case/investigation.json", summary)
-    return {"investigation": artifact_reference("investigation", "case/investigation.json"),
-            "audit_database": artifact_reference("evidence_database", "case/evidence.sqlite3"), "stop_reason": reason}
+    return terminal(context, frozen["indexed"], frozen["payload"], state, summary, context=reference, revision=revision)

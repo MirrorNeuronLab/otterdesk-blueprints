@@ -10,5 +10,5 @@ STEP = StepSpec(
         agent("purchase_total_cost_analyst", as_="cost"),
         agent("purchase_risk_reviewer", as_="risk"),
     ),
-    output=OutputSpec(fields={"option_comparison": flow_output()}),
+    output=OutputSpec(fields={"option_comparison": flow_output("result")}),
 )

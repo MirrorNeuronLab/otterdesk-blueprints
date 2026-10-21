@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "microduck_controller",
   "name": "Microduck Controller",
-  "version": "3.0.0",
+  "version": "5.0.0",
   "description": "Explore robot movement and ball play in a live simulation using everyday language. Ask the Microduck robot to move, approach a ball, or keep finding and kicking it while you watch. Stop play at any time.",
   "workflow": "workflow.json",
   "execution": "execution.json",

@@ -1,5 +1,4 @@
 """Architecture product projection of reusable static source/history facts."""
-import json
 from pathlib import Path
 import re
 from collections import Counter
@@ -17,15 +16,15 @@ ARTIFACTS = [('static_code', 'data/static-code.json'),
              ('architecture_score', 'data/architecture-score.json'), ('architecture_score_brief','reports/architecture-score.md')]
 
 
-def build(context, snapshot=None):
-    snapshot = snapshot or load_snapshot(context['run_dir'])
-    store = CatalogStore(context['run_dir'])
-    cfg = context['config']['ingest']
+def build(block, snapshot=None):
+    snapshot = snapshot or load_snapshot(block.store.run_dir)
+    store = CatalogStore(block.store.run_dir)
+    cfg = block.original_config['ingest']
     facts = analyze_sources({p: s['text'] for p,s in snapshot['sources'].items()},
         max_files=cfg['max_files'], max_file_bytes=cfg['max_file_bytes'], max_total_bytes=cfg['max_total_bytes'])
     facts['snapshot_id'] = snapshot['snapshot_id']
     manifest = snapshot['manifest']
-    settings = context['config'].get('analysis', {})
+    settings = block.original_config.get('analysis', {})
     repository = manifest.get('repository')
     if repository:
         try:
@@ -111,10 +110,12 @@ def source_context(store, snapshot, task, focus):
     rows, evidence = [], {}
 
     def witness(fn):
-        loc = fn['evidence']; body = snapshot['sources'][loc['path']]
+        loc = fn['evidence']
+        body = snapshot['sources'][loc['path']]
         if body['sha256'] != loc['sha256']:
             raise ValueError('Static source witness changed')
-        data = body['text'].encode(); a,b = loc['start_byte'],loc['end_byte']
+        data = body['text'].encode()
+        a,b = loc['start_byte'],loc['end_byte']
         text = data[a:b].decode()
         packet = {'path':loc['path'], 'sha256':loc['sha256'], 'text':text,
                   'start_offset':len(data[:a].decode()), 'end_offset':len(data[:b].decode()),
@@ -127,8 +128,10 @@ def source_context(store, snapshot, task, focus):
     selected, paths = [], set()
     for key in ranking:
         if functions[key]['path'] not in paths:
-            selected.append(key);paths.add(functions[key]['path'])
-        if len(selected) == 4:break
+            selected.append(key)
+            paths.add(functions[key]['path'])
+        if len(selected) == 4:
+            break
     selected += [key for key in ranking if key not in selected][:4-len(selected)]
     for key in selected:
         fn = functions[key]

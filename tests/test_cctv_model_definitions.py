@@ -13,7 +13,6 @@ from mn_sdk.submission_preparation import (
     stage_upload_path_payloads_for_manifest,
 )
 from mn_sdk.model_catalog import load_builtin_model_catalog_document
-from cctv_operator.payloads.domain.model_definitions import cosmos_model_spec
 
 ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
 
@@ -52,8 +51,7 @@ def test_cctv_build_installs_declared_dependencies_before_model_preparation(monk
 
 def test_cosmos_recipe_belongs_to_the_blueprint_and_is_not_built_in():
     models = blueprint_definition(read_blueprint(ROOT))["runtime"]["models"]
-    spec = cosmos_model_spec()
-    assert spec == models["vision"]["model_spec"]
+    spec = models["vision"]["model_spec"]
     assert spec["id"] not in load_builtin_model_catalog_document().models
     assert spec["input_modalities"] == ["text", "image", "video"]
     assert models["vision"]["customize_mode"] is True

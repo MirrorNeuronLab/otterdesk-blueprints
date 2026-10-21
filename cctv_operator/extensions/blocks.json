@@ -5,8 +5,9 @@
       "uses": "mn.blocks.monitored_service@1",
       "config": {
         "interval_seconds": 60,
-        "max_cycles": null,
-        "buffer_policy": "latest"
+        "max_cycles": 1000000,
+        "buffer_policy": "latest",
+        "max_checkpoint_bytes": 67108864
       },
       "hooks": {
         "start": "domain.live_service:start",
@@ -16,6 +17,89 @@
       },
       "limits": {
         "max_calls": 1
+      }
+    }
+  },
+  "events": {
+    "ingress": {
+      "uses": "mn.blocks.event_processing@1",
+      "config": {
+        "ports": {
+          "start": "cctv_operator_start",
+          "steer": "cctv_operator_steer"
+        },
+        "event_types": [
+          "video_monitor_start"
+        ]
+      },
+      "hooks": {
+        "process": "domain.monitor_ingress:process"
+      },
+      "limits": {
+        "timeout_seconds": 30
+      }
+    },
+    "adaptive_frame_sampler": {
+      "uses": "mn.blocks.event_processing@1",
+      "config": {
+        "ports": {
+          "ready": "cctv_operator_frame_batch_ready",
+          "next": "cctv_operator_sample_due"
+        },
+        "event_types": [
+          "cctv_operator_attention_updated",
+          "cctv_operator_sample_skipped",
+          "cctv_operator_frame_batch_ready"
+        ]
+      },
+      "hooks": {
+        "process": "domain.sampling:process"
+      },
+      "limits": {
+        "timeout_seconds": 90
+      }
+    },
+    "visual_detector": {
+      "uses": "mn.blocks.event_processing@1",
+      "config": {
+        "ports": {
+          "observed": "cctv_operator_detection"
+        },
+        "event_types": [
+          "cctv_operator_attention_updated",
+          "cctv_operator_deep_analysis_completed",
+          "human_notice",
+          "cctv_operator_frame_observed",
+          "cctv_operator_detection",
+          "cctv_operator_frame_analysis_failed",
+          "cctv_operator_slack_alert_sent",
+          "cctv_operator_slack_alert_skipped",
+          "cctv_operator_slack_alert_error"
+        ]
+      },
+      "hooks": {
+        "process": "domain.vision:process"
+      },
+      "limits": {
+        "timeout_seconds": 1800,
+        "max_calls": 4
+      }
+    },
+    "report_writer": {
+      "uses": "mn.blocks.event_processing@1",
+      "config": {
+        "ports": {
+          "ready": "cctv_operator_report_ready"
+        },
+        "event_types": [
+          "cctv_operator_report_ready"
+        ]
+      },
+      "hooks": {
+        "process": "domain.report_publication:process"
+      },
+      "limits": {
+        "timeout_seconds": 60
       }
     }
   }

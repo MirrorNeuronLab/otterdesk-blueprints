@@ -30,16 +30,29 @@ six selected aspects with independent challenges and synthesis (19 baseline task
 rather than sending every source packet and all 150 aspects to the model.
 All 150 aspects retain explicit coverage; unselected topics remain not analyzed.
 
-Version 5 uses the SDK's `mn.blocks.bounded_investigation@1` composition for the
-investigation initializer and planner. `extensions/blocks.json` declares its
-domain hooks; Core still schedules the child rounds and OpenShell reviewers.
-The advisor retains its task selection, frozen evidence, SQLite reservations,
-call/deadline budgets and report policy. Block completion carries hashed catalog
-references, verified again before the existing report publisher runs. This path
-requires SDK/common/blocks `>=1.3.61.dev25,<2`. Its offline integration test covers
-real task admission, source/result handoffs, replay, deadline termination and
-report/dashboard publication with a synthetic model. Earlier live checks below
-predate this migration; the new path still requires live qualification.
+Version 7 uses direct native hooks for capture, structural analysis, catalog
+initialization/planning, isolated review and publication. The SDK supplies block
+execution, immutable request/result journals, cancellation and verified artifact
+transport; Core owns child rounds, joins and completion. Captured source and
+analysis packets bind configuration and run identity before review admission.
+The advisor retains task selection, frozen prompts, SQLite reservations,
+call/deadline budgets, source citations, cumulative Job history and report policy.
+The retired, unregistered hypothesis workflow and runtime dictionaries are removed.
+
+OpenShell remains explicitly selected for the packet-review worker. It uses the
+stock SDK handler with `domain.sandbox_review:review_admitted`; SDK/Core own
+private input staging and commit receipts. Other phases retain Docker workers.
+SDK/blocks `>=1.3.61.dev26,<2` with the coordinated native-context and OpenShell
+support are required. Source and installed implementations must match the
+compiled lock. No deployment or new live qualification is claimed here.
+
+The current offline suite passes 147 cases, including a compiled capture-to-report
+flow, frozen-evidence rejection, repeated delivery, required-rendering recovery,
+hundreds of admitted review tasks, model budgets, exact citations and report
+publication. RGX is replaced only in the new compiled-flow tests; 24 existing
+RGX-dependent cases remain skipped without its binary. Earlier live checks below
+predate this native migration. Production Python falls from 9,241 to 7,158 lines
+(−2,083; −22.5%), across 79 → 50 files, measured against the pre-migration `HEAD`.
 
 Open **Component and function evolution map** from the dashboard or report to
 inspect file components, dependency cycles, direct callers/callees, source spans,
@@ -884,3 +897,12 @@ The reusable report shell now comes from `mn-web-report-skill` (distribution
 `mirrorneuron-web-report-skill`). Architecture-specific D3 graphs and playback
 remain in this blueprint; component sources, fonts and common interactions live
 in `mn-skills/web_report_skill`.
+
+## Native block composition (7.0.0)
+
+All authored workers use `mn_sdk.integrations.block_worker` with direct domain
+functions. `domain/state.py` binds captured source, derived evidence, original
+configuration and run/Job scope. Required JSON/Markdown precede the required
+result page; shared SDK file APIs handle immutable bytes and output copies.
+Product-specific D3 views, report composition, history and review-import rules
+remain domain code. Core alone schedules child work and completes the workflow.

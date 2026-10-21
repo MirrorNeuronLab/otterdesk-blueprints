@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from .common import *
+from mn_sdk_common.publication import ArtifactWrite
 from .analysis import summarize_local_evidence, summarize_research_sources, warnings_for_company
 from .intake import build_cache_policy_summary
 from .reporting import build_method_coverage, build_research_coverage, render_markdown
@@ -72,14 +73,21 @@ def render_run_summary(analyses: list[dict[str, Any]], queue: list[dict[str, Any
         lines.append(f"- {item['company_name']}: {item['method_statuses']}")
     return "\n".join(lines) + "\n"
 
-def write_company_outputs(
-    output_folder: Path,
+def compose_company_outputs(
     analyses: list[dict[str, Any]],
     company_records: dict[str, list[dict[str, Any]]],
     research_ledgers: dict[str, dict[str, list[dict[str, Any]]]],
     queue: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    output_files = []
+    *, generated_at: str,
+):
+    output_folder = Path('.')
+    writes, output_files = [], []
+    def add_json(path, value):
+        writes.append(ArtifactWrite(str(path), str(path),
+            (json.dumps(value, sort_keys=True, ensure_ascii=False) + '\n').encode(),
+            kind='json', authoritative=True))
+    def add_text(path, value):
+        writes.append(ArtifactWrite(str(path), str(path), value.encode(), kind='markdown'))
     queue_by_slug = {item["company_slug"]: item for item in queue}
     for analysis in analyses:
         slug = analysis["company_slug"]
@@ -103,36 +111,36 @@ def write_company_outputs(
         analysis["evidence"] = compact_local_evidence_for_transport(evidence)
         analysis["research_sources"] = compact_research_sources_for_transport(sources)
         analysis["warnings"] = warnings
-        write_json(company_dir / "analysis.json", analysis)
-        write_json(company_dir / "method_scores.json", analysis["methods"])
-        write_json(company_dir / "research_plan.json", analysis.get("research_plan") or {})
-        write_json(company_dir / "agent_tool_trace.json", analysis.get("agent_tool_trace") or [])
-        write_json(company_dir / "research_sources.json", sources)
-        write_json(company_dir / "sources.json", sources)
-        write_json(company_dir / "evidence.json", evidence)
-        write_json(company_dir / "source_records.json", analysis.get("source_records") or [])
-        write_json(company_dir / "evidence_items.json", analysis.get("evidence_items") or [])
-        write_json(company_dir / "claims.json", analysis.get("claim_records") or [])
-        write_json(company_dir / "evidence_graph.json", analysis.get("evidence_graph") or {})
-        write_json(company_dir / "bayesian_claim_explanations.json", analysis.get("bayesian_claim_explanations") or [])
-        write_json(company_dir / "warnings.json", warnings)
+        add_json(company_dir / "analysis.json", analysis)
+        add_json(company_dir / "method_scores.json", analysis["methods"])
+        add_json(company_dir / "research_plan.json", analysis.get("research_plan") or {})
+        add_json(company_dir / "agent_tool_trace.json", analysis.get("agent_tool_trace") or [])
+        add_json(company_dir / "research_sources.json", sources)
+        add_json(company_dir / "sources.json", sources)
+        add_json(company_dir / "evidence.json", evidence)
+        add_json(company_dir / "source_records.json", analysis.get("source_records") or [])
+        add_json(company_dir / "evidence_items.json", analysis.get("evidence_items") or [])
+        add_json(company_dir / "claims.json", analysis.get("claim_records") or [])
+        add_json(company_dir / "evidence_graph.json", analysis.get("evidence_graph") or {})
+        add_json(company_dir / "bayesian_claim_explanations.json", analysis.get("bayesian_claim_explanations") or [])
+        add_json(company_dir / "warnings.json", warnings)
         markdown = render_markdown(analysis, sources, evidence)
-        (company_dir / "analysis.md").write_text(markdown, encoding="utf-8")
+        add_text(company_dir / "analysis.md", markdown)
         for name in ("analysis.json", "analysis.md", "method_scores.json", "research_plan.json", "agent_tool_trace.json", "research_sources.json", "sources.json", "evidence.json", "source_records.json", "evidence_items.json", "claims.json", "evidence_graph.json", "bayesian_claim_explanations.json", "warnings.json"):
             output_files.append({"kind": name.rsplit(".", 1)[0], "path": str(company_dir / name), "company": analysis["company_name"]})
-        write_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
-        write_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
-        write_json(output_folder / "method_scores" / f"{slug}.json", analysis["methods"])
-        write_json(output_folder / "audit_findings" / f"{slug}.json", analysis["audit"])
-        write_json(output_folder / "evidence_items" / f"{slug}.json", analysis.get("evidence_items") or [])
-        write_json(output_folder / "claim_records" / f"{slug}.json", analysis.get("claim_records") or [])
+        add_json(output_folder / "company_fact_tables" / f"{slug}.json", analysis["fact_table"])
+        add_json(output_folder / "research_ledgers" / f"{slug}.json", research_ledger)
+        add_json(output_folder / "method_scores" / f"{slug}.json", analysis["methods"])
+        add_json(output_folder / "audit_findings" / f"{slug}.json", analysis["audit"])
+        add_json(output_folder / "evidence_items" / f"{slug}.json", analysis.get("evidence_items") or [])
+        add_json(output_folder / "claim_records" / f"{slug}.json", analysis.get("claim_records") or [])
         for folder_name in ('company_fact_tables', 'research_ledgers', 'method_scores',
                             'audit_findings', 'evidence_items', 'claim_records'):
             output_files.append({'kind': folder_name, 'path': str(output_folder / folder_name / f'{slug}.json'),
                                  'company': analysis['company_name']})
     index = {
         "blueprint_id": BLUEPRINT_ID,
-        "generated_at": utc_now_iso(),
+        "generated_at": generated_at,
         "report_only": True,
         "cache_policy": build_cache_policy_summary(
             queue,
@@ -158,10 +166,10 @@ def write_company_outputs(
     }
     research_coverage = build_research_coverage(research_ledgers)
     method_coverage = build_method_coverage(analyses)
-    write_json(output_folder / "company_index.json", index)
-    write_json(output_folder / "company_work_queue.json", queue)
-    write_json(output_folder / "research_coverage.json", research_coverage)
-    write_json(output_folder / "method_coverage.json", method_coverage)
+    add_json(output_folder / "company_index.json", index)
+    add_json(output_folder / "company_work_queue.json", queue)
+    add_json(output_folder / "research_coverage.json", research_coverage)
+    add_json(output_folder / "method_coverage.json", method_coverage)
     index_lines = ["# VC Heuristic Company Index", "", "Report-only score summaries. The user decides what to do next.", ""]
     for item in index["companies"]:
         policy = item.get("cache_policy") if isinstance(item.get("cache_policy"), dict) else {}
@@ -170,8 +178,8 @@ def write_company_outputs(
             f"(evidence quality {item.get('evidence_quality_score')}, {str(item.get('confidence_band') or 'not_reliable').replace('_', ' ')}) "
             f"({policy.get('freshness') or item.get('processing_status')})"
         )
-    (output_folder / "company_index.md").write_text("\n".join(index_lines) + "\n", encoding="utf-8")
-    (output_folder / "run_summary.md").write_text(render_run_summary(analyses, queue, research_coverage, method_coverage), encoding="utf-8")
+    add_text(output_folder / "company_index.md", "\n".join(index_lines) + "\n")
+    add_text(output_folder / "run_summary.md", render_run_summary(analyses, queue, research_coverage, method_coverage))
     output_files.extend([
         {"kind": "company_index_json", "path": str(output_folder / "company_index.json")},
         {"kind": "company_index_markdown", "path": str(output_folder / "company_index.md")},
@@ -180,4 +188,4 @@ def write_company_outputs(
         {"kind": "method_coverage", "path": str(output_folder / "method_coverage.json")},
         {"kind": "run_summary_markdown", "path": str(output_folder / "run_summary.md")},
     ])
-    return output_files
+    return writes, output_files

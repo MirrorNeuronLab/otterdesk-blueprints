@@ -8,9 +8,6 @@
       "label": "Capture Repository",
       "goal": "Freeze source text and revision provenance.",
       "needs": [],
-      "run": {
-        "definition": "steps.capture_repository"
-      },
       "control": {
         "timeout_seconds": 3600
       }
@@ -23,9 +20,6 @@
       "needs": [
         "capture_repository"
       ],
-      "run": {
-        "definition": "steps.analyze_dependency_structure"
-      },
       "control": {
         "timeout_seconds": 3600
       }
@@ -50,9 +44,6 @@
       "needs": [
         "investigate_architecture"
       ],
-      "run": {
-        "definition": "steps.publish_architecture_review"
-      },
       "control": {
         "timeout_seconds": 3600
       }
@@ -86,7 +77,26 @@
         },
         "review_architecture_packet": {
           "run": {
-            "handler": "agents.architecture_packet_reviewer"
+            "handler": "mn_sdk.integrations.block_worker",
+            "with": {
+              "revision": "software_architecture_advisor@7.0.0",
+              "instance": {
+                "uses": "mn.blocks.domain_operation@1",
+                "hooks": {
+                  "operation": "domain.sandbox_review:review_admitted"
+                },
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "review_input"
+                  ]
+                },
+                "limits": {
+                  "max_calls": 1,
+                  "timeout_seconds": 720
+                }
+              }
+            }
           },
           "control": {
             "timeout_seconds": 720,

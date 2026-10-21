@@ -9,14 +9,14 @@ from .review_packets import chunk_snapshot
 from .catalog_planning import catalog_settings
 
 
-def assemble(context, *, llm_client=None):
-    store = CatalogStore(context["run_dir"])
+def assemble(block, *, llm_client=None):
+    store = CatalogStore(block.store.run_dir)
     saved = store.read("catalog/context.json")
     plan = store.load_ref(saved["plan"])
     terminal = store.read("catalog/terminal.json")
-    review, _ = catalog_settings(context["config"])
+    review, _ = catalog_settings(block.original_config)
     catalog = load_catalog()
-    snapshot = load_snapshot(context["run_dir"])
+    snapshot = load_snapshot(block.store.run_dir)
     if (
         catalog["digest"] != plan["catalog_digest"]
         or fingerprint(snapshot["manifest"]) != saved["request"]["snapshot"]

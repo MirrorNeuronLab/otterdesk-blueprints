@@ -2,6 +2,8 @@
 import json
 from mn_sdk.artifact_handoff import publish_input, resolve_committed, store_root
 from mn_sdk.usage_ledger import model_usage_scope, record_model_usage
+from mn_sdk.integrations.block_handoff import VERSION as BLOCK_HANDOFF, resolve_value
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from .catalog_store import fingerprint
 from .catalog_contract import load_catalog, load_snapshot
 from .review_packets import chunk_snapshot
@@ -67,17 +69,16 @@ def reconcile(store):
             receipt = json.loads(receipt_path.read_text())
             if receipt['execution']['exit_code'] != 0:
                 continue
-            task_id = receipt['execution'].get('structured_result', {}).get('outputs', {}).get('task_id')
+            bundle = receipt['execution'].get('structured_result', {}).get('outputs', {}).get('result')
+            if not isinstance(bundle, dict) or bundle.get('version') != BLOCK_HANDOFF:
+                continue
+            candidate = resolve_value(bundle, CommittedJsonStore(store.root), run_id=run_id)
+            task_id = candidate.get('task_id')
             if task_id not in pending:
                 continue
-            for ref in receipt['references']:
-                if ref['kind'] == 'architecture_review_result':
-                    candidate = json.loads(resolve_committed(ref, run_id=run_id).read_text())
-                    if candidate.get('task_id') != task_id:
-                        raise ValueError('Committed review task identity differs')
-                    if task_id in candidates and candidates[task_id][0] != ref:
-                        raise ValueError('Conflicting task commits')
-                    candidates[task_id] = (ref, candidate)
+            if task_id in candidates and candidates[task_id][0] != bundle:
+                raise ValueError('Conflicting task commits')
+            candidates[task_id] = (bundle, candidate)
     for task_id, (ref, candidate) in candidates.items():
         admission = pending[task_id]
         frozen = json.loads(resolve_committed(admission['input'], run_id=admission['runtime_run_id']).read_text())

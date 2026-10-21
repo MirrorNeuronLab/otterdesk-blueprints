@@ -53,10 +53,6 @@
           "beacon_interval_ms": 15000,
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "agents/validation/start_video_monitor.py"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -76,8 +72,8 @@
           "tty": false,
           "upload_paths": [
             {
-              "source": "agents/validation",
-              "target": "agents/validation"
+              "source": "domain",
+              "target": "domain"
             }
           ],
           "workdir": "/mn/job"
@@ -111,10 +107,6 @@
             "max_queue_depth": 2,
             "retry_after_ms": 1000
           },
-          "command": [
-            "bash",
-            "scripts/run_sampler_on_nvidia.sh"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -134,15 +126,11 @@
           "tty": false,
           "upload_paths": [
             {
-              "source": "agents/adaptive_frame_sampler",
-              "target": "adaptive_frame_sampler"
-            },
-            {
               "source": "domain",
-              "target": "adaptive_frame_sampler/domain"
+              "target": "domain"
             }
           ],
-          "workdir": "/mn/job/adaptive_frame_sampler"
+          "workdir": "/mn/job"
         },
         "constraints": [
           {
@@ -187,10 +175,6 @@
             "max_queue_depth": 2,
             "retry_after_ms": 1000
           },
-          "command": [
-            "bash",
-            "scripts/run_detector_on_nvidia.sh"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -224,10 +208,6 @@
           "tty": false,
           "upload_paths": [
             {
-              "source": "agents/visual_detector",
-              "target": "agents/visual_detector"
-            },
-            {
               "source": "domain",
               "target": "domain"
             },
@@ -236,7 +216,7 @@
               "target": "prompts"
             }
           ],
-          "workdir": "/mn/job/agents/visual_detector"
+          "workdir": "/mn/job"
         },
         "constraints": [
           {
@@ -261,10 +241,6 @@
           "beacon_interval_ms": 15000,
           "beacon_missed_action": "fail_attempt",
           "beacon_timeout_ms": 45000,
-          "command": [
-            "python3",
-            "agents/report_writer/scripts/write_cctv_report.py"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -283,10 +259,6 @@
           "shared_container": true,
           "tty": false,
           "upload_paths": [
-            {
-              "source": "agents/report_writer",
-              "target": "agents/report_writer"
-            },
             {
               "source": "domain",
               "target": "domain"
@@ -856,10 +828,6 @@
         "uses": "mn-agents.data_python_executor@1",
         "with": {
           "agent_beacon_required": false,
-          "command": [
-            "python3",
-            "agents/validation/start_video_monitor.py"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -870,12 +838,11 @@
           "output_message_type": null,
           "reuse_shared_container": true,
           "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "script": "agents/validation/start_video_monitor.py",
           "shared_container": true,
           "upload_paths": [
             {
-              "source": "agents/validation",
-              "target": "agents/validation"
+              "source": "domain",
+              "target": "domain"
             }
           ],
           "workdir": "/mn/job"
@@ -887,10 +854,6 @@
         "node_id": "adaptive_frame_sampler",
         "uses": "mn-agents.data_python_executor@1",
         "with": {
-          "command": [
-            "bash",
-            "scripts/run_sampler_on_nvidia.sh"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -901,19 +864,14 @@
           "output_message_type": null,
           "reuse_shared_container": true,
           "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "script": "scripts/sample_video.py",
           "shared_container": true,
           "upload_paths": [
             {
-              "source": "agents/adaptive_frame_sampler",
-              "target": "adaptive_frame_sampler"
-            },
-            {
               "source": "domain",
-              "target": "adaptive_frame_sampler/domain"
+              "target": "domain"
             }
           ],
-          "workdir": "/mn/job/adaptive_frame_sampler"
+          "workdir": "/mn/job"
         }
       },
       {
@@ -923,10 +881,6 @@
         "uses": "mn-agents.data_python_executor@1",
         "with": {
           "beacon_timeout_ms": 45000,
-          "command": [
-            "bash",
-            "scripts/run_detector_on_nvidia.sh"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -951,13 +905,8 @@
           "output_message_type": "cctv_operator_detection",
           "reuse_shared_container": true,
           "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "script": "scripts/analyze_video_frame.py",
           "shared_container": true,
           "upload_paths": [
-            {
-              "source": "agents/visual_detector",
-              "target": "agents/visual_detector"
-            },
             {
               "source": "domain",
               "target": "domain"
@@ -967,7 +916,7 @@
               "target": "prompts"
             }
           ],
-          "workdir": "/mn/job/agents/visual_detector"
+          "workdir": "/mn/job"
         }
       },
       {
@@ -976,10 +925,6 @@
         "node_id": "report_writer",
         "uses": "mn-agents.data_python_executor@1",
         "with": {
-          "command": [
-            "python3",
-            "agents/report_writer/scripts/write_cctv_report.py"
-          ],
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
@@ -990,13 +935,8 @@
           "output_message_type": "cctv_operator_report_ready",
           "reuse_shared_container": true,
           "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "script": "agents/report_writer/scripts/write_cctv_report.py",
           "shared_container": true,
           "upload_paths": [
-            {
-              "source": "agents/report_writer",
-              "target": "agents/report_writer"
-            },
             {
               "source": "domain",
               "target": "domain"

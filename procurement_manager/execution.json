@@ -5,33 +5,56 @@
   },
   "agents": {
     "registry": {
-      "purchase_intake_analyst": {
-        "handler": "agents.purchase_intake_analyst",
-        "role": "Business Requirements And Acceptance Analyst"
-      },
-      "purchase_knowledge_retriever": {
-        "handler": "agents.purchase_knowledge_retriever",
-        "role": "Procurement Evidence And Assumption Curator"
-      },
       "purchase_market_researcher": {
-        "handler": "agents.purchase_market_researcher",
-        "role": "Source Provenance And Market Research Analyst"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Source Provenance And Market Research Analyst",
+        "with": {
+          "revision": "procurement_manager@5.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.comparison:research_market"
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 1800
+            }
+          }
+        }
       },
       "purchase_total_cost_analyst": {
-        "handler": "agents.purchase_total_cost_analyst",
-        "role": "Heavy Asset Lifecycle Economics Analyst"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Heavy Asset Lifecycle Economics Analyst",
+        "with": {
+          "revision": "procurement_manager@5.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.comparison:analyze_total_cost"
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 1800
+            }
+          }
+        }
       },
       "purchase_risk_reviewer": {
-        "handler": "agents.purchase_risk_reviewer",
-        "role": "Technical Supplier And Operational Risk Reviewer"
-      },
-      "purchase_recommendation_auditor": {
-        "handler": "agents.purchase_recommendation_auditor",
-        "role": "Independent Procurement Investment Auditor"
-      },
-      "purchase_report_writer": {
-        "handler": "agents.purchase_report_writer",
-        "role": "Approval Ready Procurement Decision Writer"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Technical Supplier And Operational Risk Reviewer",
+        "with": {
+          "revision": "procurement_manager@5.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.comparison:review_purchase_risks"
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 1800
+            }
+          }
+        }
       }
     }
   },
@@ -45,7 +68,9 @@
             "source": "domain",
             "target": "domain"
           }
-        ]
+        ],
+        "upload_path": "domain",
+        "upload_as": "domain"
       }
     }
   },

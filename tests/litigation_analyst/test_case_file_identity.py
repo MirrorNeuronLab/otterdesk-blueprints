@@ -14,8 +14,11 @@ def test_frozen_case_file_graph_identity_tracks_raw_versions_and_renames(tmp_pat
     context = {'job_id': 'matter-fixture', 'config': {'investigation': {'access_scope': 'case'}}}
 
     def index(run):
+        from litigation_native_test_support import block_context
         hashes = {p: compute_content_hash(p.read_bytes()) for p in source.iterdir()}
-        repository_id, identities = capture_file_identities(source, tmp_path / 'runs' / run, context, hashes)
+        run_dir = tmp_path / 'runs' / run
+        native = block_context({**context, 'run_dir': run_dir})
+        repository_id, identities = capture_file_identities(source, run_dir, native, hashes)
         nodes, edges = build_records(CaseCorpus(source, 'case').scan(), repository_id=repository_id, file_identities=identities)
         assert not edges and len(nodes) == 1
         return nodes[0]

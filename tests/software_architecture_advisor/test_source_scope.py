@@ -1,3 +1,4 @@
+from native_test_support import block_context
 import hashlib
 import json
 
@@ -107,7 +108,7 @@ def test_unparsed_source_formats_and_explicit_extensions_remain_visible(tmp_path
     assert manifest['coverage']['uncaptured_extensions']=={'.md':1,'.json':1}
     assert '.dsl' in manifest['ingest_config']['capture_extensions']
     (run/'snapshot.json').write_text(json.dumps(manifest))
-    build({'run_dir':run,'config':cfg})
+    build(block_context({'run_dir':run,'config':cfg}))
     facts=json.loads((run/'data/static-code.json').read_text())
     score=json.loads((run/'data/architecture-score.json').read_text())
     assert facts['coverage']['status_counts']=={'unsupported':2}

@@ -1,58 +1,52 @@
-"""Bounded specialists; Core owns routing, retries and step completion."""
-
-from mn_sdk.agent_events import activity_operation
-from pathlib import Path
+"""Native block operations for bounded local evidence and temporal policy."""
+from mn_sdk.agent_events import report_activity
 
 from .acquisition import acquire_mac
-from .configuration import investigation_policy
-from .history import history, read, save
+from .configuration import BLUEPRINT_ID, investigation_policy
+from .history import history
 from .patterns import analyze
 
 
-@activity_operation('Collecting Mac security evidence', completed='Collecting Mac security evidence: completed')
-def capture(context, **_):
-    marker = Path(context["run_dir"]) / "scan_batch.json"
-    if marker.exists():
-        scans = read(context, "scan_batch.json")
-    else:
-        scans = [acquire_mac(context["run_id"], investigation_policy())]
-    if not scans or any(s["host_epoch_id"] != scans[0]["host_epoch_id"] for s in scans):
+def capture(block, inputs):
+    report_activity("Collecting Mac security evidence", owner_blueprint=BLUEPRINT_ID, step_id=block.step_id, run_dir=block.store.run_dir)
+    store = block.store
+    scans = store.read_path("scan_batch.json") if store.path("scan_batch.json").exists() else [
+        acquire_mac(block.run_id, investigation_policy())]
+    if not scans or any(scan["host_epoch_id"] != scans[0]["host_epoch_id"] for scan in scans):
         raise ValueError("all scans must belong to one local host epoch")
-    ref = save(context, "scan_batch.json", scans)
-    return {"scan_count": len(scans), "scan_batch": ref}, [ref]
+    reference = store.commit("scan_batch.json", scans, kind="mac_security_scans")
+    return {"scan_count": len(scans), "scan_batch": reference.to_dict()}
 
 
-@activity_operation('Reconciling temporal security history', completed='Reconciling temporal security history: completed')
-def reconcile(context, **_):
-    store = history(context)
+def reconcile(block, inputs):
+    report_activity("Reconciling temporal security history", owner_blueprint=BLUEPRINT_ID, step_id=block.step_id, run_dir=block.store.run_dir)
+    scans = block.store.read(inputs["previous"]["scan_batch"])
+    if not scans or any(scan["host_epoch_id"] != scans[0]["host_epoch_id"] for scan in scans):
+        raise ValueError("all scans must belong to one local host epoch")
+    ledger = history(block, scans[0]["host_epoch_id"])
     try:
-        receipts = [store.ingest_scan(scan) for scan in read(context, "scan_batch.json")]
-        # Pin once. Another run must not cause this run to consume future knowledge.
-        marker = Path(context["run_dir"]) / "graph_revision.json"
-        pinned = read(context, "graph_revision.json") if marker.exists() else {
-            "revision": store.revision, "receipts": receipts, "host_epoch_id": store.host_epoch_id}
-        ref = save(context, "graph_revision.json", pinned)
-        return {"graph_revision": pinned["revision"], "revision_artifact": ref}, [ref]
+        receipts = [ledger.ingest_scan(scan) for scan in scans]
+        # A later run cannot advance this run's knowledge cutoff.
+        pinned = block.store.read_path("graph_revision.json") if block.store.path("graph_revision.json").exists() else {
+            "revision": ledger.revision, "receipts": receipts, "host_epoch_id": ledger.host_epoch_id}
+        reference = block.store.commit("graph_revision.json", pinned, kind="mac_security_revision")
+        return {"graph_revision": pinned["revision"], "revision_artifact": reference.to_dict()}
     finally:
-        store.close()
+        ledger.close()
 
 
-@activity_operation('Investigating temporal behavior', completed='Investigating temporal behavior: completed')
-def investigate(context, **_):
+def investigate(block, inputs):
+    report_activity("Investigating temporal behavior", owner_blueprint=BLUEPRINT_ID, step_id=block.step_id, run_dir=block.store.run_dir)
     from .context_graph import enrich
-    store = history(context)
+
+    pinned = block.store.read(inputs["previous"]["revision_artifact"])
+    ledger = history(block, pinned["host_epoch_id"])
     try:
-        revision = read(context, "graph_revision.json")["revision"]
-        report = analyze(store, revision, investigation_policy())
-        refs = [save(context, "analysis.json", report)]
-        graph = enrich(context, store, report)
-        refs.append(save(context, "context_graph.json", graph))
-        return {"case_count": len(report["cases"]), "analysis": refs[0]}, refs
+        revision = pinned["revision"]
+        report = analyze(ledger, revision, investigation_policy())
+        reference = block.store.commit("analysis.json", report, kind="mac_security_analysis")
+        graph = enrich(block, ledger, report)
+        block.store.commit("context_graph.json", graph, kind="mac_security_context_graph")
+        return {"case_count": len(report["cases"]), "analysis": reference.to_dict()}
     finally:
-        store.close()
-
-
-@activity_operation('Writing the security evidence report', completed='Writing the security evidence report: completed')
-def publish(context, **_):
-    from .reporting import publish_report
-    return publish_report(context)
+        ledger.close()

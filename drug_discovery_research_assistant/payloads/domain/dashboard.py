@@ -7,6 +7,9 @@ import json
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_sdk_web_ui import static_run_report_handle
 
 
 TERMINAL_FAILURE_EVENTS = {
@@ -501,14 +504,15 @@ body{{margin:0;background:#eef2ec;color:#15241f;font:14px/1.5 system-ui,sans-ser
 </main></body></html>\n"""
 
 
-def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
+def publish_static_dashboard(block) -> dict[str, Any]:
     """Write the optional result UI; callers decide whether failures are fatal."""
 
-    run_dir = Path(str(ctx["run_dir"]))
-    output_dir = Path(str(ctx["output_folder"]))
-    config = _mapping(ctx.get("config"))
+    run_dir = block.store.run_dir
+    from .configuration import output_directory
+    output_dir = output_directory(block)
+    config = block.config
     state = discovery_dashboard_state(
-        run_id=str(ctx.get("run_id") or run_dir.name),
+        run_id=block.run_id,
         config=config,
         workflow_state=_read_json_object(
             run_dir / "workflow_state" / "drug_discovery_state.json"
@@ -538,7 +542,7 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
     rendered = render_static_dashboard(state)
     media = {
         "schema": "otterdesk.conversation_media.v1",
-        "run_id": str(ctx.get("run_id") or run_dir.name),
+        "run_id": block.run_id,
         "title": "Ranked candidate structures",
         "description": "Computational structures for scientific review."
         + (" Synthetic smoke test." if state.get("metrics", {}).get("Mode") == "Synthetic smoke test" else ""),
@@ -555,34 +559,20 @@ def publish_static_dashboard(ctx: Mapping[str, Any]) -> dict[str, Any]:
         ],
     }
     handle: dict[str, Any] = {}
-    for root in (run_dir, output_dir):
-        web_dir = root / "web"
-        web_dir.mkdir(parents=True, exist_ok=True)
-        page = web_dir / "index.html"
-        page.write_text(rendered, encoding="utf-8")
-        for name, svg in drawings.items():
-            (web_dir / name).write_text(svg, encoding="utf-8")
-        for name, png in previews.items():
-            (web_dir / name).write_bytes(png)
-        source_svg = run_dir / "leading_candidate.svg"
+    for root in dict.fromkeys((run_dir, output_dir)):
+        store = block.store if root == run_dir else CommittedJsonStore(root)
+        writes = [ArtifactWrite("page", "web/index.html", rendered.encode("utf-8"), kind="html")]
+        writes.extend(ArtifactWrite(name, "web/" + name, svg.encode("utf-8"), kind="svg") for name, svg in drawings.items())
+        writes.extend(ArtifactWrite(name, "web/" + name, png, kind="png") for name, png in previews.items())
+        source_svg = block.store.path("leading_candidate.svg")
         if source_svg.is_file():
-            (web_dir / "leading_candidate.svg").write_bytes(source_svg.read_bytes())
-        current = {
-            "kind": "output",
-            "adapter": "static_html",
-            "url": page.resolve().as_uri(),
-            "title": "Drug Discovery Research Assistant",
-            "path": str(page),
-            "metadata": {"renderer": "static_html", "optional": True},
-        }
-        (root / "web_ui.json").write_text(
-            json.dumps(current, indent=2, sort_keys=True) + "\n",
-            encoding="utf-8",
-        )
-        media_path = web_dir / "conversation_media.json"
-        pending_media_path = web_dir / "conversation_media.json.tmp"
-        pending_media_path.write_text(json.dumps(media, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-        pending_media_path.replace(media_path)
+            writes.append(ArtifactWrite("leading_candidate", "web/leading_candidate.svg", source_svg.read_bytes(), kind="svg"))
+        writes.append(ArtifactWrite("conversation_media", "web/conversation_media.json",
+            json.dumps(media, sort_keys=True).encode("utf-8"), kind="json"))
+        writes.append(ArtifactWrite("web_ui", "web_ui.json", lambda: json.dumps(static_run_report_handle(
+            root, "web/index.html", title="Drug Discovery Research Assistant", optional=True)).encode("utf-8"),
+            kind="json", revision=block.revision, mode=0o644))
+        publish_bundle(store, writes, receipt_path="web/publication.json")
         if root == run_dir:
-            handle = current
+            handle = store.read_path("web_ui.json")
     return handle

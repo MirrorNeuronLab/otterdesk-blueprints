@@ -734,7 +734,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "3.0.0"
+    assert read_blueprint(blueprint).manifest["version"] == "5.0.0"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
@@ -829,24 +829,20 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         "poll_arguments": {},
         "timeout_seconds": 40,
     }
-    assert source["workflow"]["steps"][0]["run"] == {
-        "definition": "steps.run_microduck_service"
-    }
-    assert source["workflow"]["steps"][1]["run"] == {
-        "definition": "steps.finalize_service"
-    }
+    assert source["agents"]["registry"] == {}
+    assert all("run" not in step for step in source["workflow"]["steps"])
     assert all(
         "network_mode" not in group["with"] for group in source["workers"]["groups"]
     )
     assert {
-        "run_microduck_service__microduck_service",
-        "finalize_service__finalize",
+        "run_microduck_service__block_run_microduck_service_specialist",
+        "finalize_service__block_finalize_service_specialist",
     } <= node_ids
     assert "microduck_web_ui_registrar" in expanded["agents"]["entrypoints"]
     service_worker = next(
         node
         for node in expanded["agents"]["nodes"]
-        if node["node_id"] == "run_microduck_service__microduck_service"
+        if node["node_id"] == "run_microduck_service__block_run_microduck_service_specialist"
     )
     for node in expanded["agents"]["nodes"]:
         if node.get("config", {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker":

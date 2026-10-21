@@ -290,3 +290,36 @@ worker is offline. Loading a skill grants no action permission. Live readiness
 still comes from `get_capabilities`; runtime receipts establish completion.
 
 The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.
+
+## Block composition ownership
+
+Each blueprint can select OpenShell explicitly for compatible workers; it is
+optional and does not change other workers' defaults. Selected Python block
+workers use the stock SDK handler and Core artifact handoff v1, with the
+blueprint's image/uploads and least-privilege policy. SDK/Core own private input
+staging, nested committed-artifact transport, validation, receipt publication and
+dispatch fencing. Domain hooks retain product policy and common-store APIs.
+Blueprints must not implement transport wrappers or mount the owner run store
+writable in an isolated worker. Host, Docker and native/service choices remain
+available. `tests/test_catalog_openshell.py` guards the selected catalog bindings.
+SDK file publishers retain relative public names, immutable receipts and explicit
+required/optional policy. Matching Core separates private logical outputs from
+declared transport storage and delivers exports only when `export_outputs` is
+selected. Delivery recovery cannot redispatch models or domain work.
+
+Use existing SDK block families for reusable execution. Source manifests own
+composition and limits; focused `payloads/domain/` hooks own product policy.
+Do not retain replaced worker bindings or alternate local production runners.
+Preserve internal StepSpec collaboration, Core child scheduling and native
+execution contracts. Blueprint-owned adapters around previous entrypoints do not satisfy native
+block implementation. Native domain behavior consumes the block context and
+explicit input ports; shared blocks own generic model, rendering and publication
+mechanics. A stock worker invoking an adapter is incomplete migration work.
+The completion gate covers every catalog package and must not be narrowed to
+only the phases already converted.
+
+Validate each block boundary with the actual deployed binding, deterministic
+fixtures, artifact integrity and replay/failure cases. Keep live/native acceptance
+separate. Count all new production hooks and staged copies when reporting size;
+report test and documentation changes separately. Reducing code cannot remove
+domain checks, approval authority, evidence qualifications or observable failures.

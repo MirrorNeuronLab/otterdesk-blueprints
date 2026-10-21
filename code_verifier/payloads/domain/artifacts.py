@@ -1,24 +1,17 @@
-"""Run-scoped, atomic artifacts. Core owns delivery to configured host folders."""
-import json
-from pathlib import Path
-
+"""Editable rules and investigation checkpoints in the contained run workspace."""
 from mn_sdk.blueprint_support import write_json
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk_common.files import atomic_write_text
 
 
-def save(context, name, value):
-    write_json(Path(context['run_dir']) / name, value)
-    return artifact_reference(Path(name).stem, name)
+def save(block, name, value):
+    write_json(block.store.path(name), value)
 
 
-def read(context, name):
-    return json.loads((Path(context['run_dir']) / name).read_text(encoding='utf-8'))
+def read(block, name):
+    return block.store.read_path(name)
 
 
-def text(context, name, value):
-    target = Path(context['run_dir']) / name
+def text(block, name, value):
+    target = block.store.path(name)
     target.parent.mkdir(parents=True, exist_ok=True)
-    temporary = target.with_suffix(target.suffix + '.tmp')
-    temporary.write_text(value, encoding='utf-8')
-    temporary.replace(target)
-    return artifact_reference(target.stem, name)
+    atomic_write_text(target, value)

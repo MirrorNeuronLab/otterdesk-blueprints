@@ -2,28 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
   "type": "batch",
   "agents": {
-    "registry": {
-      "target_biology_researcher": {
-        "handler": "agents.target_biology_researcher",
-        "role": "Target Biology Researcher"
-      },
-      "structure_modeler": {
-        "handler": "agents.structure_modeler",
-        "role": "Structure Modeler"
-      },
-      "discovery_service_operator": {
-        "handler": "agents.discovery_service_operator",
-        "role": "Candidate Discovery Specialist"
-      },
-      "binding_evidence_reviewer": {
-        "handler": "agents.binding_evidence_reviewer",
-        "role": "Binding Evidence Reviewer"
-      },
-      "discovery_packet_writer": {
-        "handler": "agents.discovery_packet_writer",
-        "role": "Discovery Packet Writer"
-      }
-    }
+    "registry": {}
   },
   "cluster_distribution": {
     "collaboration": {
@@ -68,7 +47,9 @@
             "source": "biotarget",
             "target": "biotarget"
           }
-        ]
+        ],
+        "upload_path": "domain",
+        "upload_as": "domain"
       }
     }
   },

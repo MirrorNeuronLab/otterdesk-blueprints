@@ -3,17 +3,18 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .knowledge import load_prompt
 from .review_services import actor_review, review_artifact
 from .source_ingestion import *
 
-def load_portfolio_from_documents(ctx: dict[str, Any]) -> dict[str, Any]:
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def load_portfolio_from_documents(state) -> dict[str, Any]:
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     for doc in docs:
         data = doc.get("data")
         if isinstance(data, dict) and isinstance(data.get("portfolio"), dict):
             return copy.deepcopy(data)
-    payload = ctx["payload"]
+    payload = state["inputs"]
     return {
         "portfolio": copy.deepcopy(payload.get("portfolio") or {}),
         "benchmark_portfolio": copy.deepcopy(payload.get("benchmark_portfolio") or {}),
@@ -22,22 +23,24 @@ def load_portfolio_from_documents(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
 @activity_operation('Loading portfolio context', completed='Loading portfolio context: completed')
-def step_portfolio_context_loader(ctx: dict[str, Any]) -> dict[str, Any]:
-    loaded = load_portfolio_from_documents(ctx)
+def step_portfolio_context_loader(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    loaded = load_portfolio_from_documents(state)
     portfolio = loaded.get("portfolio") if isinstance(loaded.get("portfolio"), dict) else {}
     holdings = portfolio.get("holdings") if isinstance(portfolio.get("holdings"), list) else []
     portfolio_source_refs = [
         doc["source_ref"]
-        for doc in ctx["state"]["workflow"]["financial_document_reader"].get("documents", [])
+        for doc in state["workflow"]["financial_document_reader"].get("documents", [])
         if isinstance(doc.get("data"), dict) and isinstance(doc.get("data", {}).get("portfolio"), dict)
     ]
-    if not portfolio_source_refs and ctx["payload"].get("portfolio"):
+    if not portfolio_source_refs and state["inputs"].get("portfolio"):
         portfolio_source_refs = ["workflow_input:portfolio"]
     policy = loaded.get("risk_policy") or {}
     policy_metadata = copy.deepcopy(
         loaded.get("risk_policy_metadata")
         or policy.get("metadata")
-        or ctx["payload"].get("risk_policy_metadata")
+        or state["inputs"].get("risk_policy_metadata")
         or {}
     )
     policy_customer_specific = bool(policy_metadata.get("customer_specific", False))
@@ -54,8 +57,8 @@ def step_portfolio_context_loader(ctx: dict[str, Any]) -> dict[str, Any]:
             else "No signed customer investment policy with provenance was supplied; limits are screening thresholds only."
         ),
     }
-    profile = copy.deepcopy(ctx["payload"].get("customer_profile") or ctx["payload"].get("investment_profile") or {})
-    return {
+    profile = copy.deepcopy(state["inputs"].get("customer_profile") or state["inputs"].get("investment_profile") or {})
+    return save_result(block, state, "portfolio_context_loader", {
         "portfolio": portfolio,
         "benchmark_portfolio": loaded.get("benchmark_portfolio") or {},
         "risk_policy": loaded.get("risk_policy") or {},
@@ -67,7 +70,7 @@ def step_portfolio_context_loader(ctx: dict[str, Any]) -> dict[str, Any]:
         "holding_count": len(holdings),
         "symbols": sorted({str(item.get("symbol", "")).upper() for item in holdings if isinstance(item, dict) and item.get("symbol")}),
         "warnings": [] if holdings else ["no_portfolio_holdings_detected"],
-    }
+    })
 
 def deterministic_price(symbol: str) -> float:
     symbol = symbol.upper()
@@ -76,8 +79,10 @@ def deterministic_price(symbol: str) -> float:
     return 25.0 + (sum(ord(char) for char in symbol) % 200)
 
 @activity_operation('Loading portfolio market data', completed='Loading portfolio market data: completed')
-def step_portfolio_market_data_loader(ctx: dict[str, Any]) -> dict[str, Any]:
-    context = ctx["state"]["workflow"]["portfolio_context_loader"]
+def step_portfolio_market_data_loader(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    context = state["workflow"]["portfolio_context_loader"]
     series = {}
     for symbol in context.get("symbols") or []:
         price = deterministic_price(symbol)
@@ -86,19 +91,21 @@ def step_portfolio_market_data_loader(ctx: dict[str, Any]) -> dict[str, Any]:
             "last_price": price,
             "source_ref": f"deterministic_market_fixture:{symbol}",
             "freshness": "fixture",
-            "as_of": utc_now_iso(),
+            "as_of": state["created_at"],
         }
-    return {
+    return save_result(block, state, "portfolio_market_data_loader", {
         "provider": "deterministic_public_market_fixture",
         "series": series,
         "source_refs": [item["source_ref"] for item in series.values()],
         "warnings": ["market_data_is_fixture_for_local_review"],
-    }
+    })
 
 @activity_operation('Calculating portfolio risk', completed='Calculating portfolio risk: completed')
-def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
-    context = ctx["state"]["workflow"]["portfolio_context_loader"]
-    market = ctx["state"]["workflow"]["portfolio_market_data_loader"]
+def step_portfolio_risk_engine(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    context = state["workflow"]["portfolio_context_loader"]
+    market = state["workflow"]["portfolio_market_data_loader"]
     portfolio = context.get("portfolio") or {}
     holdings = portfolio.get("holdings") if isinstance(portfolio.get("holdings"), list) else []
     cash = float(portfolio.get("cash") or 0.0)
@@ -154,7 +161,7 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
     violations = list(threshold_breaches) if policy_customer_specific else []
     screening_flags = [] if policy_customer_specific else list(threshold_breaches)
     largest_position = max(marked_holdings, key=lambda item: item.get("weight_pct", 0.0), default=None)
-    risk_engine_config = ctx["config"].get("risk_engine") if isinstance(ctx["config"].get("risk_engine"), dict) else {}
+    risk_engine_config = block.config.get("risk_engine") if isinstance(block.config.get("risk_engine"), dict) else {}
     var_confidence = float(risk_engine_config.get("var_confidence") or 0.95)
     cvar_confidence = float(risk_engine_config.get("cvar_confidence") or var_confidence)
     risk_methodology = {
@@ -232,8 +239,8 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
     if var_pct > 0:
         candidate_actions.append("review_risk_budget")
     finding = actor_review(
-        ctx["config"],
-        ctx["llm"],
+        block,
+        state,
         "portfolio_risk_engine",
         "Portfolio risk reviewed with deterministic fixture market data.",
         {
@@ -260,11 +267,11 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("portfolio-llm-review.md"),
-        active_knowledge=ctx.get("active_knowledge"),
+        active_knowledge=state["knowledge"],
     )
     profile_status = context.get("customer_profile_status") or {}
     suitability_complete = profile_status.get("status") == "complete"
-    return {
+    return save_result(block, state, "portfolio_risk_engine", {
         "base_currency": portfolio.get("base_currency", "USD"),
         "total_value": total_value,
         "cash": cash,
@@ -294,11 +301,13 @@ def step_portfolio_risk_engine(ctx: dict[str, Any]) -> dict[str, Any]:
         "review_only": True,
         "actor_finding": finding,
         "warnings": ["risk_metrics_are_review_estimates_not_trade_instructions"],
-    }
+    })
 
 @activity_operation('Reviewing portfolio findings', completed='Reviewing portfolio findings: completed')
-def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_portfolio_llm_reviewer(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    workflow = state["workflow"]
     context = workflow["portfolio_context_loader"]
     market = workflow["portfolio_market_data_loader"]
     risk = workflow["portfolio_risk_engine"]
@@ -342,8 +351,8 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
     if not (context.get("risk_policy_provenance") or {}).get("customer_specific") and risk.get("screening_threshold_flags"):
         evidence_gaps.append("Thresholds are unverified screening limits, not customer-specific policy violations.")
     risk_flags = list(risk.get("policy_violations") or []) + list(risk.get("screening_threshold_flags") or []) + list(risk.get("warnings") or [])
-    return review_artifact(
-        ctx,
+    return save_result(block, state, "portfolio_llm_reviewer", review_artifact(
+        block, state,
         step_id="portfolio_llm_reviewer",
         summary="Portfolio LLM reviewer interpreted deterministic risk metrics, policy thresholds, source gaps, and human review questions.",
         context={
@@ -387,6 +396,4 @@ def step_portfolio_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
             "Verify portfolio holdings, cash, and market prices against source account evidence.",
             "Have a human reviewer verify policy provenance and evaluate any threshold flags before an allocation decision.",
         ],
-    )
-
-__all__ = ["step_portfolio_context_loader", "step_portfolio_llm_reviewer", "step_portfolio_market_data_loader", "step_portfolio_risk_engine"]
+    ))

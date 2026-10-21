@@ -7,7 +7,7 @@ from mn_sdk.llm import LLMClient
 from mn_sdk.model_access.errors import ModelAccessError
 
 
-def client(context, *, extraction=False):
+def client(*, extraction=False):
     result = LLMClient.from_env(strict=True)
     # Preparation owns the model, provider, endpoint, credentials and options
     # as one binding. Blueprint defaults must not overwrite its resolved route.

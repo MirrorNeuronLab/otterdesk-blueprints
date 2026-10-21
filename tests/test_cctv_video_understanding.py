@@ -14,7 +14,7 @@ PREDICTION = {"risk": "Possible cart-pedestrian collision", "severity": "high", 
               "recommended_review": "Review the crossing in the original video before intervening."}
 
 
-def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkeypatch):
+def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkeypatch, tmp_path):
     detector = _load_detector()
     captured = {}
     monkeypatch.setenv("MN_VLM_MODEL", "cosmos3-nano-reasoner:1.7")
@@ -27,7 +27,14 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
             '<think>PRIVATE DRAFT {"summary":"wrong draft"}</think><answer>' +
             json.dumps({"summary": "A cart approaches the crossing.", "scene_understanding": "The pedestrian and cart approach each other.",
                         "risk_predictions": [PREDICTION], "uncertainties": ["Distance cannot be measured."]}) + '</answer>'}}]}
-    monkeypatch.setattr(detector, "runtime_model_json_request", request)
+    from mn_sdk.integrations import block_model_request
+    from mn_blueprint_blocks.testing import BlockHarness
+    from mn_sdk.blueprints import blueprint_definition, read_blueprint
+    from pathlib import Path
+    descriptor = tmp_path / "runtime.json"
+    descriptor.write_text(json.dumps(blueprint_definition(read_blueprint(Path(__file__).resolve().parents[1] / "cctv_operator"))))
+    block = BlockHarness(tmp_path / "run").context(environment={"MN_BLUEPRINT_MANIFEST_PATH": str(descriptor)})
+    monkeypatch.setattr(block_model_request, "runtime_model_json_request", request)
     from types import SimpleNamespace
     def encode(command, **kwargs):
         assert kwargs["input"] == b"firstsecond"
@@ -35,12 +42,14 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
         return SimpleNamespace(returncode=0, stdout=b"temporal-mp4", stderr=b"")
     monkeypatch.setattr("mn_live_video_analysis_skill.video_content.shutil.which", lambda _: "ffmpeg")
     monkeypatch.setattr("mn_live_video_analysis_skill.video_content.subprocess.run", encode)
-    result = detector.call_ollama([b"first", b"second"], "Inspect the chronological sequence.")
+    prepared = detector.vision_model.prepare(block, [b"first", b"second"], "Inspect the chronological sequence.")
+    raw = block_model_request.model_request(block, prepared["request"], key="scene")
+    result = detector.vision_model.interpret(raw, prepared)
     media = captured["payload"]["messages"][0]["content"]
     assert media[1] == {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dGVtcG9yYWwtbXA0"}}
     assert captured["payload"]["media_io_kwargs"] == {"video": {"fps": 4.0}}
     assert captured["options"]["backend"] == "nim"
-    assert captured["options"]["required_capabilities"] == ("image_input",)
+    assert captured["options"]["required_capabilities"] == ["image_input"]
     assert captured["payload"]["max_tokens"] == 4096
     assert "response_format" not in captured["payload"]
     assert "thinking_budget_tokens" not in captured["payload"]
@@ -53,7 +62,7 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
 def test_forecasts_require_visible_support_and_finite_confidence(change):
     detector = _load_detector()
     with pytest.raises(ValueError):
-        detector.normalize_detection({"summary": "A cart is visible.", "risk_predictions": [{**PREDICTION, **change}]})
+        detector.vision_model.normalize_detection({"summary": "A cart is visible.", "risk_predictions": [{**PREDICTION, **change}]})
 
 
 def test_forecast_is_saved_when_no_target_matches_and_recalled_across_runs(monkeypatch, tmp_path, capsys, text_memory_transport):

@@ -4,7 +4,9 @@ import json
 import importlib.util
 from pathlib import Path
 import pytest
+from mn_blueprint_blocks.context import BlockContext
 from mn_sdk.blueprint_support import list_pending_human_requests, record_human_response
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "procurement_manager" / "payloads" / "domain"
@@ -118,7 +120,8 @@ def test_reviews_are_bound_to_digest_mode_and_assurance():
 
 def test_conversation_review_requests_are_exact_and_idempotent(tmp_path):
     packet = evaluate_case(sample())
-    ctx = {"run_id": "sample-run", "run_dir": str(tmp_path / "sample-run")}
+    ctx = BlockContext(store=CommittedJsonStore(tmp_path / "sample-run"),
+        invocation_id="sample-review", revision="review-test", run_id="sample-run")
     requests = emit_review_requests(ctx, packet)
     assert len(requests) == 4
     assert emit_review_requests(ctx, packet) == []
@@ -134,7 +137,8 @@ def test_manual_conversation_does_not_offer_external_role_approval(tmp_path):
     case = sample()
     case["mode"] = "MANUAL"
     packet = evaluate_case(case)
-    ctx = {"run_id": "manual-run", "run_dir": str(tmp_path / "manual-run")}
+    ctx = BlockContext(store=CommittedJsonStore(tmp_path / "manual-run"),
+        invocation_id="manual-review", revision="review-test", run_id="manual-run")
     requests = emit_review_requests(ctx, packet)
     assert len(requests) == 1
     assert "-owner-" in requests[0]

@@ -24,9 +24,9 @@ def empty():
             "financial_events": [], "gap_assignments": []}
 
 
-def prepare(context):
+def prepare(context, inputs):
     value = empty()
-    selected = context["payload"].get("matter_file")
+    selected = inputs.get("matter_file")
     if selected:
         path = Path(selected)
         if path.is_symlink() or not path.is_file() or path.stat().st_size > 262144:
@@ -44,7 +44,7 @@ def prepare(context):
         value.update(supplied)
     if len({row["id"] for row in value["issues"]}) != len(value["issues"]):
         raise ValueError("Counsel issue IDs must be unique")
-    case = Path(context["run_dir"]) / "case"
+    case = context.store.run_dir / "case"
     case.mkdir(parents=True, exist_ok=True)
     path = case / "matter.json"
     encoded = json.dumps(value, ensure_ascii=False, sort_keys=True)

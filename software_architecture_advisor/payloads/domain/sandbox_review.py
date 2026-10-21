@@ -2,15 +2,17 @@
 import json
 import time
 from pathlib import Path
-from mn_sdk.artifact_handoff import output_directory, register_output, resolve_input
+from mn_sdk.artifact_handoff import resolve_input
 from mn_opencode_skill import OpenCodeRequest, OpenCodeError, run_opencode
 from .opencode_models import gateway_binding
 from .retry_budget import effective_config, effective_deadline
 from mn_sdk.run_retry import retry_context
 
 
-def review_admitted(reference, *, llm_client=None):
-    frozen = json.loads(resolve_input(reference).read_text())
+def review_admitted(block, inputs):
+    block.check()
+    frozen = json.loads(resolve_input(inputs['review_input']).read_text())
+    llm_client = block.resources.get('llm')
     task, request, opener = frozen['task'], frozen['request'], frozen['opencode']
     if retry_context() and 'walltime_seconds' not in frozen:
         raise ValueError('This admitted request predates durable retry allowances. Start a new run.')
@@ -31,7 +33,7 @@ def review_admitted(reference, *, llm_client=None):
         if llm_client is None:
             if b'openshell-sandbox' not in Path('/proc/1/cmdline').read_bytes():
                 raise RuntimeError('Live review requires OpenShell')
-            folder = output_directory().parent / 'review-work'
+            folder = block.store.run_dir / 'review-work'
             folder.mkdir(parents=True, exist_ok=True)
             invocation = OpenCodeRequest(folder=str(folder), mode='review',
                 prompt=request['prompt'], model=opener['model'], sandbox_root='/sandbox/job',
@@ -59,7 +61,5 @@ def review_admitted(reference, *, llm_client=None):
                                f'{type(exc).__name__}: model review failed or returned invalid JSON.'}
     result = {'task_id': task['task_id'], 'request_hash': frozen['request_hash'],
               'value': value, 'expand_evidence': expanded, 'model_usage': usage}
-    name = 'review.json'
-    (output_directory()/name).write_text(json.dumps(result))
-    ref = register_output(name, kind='architecture_review_result')
-    return {'task_id': task['task_id'], 'status': 'review_returned', 'result': ref}
+    block.check()
+    return result

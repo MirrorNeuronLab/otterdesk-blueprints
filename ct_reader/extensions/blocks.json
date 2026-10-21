@@ -5,15 +5,8 @@
       "uses": "mn.blocks.native_computation@1",
       "hooks": {
         "request": "domain.native_inference:prepare",
-        "validate": "domain.native_inference:accepted"
-      },
-      "adapters": {
-        "native_task": {
-          "call": "domain.native_inference:compute",
-          "reconcile": "domain.native_inference:reconcile",
-          "read_only": false,
-          "idempotent": false
-        }
+        "validate": "domain.native_inference:accepted",
+        "project": "domain.reporting:publish"
       },
       "inputs": {
         "ct_file": {
@@ -84,6 +77,10 @@
             "maxItems": 2
           }
         }
+      },
+      "config": {
+        "model": "ct",
+        "request_timeout_seconds": 600
       }
     }
   }

@@ -172,33 +172,20 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
     }
 
     expected_uploads = {
-        "ingress": {"agents/validation": "agents/validation"},
-        "adaptive_frame_sampler": {
-            "agents/adaptive_frame_sampler": "adaptive_frame_sampler",
-            "domain": "adaptive_frame_sampler/domain",
-        },
+        "ingress": {"domain": "domain"},
+        "adaptive_frame_sampler": {"domain": "domain"},
         "visual_detector": {
-            "agents/visual_detector": "agents/visual_detector",
             "domain": "domain",
             "prompts": "prompts",
         },
-        "report_writer": {
-            "agents/report_writer": "agents/report_writer",
-            "domain": "domain",
-        },
+        "report_writer": {"domain": "domain"},
         "cctv_web_ui": {"services": "services", "domain": "domain"},
     }
     expected_commands = {
-        "ingress": ["python3", "agents/validation/start_video_monitor.py"],
-        "adaptive_frame_sampler": [
-            "bash",
-            "scripts/run_sampler_on_nvidia.sh",
-        ],
-        "visual_detector": ["bash", "scripts/run_detector_on_nvidia.sh"],
-        "report_writer": [
-            "python3",
-            "agents/report_writer/scripts/write_cctv_report.py",
-        ],
+        "ingress": ["python3", "-m", "mn_sdk.step_runtime"],
+        "adaptive_frame_sampler": ["python3", "-m", "mn_sdk.step_runtime"],
+        "visual_detector": ["python3", "-m", "mn_sdk.step_runtime"],
+        "report_writer": ["python3", "-m", "mn_sdk.step_runtime"],
         "cctv_web_ui": ["python3", "-m", "mn_sdk.step_runtime"],
     }
     assert set(nodes) == set(expected_uploads)
@@ -277,9 +264,8 @@ def test_cctv_visual_detector_preserves_the_payload_root(monkeypatch, tmp_path):
     config = detector["config"]
     upload_paths = {item["source"]: item["target"] for item in config["upload_paths"]}
 
-    assert config["workdir"] == "/mn/job/agents/visual_detector"
+    assert config["workdir"] == "/mn/job"
     assert upload_paths == {
-        "agents/visual_detector": "agents/visual_detector",
         "domain": "domain",
         "prompts": "prompts",
     }

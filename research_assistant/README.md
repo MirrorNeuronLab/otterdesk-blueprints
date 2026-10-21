@@ -119,12 +119,11 @@ store.
 
 ## Payload layout
 
-The six `payloads/steps/` modules declare only logical contracts and internal
-agent graphs. Seven same-named modules under `payloads/agents/` bind focused
-implementations from `payloads/domain/inputs.py`, `evidence.py`,
-`autonomous.py`, `verification.py`, and `reporting.py`. Runtime preparation is
-isolated in `runtime_services.py`; local sample composition lives in
-`composition.py`.
+`extensions/blocks.json` declares single-specialist phases. The remaining
+`payloads/steps/verify_and_publish_research_packet.py` declares the audit/publish
+sequence. Registry entries bind directly to the owning functions in
+`payloads/domain/`. SDK blocks own worker setup, artifact integrity, model
+budgets and publication; no blueprint runtime or compatibility adapter is used.
 
 ## Persistent conversation
 
@@ -144,6 +143,10 @@ oversized source evidence remains an explicit query failure.
 ```bash
 .venv/bin/python -m pytest -q
 ```
+
+## Block composition (4.0.0)
+
+All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work. The research procedure records its start and completion: completed analysis replays without model calls; an interrupted analysis requires reconciliation before another attempt. Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
 
 ## Blueprint package format
 

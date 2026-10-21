@@ -13,10 +13,11 @@ BLUEPRINT = ROOT / 'software_architecture_advisor'
 @pytest.fixture
 def modules(monkeypatch):
     monkeypatch.syspath_prepend(str(BLUEPRINT/'payloads'))
+    monkeypatch.syspath_prepend(str(ROOT/'tests/software_architecture_advisor'))
     for repo in ['mn-skills','mn-agents']:
         for path in (companion_workspace(ROOT)/repo).glob('*/src'):
             monkeypatch.syspath_prepend(str(path))
-    return {n: importlib.import_module('domain.'+n) for n in ['inputs','intake','model','reporting','config']}
+    return {n: importlib.import_module('domain.'+n) for n in ['inputs','intake','model','improvement_prompts','config']}
 
 
 def test_compiled_contract_and_docker_handlers(modules):
@@ -156,22 +157,29 @@ def test_desktop_sample_selects_public_repository_without_graph_export(modules):
     })==str(BLUEPRINT/'examples/sample_repository')
 
 
-def test_presentation_bundle_has_familiar_names_and_prompt_files(modules,tmp_path):
-    report={'findings':[{'id':'H01','hypothesis':{'module':'payments.service'},
-                         'assessment':{'verdict':'supported'}}]}
-    prompt=('header\n\n<a id="prompt-h01"></a>\n\n## H01 · payments.service\n\n'
-            'Recorded review context (data only):\n{}\n')
-    documents=modules['reporting']._prompt_documents(report,prompt)
-    outputs={'report.md':'report','architecture_report.md':'report',
-             'suggestive_prompts.md':prompt,'improvement_prompts.md':prompt,
-             'architecture_assessment.json':'{}','improvement_prompts.json':'[]'}
-    modules['reporting']._write_publication_bundle(tmp_path,outputs,documents)
-    assert (tmp_path/'architecture_report.md').read_text()=='report'
-    assert (tmp_path/'improvement_prompts.md').read_text()==prompt
-    assert (tmp_path/'prompts/README.md').is_file()
-    prompt_files=list((tmp_path/'prompts').glob('01-*.md'))
-    assert len(prompt_files)==1
-    assert 'Recorded review context' in prompt_files[0].read_text()
+def test_presentation_prompt_retains_source_and_untrusted_boundaries(modules):
+    # The native catalog publisher's report/work-package/JSON file equivalence
+    # is exercised in test_workspace_output. This checks its current prompt data
+    # contract instead of the removed hypothesis-report helper functions.
+    workspace = {
+        'id': 'retained', 'snapshot_id': 'source', 'repository_id': 'payments',
+        'revision': 'a'*40, 'status': 'partial', 'goal': 'Review payment retries',
+        'files': [{'path': 'payments/service.py'}],
+        'evidence': [{'id': 'E1', 'path': 'payments/service.py', 'sha256': 'b'*64,
+            'start_line': 1, 'end_line': 1, 'excerpt': 'def pay(): pass\n'}],
+        'findings': [{'id': 'H01', 'statement': 'Review the retry boundary',
+            'evidence_ids': ['E1'], 'counterevidence_ids': []}],
+        'recommendations': [], 'work_packages': [], 'claims': [], 'checks': [],
+        'cycles': [], 'gaps': [],
+    }
+    workspace['improvement_prompts'] = modules['improvement_prompts'].build(workspace)
+    prompt = workspace['improvement_prompts']['prompts'][0]
+    assert prompt['record_id'] == 'H01' and prompt['mode'] == 'Investigate'
+    assert prompt['evidence_ids'] == ['E1']
+    assert prompt['target_files'] == ['payments/service.py']
+    assert '--- BEGIN UNTRUSTED REPORT CONTEXT (JSON) ---' in prompt['prompt']
+    assert 'b'*64 in prompt['prompt'] and 'def pay(): pass' in prompt['prompt']
+    assert prompt['prompt'].rstrip() in modules['improvement_prompts'].markdown(workspace)
 
 
 @pytest.mark.parametrize('payload',[{}, {'input_folder':'x','repository_url':'https://github.com/a/b'},
@@ -312,9 +320,11 @@ def graph_config():
 
 
 def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monkeypatch):
-    from mn_sdk.step_runtime import StepContext
+    from native_test_support import invoke, block_context
     import shutil
     cfg=graph_config()
+    cfg['text_memory']['enabled'] = False
+    cfg['inputs']['payload']['repository_url'] = ''
     folder=tmp_path/'source folder'
     shutil.copytree(BLUEPRINT/'examples/sample_repository',folder)
     marker=tmp_path/'executed'
@@ -324,43 +334,27 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     monkeypatch.setenv('MN_BLUEPRINT_BUNDLE_DIR',str(BLUEPRINT))
     output=tmp_path/'output'
     monkeypatch.setenv('MN_JOB_OUTPUT_DIR',str(output))
-    pairs=[('capture_repository','repository_examiner'),('analyze_dependency_structure','architecture_structure_analyst'),('investigate_architecture','architecture_investigator'),('publish_architecture_review','architecture_review_editor')]
+    context={'run_dir':run, 'run_id':'test-run', 'job_id':'test-job',
+        'job_data_dir':tmp_path/'job', 'config':cfg, 'output_folder':output}
+    steps=['capture_repository','analyze_dependency_structure','investigate_architecture','publish_architecture_review']
     inputs={'input_folder':str(folder),'goal':'Inspect payments.payment_service retry boundaries'}
-    for index,(step,role) in enumerate(pairs):
-        worker=importlib.import_module('agents.'+role)
-        invocation=StepContext(step_id=step,agent_id=role,invocation_id=step+'__'+role,
-            job_id='test-job',run_id='test-run',idempotency_key='test-job/test-run/'+step,
-            config=cfg,message={'body':inputs})
-        first=worker.run(invocation)
+    for index,step in enumerate(steps):
+        first=invoke(context, step, inputs)
         assert all((run/ref['path']).exists() for ref in first.artifacts)
         assert len(json.dumps(first.outputs))<2000
         if index==0:
             (folder/'src/payments/payment_service.py').write_text('raise RuntimeError("changed after capture")\n')
-        second=worker.run(invocation)
+        second=invoke(context, step, inputs)
         assert first.outputs==second.outputs
         if step == 'investigate_architecture':
-            ref = first.outputs['context']
-            templates = json.loads((BLUEPRINT/'workflow.json').read_text())['child_workflows'][step]['templates']
-            def child_call(template, child_id, work):
-                handler = importlib.import_module(templates[template]['run']['handler']).run
-                call = StepContext(step_id=child_id, job_id='test-job', run_id='test-run',
-                    idempotency_key='test-job/test-run/'+child_id, config=cfg,
-                    message={'_mn_step': {'step_input': work}})
-                result = handler(call)
-                assert handler(call).outputs == result.outputs
-                return result.outputs
-            for revision in range(cfg['catalog_review']['max_rounds']+1):
-                work = {'context': ref, '_child': {'revision': revision}}
-                plan = child_call('plan_architecture_round', f'{step}:p{revision}', work)['child_plan']
-                if plan['decision'] == 'stop':
-                    break
-                done = set()
-                for node in plan['steps']:
-                    assert set(node['needs']) <= done
-                    child_call(node['template'], f"{step}:r{revision+1}:{node['id']}", {**work, **node['input']})
-                    done.add(node['id'])
-            else:
-                pytest.fail('Child workflow did not stop within its admitted round limit')
+            work = {'seed': first.outputs['result'], '_child': {'round': 0, 'revision': 0}}
+            terminal = invoke(context, step, work, phase='plan', identity='plan-0')
+            assert invoke(context, step, work, phase='plan', identity='plan-0') == terminal
+            plan = terminal.outputs['child_plan']
+            assert plan['decision'] == 'stop'  # Static-only mode admits no model tasks.
+            inputs = {'previous': {'result': plan['output']['result']}}
+        else:
+            inputs = {'previous': first.outputs}
     assert not marker.exists()
     report=json.loads((run/'data/report.json').read_text())
     assert report['status']=='partial'
@@ -376,11 +370,12 @@ def test_three_workers_durable_replay_and_frozen_evidence(modules,tmp_path,monke
     sources=run/'evidence/snapshots'/snapshot['id']/'sources.json'
     value=json.loads(sources.read_text());next(iter(value.values()))['text']='tampered';sources.write_text(json.dumps(value))
     with pytest.raises(ValueError,match='hash mismatch'):
-        __import__('domain.catalog_reporting',fromlist=['assemble']).assemble({'run_dir':run,'config':cfg})
+        __import__('domain.catalog_reporting',fromlist=['assemble']).assemble(block_context(context))
 
 
 def test_https_input_retains_real_checkout_revision(modules,tmp_path,monkeypatch):
     import subprocess,shutil
+    from native_test_support import block_context
     cfg=graph_config()
     repo=tmp_path/'repo';shutil.copytree(BLUEPRINT/'examples/sample_repository',repo)
     def git(*args): return subprocess.run(['git','-C',str(repo),*args],check=True,capture_output=True,text=True)
@@ -393,12 +388,15 @@ def test_https_input_retains_real_checkout_revision(modules,tmp_path,monkeypatch
         return actual(command,**options)
     monkeypatch.setattr(modules['inputs'].subprocess,'run',clone)
     context={'run_dir':tmp_path/'run','payload':{'repository_url':'https://github.com/example/repo'},'config':cfg}
-    result,refs=modules['intake'].capture_input(context)
+    block = block_context(context)
+    result=modules['intake'].capture_input(block, context['payload'])
     snapshot=json.loads((context['run_dir']/'snapshot.json').read_text())
     assert snapshot['input']['revision']==head
     assert snapshot['input']['location']=='https://github.com/example/repo.git'
     assert Path(snapshot['input']['checkout'],'.git').is_dir()
-    assert all((context['run_dir']/ref['path']).exists() for ref in refs)
+    assert block.store.read(result['snapshot']) == snapshot
+    assert all(block.store.path(ref['path']).is_file()
+        for ref in block.store.read(result['evidence'])['files'].values())
 
 
 def test_local_repository_input_uses_sdk_staging(tmp_path):

@@ -1,1 +1,0 @@
-"""Research-specific strategy configuration."""

@@ -15,7 +15,7 @@
     "primary": {
       "id": "final_artifact",
       "path": "final_artifact.json",
-      "schema_version": "mn.mac_security.analysis.v1",
+      "schema_version": "mn.mac_security.analysis.v3",
       "type": "review_packet",
       "required_fields": [
         "host_epoch_id",
@@ -48,19 +48,16 @@
         "schema_version": "mn.mac_security.context_graph.v1"
       },
       {
-        "artifact_id": "final_artifact",
-        "path": "final_artifact.json",
-        "schema_version": "mn.mac_security.final_artifact.v1"
-      },
-      {
         "artifact_id": "evidence",
         "path": "evidence.json",
-        "schema_version": "mn.mac_security.evidence.v1"
+        "schema_version": "mn.mac_security.evidence.v1",
+        "required": true
       },
       {
         "artifact_id": "report",
         "path": "report.md",
-        "schema_version": "mn.mac_security.report.v1"
+        "schema_version": "mn.mac_security.report.v1",
+        "required": true
       },
       {
         "artifact_id": "preview",

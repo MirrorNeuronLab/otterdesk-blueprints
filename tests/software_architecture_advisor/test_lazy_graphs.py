@@ -313,55 +313,8 @@ def test_charge():
         edges = json.loads((active / "edges.json").read_text())
         self.assertEqual(sum(e["rel_type"] == "NEXT" for e in edges), 2)
 
-    def test_layer_inference_shares_investigation_model_and_budget(self):
-        from support import audited_investigate as investigate
-        from domain.investigator import offline_assessment
-        class BudgetModel(FakeModel):
-            def complete(self, instruction, data):
-                if len(self.calls) >= 3:
-                    raise RuntimeError("Model call budget exhausted")
-                self.calls.append({"stage": "semantic" if data.get("semantic_layer") else "investigation"})
-                if "candidates" in data:
-                    return {"hypotheses": [{"module": "app", "family": "responsibility", "statement": "app may mix responsibilities",
-                        "semantic_query": "payment orchestration", "counter_query": "cohesive intentional orchestration"}]}
-                if data.get("semantic_layer"):
-                    return {"concepts": [{"name": "Payment orchestration", "rationale": "Observed worker calls", "evidence_ids": [data["passages"][0]["id"]]}]}
-                return offline_assessment({"module": "app", "family": "responsibility"}, data["packet"])
-        model = BudgetModel(self.cfg)
-        with patch("domain.derived_layers.JsonModel", side_effect=AssertionError("must reuse investigation model")):
-            report = investigate(self.workspace, self.cfg, "Inspect app responsibilities", model=model)
-        self.assertEqual(report["metrics"]["llm_calls"], 3)
-        self.assertEqual(report["metrics"]["layer_model_calls"], 1)
-        self.assertEqual(report["status"], "failed")
-        self.assertTrue(any("budget" in e for e in report["errors"]))
 
-    def test_planner_can_reach_every_graph_family(self):
-        from domain.investigator import FAMILIES
-        from domain.query_catalog import REQUIREMENTS
-        reachable = {layer for tools in FAMILIES.values() for tool in tools for layer in REQUIREMENTS[tool]}
-        self.assertEqual(reachable, set(LAYERS) - {"embeddings"})
 
-    def test_unavailable_runtime_view_yields_inconclusive_actionable_report(self):
-        from support import audited_investigate as investigate
-        from domain.investigator import offline_assessment
-        self.facts.write_text('{"version":2,"layers":{}}')
-        self.snapshot()
-        class Model(FakeModel):
-            def complete(self, instruction, data):
-                self.calls.append({"stage": "test"})
-                if "candidates" in data:
-                    return {"hypotheses": [{"module": "app", "family": "workflow", "statement": "app may violate workflow transitions",
-                        "semantic_query": "payment workflow", "counter_query": "intentional workflow coordinator"}]}
-                result = offline_assessment({"module": "app", "family": "workflow"}, data["packet"])
-                result["verdict"] = "supported"
-                return result
-        report = investigate(self.workspace, self.cfg, "Inspect app workflow", model=Model(self.cfg))
-        self.assertEqual(report["status"], "review_draft", report["errors"])
-        self.assertEqual(report["findings"][0]["assessment"]["verdict"], "inconclusive")
-        self.assertEqual(report["decision"]["verdict"], "inconclusive")
-        self.assertTrue(any("workflow" in e for e in report["decision"]["missing_evidence"]))
-        self.assertTrue(any(q["status"] == "unavailable" for q in report["queries"]))
-        self.assertTrue(report["decision"]["next_action"])
 
     def test_warm_queries_do_not_wait_for_an_unrelated_cold_build(self):
         self.manager.ensure(["dependencies"])
@@ -372,7 +325,7 @@ def test_charge():
         self.assertEqual(result["rows"], [{"inbound_dependency_pairs": 2}])
 
 import pytest
-from support import ROOT, RGX, configuration, audited_investigate
+from support import ROOT, RGX, configuration
 
 @pytest.fixture(autouse=True)
 def bind_domain(architecture_paths):

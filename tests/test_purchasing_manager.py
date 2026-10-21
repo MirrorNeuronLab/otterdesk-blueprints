@@ -79,7 +79,7 @@ def test_procurement_manager_manifest_compiles_logical_steps_and_specialist_grap
     assert set(steps["publish_purchase_decision_packet"]["needs"]) == {
         "audit_purchase_recommendation", "assess_procurement_case"
     }
-    assert "audit_purchase_recommendation__purchase_recommendation_auditor" in node_ids
+    assert "audit_purchase_recommendation__block_audit_purchase_recommendation_specialist" in node_ids
     assert "audit_purchase_recommendation__end" in node_ids
     assert "publish_purchase_decision_packet__end" in node_ids
 
@@ -95,7 +95,9 @@ def test_procurement_case_sample_joins_existing_report_without_live_research(tmp
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'procurement_manager')
 root = Path({str((ROOT / 'procurement_manager').resolve())!r})
 out = Path({str(tmp_path)!r}) / 'output'
 run = run_blueprint(
@@ -117,55 +119,61 @@ print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supp
     }
 
 
-def test_case_block_handoff_to_existing_report_worker_is_verified_and_replayable(tmp_path, monkeypatch):
+def test_case_and_comparison_block_handoffs_are_verified_and_replayable(tmp_path, monkeypatch):
     import importlib
+    import pytest
     from mn_sdk.blueprints import compile_blueprint
+    from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run as run_block
     from mn_sdk.step_runtime import StepContext
     from mn_sdk_common.committed_artifacts import CommittedJsonStore, CommittedArtifactIntegrityError
-    import pytest
 
     root = ROOT / "procurement_manager"
     monkeypatch.syspath_prepend(str(root / "payloads"))
-    composition = importlib.import_module("domain.composition")
-    case = importlib.import_module("domain.case_packet")
-    context = composition.runtime_context_for_step(inputs={
-        "input_folder": str(root / "examples/procurement_case"), "output_folder": str(tmp_path / "output")},
-        config={"execution": {"quick_test": True}}, runs_root=str(tmp_path / "runs"), run_id="case-block")
-    for operation in composition.LOCAL_OPERATIONS[:2]:
-        operation(context)
-    manifest = compile_blueprint(read_blueprint(root)).manifest
-    descriptor = tmp_path / "runtime.json"
-    descriptor.write_text(json.dumps(manifest))
-    store = CommittedJsonStore(context["run_dir"])
-    step = StepContext(step_id="assess_procurement_case", run_id="case-block", idempotency_key="case-block/assess",
-        config=context["config"], environment={"MN_RUN_DIR": str(store.run_dir), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
-            "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'}, message={"_mn_step": {"step_input": {"previous": {}}}})
-    options = {"block_step_id": "assess_procurement_case", "revision": manifest["metadata"]["mn_blocks_lock"]["revision"]}
-    assessed = run_block(step, **options)
+    package = read_blueprint(root)
+    configuration = resolve_config(package, {"execution": {"quick_test": True}})
+    config = configuration.data
+    manifest = compile_blueprint(package, configuration).manifest
+    descriptor = tmp_path / "worker.json"
+    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, manifest)))
+    store = CommittedJsonStore(tmp_path / "runs/case-block")
+    environment = {"MN_RUN_DIR": str(store.run_dir), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+        "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'}
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(tmp_path / "output"))
+
+    def invoke(step_id, inputs, *, alias=None):
+        context = StepContext(step_id=step_id, run_id="case-block", idempotency_key="case-block/" + (alias or step_id),
+            config=config, environment=environment, message={"body": {"step_input": inputs}})
+        if alias:
+            node = next(node for node in manifest["agents"]["nodes"] if node["node_id"] == step_id + "__" + alias)
+            options = json.loads(node["config"]["environment"]["MN_WORKFLOW_STEP_WITH_JSON"])
+        else:
+            options = {"block_step_id": step_id, "revision": manifest["metadata"]["mn_blocks_lock"]["revision"]}
+        return run_block(context, **options)
+
+    framed = invoke("frame_purchase_request", {"request": {"input_folder": str(root / "examples/procurement_case")}})
+    evidence = invoke("build_purchase_evidence", {"previous": framed.outputs["result"]})
+    assessed = invoke("assess_procurement_case", {"previous": evidence.outputs["result"]})
     summary = store.read(assessed.outputs["result"])
     packet = store.read(summary["case_packet"])
     assert packet["status"] == "READY_FOR_REVIEW" and packet["selected_supplier_id"] == "cedar"
-    # The parallel comparison branch changes its own mutable state; the case
-    # block receipt must remain valid and must not hash that mutable state file.
-    for operation in composition.LOCAL_OPERATIONS[3:-1]:
-        operation(context)
+    comparison = {"previous": evidence.outputs["result"]}
+    for alias in ["market", "cost", "risk"]:
+        comparison = invoke("compare_purchase_options", comparison, alias=alias).outputs
+    audited = invoke("audit_purchase_recommendation", {"previous": comparison["result"]})
     def repeated(*args, **kwargs):
         raise AssertionError("completed case assessment executed again")
-    monkeypatch.setattr(case, "assess_procurement_case", repeated)
-    assert run_block(step, **options) == assessed
-    writer = importlib.import_module("agents.purchase_report_writer")
-    published = writer.run(StepContext(step_id="publish_purchase_decision_packet", agent_id="purchase_report_writer",
-        run_id="case-block", idempotency_key="case-block/publish", config=context["config"],
-        message={"_mn_step": {"step_input": {**context["payload"], "case_assessment": assessed.outputs["result"]}}}),
-        runs_root=store.run_dir.parent)
+    monkeypatch.setattr(importlib.import_module("domain.case_packet"), "assess_procurement_case", repeated)
+    assert invoke("assess_procurement_case", {"previous": evidence.outputs["result"]}) == assessed
+    joined = {"previous": audited.outputs["result"], "case_assessment": assessed.outputs["result"]}
+    published = invoke("publish_purchase_decision_packet", joined)
     assert published.status == "completed"
-    final = json.loads((store.run_dir / "final_artifact.json").read_text())
-    assert final["procurement_case"] == packet
+    assert store.read_path("final_artifact.json")["procurement_case"] == packet
     assert "Simulation values are fictional." in (tmp_path / "output/procurement_manager_report.md").read_text()
+    assert not store.path("workflow_state/procurement_manager_state.json").exists()
     store.path("workflow_state/procurement_case_packet.json").write_text('{"status":"tampered"}')
     with pytest.raises(CommittedArtifactIntegrityError):
-        case.publish_verified_case(context, step_inputs={"case_assessment": assessed.outputs["result"]})
+        invoke("publish_purchase_decision_packet", joined)
 
 
 def test_procurement_manager_compiled_docker_workers_ship_their_build_context():
@@ -198,7 +206,9 @@ def test_procurement_manager_sample_produces_a_procurement_ready_ai_workstation_
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'procurement_manager')
 from domain.inputs import parse_plain_text_purchase_request
 
 root = Path({str((ROOT / "procurement_manager").resolve())!r})
@@ -662,7 +672,9 @@ def test_procurement_manager_uses_five_bounded_llm_narrative_calls_without_chang
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'procurement_manager')
 
 class BusinessNarrativeLLM:
     provider = "fake"
@@ -760,7 +772,9 @@ def test_procurement_manager_rejects_invented_numbers_and_unknown_references(tmp
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'procurement_manager')
 
 class HallucinatingLLM:
     provider = "fake"
@@ -841,7 +855,9 @@ def test_procurement_manager_model_failure_completes_with_visible_deterministic_
         f"""
 import json
 from pathlib import Path
-from domain.composition import run_blueprint
+from functools import partial
+from block_workflow_fixture import run_sample
+run_blueprint = partial(run_sample, 'procurement_manager')
 
 class FailingLLM:
     provider = "fake"

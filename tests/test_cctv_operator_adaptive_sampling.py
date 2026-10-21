@@ -1,44 +1,6 @@
 from __future__ import annotations
 
-import importlib.util
 import json
-from pathlib import Path
-import sys
-
-
-ROOT = Path(__file__).resolve().parents[1]
-PAYLOADS = ROOT / "cctv_operator" / "payloads"
-LIVE_VIDEO_SKILL = (
-    ROOT.parent
-    / "mn-skills"
-    / "live_video_analysis_skill"
-    / "src"
-)
-if str(LIVE_VIDEO_SKILL) not in sys.path:
-    sys.path.insert(0, str(LIVE_VIDEO_SKILL))
-
-
-def _load(path: Path, name: str):
-    original_path = list(sys.path)
-    original_domain_modules = {
-        key: value
-        for key, value in sys.modules.items()
-        if key == "domain" or key.startswith("domain.")
-    }
-    for key in original_domain_modules:
-        sys.modules.pop(key, None)
-    spec = importlib.util.spec_from_file_location(name, path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    try:
-        spec.loader.exec_module(module)
-    finally:
-        sys.path[:] = original_path
-        for key in list(sys.modules):
-            if key == "domain" or key.startswith("domain."):
-                sys.modules.pop(key, None)
-        sys.modules.update(original_domain_modules)
-    return module
 
 
 def test_sampling_defaults_and_scene_gate_are_bounded():
@@ -169,35 +131,6 @@ def test_monitoring_state_is_written_as_a_durable_run_artifact(tmp_path):
     }
 
 
-def test_sampler_uses_live_input_idempotency_metadata_as_command_id():
-    sampler = _load(
-        PAYLOADS / "agents" / "adaptive_frame_sampler" / "scripts" / "sample_video.py",
-        "cctv_adaptive_sampler_command_id",
-    )
-
-    assert (
-        sampler.live_input_command_id(
-            {"headers": {"mn.idempotency_key": "operator-command-42"}}
-        )
-        == "operator-command-42"
-    )
-
-
-def test_sampler_discards_a_dead_persistent_frame_reader_cache(tmp_path):
-    sampler = _load(
-        PAYLOADS / "agents" / "adaptive_frame_sampler" / "scripts" / "sample_video.py",
-        "cctv_adaptive_sampler_stale_reader",
-    )
-    cache = tmp_path / "live_stream_cache"
-    cache.mkdir()
-    (cache / "status.json").write_text(json.dumps({"pid": -1}))
-    (cache / "latest.jpg").write_bytes(b"stale-frame")
-
-    assert sampler.reset_stale_live_stream_cache(tmp_path) is True
-    assert not (cache / "status.json").exists()
-    assert not (cache / "latest.jpg").exists()
-
-
 def test_frame_batch_is_durable_and_contains_only_artifact_metadata(tmp_path):
     from mn_live_video_analysis_skill import (
         frame_digest,
@@ -242,53 +175,3 @@ def test_frame_batch_is_durable_and_contains_only_artifact_metadata(tmp_path):
     assert latest.read_bytes() == content
     assert metadata["trigger"] == "on_demand"
     assert metadata["model_latency_ms"] == 42
-
-
-def test_sampler_maps_resident_batch_to_cctv_message_without_image_blob(monkeypatch, tmp_path, capsys):
-    sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_caption_sampler")
-    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
-    # Exercise the shipped configuration against the shared skill contract.
-    # An unsupported sequence trigger prevents both the sampler and resident
-    # Web UI from starting, before any caption can be claimed.
-    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", (ROOT / "cctv_operator/config/default.json").read_text())
-    monkeypatch.setattr(sampler, "load_json_env", lambda _name: {})
-    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a: None)
-    monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
-    batch = {"batch_id": "caption-one", "frame_batch_ref": "frame_batches/one/batch.json",
-             "trigger": "baseline", "selected_count": 1}
-    monkeypatch.setattr(sampler, "claim_caption", lambda *_a, **_kw: {"batch": batch, "state": {"pending_windows": 0}})
-    assert sampler.main() == 0
-    result = json.loads(capsys.readouterr().out)
-    assert result["emit_messages"][0] == {"type": "cctv_operator_frame_batch_ready", "body": batch,
-                                        "artifacts": [{"path": batch["frame_batch_ref"], "type": "frame_batch"}]}
-    assert result["emit_messages"][-1]["type"] == "cctv_operator_sample_due"
-    assert "content_base64" not in json.dumps(result)
-    assert result["next_state"]["caption_schedule"] == {"pending_windows": 0}
-
-
-def test_sampler_carries_conversation_command_into_the_caption_claim(monkeypatch, tmp_path, capsys):
-    sampler = _load(PAYLOADS / "agents/adaptive_frame_sampler/scripts/sample_video.py", "cctv_sampler_goal")
-    instruction = "Look for objects blocking the exit."
-    files = {"MN_INPUT_FILE": {"command_id": "conversation-command", "instruction": instruction, "analyze_now": True},
-             "MN_MESSAGE_FILE": {"message_id": "transport-message"}, "MN_CONTEXT_FILE": {"agent_state": sampler.initial_state()}}
-    for name, value in files.items():
-        path = tmp_path / f"{name}.json"
-        path.write_text(json.dumps(value))
-        monkeypatch.setenv(name, str(path))
-    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "run"))
-    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", "{}")
-    monkeypatch.setattr(sampler, "start_agent_beacon_thread", lambda *_a: None)
-    monkeypatch.setattr(sampler.time, "sleep", lambda *_a: None)
-    def claim(_root, _run_id, **kwargs):
-        monitoring = kwargs["monitoring"]
-        assert kwargs["force"] is True and monitoring["last_command_id"] == "conversation-command"
-        assert monitoring["instruction"] == instruction and monitoring["instruction_revision"] == 1
-        return {"state": {}, "batch": {"frame_batch_ref": "frame_batches/test/batch.json",
-                "instruction": instruction, "instruction_revision": 1, "command_id": monitoring["last_command_id"]}}
-    monkeypatch.setattr(sampler, "claim_caption", claim)
-    assert sampler.main() == 0
-    result = json.loads(capsys.readouterr().out)
-    batch = result["emit_messages"][0]["body"]
-    persisted = json.loads((tmp_path / "run/monitoring_state.json").read_text())
-    assert persisted["last_command_id"] == batch["command_id"]
-    assert persisted["instruction_revision"] == batch["instruction_revision"]

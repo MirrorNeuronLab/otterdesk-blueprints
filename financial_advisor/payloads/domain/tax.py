@@ -3,13 +3,16 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .knowledge import load_prompt
 from .review_services import actor_review, review_artifact
 from .source_ingestion import *
 
 @activity_operation('Classifying tax documents', completed='Classifying tax documents: completed')
-def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def step_tax_document_router(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     tax_docs = [
         doc
         for doc in docs
@@ -29,18 +32,20 @@ def step_tax_document_router(ctx: dict[str, Any]) -> dict[str, Any]:
         missing.append("W-2")
     if not any(key.startswith("1099") for key in groups):
         missing.append("1099 evidence")
-    return {
-        "tax_year": ctx["payload"].get("tax_year"),
-        "filing_status": ctx["payload"].get("filing_status"),
+    return save_result(block, state, "tax_document_router", {
+        "tax_year": state["inputs"].get("tax_year"),
+        "filing_status": state["inputs"].get("filing_status"),
         "tax_document_count": len(tax_docs),
         "groups": groups,
         "missing_recommended_forms": missing,
         "warnings": ["draft_review_only_not_for_filing"],
-    }
+    })
 
 @activity_operation('Extracting text from tax forms', completed='Extracting text from tax forms: completed')
-def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def step_tax_form_ocr_capturer(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     label_docs = {
         tax_form_stem(doc["source_ref"]): doc
         for doc in docs
@@ -153,7 +158,7 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         for form in forms
         if not form.get("substantive_field_count")
     ]
-    return {
+    return save_result(block, state, "tax_form_ocr_capturer", {
         "tax_form_count": len(forms),
         "answer_file_count": len(label_docs),
         "ocr_required_count": len([form for form in forms if form.get("ocr_required")]),
@@ -171,13 +176,15 @@ def step_tax_form_ocr_capturer(ctx: dict[str, Any]) -> dict[str, Any]:
         "warnings": sorted(set(warnings)),
         "review_only": True,
         "recommended_action": "review_captured_tax_form_fields_against_source_images_before_tax_use",
-    }
+    })
 
 @activity_operation('Preparing tax workpapers', completed='Preparing tax workpapers: completed')
-def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
-    router = ctx["state"]["workflow"]["tax_document_router"]
-    tax_capture = ctx["state"]["workflow"]["tax_form_ocr_capturer"]
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def step_tax_workpaper_preparer(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    router = state["workflow"]["tax_document_router"]
+    tax_capture = state["workflow"]["tax_form_ocr_capturer"]
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     wages = 0.0
     withholding = 0.0
     interest = 0.0
@@ -196,8 +203,8 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
             withholding += extract_named_amount(text, ["box 4 federal income tax withheld", "federal income tax withheld"])
     draft_income = wages + interest + retirement_distribution
     findings = actor_review(
-        ctx["config"],
-        ctx["llm"],
+        block,
+        state,
         "tax_workpaper_preparer",
         "Draft tax workpapers prepared for human review.",
         {
@@ -243,7 +250,7 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("tax-llm-review.md"),
-        active_knowledge=ctx.get("active_knowledge"),
+        active_knowledge=state["knowledge"],
     )
     blockers = list(router.get("missing_recommended_forms") or [])
     if tax_capture.get("review_required_sources"):
@@ -263,7 +270,7 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         if not form.get("substantive_field_count") and form.get("form_type")
     })
     blockers = list(dict.fromkeys(blockers))
-    return {
+    return save_result(block, state, "tax_workpaper_preparer", {
         "tax_year": router.get("tax_year"),
         "filing_status": router.get("filing_status"),
         "workpapers": {
@@ -292,11 +299,13 @@ def step_tax_workpaper_preparer(ctx: dict[str, Any]) -> dict[str, Any]:
         "readiness_status": "incomplete" if blockers else "review_required",
         "actor_finding": findings,
         "warnings": ["draft_tax_packet_not_ready_to_file"],
-    }
+    })
 
 @activity_operation('Reviewing tax workpapers', completed='Reviewing tax workpapers: completed')
-def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_tax_llm_reviewer(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    workflow = state["workflow"]
     router = workflow["tax_document_router"]
     tax_capture = workflow["tax_form_ocr_capturer"]
     workpaper = workflow["tax_workpaper_preparer"]
@@ -323,8 +332,8 @@ def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
         )
     if workpaper.get("workpapers", {}).get("draft_income_total", 0) <= 0:
         evidence_gaps.append("Draft income total is zero or unavailable in deterministic tax workpapers.")
-    return review_artifact(
-        ctx,
+    return save_result(block, state, "tax_llm_reviewer", review_artifact(
+        block, state,
         step_id="tax_llm_reviewer",
         summary="Tax LLM reviewer checked draft workpapers, OCR capture, missing-form blockers, and filing-boundary constraints.",
         context={
@@ -372,6 +381,4 @@ def step_tax_llm_reviewer(ctx: dict[str, Any]) -> dict[str, Any]:
             "Review missing-form and OCR blockers with a qualified human reviewer.",
             "Reconcile draft tax totals to source forms before any tax filing workflow.",
         ],
-    )
-
-__all__ = ["step_tax_document_router", "step_tax_form_ocr_capturer", "step_tax_llm_reviewer", "step_tax_workpaper_preparer"]
+    ))

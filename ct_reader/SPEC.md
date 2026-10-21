@@ -16,13 +16,14 @@ Require one NVIDIA CUDA GPU with at least 48 GiB device memory. Declare NV-Reaso
 ## Outputs and evaluation
 
 `mn.blocks.native_computation@1` supplies the standard specialist worker. Domain
-hooks snapshot the validated volume, dispatch the existing SDK native model
-request, validate the research-only report and reconcile saved output. The block
+hooks prepare the bounded volume reference, validate the research-only response
+and compose the report. The shared SDK capability dispatches the native model
+request and reconciles a durably saved response. The block
 binds source/config/code identities and inputs to its invocation, verifies
 artifact hashes and fences uncertain native requests. It does not pass volume
 bytes through coordination messages. The `read_ct_volume` logical step and
 public report files retain their contracts; generated worker identity changes
-in version 2. Removed local step/agent/runtime wrappers have no second execution
+in version 2. Version 3 removes the blueprint-owned native-task adapter. Removed local step/agent/runtime wrappers have no second execution
 path. The block call budget is one native dispatch and its deadline is 900s;
 the existing native transport timeout remains 600s with zero retries.
 
@@ -50,3 +51,15 @@ qualified clinical review. Explaining a saved result does not launch inference.
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Block composition (3.0.0)
+
+Use the stock native capability with `config.model: ct`. Native requests contain
+only a relative API path and payload; the committed volume is bound with explicit
+base64 encoding and materialized only for dispatch. The block freezes that request
+before the effect and preserves the raw native response before publication.
+Publication retries reuse both, including if the original local file changes.
+Unknown dispatch outcomes remain blocked, and completed replay verifies published
+artifact bytes. SDK/blocks >=1.3.61.dev26 with matching native capability support
+are required. The existing Docker worker, NVIDIA requirement, managed model
+lifecycle, pinned image and scientific limitations remain authoritative.

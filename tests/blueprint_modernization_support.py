@@ -44,12 +44,19 @@ def assert_modular_payload(blueprint_id: str) -> None:
     assert not (blueprint / "payloads" / "agents" / "domain.py").exists()
 
     runtime_path = blueprint / "payloads" / "runtime" / "runtime.py"
-    runtime_source = runtime_path.read_text(encoding="utf-8")
-    assert len(runtime_source.splitlines()) < 500
-    assert "domain.runtime_services" in runtime_source
-    assert "domain.intake" not in runtime_source
-    assert "domain.reporting" not in runtime_source
-    assert "agents." not in runtime_source
+    if runtime_path.exists():
+        runtime_source = runtime_path.read_text(encoding="utf-8")
+        assert len(runtime_source.splitlines()) < 500
+        assert "domain.runtime_services" in runtime_source
+        assert "domain.intake" not in runtime_source
+        assert "domain.reporting" not in runtime_source
+        assert "agents." not in runtime_source
+    else:
+        assert not list((blueprint / "payloads/runtime").glob("*.py"))
+        assert manifest.get("metadata", {}).get("mn_blocks") or (registry and all(
+            spec.get("handler") == "mn_sdk.integrations.block_worker"
+            and spec.get("with", {}).get("instance") for spec in registry.values()
+        )), "A native SDK composition replaces runtime bindings."
 
     for step_path in (blueprint / "payloads" / "steps").glob("*.py"):
         tree = ast.parse(step_path.read_text(encoding="utf-8"))
@@ -60,12 +67,18 @@ def assert_modular_payload(blueprint_id: str) -> None:
         ), step_path
 
     for agent_id, spec in registry.items():
-        assert (blueprint / "payloads" / "agents" / f"{agent_id}.py").exists()
-        assert spec["handler"] == f"agents.{agent_id}"
+        if spec["handler"] == "mn_sdk.integrations.block_worker":
+            from mn_blueprint_blocks import validate_instance
+            instance = validate_instance(spec["with"]["instance"])
+            assert spec["with"]["revision"] == f"{blueprint_id}@{read_blueprint(blueprint).manifest['version']}"
+            assert instance.hooks["operation"].startswith("domain.")
+        else:
+            assert (blueprint / "payloads" / "agents" / f"{agent_id}.py").exists()
+            assert spec["handler"] == f"agents.{agent_id}"
 
 
 def _payload_pythonpath(blueprint_id: str) -> str:
-    roots = [blueprint_path(blueprint_id) / "payloads"]
+    roots = [blueprint_path(blueprint_id) / "payloads", ROOT / "tests"]
     roots.extend(
         sorted(
             path
@@ -93,11 +106,12 @@ def run_payload_script(blueprint_id: str, script: str) -> dict[str, Any]:
         [sys.executable, "-c", script],
         cwd=ROOT,
         env=env,
-        check=True,
+        check=False,
         capture_output=True,
         text=True,
         timeout=30,
     )
+    assert completed.returncode == 0, completed.stderr
     lines = [line for line in completed.stdout.splitlines() if line.strip()]
     assert lines, completed.stderr
     return json.loads(lines[-1])
@@ -111,17 +125,26 @@ import importlib
 import json
 from pathlib import Path
 
-from mn_sdk.blueprints import blueprint_definition, read_blueprint
-manifest = blueprint_definition(read_blueprint(Path({str(blueprint_path(blueprint_id))!r})))
-registry = (manifest.get("agents") or {{}}).get("registry") or {{}}
+from mn_sdk.blueprints import compile_blueprint, read_blueprint
+manifest = compile_blueprint(read_blueprint(Path({str(blueprint_path(blueprint_id))!r}))).manifest
 loaded = []
-for agent_id, spec in registry.items():
-    module = importlib.import_module(spec["handler"])
+for node in manifest["agents"]["nodes"]:
+    env = node.get("config", {{}}).get("environment", {{}})
+    if not env.get("MN_WORKFLOW_STEP_HANDLER"):
+        continue
+    module = importlib.import_module(env["MN_WORKFLOW_STEP_HANDLER"])
     assert callable(module.run)
-    loaded.append(agent_id)
+    parameters = json.loads(env.get("MN_WORKFLOW_STEP_WITH_JSON", "{{}}"))
+    if module.__name__ == "mn_sdk.integrations.block_worker":
+        instance = parameters.get("instance") or manifest["metadata"]["mn_blocks_lock"]["steps"][parameters["block_step_id"]]
+        for reference in instance.get("hooks", {{}}).values():
+            hook_module, function = reference.split(":")
+            assert callable(getattr(importlib.import_module(hook_module), function))
+    loaded.append(env["MN_WORKFLOW_AGENT_ID"])
 print(json.dumps({{"loaded": loaded}}, sort_keys=True))
 """,
     )
-    assert set(result["loaded"]) == set(
-        source_manifest(blueprint_id)["agents"]["registry"]
-    )
+    expected = {node["config"]["environment"]["MN_WORKFLOW_AGENT_ID"]
+                for node in expanded_manifest(blueprint_id)["agents"]["nodes"]
+                if node.get("config", {}).get("environment", {}).get("MN_WORKFLOW_STEP_HANDLER")}
+    assert expected and set(result["loaded"]) == expected

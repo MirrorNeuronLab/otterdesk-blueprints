@@ -78,7 +78,6 @@ def build_review(state, store, goal):
         markdown="\n".join(lines),
         evidence_ids=tuple(e.evidence_id for e in evidence),
     )
-    store.save_agent_review(report, hypotheses)
     return {
         "report": asdict(report),
         "hypothesis_count": len(hypotheses),

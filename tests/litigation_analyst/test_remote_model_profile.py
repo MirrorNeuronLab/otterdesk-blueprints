@@ -51,12 +51,14 @@ def test_registered_remote_default_uses_any_gpu_and_16gb(tmp_path, monkeypatch, 
 
 
 @pytest.mark.parametrize("selection,expected", [("default", "configured/remote"), ("explicit/model", "explicit/model")])
-def test_relationship_extractor_inherits_provider_binding(modules, monkeypatch, selection, expected):
+def test_relationship_extractor_inherits_provider_binding(modules, monkeypatch, tmp_path, selection, expected):
     from domain.relationship_index import _model
     from mn_sdk.llm import LLMClient
     original = LLMClient(model="configured/remote", provider="litellm", api_base="http://managed.test/v1")
     monkeypatch.setattr(LLMClient, "from_env", lambda **kwargs: original)
-    current, model, revision = _model({"config": {"source_relationships": {"model": selection}}}, None)
+    from litigation_native_test_support import block_context
+    native = block_context({'run_dir':tmp_path / 'run', "config": {"source_relationships": {"model": selection}}})
+    current, model, revision = _model(native, None)
     assert model == expected
     assert current.provider == original.provider
     assert current.api_base == original.api_base

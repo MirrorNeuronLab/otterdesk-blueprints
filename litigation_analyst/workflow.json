@@ -8,9 +8,6 @@
       "label": "Prepare Case Sources",
       "goal": "Inventory and normalize legal sources with exact provenance.",
       "needs": [],
-      "run": {
-        "definition": "steps.prepare_case_sources"
-      },
       "control": {
         "timeout_seconds": 3600
       }
@@ -23,9 +20,6 @@
       "needs": [
         "prepare_case_sources"
       ],
-      "run": {
-        "definition": "steps.build_case_indexes"
-      },
       "control": {
         "timeout_seconds": 99999
       }
@@ -38,9 +32,6 @@
       "needs": [
         "build_case_indexes"
       ],
-      "run": {
-        "definition": "steps.investigate_case_evidence"
-      },
       "control": {
         "timeout_seconds": 99999
       }
@@ -53,9 +44,6 @@
       "needs": [
         "investigate_case_evidence"
       ],
-      "run": {
-        "definition": "steps.write_review_draft"
-      },
       "control": {
         "timeout_seconds": 3600
       }
@@ -76,9 +64,6 @@
       "planner": "plan_litigation_round",
       "templates": {
         "plan_litigation_round": {
-          "run": {
-            "handler": "agents.litigation_round_planner"
-          },
           "control": {
             "timeout_seconds": 600,
             "retry": {
@@ -92,7 +77,27 @@
         },
         "collect_litigation_evidence": {
           "run": {
-            "handler": "agents.litigation_evidence_collector"
+            "handler": "mn_sdk.integrations.block_worker",
+            "with": {
+              "revision": "litigation_analyst@5.0.0",
+              "instance": {
+                "uses": "mn.blocks.domain_operation@1",
+                "hooks": {
+                  "operation": "domain.round_tasks:collect_evidence"
+                },
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "task",
+                    "_child"
+                  ]
+                },
+                "limits": {
+                  "max_calls": 1,
+                  "timeout_seconds": 600
+                }
+              }
+            }
           },
           "control": {
             "timeout_seconds": 600,
@@ -109,7 +114,27 @@
         },
         "assess_litigation_hypothesis": {
           "run": {
-            "handler": "agents.litigation_hypothesis_assessor"
+            "handler": "mn_sdk.integrations.block_worker",
+            "with": {
+              "revision": "litigation_analyst@5.0.0",
+              "instance": {
+                "uses": "mn.blocks.domain_operation@1",
+                "hooks": {
+                  "operation": "domain.round_tasks:assess_hypothesis"
+                },
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "task",
+                    "_child"
+                  ]
+                },
+                "limits": {
+                  "max_calls": 1,
+                  "timeout_seconds": 600
+                }
+              }
+            }
           },
           "control": {
             "timeout_seconds": 600,
@@ -126,7 +151,27 @@
         },
         "review_litigation_finding": {
           "run": {
-            "handler": "agents.litigation_finding_reviewer"
+            "handler": "mn_sdk.integrations.block_worker",
+            "with": {
+              "revision": "litigation_analyst@5.0.0",
+              "instance": {
+                "uses": "mn.blocks.domain_operation@1",
+                "hooks": {
+                  "operation": "domain.round_tasks:review_finding"
+                },
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "task",
+                    "_child"
+                  ]
+                },
+                "limits": {
+                  "max_calls": 1,
+                  "timeout_seconds": 600
+                }
+              }
+            }
           },
           "control": {
             "timeout_seconds": 600,
@@ -143,7 +188,27 @@
         },
         "summarize_litigation_round": {
           "run": {
-            "handler": "agents.litigation_round_summarizer"
+            "handler": "mn_sdk.integrations.block_worker",
+            "with": {
+              "revision": "litigation_analyst@5.0.0",
+              "instance": {
+                "uses": "mn.blocks.domain_operation@1",
+                "hooks": {
+                  "operation": "domain.round_tasks:summarize_round"
+                },
+                "input_schema": {
+                  "type": "object",
+                  "required": [
+                    "task",
+                    "_child"
+                  ]
+                },
+                "limits": {
+                  "max_calls": 1,
+                  "timeout_seconds": 600
+                }
+              }
+            }
           },
           "control": {
             "timeout_seconds": 600,
@@ -160,14 +225,15 @@
         }
       },
       "inputs": {
-        "context": [
+        "seed": [
           "outputs",
-          "result",
-          "context"
+          "result"
         ]
       },
       "outputs": {
-        "result": []
+        "result": [
+          "result"
+        ]
       },
       "max_rounds": 3,
       "max_steps_per_round": 7

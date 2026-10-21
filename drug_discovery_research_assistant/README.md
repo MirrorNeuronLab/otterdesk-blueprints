@@ -82,6 +82,28 @@ python3 -m pytest -q tests/test_drug_discovery_research_assistant.py
 
 The default output folder is configured as `~/Downloads/drug-discovery-research-assistant`. The SDK copies remote outputs back to this directory on the submitting host. `candidates.json` contains five unique molecules; `final_artifact.json` contains their ranked evaluations. The existing live run retains its submitted configuration; these settings apply to new runs.
 
+## Native block composition (4.0.0)
+
+All five phases bind SDK domain-operation blocks directly to the scientific
+functions in `domain/native_stages.py`, `domain/continuous_service.py` and
+`domain/reporting.py`. Operations consume `BlockContext` and immutable predecessor
+references. The target and structure phases call the bundled BioTarget scientific
+APIs directly. The cycle phase invokes the molecular generation, screening and
+simulation pipeline with the captured research inputs and selected targets.
+
+The SDK owns worker execution, cancellation and liveness beacons. The previous
+phase/context bindings, private beacon implementation and five command-line
+phase wrappers are removed. SDK storage binds captured structures and completed
+cycle artifacts to their hashes; SDK bundles publish required scientific JSON
+before the optional result dashboard and conversation media. Domain code retains
+scientific ranking, five distinct candidates, GPU placement and review policy.
+
+A saved cycle start without matching completed evidence requires reconciliation;
+retrying cannot silently launch the scientific cycle again. Matching completed
+cycle evidence is reused. Cancellation is checked between molecular phases and
+scientific jobs. Live scientific failures remain failures. Explicit mock runs
+are labeled `fake_smoke_test` in the final report and do not invoke live science.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

@@ -1,14 +1,11 @@
 #!/usr/bin/env python3.12
 from __future__ import annotations
 
-import argparse
 import copy
 import hashlib
 import json
 import os
 import re
-import time
-import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,13 +14,8 @@ from mn_prototype_actor_review_agent.actors import get_actor_llm_client
 from mn_sdk.blueprint_support import (
     DeterministicFallbackLLM,
     fake_llm_mode_enabled,
-    create_blueprint_run_context,
-    persist_blueprint_run_context,
-    resolve_existing_path,
     source_manifest,
 )
-from mn_sdk_common.beacon import start_agent_beacon_thread
-from mn_sdk_common.events import append_event_jsonl
 from mn_sdk_common.prompts import PromptLibrary
 
 try:
@@ -33,41 +25,14 @@ except Exception:  # pragma: no cover - optional runtime dependency
     extract_document = None
 
 
-BLUEPRINT_ID = "financial_advisor"
-BLUEPRINT_NAME = "Financial Advisor"
+_SOURCE_MANIFEST = source_manifest(__file__)
+BLUEPRINT_ID = _SOURCE_MANIFEST["identity"]["id"]
 OUTPUT_TYPE = "financial_advisor_report"
 RECOMMENDED_ACTION = "review_integrated_financial_advisor_packet_before_any_financial_action"
 OCR_SUFFIXES = {".pdf", ".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp"}
 SUPPORTED_SUFFIXES = OCR_SUFFIXES | {".txt", ".json", ".csv", ".md"}
 TEXT_SUFFIXES = {".txt", ".json", ".csv", ".md"}
 OCR_MIN_TEXT_CHARS = 40
-HEAVY_MODEL_STEPS = {
-    "tax_workpaper_preparer",
-    "tax_llm_reviewer",
-    "portfolio_risk_engine",
-    "portfolio_llm_reviewer",
-    "advisor_review_auditor",
-    "financial_advice_reporter",
-}
-_SOURCE_MANIFEST = source_manifest(__file__)
-
-
-def _source_workflow_step_specs() -> list[dict[str, Any]]:
-    workflow = _SOURCE_MANIFEST.get("workflow") if isinstance(_SOURCE_MANIFEST.get("workflow"), dict) else {}
-    steps = workflow.get("steps") if isinstance(workflow.get("steps"), list) else []
-    return [step for step in steps if isinstance(step, dict)]
-
-
-def _source_agent_ids() -> list[str]:
-    agents = _SOURCE_MANIFEST.get("agents") if isinstance(_SOURCE_MANIFEST.get("agents"), dict) else {}
-    registry = agents.get("registry") if isinstance(agents.get("registry"), dict) else {}
-    return [str(agent_id) for agent_id in registry]
-
-
-WORKFLOW_STEPS = [str(step["id"]) for step in _source_workflow_step_specs()]
-WORKFLOW_STEP_IDS = WORKFLOW_STEPS
-AGENT_IDS = _source_agent_ids()
-OUTPUT_MESSAGE_BY_AGENT = {agent_id: f"{agent_id}_completed" for agent_id in AGENT_IDS}
 DEFAULT_MARKET_PRICES = {
     "SPY": 500.0,
     "AGG": 100.0,
@@ -169,42 +134,8 @@ REVIEW_PROMPT_FILES = {
 }
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
 
-class DeterministicLLM(DeterministicFallbackLLM):
-    def __init__(self) -> None:
-        super().__init__(
-            "deterministic-financial-advisor",
-            default_summary="Deterministic review packet generated from local evidence.",
-            confidence=0.74,
-        )
-
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-
-def read_json(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    value = json.loads(path.read_text(encoding="utf-8"))
-    return value if isinstance(value, dict) else {}
-
-def write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=False, default=str) + "\n", encoding="utf-8")
-
-def write_text(path: Path, value: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(value, encoding="utf-8")
-
-def append_event(run_dir: Path, event_type: str, payload: dict[str, Any]) -> None:
-    append_event_jsonl(run_dir, event_type, redact_value(payload))
-
-def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    result = copy.deepcopy(base)
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = copy.deepcopy(value)
-    return result
 
 def redact_value(value: Any) -> Any:
     if isinstance(value, dict):

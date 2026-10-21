@@ -4,21 +4,28 @@
   "job_name": "software_architecture_advisor",
   "agents": {
     "registry": {
-      "repository_examiner": {
-        "handler": "agents.repository_examiner",
-        "role": "Repository Examiner"
-      },
-      "architecture_structure_analyst": {
-        "handler": "agents.architecture_structure_analyst",
-        "role": "Architecture Structure Analyst"
-      },
-      "architecture_review_editor": {
-        "handler": "agents.architecture_review_editor",
-        "role": "Architecture Review Editor"
-      },
       "architecture_packet_reviewer": {
-        "handler": "agents.architecture_packet_reviewer",
-        "role": "Architecture Packet Reviewer"
+        "handler": "mn_sdk.integrations.block_worker",
+        "role": "Architecture Packet Reviewer",
+        "with": {
+          "revision": "software_architecture_advisor@7.0.0",
+          "instance": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {
+              "operation": "domain.sandbox_review:review_admitted"
+            },
+            "input_schema": {
+              "type": "object",
+              "required": [
+                "review_input"
+              ]
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 720
+            }
+          }
+        }
       }
     }
   },
@@ -87,10 +94,6 @@
               "target": "agents"
             },
             {
-              "source": "steps",
-              "target": "steps"
-            },
-            {
               "source": "runtime",
               "target": "runtime"
             },
@@ -140,10 +143,6 @@
             {
               "source": "agents",
               "target": "agents"
-            },
-            {
-              "source": "steps",
-              "target": "steps"
             },
             {
               "source": "runtime",

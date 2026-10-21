@@ -9,9 +9,9 @@ from .gap_work import project as project_gaps, classify
 from .review_scope import limits
 
 
-def build(context, documents, evidence, state, inventory):
-    settings = context["config"].get("workspace", {})
-    matter = load_matter(context["run_dir"])
+def build(context, documents, evidence, state, inventory, *, goal):
+    settings = context.config.get("workspace", {})
+    matter = load_matter(context.store.run_dir)
     requested = settings.get("authorized_source_ids")
     all_ids = {d.source_id for d in documents}
     if requested is not None and (not isinstance(requested, list) or not set(requested) <= all_ids):
@@ -78,7 +78,7 @@ def build(context, documents, evidence, state, inventory):
         questions = [by_hypothesis[h["question"]] for h in linked if h["question"] in by_hypothesis]
         support = list(dict.fromkeys(f["evidence_ids"] + [i for h in linked for i in h["supporting_evidence"]]))
         counter = list(dict.fromkeys(i for h in linked for i in h["contradictory_evidence"]))
-        stable = "F-" + fingerprint([context["payload"]["goal"],
+        stable = "F-" + fingerprint([goal,
             sorted(h["question"] for h in linked) or [f["id"]], f["section"]])[:16]
         gap_ids = list(dict.fromkeys(i for h in questions for i in h["gap_ids"]))
         material = {"title": f["title"], "assessment": f["assessment"], "limitations": f["limitations"],
@@ -100,7 +100,7 @@ def build(context, documents, evidence, state, inventory):
                             "findings": [f["material_digest"] for f in findings]})
     workspace = {"version": "mn.litigation.workspace.v1", "snapshot_id": snapshot,
         "matter_id": inventory["repository_id"], "title": settings.get("matter_name", "Litigation investigation"),
-        "goal": context["payload"]["goal"], "access_scope": context["config"]["investigation"]["access_scope"],
+        "goal": goal, "access_scope": context.config["investigation"]["access_scope"],
         "audience": "Authorized local matter owner", "sample": bool(inventory.get("sample")),
         "sources": sources, "evidence": list(spans.values()), "findings": findings,
         "issues": hypotheses, "gaps": list(gaps.values()), "temporal": temporal,
@@ -126,6 +126,6 @@ def build(context, documents, evidence, state, inventory):
             "identity_corrections": "Person identity is unresolved; address nodes are never silently merged"}}
 
     from .review_products import attach
-    workspace = attach(workspace, context, matter, documents, spans, limits(context["config"]))
+    workspace = attach(workspace, context, matter, documents, spans, limits(context.config))
     from .review_audit import attach as attach_audit
     return attach_audit(workspace, context, documents)

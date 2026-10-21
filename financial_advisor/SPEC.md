@@ -101,6 +101,10 @@ does not authorize financial actions or external sharing.
 
 The blueprint does not file taxes, make trades, move money, pay bills, open accounts, or send reports externally. It prepares source-grounded review packets for humans.
 
+## Block composition (4.0.0)
+
+All 17 specialist bindings reference their owning native domain functions. The seven ordered logical steps and their StepSpec specialist sequences remain intact. Intake commits the approved source bytes; every specialist consumes a verified immutable evidence packet. Model reviews retain SDK budgets, backpressure and diagnostics, with evidence-bound completion receipts for publication retries. An interrupted model review with no completed response requires reconciliation before another model attempt. SDK publication commits the customer report and audit bundle, then the document skill prepares the complete saved Markdown as the conversation subject. Publication requires a completed audit and preserves review-only financial policy; Core owns scheduling and logical completion.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

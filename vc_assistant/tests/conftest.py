@@ -19,6 +19,14 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def workflow_budget_owner(monkeypatch, tmp_path):
+    from vc_assistant.native_test_support import WorkflowBudgetOwner
+    owner = WorkflowBudgetOwner(tmp_path / "workflow-budgets.sqlite")
+    monkeypatch.setattr("mn_sdk.integrations.run_budget._client_factory", lambda **_options: owner)
+    return owner
+
+
+@pytest.fixture(autouse=True)
 def isolated_vc_payload_modules():
     prefixes = ("domain", "agents", "steps", "runtime")
     previous_path = list(sys.path)

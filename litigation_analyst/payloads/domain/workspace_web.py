@@ -22,7 +22,7 @@ def render(workspace, *, max_bytes=32*1024*1024):
 
 
 def publish(context, workspace):
-    root = Path(context["run_dir"])
+    root = Path(context.store.run_dir)
     # JSON is authoritative; optional rendering cannot invalidate verified outputs.
     (root / "case/workspace.json").write_text(json.dumps(workspace, ensure_ascii=False, allow_nan=False), encoding="utf-8")
     refs = [artifact_reference("investigation_workspace", "case/workspace.json")]
@@ -31,7 +31,7 @@ def publish(context, workspace):
         from .workspace_review import attach
         workspace = attach(workspace)
         (root / "case/workspace.json").write_text(json.dumps(workspace, ensure_ascii=False, allow_nan=False), encoding="utf-8")
-        maximum = context["config"].get("workspace", {}).get("max_page_bytes", 32*1024*1024)
+        maximum = context.config.get("workspace", {}).get("max_page_bytes", 32*1024*1024)
         page = render(workspace, max_bytes=maximum)
         if type(maximum) is not int or maximum < 1 or len(page.encode()) > maximum:
             raise ValueError("Workspace page exceeds configured byte limit")

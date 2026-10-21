@@ -534,7 +534,9 @@ def simulation_sort_key(item: dict[str, Any]) -> tuple[float, float, str]:
     )
 
 
-def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str, Any]:
+def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int, *, check=None) -> dict[str, Any]:
+    if check is not None:
+        check()
     cycle_started_at = utc_now()
     cycle_dir = run_dir / "cycles" / f"cycle-{cycle_id:06d}"
     cycle_dir.mkdir(parents=True, exist_ok=True)
@@ -584,6 +586,8 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     )
 
     def fold_target(target: dict[str, Any]) -> dict[str, Any]:
+        if check is not None:
+            check()
         if fake:
             return fake_fold(target, cycle_dir / "folding")
         target_id = target.get("protein_id") or target.get("gene") or "target"
@@ -602,6 +606,8 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     )
 
     def screen_structure(structure: dict[str, Any]) -> list[dict[str, Any]]:
+        if check is not None:
+            check()
         if fake:
             return [fake_score(structure, candidate) for candidate in candidates]
         target = structure.get("target") if isinstance(structure.get("target"), dict) else {}
@@ -639,6 +645,8 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     )
 
     def simulate(screen_result: dict[str, Any]) -> dict[str, Any]:
+        if check is not None:
+            check()
         if fake:
             return fake_simulation(screen_result)
         structure = screen_result.get("structure") if isinstance(screen_result.get("structure"), dict) else {}
@@ -697,7 +705,7 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int) -> dict[str,
     return report
 
 
-def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
+def run_service(config: dict[str, Any], run_dir: Path, *, check=None) -> dict[str, Any]:
     service = config.get("service") if isinstance(config.get("service"), dict) else {}
     output_folder = resolve_output_folder(config, run_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -742,7 +750,9 @@ def run_service(config: dict[str, Any], run_dir: Path) -> dict[str, Any]:
     cycle_id = 0
     try:
         while not STOP_REQUESTED.is_set() and not stop_file.exists():
-            report = run_cycle(config, run_dir, cycle_id)
+            if check is not None:
+                check()
+            report = run_cycle(config, run_dir, cycle_id, **({"check": check} if check is not None else {}))
             reports.append(report)
             state = {"schema_version": "mn.blueprint.continuous_discovery_service.v1", "status": "running", "cycle_id": cycle_id, "updated_at": utc_now(), "stop_file": str(stop_file), "completed_cycles": cycle_id + 1, "last_report": report}
             json_dump(state_path, state)

@@ -22,13 +22,12 @@ the blueprint preserves the SDK-prepared model/provider/endpoint binding.
 An operator-registered remote default uses the runtime's LLM proxy with the same
 model and credentials. It does not require a local copy of that chat model.
 There is no fake-model success path. The new literal-search API requires the
-code-search skill release `>=1.3.62.dev0,<2`, or current sibling source with
+code-search skill release `>=1.3.61.dev5,<2`, or current sibling source with
 `MN_USE_LOCAL_SKILLS=1` in local mode. Publishing that skill release precedes
 binary catalog distribution. The workflow uses existing runtime components;
 normal checkout staging requires the SDK's `excluded_directories` option.
-The two agent packages use their published `1.3.58` APIs; their release versions
-are independent of the SDK's development version. Local skill mode still installs
-these published agents for HostLocal workers.
+The host-runtime agent retains its published API. Worker lifecycle and replay
+use SDK/common/blocks `>=1.3.61.dev25,<2`.
 
 ```bash
 mn blueprint run ./code_verifier \
@@ -222,3 +221,20 @@ Node server, CDN or model call is needed to read it. Saved copies include the
 shared assets. Markdown and structured evidence remain the authoritative outputs.
 An optional web rendering failure is recorded in `presentation-status.json` and
 does not prevent publishing those authoritative outputs.
+
+## Native block composition (3.0.0)
+
+All five phases bind directly to their domain implementations through SDK
+`domain_operation` blocks in `extensions/blocks.json`. Each implementation
+consumes `BlockContext`; no legacy phase or context adapters remain. Capture
+receives the staged input folder explicitly and commits its snapshot and source
+files. Downstream phases consume the committed capture reference. Mutable rule
+and review checkpoints stay editable; Core decisions alone grant approval.
+
+SDK storage owns path containment and atomic writes. SDK `publish_bundle` owns
+required JSON/Markdown publication, immutable receipts, optional HTML isolation
+and replay verification. This blueprint retains rule extraction, source evidence
+admission, exact approval checks and the specialized evidence panel on the shared
+web report shell. Output selection follows the declared artifact contract and
+uses SDK copying into `MN_JOB_OUTPUT_DIR`; Core owns host delivery. Cancellation
+is checked between document attempts, rule turns and review iterations.

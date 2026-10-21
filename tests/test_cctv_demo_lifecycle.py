@@ -33,7 +33,7 @@ def kill_group(process):
 
 @pytest.fixture
 def launches(tmp_path):
-    # Exercise the real service start_demo helper and production sampler command,
+    # Exercise the real service start_demo and native sampler readiness functions,
     # substituting the image-owned publisher. No GPU or camera is used.
     helper = tmp_path / "start_demo_stream.py"
     helper.write_text(f"#!{sys.executable}\n" + """
@@ -65,7 +65,6 @@ signal.signal(signal.SIGTERM, stop)
 while True:
     time.sleep(1)
 """)
-    (tmp_path / "scripts").mkdir()
     (tmp_path / "ui.py").write_text(f"""
 import importlib.util, json, os, pathlib, time
 spec = importlib.util.spec_from_file_location('camera_service', {str(ROOT / 'domain/live_service.py')!r})
@@ -77,17 +76,22 @@ pathlib.Path('ui.ready').write_text('ready')
 while True:
     time.sleep(1)
 """)
-    (tmp_path / "scripts/sample_video.py").write_text("from pathlib import Path; Path('sample.done').write_text('done')\n")
-    source = (ROOT / "agents/adaptive_frame_sampler/scripts/run_sampler_on_nvidia.sh").read_text()
-    (tmp_path / "sampler.sh").write_text(source.replace("/opt/cctv-demo/start_demo_stream.sh", str(helper)))
+    (tmp_path / "sampler.py").write_text(f"""
+import json, os, pathlib
+from domain import sampling
+sampling.DEMO_LAUNCHER = {str(helper)!r}
+sampling.await_demo(json.loads(os.environ['MN_BLUEPRINT_CONFIG_JSON']))
+pathlib.Path('sample.done').write_text('done')
+""")
     return tmp_path
 
 
 def launch(root, name, profile="bundled_demo", **overrides):
-    env = {**os.environ, **overrides, "MN_BLUEPRINT_CONFIG_JSON": json.dumps({"video_source": {
+    env = {**os.environ, **overrides, "PYTHONPATH": os.pathsep.join([str(ROOT), *sys.path]),
+           "MN_BLUEPRINT_CONFIG_JSON": json.dumps({"video_source": {
         "profile": profile, "demo_file": "/staged/warehouse demo.mp4",
     }})}
-    command = [sys.executable, "ui.py"] if name == "ui" else ["bash", f"{name}.sh"]
+    command = [sys.executable, f"{name}.py"]
     return subprocess.Popen(command, cwd=root, env=env, start_new_session=True,
                             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
 

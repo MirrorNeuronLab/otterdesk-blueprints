@@ -9,10 +9,8 @@ Markdown from Job knowledge; obtain supervisor approval of the exact list in
 OtterDesk Chat; verify each approved rule independently against
 captured implementation; publish an editable Markdown list and evidence table.
 
-The five serial logical phases are capture, extract, review, verify, publish. Specialist
-agents have distinct IDs and use the shared stateful agent lifecycle. Steps only
-declare contracts and collaboration. Core owns routing and completion. Runtime
-payload code only creates and persists SDK context. Core execution is unchanged;
+The five serial logical phases are capture, extract, review, verify, publish. Each phase declares a stock domain-operation block. Domain hooks
+retain code-review policy and approval authority. Core owns routing and completion. Workers consume the native block context directly. Core execution is unchanged;
 the SDK stages folders using this blueprint's declared directory exclusions.
 
 ## Rule contract
@@ -195,8 +193,25 @@ Rendering or handle-publication failures cannot prevent the authoritative
 Markdown and structured report from completing. A safe presentation status
 records the failure type without provider or source contents.
 Publication stages the declared report, rules, captured source and audit artifacts
-in the SDK-provided `output_folder` before returning. Optional static HTML and its
+in the SDK-provided `MN_JOB_OUTPUT_DIR` before returning. Optional static HTML and its
 handle are staged separately after rendering. The runtime owns host delivery and
 batch run folders; the blueprint never derives or writes a host Downloads path.
 The UI extension declares `static_html`, allowing OtterDesk to open the delivered
 `web/index.html` after validating its adjacent handle.
+
+## Native block composition (3.0.0)
+
+All five phases bind directly to their domain implementations through SDK
+`domain_operation` blocks in `extensions/blocks.json`. Each implementation
+consumes `BlockContext`; no legacy phase or context adapters remain. Capture
+receives the staged input folder explicitly and commits its snapshot and source
+files. Downstream phases consume the committed capture reference. Mutable rule
+and review checkpoints stay editable; Core decisions alone grant approval.
+
+SDK storage owns path containment and atomic writes. SDK `publish_bundle` owns
+required JSON/Markdown publication, immutable receipts, optional HTML isolation
+and replay verification. This blueprint retains rule extraction, source evidence
+admission, exact approval checks and the specialized evidence panel on the shared
+web report shell. Output selection follows the declared artifact contract and
+uses SDK copying into `MN_JOB_OUTPUT_DIR`; Core owns host delivery. Cancellation
+is checked between document attempts, rule turns and review iterations.

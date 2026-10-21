@@ -14,10 +14,10 @@ The blueprint declares `metadata.init_config_review.required: false`. Hiring the
 
 The browser owns all physics and policy execution. The service never runs MuJoCo, ONNX, or a synthetic simulator server-side. One ready browser tab can hold the control lease. It sends a bounded state snapshot five times per second; state older than one second is disconnected. A second tab is a spectator and cannot publish state or receive commands.
 
-Version3 declares `mn.blocks.operations.simulator_command` as a controlled
+Version 5 declares `mn.blocks.operations.simulator_command` as a controlled
 operation. SDK-owned request journals bind Core job/run/agent and command UUID,
-with three capability calls and a3s attempt bound. The async binding admits at
-most two ordinary requests, with no waiting queue and a1s transport deadline.
+with three capability calls and a 3-second attempt bound. The async binding admits at
+most two ordinary requests, with no waiting queue and a 1-second transport deadline.
 Stop runs directly through the existing browser bridge, bypasses ordinary
 admission capacity and invalidates older unadmitted attempts. An interrupted MCP
 caller does not discard an in-flight admission receipt or release its slot early.
@@ -67,6 +67,19 @@ submitted jobs retain their configured destination.
 This is a software demonstration, not a physical-robot controller. It has no ROS, no server-side simulator backend, no general autonomous navigation, no camera-based perception, and no cross-Run command replay. Its goal-directed behaviors are the bounded deterministic approach to an already-active ball and the stoppable find-kick-reacquire loop built from that approach. Conversation planning belongs to the stable Job response service and uses only the same-node LiteLLM proxy's default route plus the blueprint's MCP contract and job-scoped RAG.
 
 The service writes `web_ui.json`, `duck_service_state.json`, `duck_command_history.json`, and the normal final service artifact under the Run output. These artifacts contain no credentials or browser address details.
+
+## Block composition (5.0.0)
+
+The service phase now uses the monitored-service block, and the terminal phase uses a domain-operation block. `domain/service_lifecycle.py` owns the ASGI listener resource; the SDK owns supervision, replay, health and shutdown. Command admission retains its controlled-operation block and priority stop path. Both staged source copies match. Health is checked every 60 seconds, bounded by 1,000,000 cycles and 64 MiB of checkpoints; rotate before capacity is exhausted.
+
+The controlled operation selects `transport: async_device` and declares no
+capability adapters. Native `BridgeHub` methods return SDK `DeviceObservation`
+and full-command `DeviceReceipt` values. The SDK owns loop/thread calls, receipt
+envelopes, prior observation, reconciliation and loop-owned invalidation before
+dispatch; a pure domain `cancel` hook supplies the Microduck cancellation receipt.
+Missing current history preserves the unknown-effect fence. Stop bypasses ordinary
+capacity and retains its atomic bridge policy. This contract requires main SDK
+and blocks `>=1.3.61.dev27,<2`, with common `>=1.3.61.dev25,<2`.
 
 ## Blueprint package format
 

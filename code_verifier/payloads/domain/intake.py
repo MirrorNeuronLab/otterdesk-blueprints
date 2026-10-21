@@ -4,11 +4,11 @@ from pathlib import Path
 
 from mn_code_search_skill import TextSearchIndex
 from mn_static_code_analysis_skill import SUPPORTED_EXTENSIONS, analyze_sources
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 from mn_sdk.blueprint_support import expand_runtime_path
 
-from .artifacts import read, save
-from .configuration import settings
+from .artifacts import read
+from .configuration import BLUEPRINT_ID, job_directory, settings
 
 EXCLUDED = {'.git', '.svn', 'node_modules', 'vendor', 'dist', 'build', '.venv',
             'venv', '__pycache__', '.next', 'coverage', '.idea', '.vscode'}
@@ -71,28 +71,38 @@ def role(path):
     return 'implementation'
 
 
-@activity_operation('Capturing source and documentation', completed='Source capture saved')
-def capture(context):
-    settings(context)
-    if (Path(context['run_dir']) / 'capture.json').is_file():
-        value = read(context, 'capture.json')
-        refs = [save(context, 'capture.json', value)]
-        # Rebuild from the same capture if a prior invocation stopped between writes.
-        if not (Path(context['run_dir']) / 'static-analysis.json').is_file():
-            analysis = analyze_sources({p: v for p, v in value['sources'].items() if Path(p).suffix in SUPPORTED_EXTENSIONS})
-            refs.append(save(context, 'static-analysis.json', analysis))
-        return {'snapshot_id': value['snapshot_id']}, refs
-    folder = context['payload'].get('input_folder')
+def capture(block, inputs):
+    report_activity("Capturing source and documentation", owner_blueprint=BLUEPRINT_ID,
+                    step_id=block.step_id, run_dir=block.store.run_dir)
+    settings(block)
+    if block.store.path("capture.json").is_file():
+        value = read(block, "capture.json")
+    else:
+        value = capture_sources(block, inputs)
+    sources = value["sources"]
+    analysis = analyze_sources({p: v for p, v in sources.items() if Path(p).suffix in SUPPORTED_EXTENSIONS})
+    block.store.path("source").mkdir(parents=True, exist_ok=True)
+    for path, content in sources.items():
+        block.check()
+        block.store.commit_bytes("source/" + path, content.encode("utf-8"), kind="captured_source")
+    capture_ref = block.store.commit("capture.json", value, kind="source_capture")
+    analysis_ref = block.store.commit("static-analysis.json", analysis, kind="static_analysis")
+    return {"snapshot_id": value["snapshot_id"], "files": len(sources),
+            "capture": capture_ref.to_dict(), "static_analysis": analysis_ref.to_dict()}
+
+
+def capture_sources(block, inputs):
+    folder = inputs.get('input_folder')
     if not folder:
         raise ValueError('Choose a repository checkout or source folder.')
     selected = expand_runtime_path(folder)
     if not selected.is_absolute():
-        layout = context.get('bundle_layout')
-        if layout is None:
-            raise ValueError('SDK bundle layout is required for staged source paths.')
-        selected = layout.runtime_dir / selected
+        workdir = os.environ.get('MN_WORKDIR')
+        if not workdir:
+            raise ValueError('SDK worker directory is required for staged source paths.')
+        selected = Path(workdir) / selected
     root = selected.resolve(strict=True)
-    run_root = Path(context['run_dir']).resolve()
+    run_root = block.store.run_dir
     if run_root == root or run_root.is_relative_to(root):
         raise ValueError('Run outputs must be outside the inspected source folder.')
     sources, omitted = capture_folder(root)
@@ -100,10 +110,7 @@ def capture(context):
         # Keep repository paths separate from supervisor-owned blueprint knowledge.
         sources = {'repository/' + p: v for p, v in sources.items()}
         omitted = [{**item, 'path': 'repository/' + item['path']} for item in omitted]
-    job_data = context.get('job_data_dir')
-    if not job_data or not context.get('job_id'):
-        raise ValueError('Runtime-provided Job knowledge is required.')
-    knowledge = Path(job_data) / 'knowledge' / 'rules'
+    knowledge = job_directory(block) / 'knowledge' / 'rules'
     custom = {}
     if knowledge.is_symlink() or knowledge.parent.is_symlink():
         raise ValueError('Job knowledge must not be a symlink.')
@@ -115,11 +122,9 @@ def capture(context):
             raise ValueError('Custom rules must be Markdown files.')
     sources.update({'knowledge/rules/' + p: v for p, v in custom.items()})
     index = TextSearchIndex(sources)
-    analysis = analyze_sources({p: v for p, v in sources.items() if Path(p).suffix in SUPPORTED_EXTENSIONS})
     docs = [p for p in sources if role(p) == 'documentation' and not p.startswith('knowledge/')]
     value = {'schema_version': 'mn.software_rules.capture.v1', 'sources': sources,
              'snapshot_id': index.snapshot_id, 'documents': docs,
              'custom_documents': ['knowledge/rules/' + p for p in custom], 'omitted': omitted,
              'source_execution': False}
-    refs = [save(context, 'static-analysis.json', analysis), save(context, 'capture.json', value)]
-    return {'snapshot_id': index.snapshot_id, 'files': len(sources), 'omitted': len(omitted)}, refs
+    return value

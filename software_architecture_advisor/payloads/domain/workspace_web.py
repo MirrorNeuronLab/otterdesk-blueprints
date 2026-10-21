@@ -49,9 +49,9 @@ def render_register(workspace, index, *, historical=False):
         '<p id="notice" role="status" aria-live="polite"></p></div></body></html>')
 
 
-def publish(context, report, registers, *, workspace=None):
-    root = Path(context['run_dir'])
-    projected = workspace if workspace is not None else project(context, report, registers)
+def publish(block, report, registers, *, workspace=None, review_file=None):
+    root = Path(block.store.run_dir)
+    projected = workspace if workspace is not None else project(block, report, registers)
     has_map = (root / 'data/static-code.json').is_file() and (root / 'data/function-evolution.json').is_file()
     if has_map:
         projected['static_analysis'] = {'code_map': 'code-map.html'}
@@ -61,8 +61,8 @@ def publish(context, report, registers, *, workspace=None):
     if target.exists() and target.read_bytes() != document:
         raise ValueError('Improvement prompt document changed on replay')
     atomic(target, document)
-    workspace, index, store = retain(context, projected)
-    with storage(context) as (store, _):
+    workspace, index, _ = retain(block, projected, review_file=review_file)
+    with storage(block) as (store, _):
         index = json.loads((store / 'data/index.json').read_text())
         web = store / 'web'
         assets = Path(__file__).with_name('workspace_assets')

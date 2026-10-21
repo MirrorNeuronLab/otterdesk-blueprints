@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 import json
 import hashlib
@@ -13,8 +13,11 @@ from mn_sdk.blueprint_support import append_human_event, read_human_events
 
 from .autonomous import _experiment_concepts
 from .common import BLOCKED_ACTIONS, BLUEPRINT_ID, BLUEPRINT_NAME, OUTPUT_TYPE, RESEARCH_ACTIONS
-from .evidence import _status_counts, resolve_output_folder
-from .state import _inputs, _save, _state
+from .evidence import _status_counts
+from .state import read_state, save_state, output_directory
+from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 
 
 def _safe_warning(item: Any) -> dict[str, Any]:
@@ -516,13 +519,8 @@ def render_research_markdown(packet: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def write_research_outputs(
-    packet: dict[str, Any], result: dict[str, Any], config: dict[str, Any], inputs: dict[str, Any]
-) -> list[dict[str, str]]:
-    output_dir = resolve_output_folder(config, inputs)
-    if output_dir is None:
-        return []
-    output_dir.mkdir(parents=True, exist_ok=True)
+def publish_documents(block, packet, result):
+    output_dir = output_directory(block)
     quality = research_artifact_quality(packet)
     health = {
         "schema_version": "mn.blueprint.run_health.v1",
@@ -539,36 +537,38 @@ def write_research_outputs(
     packet["artifact_quality"] = quality
     packet["run_health"] = health
     packet["review_ledger"] = review_ledger
-    paths = {
-        "research_packet": output_dir / "research_packet.json",
-        "research_brief": output_dir / "research_brief.md",
-        "evidence_ledger": output_dir / "evidence_ledger.json",
-        "hypothesis_ledger": output_dir / "hypothesis_ledger.json",
-        "review_ledger": output_dir / "review_ledger.json",
-        "artifact_quality": output_dir / "artifact_quality.json",
-        "run_health": output_dir / "run_health.json",
+    documents = {
+        "research_packet": ("research_packet.json", "json", packet),
+        "research_brief": ("research_brief.md", "markdown", lambda: render_research_markdown(packet)),
+        "evidence_ledger": ("evidence_ledger.json", "json", packet["evidence"]),
+        "hypothesis_ledger": ("hypothesis_ledger.json", "json", packet["hypothesis_ledger"]),
+        "review_ledger": ("review_ledger.json", "json", review_ledger),
+        "artifact_quality": ("artifact_quality.json", "json", quality),
+        "run_health": ("run_health.json", "json", health),
     }
-    output_files = [{"kind": kind, "path": str(path)} for kind, path in paths.items()]
-    packet["output_files"] = [
-        {"kind": kind, "path": path.name} for kind, path in paths.items()
-    ]
-    paths["research_packet"].write_text(json.dumps(packet, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["research_brief"].write_text(render_research_markdown(packet), encoding="utf-8")
-    paths["evidence_ledger"].write_text(json.dumps(packet["evidence"], indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["hypothesis_ledger"].write_text(json.dumps(packet["hypothesis_ledger"], indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["review_ledger"].write_text(json.dumps(review_ledger, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["artifact_quality"].write_text(json.dumps(quality, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
-    paths["run_health"].write_text(json.dumps(health, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    packet["output_files"] = [{"kind": name, "path": path} for name, (path, _, _) in documents.items()]
+    result["output_files"] = [{"kind": name, "path": str(output_dir / path)} for name, (path, _, _) in documents.items()]
+    documents.update(final_artifact=("final_artifact.json", "json", packet), result=("result.json", "json", result))
+    writes = []
+    for name, (path, kind, content) in documents.items():
+        encoded = content().encode("utf-8") if kind == "markdown" else json.dumps(
+            content, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        writes.append(ArtifactWrite(name, path, encoded, kind=kind, authoritative=kind == "json"))
+    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
+    if output_dir != block.store.run_dir:
+        target = CommittedJsonStore(output_dir)
+        for item in receipt["artifacts"]:
+            path = item["reference"]["path"]
+            copy_path_to_host(block.store.path(path), target.path(path))
     from .conversation_sources import publish_outputs
-
     publish_outputs(output_dir, packet["run_id"])
-    return output_files
+    return receipt
 
 
-@activity_operation('Writing the research report', completed='Writing the research report: completed')
-def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
-    inputs = _inputs(ctx)
+def publish_packet(block, inputs) -> dict[str, Any]:
+    report_activity("Writing the research report", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_state(block, inputs["result"])
+    inputs = state["inputs"]
     autonomous = state.get("autonomous") or {}
     session = autonomous.get("session") if isinstance(autonomous.get("session"), dict) else {}
     if (
@@ -578,6 +578,8 @@ def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
     ):
         raise ValueError("autonomous output lacks the required Docker-worker isolation and trace contract")
     audit = state.get("packet_audit") or {}
+    if audit.get("status") not in {"passed", "needs_revision"}:
+        raise ValueError("Research publication requires a completed packet audit")
     if audit.get("status") == "needs_revision" and "evidence_references_present" not in set(audit.get("blocking_findings") or []):
         raise ValueError("research packet failed deterministic traceability and falsifiability checks")
     final = build_research_packet(
@@ -590,36 +592,25 @@ def publish_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
         state.get("documents") or [],
         state.get("actor_findings") or {},
         autonomous,
-        ctx["run_id"],
+        block.run_id,
         state.get("llm_usage") or {},
     )
     final["packet_audit"] = audit
     final["preflight"] = state.get("preflight") or {}
-    result = {"identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": ctx["run_id"]}, "blueprint": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run": {"run_id": ctx["run_id"], "status": "completed"}, "inputs": inputs, "evidence": state.get("evidence") or {}, "autonomous_research": autonomous, "final_artifact": final, "llm": state.get("llm_usage") or {}}
+    result = {"identity": {"blueprint_id": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run_id": block.run_id}, "blueprint": BLUEPRINT_ID, "name": BLUEPRINT_NAME, "run": {"run_id": block.run_id, "status": "completed"}, "inputs": inputs, "evidence": state.get("evidence") or {}, "autonomous_research": autonomous, "final_artifact": final, "llm": state.get("llm_usage") or {}}
     final["llm_usage"] = result["llm"]
-    output_files = write_research_outputs(final, result, ctx["config"], inputs)
-    result["output_files"] = output_files
-    run_dir = Path(ctx["run_dir"])
-    run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "final_artifact.json").write_text(
-        json.dumps(final, indent=2, sort_keys=True, default=str) + "\n",
-        encoding="utf-8",
-    )
-    (run_dir / "result.json").write_text(
-        json.dumps(result, indent=2, sort_keys=True, default=str) + "\n",
-        encoding="utf-8",
-    )
-    _save(ctx, state)
-    request_packet_review(ctx, final)
-    return {"final_artifact": final, "output_files": output_files, "artifact_quality": research_artifact_quality(final)}
+    receipt = publish_documents(block, final, result)
+    request_packet_review(block, final)
+    return {"state": save_state(block, state, "publication"), "artifacts": receipt["artifacts"],
+            "artifact_quality": research_artifact_quality(final)}
 
 
-def request_packet_review(ctx: dict[str, Any], packet: dict[str, Any]) -> str:
+def request_packet_review(block, packet: dict[str, Any]) -> str:
     """Request a review of the durable draft without authorizing experiments."""
-    run_dir = Path(ctx["run_dir"])
+    run_dir = Path(block.store.run_dir)
     digest = hashlib.sha256((run_dir / "final_artifact.json").read_bytes()).hexdigest()
-    request_id = f"research-packet:{ctx['run_id']}:{digest[:16]}"
-    existing = read_human_events(ctx["run_id"], runs_root=run_dir.parent)
+    request_id = f"research-packet:{block.run_id}:{digest[:16]}"
+    existing = read_human_events(block.run_id, runs_root=run_dir.parent)
     if any(
         event.get("type") == "human_input_requested"
         and (event.get("payload") or {}).get("request_id") == request_id
@@ -627,7 +618,7 @@ def request_packet_review(ctx: dict[str, Any], packet: dict[str, Any]) -> str:
     ):
         return request_id
     append_human_event(
-        ctx["run_id"],
+        block.run_id,
         "human_input_requested",
         {
             "request_id": request_id,
@@ -654,5 +645,5 @@ __all__ = [
     "publish_packet",
     "render_research_markdown",
     "research_artifact_quality",
-    "write_research_outputs",
+    "publish_documents",
 ]

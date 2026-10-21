@@ -1,4 +1,4 @@
-# CCTV Operator 4.0 specification
+# CCTV Operator 5.1 specification
 
 ## Purpose and scope
 
@@ -157,3 +157,52 @@ Spark Core's older response/MCP contract, before an accepted Job or Cosmos repor
 End-to-end latency, semantic accuracy, history and notice acceptance remain open.
 See README for measured scope and results. Keep the native declared contract;
 do not change/reinstall runtime or weaken validation to bypass this blocker.
+
+## Block composition (5.1.0)
+
+The camera/UI owner uses the SDK monitored-service block. The ingress executor
+uses `mn.blocks.event_processing@1` and the direct native monitoring hook.
+Complete scoped state replaces mutable agent dictionaries; declared logical
+ports preserve the existing start/steering edges. Core retains completion and
+delivery. Validation is shared with the submission boundary, while successful
+delivery replay reuses its committed result. Unknown commands and rejected
+sources cannot commit a ready session. The sampler also uses a native event
+hook, with `ready` and `next` ports preserving the existing frame and cadence
+edges. Instruction updates freeze the SDK's command `input_key`, timestamp and
+revision before requesting an idempotent resident claim. Lost RPC replies fail
+the attempt and retry the same physical invocation identity; they cannot silently
+consume or release a window. Completed admission and byte capture freeze before
+publication, so publication repair cannot claim another window. Batch schema,
+identity, counts, chronological finite timestamps, safe paths and every selected
+image hash are checked. The manifest is bounded to 1 MiB and total selected
+evidence to 32 MiB; shared event/handoff inventory limits also apply.
+`frame_evidence` is a scoped committed record containing the original batch
+message and captured file references. `monitoring_state.json` and
+`sampling_state.json` are accepted-state projections rather than input authority.
+The resident resource retains monotonic monitoring intent across delayed views,
+JPEG preprocessing and restart. Demo sampling probes the publisher owned by the
+resident service; it cannot launch or stop it. Detection and reporting also use
+native event hooks and require explicit committed peer-reference identities.
+The SDK imports complete private handoff graphs without decoding away those
+event-input references. Vision validates the batch, freezes prompts/media and
+uses the shared managed-model request with zero transport retries. Raw response
+receipts precede domain interpretation and effect receipts; original response
+timing survives replay. Missing uncertain outcomes keep admission stalled.
+Known invalid replies produce analysis errors rather than clear-scene success.
+Per-batch immutable completion receipts are acknowledged through the resident
+resource RPC; late retries cannot erase newer completions. Camera source
+Markdown derives from immutable prior accepted bytes with the existing 4 MiB
+rollover bound. Public latest-frame, memory and report names are declared through
+SDK publication and materialized by Core after state acceptance. Report history
+retains its existing 500-observation/detection/sampling and 100-error/notice/
+delivery bounds. The cumulative report state points to the publication's same
+committed bytes, avoiding an additional full report copy in each handoff graph.
+Native event workers start with a fresh
+run; pre-migration plain-dictionary state is rejected rather than guessed.
+Existing CUDA placement, source/model
+policy, event edges and auxiliary-service timing stay intact. Require matching
+SDK dev34 / blocks dev33 source and Core event/publication support before hook execution.
+This is an offline-tested source migration, not a live deployment qualification.
+Supervision remains bounded to 1,000,000 health cycles / 64 MiB of checkpoints;
+rotate the service before either bound. Camera timing remains independent of
+the 60-second health interval.

@@ -63,7 +63,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-python-sdk",
-      "version": ">=1.3.61.dev25,<2",
+      "version": ">=1.3.61.dev34,<2",
       "extras": [
         "context"
       ]
@@ -78,7 +78,7 @@
       "name": "mn-blueprint-blocks",
       "type": "pip",
       "source": "gar",
-      "version": ">=1.3.61.dev25,<2"
+      "version": ">=1.3.61.dev33,<2"
     }
   ]
 }

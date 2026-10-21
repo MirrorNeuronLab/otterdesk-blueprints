@@ -60,10 +60,7 @@
       "id": "frame_purchase_request",
       "kind": "source",
       "label": "Frame Purchase Request",
-      "needs": [],
-      "run": {
-        "definition": "steps.frame_purchase_request"
-      }
+      "needs": []
     },
     {
       "control": {
@@ -75,10 +72,7 @@
       "label": "Build Purchase Evidence",
       "needs": [
         "frame_purchase_request"
-      ],
-      "run": {
-        "definition": "steps.build_purchase_evidence"
-      }
+      ]
     },
     {
       "control": {
@@ -117,10 +111,7 @@
       "label": "Audit Procurement Recommendation",
       "needs": [
         "compare_purchase_options"
-      ],
-      "run": {
-        "definition": "steps.audit_purchase_recommendation"
-      }
+      ]
     },
     {
       "control": {
@@ -133,10 +124,7 @@
       "needs": [
         "audit_purchase_recommendation",
         "assess_procurement_case"
-      ],
-      "run": {
-        "definition": "steps.publish_purchase_decision_packet"
-      }
+      ]
     }
   ],
   "defaults": {

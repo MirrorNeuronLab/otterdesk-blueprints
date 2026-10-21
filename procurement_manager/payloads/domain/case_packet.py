@@ -1,7 +1,7 @@
 """Versioned procurement case evaluation from a selected local case document."""
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 import json
 from pathlib import Path
@@ -10,7 +10,8 @@ from typing import Any
 from mn_sdk.blueprint_support import append_human_event, read_human_events
 
 from .procurement_decision import evaluate_case
-from .state import _state
+from .state import read_state
+from .common import BLUEPRINT_ID
 
 
 CASE_PACKET = "procurement_case_packet.json"
@@ -48,9 +49,9 @@ def selected_case_mode(documents: list[dict[str, Any]]) -> str | None:
     return None
 
 
-@activity_operation('Assessing the procurement case', completed='Assessing the procurement case: completed')
-def assess_procurement_case(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    documents = _state(ctx).get("documents") or []
+def assess_procurement_case(block, inputs) -> dict[str, Any]:
+    report_activity("Assessing the procurement case", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    documents = read_state(block, inputs["previous"]).get("documents") or []
     selected = [item for item in documents if Path(str(item.get("name") or "")).name == "procurement_case.json"]
     if not selected:
         return {"status": "NOT_PROVIDED", "case_packet": None}
@@ -62,55 +63,33 @@ def assess_procurement_case(ctx: dict[str, Any], **_options: Any) -> dict[str, A
     packet = evaluate_case(case)
     packet["source_ref"] = selected[0].get("source_ref")
     packet["schema_version"] = "otterdesk.procurement.case_packet.v1"
-    target = Path(ctx["run_dir"]) / "workflow_state" / CASE_PACKET
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(json.dumps(packet, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    return {"status": packet["status"], "case_packet": str(target), "decision_digest": packet.get("decision_digest")}
+    reference = block.store.commit("workflow_state/" + CASE_PACKET, packet, kind="procurement_case_packet")
+    return {"status": packet["status"], "case_packet": reference.to_dict(), "decision_digest": packet.get("decision_digest")}
 
 
-def assess_block(context, inputs):
-    """Preserve the case policy while the SDK block owns invocation mechanics."""
-    result = assess_procurement_case({"run_dir": context.store.run_dir,
-        "run_id": context.run_id, "job_id": context.job_id,
-        "step_id": context.step_id, "blueprint_id": "procurement_manager"})
-    if result["case_packet"]:
-        path = "workflow_state/" + CASE_PACKET
-        reference = context.store.commit_bytes(path, context.store.path(path).read_bytes(),
-            version="mn.committed_json/v1", kind="procurement_case_packet")
-        result["case_packet"] = reference.to_dict()
-    # The comparison branch continues mutating its own state; only this branch's
-    # immutable case packet belongs in a hashed completion receipt.
-    return result
-
-
-def publish_verified_case(ctx, *, step_inputs, **options):
-    """Verify the case branch's bound artifacts before the report join reads it."""
-    from mn_sdk_common.committed_artifacts import CommittedJsonStore
-    from .reporting import publish_report
-
-    if not isinstance(step_inputs, dict) or "case_assessment" not in step_inputs:
-        raise ValueError("Report publication requires the case-assessment join input")
-    store = CommittedJsonStore(ctx["run_dir"])
-    summary = store.read(step_inputs["case_assessment"])
-    path = "workflow_state/" + CASE_PACKET
+def verified_case_packet(block, summary):
+    if not isinstance(summary, dict) or "case_packet" not in summary:
+        raise ValueError("Report publication requires a verified case assessment")
     reference = summary["case_packet"]
-    if reference is not None:
-        if reference.get("path") != path:
-            raise ValueError("Case assessment points to a different packet")
-        packet = store.read(reference)
-        if packet["status"] != summary["status"] or packet.get("decision_digest") != summary.get("decision_digest"):
-            raise ValueError("Case packet differs from its assessment")
-    elif store.path(path).exists():
-        raise ValueError("An absent case assessment cannot publish a stale case packet")
-    return publish_report(ctx, **options)
+    path = "workflow_state/" + CASE_PACKET
+    if reference is None:
+        if block.store.path(path).exists():
+            raise ValueError("An absent case assessment cannot publish a stale case packet")
+        return None
+    if reference.get("path") != path:
+        raise ValueError("Case assessment points to a different packet")
+    packet = block.store.read(reference)
+    if packet["status"] != summary["status"] or packet.get("decision_digest") != summary.get("decision_digest"):
+        raise ValueError("Case packet differs from its assessment")
+    return packet
 
 
-def emit_review_requests(ctx: dict[str, Any], packet: dict[str, Any]) -> list[str]:
+def emit_review_requests(block, packet: dict[str, Any]) -> list[str]:
     """Publish exact-packet review actions to OtterDesk's existing conversation panel."""
     if packet.get("status") != "READY_FOR_REVIEW" or not packet.get("decision_digest"):
         return []
-    run_id = ctx["run_id"]
-    runs_root = Path(ctx["run_dir"]).parent
+    run_id = block.run_id
+    runs_root = Path(block.store.run_dir).parent
     existing = {
         str((event.get("payload") or {}).get("request_id"))
         for event in read_human_events(run_id, runs_root=runs_root)
@@ -137,7 +116,7 @@ def emit_review_requests(ctx: dict[str, Any], packet: dict[str, Any]) -> list[st
         append_human_event(
             run_id, "human_input_requested",
             {"request_id": request_id, "prompt": prompt, "options": ["Approve", "Request changes", "Reject"], "decision_type": "procurement_review", "decision_digest": packet["decision_digest"], "case_id": packet["case_id"], "revision": packet["revision"], "reviewer": reviewer, "mode": packet["mode"]},
-            runs_root=runs_root, blueprint_id="procurement_manager",
+            runs_root=runs_root, blueprint_id=BLUEPRINT_ID,
         )
         emitted.append(request_id)
     return emitted

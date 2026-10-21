@@ -13,17 +13,17 @@ from .app.planning import object_schema, validate
 
 
 def check(context, client=None):
-    settings = context["config"].get("model_preflight", {})
+    settings = context.config.get("model_preflight", {})
     if not settings.get("enabled", True):
         return
-    root = Path(context["run_dir"])
+    root = Path(context.store.run_dir)
     path = root / "case/model_preflight.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     current = client if client is not None else LLMClient.from_env(strict=True)
     if isinstance(current, LLMClient):
         current = replace(current, timeout_seconds=min(current.timeout_seconds, settings.get("timeout_seconds", 10)))
-    scope = {"job_id": context.get("job_id") or os.environ.get("MN_JOB_ID"),
-             "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.get("run_id") or os.environ.get("MN_RUN_ID")}
+    scope = {"job_id": context.job_id or os.environ.get("MN_JOB_ID"),
+             "run_id": os.environ.get("MN_WORKFLOW_RUN_ID") or context.run_id or os.environ.get("MN_RUN_ID")}
     started = time.monotonic()
     receipt = {"model": str(getattr(current, "model", "injected")),
                "case_evidence_sent": False, "status": "checking", "fallback_model": None}
@@ -34,8 +34,8 @@ def check(context, client=None):
             schema=object_schema({"ready": {"const": True}}), validator=validate,
             context_root=root / "case/preflight-context", context_scope=scope,
             principal="litigation-preflight", stage="model_readiness",
-            policy=ContextPolicy(**context["config"]["context_memory"]["policy"]),
-            max_tokens=context["config"]["context_memory"]["policy"]["output_tokens"],
+            policy=ContextPolicy(**context.config["context_memory"]["policy"]),
+            max_tokens=context.config["context_memory"]["policy"]["output_tokens"],
             client=current, memory_recall=False)
     except (RuntimeError, ValueError, OSError) as error:
         receipt.update(status="unavailable", error_type=type(error).__name__,

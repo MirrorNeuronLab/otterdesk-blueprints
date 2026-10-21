@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.agent_events import report_activity
 
 from typing import Any
 
 from .autonomous import _experiment_concepts
-from .state import _save, _state
+from .state import save_state, read_state
+from .common import BLUEPRINT_ID
 
 
-@activity_operation('Auditing the research packet', completed='Auditing the research packet: completed')
-def audit_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
+def audit_packet(block, inputs) -> dict[str, Any]:
+    report_activity("Auditing the research packet", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    state = read_state(block, inputs["previous"])
     autonomous = state.get("autonomous") or {}
     session = autonomous.get("session") if isinstance(autonomous.get("session"), dict) else {}
     hypotheses = (state.get("recommendation") or {}).get("candidate_hypotheses") or []
@@ -116,5 +117,4 @@ def audit_packet(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
         "review_required": True,
     }
     state["packet_audit"] = audit
-    _save(ctx, state)
-    return audit
+    return {**audit, "state": save_state(block, state, "audit")}

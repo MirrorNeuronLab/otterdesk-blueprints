@@ -106,6 +106,10 @@ argument-scoped rule that blocks `navigate_to_zone(zone_c)` without disabling
 Zones A or B. Command and learning replies include structured receipts and the
 Job-relative link `knowledge/learned/active.md` for the saved knowledge.
 
+## Block composition (3.0.0)
+
+Core’s DockerCompose runner continues to own exclusive project startup, readiness and teardown. The terminal worker now uses a stock domain-operation block, with `domain/finalization.py` committing the declared service artifact before returning its reference. The shell finalizer is removed. No Python wrapper launches Compose, no robot command runs during finalization, and GPU/network/control constraints remain intact.
+
 ## Blueprint package format
 
 This blueprint uses the canonical blueprint/v1 format in both folders and ZIPs.

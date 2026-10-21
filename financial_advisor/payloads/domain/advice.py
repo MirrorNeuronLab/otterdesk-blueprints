@@ -3,12 +3,15 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .knowledge import load_prompt
-from .review_services import actor_review, review_artifact
+from .review_services import actor_review
 
 @activity_operation('Reconciling financial evidence', completed='Reconciling financial evidence: completed')
-def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_advisor_evidence_reconciler(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["previous"])
+    workflow = state["workflow"]
     warnings = []
     for key in (
         "financial_document_reader",
@@ -82,7 +85,7 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
             "source_refs": workflow["portfolio_llm_reviewer"].get("source_refs", []),
         },
     ]
-    return {
+    return save_result(block, state, "advisor_evidence_reconciler", {
         "evidence": evidence,
         "warnings": sorted(set(warnings)),
         "contradictions": [],
@@ -90,13 +93,15 @@ def step_advisor_evidence_reconciler(ctx: dict[str, Any]) -> dict[str, Any]:
             warning for warning in warnings
             if warning.startswith("no_") or "missing" in warning or "incomplete" in warning or "not_extracted" in warning
         ],
-    }
+    })
 
 @activity_operation('Auditing financial advice', completed='Auditing financial advice: completed')
-def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_advisor_review_auditor(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    workflow = state["workflow"]
     reconciler = workflow["advisor_evidence_reconciler"]
-    blocked_actions = (ctx["config"].get("human_control") or {}).get("blocked_actions") or []
+    blocked_actions = (block.config.get("human_control") or {}).get("blocked_actions") or []
     issues = []
     if reconciler.get("missing_evidence"):
         issues.append("missing_evidence_requires_review")
@@ -129,8 +134,8 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
         for lane, review in llm_reviews.items()
     }
     finding = actor_review(
-        ctx["config"],
-        ctx["llm"],
+        block,
+        state,
         "advisor_review_auditor",
         "Advisor packet audited for evidence, math, and blocked action boundaries.",
         {
@@ -154,15 +159,13 @@ def step_advisor_review_auditor(ctx: dict[str, Any]) -> dict[str, Any]:
             ],
         },
         prompt_details=load_prompt("advisor-review-auditor.md"),
-        active_knowledge=ctx.get("active_knowledge"),
+        active_knowledge=state["knowledge"],
     )
-    return {
+    return save_result(block, state, "advisor_review_auditor", {
         "issues": issues,
         "blocked_actions_confirmed": blocked_actions,
         "review_required": True,
         "actor_finding": finding,
         "quality_score": max(0.35, 0.9 - 0.08 * len(issues)),
         "warnings": ["human_review_required_before_downstream_action"],
-    }
-
-__all__ = ["step_advisor_evidence_reconciler", "step_advisor_review_auditor"]
+    })

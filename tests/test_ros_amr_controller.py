@@ -364,3 +364,27 @@ def test_mcp_server_schemas_match_chat_declaration(monkeypatch):
         for argument, contract in expected[name]["arguments"].items():
             assert all(properties[argument][key] == value for key, value in contract.items())
         assert tool.output_schema is not None
+
+
+def test_compose_stop_record_uses_stock_block_and_durable_replay(tmp_path, monkeypatch):
+    from mn_sdk.blueprints import compile_blueprint
+    from mn_sdk.step_runtime import StepContext, invoke_handler
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    monkeypatch.syspath_prepend(str(BLUEPRINT / 'payloads'))
+    compiled = compile_blueprint(read_blueprint(BLUEPRINT)).manifest
+    finalize = next(node for node in compiled['agents']['nodes'] if node['node_id'] == 'finalize')
+    environment = {**finalize['config']['environment'], 'MN_RUN_DIR': str(tmp_path / 'run')}
+    parameters = json.loads(environment['MN_WORKFLOW_STEP_WITH_JSON'])
+    context = StepContext(step_id='finalize', agent_id='finalize', run_id='ros-fixture',
+        idempotency_key='ros-fixture/finalize', environment=environment,
+        message={'body': {'status': 'stopped'}})
+    handler = environment['MN_WORKFLOW_STEP_HANDLER']
+    assert handler == 'mn_sdk.integrations.block_worker'
+    first = invoke_handler(handler, context=context, parameters=parameters)
+    assert invoke_handler(handler, context=context, parameters=parameters) == first
+    store = CommittedJsonStore(tmp_path / 'run')
+    result = store.read(first['outputs']['result'])
+    assert store.read(result['artifact']) == store.read_path('final_artifact.json')
+    assert result['status'] == 'stopped'
+    assert not (BLUEPRINT / 'payloads/worker/finish_service.sh').exists()

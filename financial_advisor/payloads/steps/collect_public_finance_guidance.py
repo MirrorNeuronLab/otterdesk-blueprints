@@ -4,7 +4,7 @@ from ._shared import inputs
 
 
 STEP = StepSpec(
-    input=InputSpec(fields=inputs("analyze_portfolio_risk")),
+    input=InputSpec(fields=inputs("analyze_portfolio_risk", "portfolio_risk_analysis")),
     flow=agent("public_finance_researcher"),
-    output=OutputSpec(fields={"public_finance_guidance": flow_output()}),
+    output=OutputSpec(fields={"public_finance_guidance": flow_output("result")}),
 )

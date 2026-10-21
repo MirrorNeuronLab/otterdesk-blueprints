@@ -2,29 +2,19 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import activity_operation
-
-import json
-import os
-from pathlib import Path
 from typing import Any
 
-from .state import _state
+from .state import read_state
+from .common import BLUEPRINT_ID
 
 
-def _write(ctx: dict[str, Any], name: str, assessment: dict[str, Any]) -> dict[str, Any]:
-    folder = Path(ctx["run_dir"]) / "workflow_state"
-    folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"{name}.json"
-    temporary = folder / f".{name}.{os.getpid()}.tmp"
-    temporary.write_text(json.dumps(assessment, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(target)
-    return {"branch_artifact": {"name": name, "path": f"workflow_state/{name}.json"}, "status": assessment["status"]}
+def _write(block, name, assessment, evidence):
+    reference = block.store.commit(f"workflow_state/{name}.json", assessment, kind="research_preflight")
+    return {"assessment": reference.to_dict(), "evidence": evidence, "status": assessment["status"]}
 
 
-@activity_operation('Checking evidence coverage', completed='Checking evidence coverage: completed')
-def assess_evidence_coverage(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    evidence = (_state(ctx).get("evidence") or {})
+def assess_evidence_coverage(block, inputs) -> dict[str, Any]:
+    evidence = (read_state(block, inputs["previous"]).get("evidence") or {})
     refs = sorted(set(evidence.get("source_refs") or []))
     gaps = [str(item)[:500] for item in (evidence.get("evidence_gaps") or [])[:20]]
     assessment = {
@@ -36,12 +26,12 @@ def assess_evidence_coverage(ctx: dict[str, Any], **_options: Any) -> dict[str, 
         "usable_public_source_count": int(evidence.get("usable_public_source_count") or 0),
         "limitation": "Source relevance does not validate a hypothesis or authorize an experiment.",
     }
-    return _write(ctx, "evidence_coverage", assessment)
+    return _write(block, "evidence_coverage", assessment, inputs["previous"]["state"])
 
 
-@activity_operation('Checking experiment readiness', completed='Checking experiment readiness: completed')
-def assess_experiment_readiness(ctx: dict[str, Any], **_options: Any) -> dict[str, Any]:
-    state = _state(ctx)
+def assess_experiment_readiness(block, inputs) -> dict[str, Any]:
+    previous = inputs["previous"]
+    state = read_state(block, previous)
     inputs = state.get("inputs") or {}
     evidence = state.get("evidence") or {}
     candidates = inputs.get("seed_hypotheses") or []
@@ -61,18 +51,18 @@ def assess_experiment_readiness(ctx: dict[str, Any], **_options: Any) -> dict[st
         ],
         "limitation": "This assessment prepares a plan; it does not grant execution authority.",
     }
-    return _write(ctx, "experiment_readiness", assessment)
+    return _write(block, "experiment_readiness", assessment, previous["state"])
 
 
-def load_preflight(run_dir: str | Path) -> dict[str, dict[str, Any]]:
-    folder = Path(run_dir) / "workflow_state"
+def load_preflight(block, branches):
+    names = ("evidence_coverage", "experiment_readiness")
+    source = branches[names[0]]["evidence"]
+    if branches[names[1]]["evidence"] != source:
+        raise ValueError("Research preflight branches describe different evidence snapshots")
     result = {}
-    for name in ("evidence_coverage", "experiment_readiness"):
-        path = folder / f"{name}.json"
-        if not path.is_file():
-            raise FileNotFoundError(f"Required research preflight artifact missing: {path}")
-        item = json.loads(path.read_text(encoding="utf-8"))
+    for name in names:
+        item = block.store.read(branches[name]["assessment"])
         if not isinstance(item, dict) or item.get("kind") != name:
             raise ValueError(f"Invalid research preflight artifact: {name}")
         result[name] = item
-    return result
+    return read_state(block, {"state": source}), result

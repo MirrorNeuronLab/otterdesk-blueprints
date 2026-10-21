@@ -3,13 +3,16 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
+from .state import read_state, save_result
 from .review_services import review_artifact
 from .source_ingestion import classify_cash_transaction, money
 
 @activity_operation('Normalizing cash flow records', completed='Normalizing cash flow records: completed')
-def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
-    bank = ctx["state"]["workflow"]["bank_statement_extractor"]
-    docs = ctx["state"]["workflow"]["financial_document_reader"]["documents"]
+def step_cash_flow_normalizer(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    bank = state["workflow"]["bank_statement_extractor"]
+    docs = state["workflow"]["financial_document_reader"]["documents"]
     income_docs = [doc for doc in docs if doc["kind"] in {"income_document", "w2", "1099_int", "1099_r"}]
     totals = bank.get("totals") or {}
     income = float(totals.get("deposits") or 0.0)
@@ -25,7 +28,7 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
         warnings.append("expenses_exceed_detected_income")
     if pending_classification_total:
         warnings.append("card_payment_or_transfer_requires_customer_classification")
-    return {
+    return save_result(block, state, "cash_flow_normalizer", {
         "income_total": income,
         "expense_total": expenses,
         "fee_total": float(totals.get("fees") or 0.0),
@@ -42,11 +45,13 @@ def step_cash_flow_normalizer(ctx: dict[str, Any]) -> dict[str, Any]:
         "income_document_count": len(income_docs),
         "risk_flags": warnings,
         "summary": f"Detected {money(income)} income-like deposits and {money(expenses)} expenses/fees.",
-    }
+    })
 
 @activity_operation('Analyzing cash flow', completed='Analyzing cash flow: completed')
-def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
-    workflow = ctx["state"]["workflow"]
+def step_cash_flow_llm_analyst(block, inputs) -> dict[str, Any]:
+    block.check()
+    state = read_state(block, inputs["result"])
+    workflow = state["workflow"]
     cash_flow = workflow["cash_flow_normalizer"]
     bank = workflow["bank_statement_extractor"]
     docs = workflow["financial_document_reader"]
@@ -73,8 +78,8 @@ def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
         evidence_gaps.append("Account coverage is incomplete or spans more than one statement scope.")
     if cash_flow.get("pending_classification_total"):
         evidence_gaps.append("A card payment or transfer is included in withdrawals but not confirmed as household spending.")
-    return review_artifact(
-        ctx,
+    return save_result(block, state, "cash_flow_llm_analyst", review_artifact(
+        block, state,
         step_id="cash_flow_llm_analyst",
         summary="Cash-flow LLM analyst reviewed deterministic cash-flow totals for gaps, recurring-risk signals, and human questions.",
         context={
@@ -113,6 +118,4 @@ def step_cash_flow_llm_analyst(ctx: dict[str, Any]) -> dict[str, Any]:
             "Compare parsed deposits, withdrawals, and fees against source statements.",
             "Confirm whether flagged cash-flow items require human budgeting or records review.",
         ],
-    )
-
-__all__ = ["step_cash_flow_llm_analyst", "step_cash_flow_normalizer"]
+    ))

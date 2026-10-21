@@ -20,8 +20,8 @@ def require_local_context():
         raise ValueError("Mac evidence requires an explicitly configured loopback MN_CONTEXT_ADDR")
 
 
-def enrich(context, history, analysis):
-    settings = context["config"]
+def enrich(block, history, analysis):
+    settings = block.config
     if settings.get("offline") or not settings.get("text_memory", {}).get("enabled", False):
         return {"status": "explicitly_disabled", "queries": [],
                 "qualification": "Deterministic temporal analysis only; context graph navigation disabled."}
@@ -30,7 +30,7 @@ def enrich(context, history, analysis):
     require_local_context()
     from mn_context_engine_sdk.intelligent_system import RuntimeRecord
     memory = runtime_text_memory(settings, principal="mac-security-investigator",
-                                 scope={"job_id": context["job_id"], "run_id": context["run_id"]})
+                                 scope={"job_id": block.job_id, "run_id": block.run_id})
     if memory is None:
         raise ValueError("enabled context graph did not create a local memory session")
     allowed, receipts, queries = {}, [], []

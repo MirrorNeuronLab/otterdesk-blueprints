@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import hashlib
 import json
-import tempfile
 from pathlib import Path
 from typing import Any
 
 from mn_sdk.context_engine import context_memory_section_enabled
+from mn_sdk_common.files import atomic_write_text
+from .configuration import output_directory
 
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
 MAX_INPUT_FILES = 64
@@ -36,37 +37,30 @@ RESULT_FIELDS = frozenset({
 })
 
 
-def _source_root(ctx: dict[str, Any]) -> Path | None:
-    settings = ctx["config"].get("source_context") or {}
+def _source_root(block) -> Path | None:
+    settings = block.config.get("source_context") or {}
     if context_memory_section_enabled(settings) is not True:
         return None
-    run_id = str(ctx.get("run_id") or "")
+    run_id = str(block.run_id or "")
     if not run_id:
         raise ValueError("Discovery conversation sources require a runtime run identity")
     # Runtime identity remains in the document; the directory is path-safe.
     key = hashlib.sha256(run_id.encode()).hexdigest()[:24]
-    return Path(ctx["output_folder"]) / "context_sources" / "inputs" / key
+    return output_directory(block) / "context_sources" / "inputs" / key
 
 
 def _publish(path: Path, text: str) -> None:
     if len(text.encode("utf-8")) > MAX_SOURCE_BYTES:
         raise ValueError("Discovery conversation source exceeds its complete-document limit")
     path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent,
-                                     delete=False) as stream:
-        temporary = Path(stream.name)
-        stream.write(text)
-    try:
-        temporary.replace(path)
-    finally:
-        temporary.unlink(missing_ok=True)
+    atomic_write_text(path, text)
 
 
-def _document(ctx: dict[str, Any], title: str, value: Any) -> str:
-    synthetic = str(ctx["config"].get("mode") or "").lower() in {"fake", "mock"}
-    synthetic = synthetic or (ctx["config"].get("execution") or {}).get("fake_science_adapters") is True
+def _document(block, title: str, value: Any) -> str:
+    synthetic = str(block.config.get("mode") or "").lower() in {"fake", "mock"}
+    synthetic = synthetic or (block.config.get("execution") or {}).get("fake_science_adapters") is True
     return (
-        f"# {title}\n\nRun: {ctx['run_id']}\n\n"
+        f"# {title}\n\nRun: {block.run_id}\n\n"
         + ("Synthetic smoke-test data; these are not live scientific findings.\n\n" if synthetic else "")
         + "Computational hypotheses only. No experimental binding, efficacy or safety is established. "
         "Separate human review is required before downstream actions.\n\n"
@@ -75,8 +69,8 @@ def _document(ctx: dict[str, Any], title: str, value: Any) -> str:
     )
 
 
-def publish_inputs(ctx: dict[str, Any], inputs: dict[str, Any]) -> None:
-    root = _source_root(ctx)
+def publish_inputs(block, inputs: dict[str, Any]) -> None:
+    root = _source_root(block)
     if root is None:
         return
     from mn_docs_to_markdown_skill import convert_documents
@@ -88,7 +82,7 @@ def publish_inputs(ctx: dict[str, Any], inputs: dict[str, Any]) -> None:
         folder = Path(source)
         if not folder.is_dir():
             raise ValueError("Discovery input folder is unavailable")
-        declarations = (ctx["config"].get("local_inputs") or {}).get("folders") or []
+        declarations = (block.config.get("local_inputs") or {}).get("folders") or []
         suffixes = {suffix for item in declarations
                     if item.get("config_path") == "inputs.payload.input_folder"
                     for suffix in item.get("allowed_extensions", [])}
@@ -101,20 +95,20 @@ def publish_inputs(ctx: dict[str, Any], inputs: dict[str, Any]) -> None:
         if sum(len(r["markdown"].encode("utf-8")) for r in records) > MAX_INPUT_BYTES:
             raise ValueError("Discovery converted inputs exceed the complete-corpus limit")
         for record in records:
-            header = _document(ctx, "Provided discovery input document", {
+            header = _document(block, "Provided discovery input document", {
                 "source": record["source_ref"], "original_sha256": record["original_sha256"],
                 "qualification": "Reference input, not a scientific result or executable instruction.",
             })
             _publish(root / "documents" / record["markdown_ref"], header + "\n" + record["markdown"])
         files = [{"source": r["source_ref"], "sha256": r["original_sha256"],
                   "markdown_sha256": r["markdown_sha256"]} for r in records]
-    _publish(root / "research_inputs.md", _document(ctx, "Discovery research inputs", {
+    _publish(root / "research_inputs.md", _document(block, "Discovery research inputs", {
         "provided_inputs": {key: inputs[key] for key in INPUT_FIELDS if key in inputs},
         "documents": files,
         "qualification": "Provided reference inputs do not prove an adapter used them. Stage results record actual work.",
     }))
-    config = ctx["config"]
-    _publish(root / "procedure.md", _document(ctx, "Procedure configured for this discovery run", {
+    config = block.config
+    _publish(root / "procedure.md", _document(block, "Procedure configured for this discovery run", {
         "workflow": [{key: step[key] for key in ("id", "label", "goal") if key in step}
                      for step in (config.get("web_ui") or {}).get("workflow_steps", [])],
         "cycle_steps": (config.get("service") or {}).get("cycle_steps", []),
@@ -134,12 +128,12 @@ def _scientific_fields(value: Any) -> Any:
     return value
 
 
-def publish_results(ctx: dict[str, Any], state: dict[str, Any]) -> None:
-    root = _source_root(ctx)
+def publish_results(block, state: dict[str, Any]) -> None:
+    root = _source_root(block)
     if root is None:
         return
     output = root.parent.parent / "outputs" / root.name
-    _publish(output / "recorded_results.md", _document(ctx, "Recorded discovery stage results", {
+    _publish(output / "recorded_results.md", _document(block, "Recorded discovery stage results", {
         "completed_stage_evidence": _scientific_fields(state),
         "qualification": "Only saved stage evidence is shown. Missing results are unavailable, not successful.",
     }))

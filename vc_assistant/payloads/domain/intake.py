@@ -90,7 +90,7 @@ def stable_conversion_policy(config):
     return hashlib.sha256(json.dumps(value,sort_keys=True).encode()).hexdigest()
 
 
-def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source_output_folder: Path | None = None) -> dict[str, list[dict[str, Any]]]:
+def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source_output_folder: Path | None = None, source_scope=None) -> dict[str, list[dict[str, Any]]]:
     records_by_company: dict[str, list[dict[str, Any]]] = {}
     paths = _document_paths(folder)
     if not paths:
@@ -118,6 +118,7 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source
         record = {
             "path": str(path),
             "filename": path.name,
+            "source_relative_path": path.relative_to(folder).as_posix(),
             "company_name": company,
             "sha256": digest,
             "suffix": suffix,
@@ -140,7 +141,7 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source
         records_by_company.setdefault(company, []).append(record)
         indexed_records.append(record)
     from mn_sdk.source_query import source_text_query
-    sources = source_text_query(config or {}, principal='vc-inputs')
+    sources = source_text_query(config or {}, principal='vc-inputs', scope=source_scope)
     receipts, catalog = [], None
     if sources is not None:
         try:
@@ -157,7 +158,10 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source
     return records_by_company
 
 def company_fingerprint(records: list[dict[str, Any]]) -> str:
-    return records_fingerprint(records)
+    return records_fingerprint([
+        {**record, "path": record.get("source_relative_path") or record.get("filename") or Path(record["path"]).name}
+        for record in records
+    ])
 
 def load_watch_state(output_folder: Path) -> dict[str, Any]:
     state = read_json(output_folder / "watch_state.json")
@@ -214,25 +218,6 @@ def build_company_work_queue(company_records: dict[str, list[dict[str, Any]]], p
             }
         )
     return queue
-
-def update_watch_state(output_folder: Path, run_dir: Path, queue: list[dict[str, Any]], *, run_id: str) -> dict[str, Any]:
-    state = {
-        "run_id": run_id,
-        "updated_at": utc_now_iso(),
-        "companies": {
-            item["company_slug"]: {
-                "company_name": item["company_name"],
-                "fingerprint": item["fingerprint"],
-                "status": item["status"],
-                "document_count": item["document_count"],
-                "last_run_id": run_id,
-            }
-            for item in queue
-        },
-    }
-    write_json(output_folder / "watch_state.json", state)
-    write_json(run_dir / "watch_state.json", state)
-    return state
 
 def load_cached_company_analysis(output_folder: Path, company: str) -> dict[str, Any] | None:
     analysis = read_json(output_folder / slugify(company) / "analysis.json")

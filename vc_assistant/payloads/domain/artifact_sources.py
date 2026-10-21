@@ -7,14 +7,15 @@ from mn_sdk.blueprint_support import write_json
 from mn_sdk.source_query import source_text_query
 
 
-def index_output_artifacts(ctx, output_files):
-    source_folder = Path(ctx['output_folder']) / 'context_sources'
-    paths = sorted({Path(item['path']) for item in output_files
+def index_output_artifacts(block, output_files):
+    source_folder = block.store.path('context_sources')
+    paths = sorted({block.store.path(item['path']) for item in output_files
                     if Path(item['path']).suffix.lower() in SUPPORTED_SUFFIXES
-                    and not Path(item['path']).resolve().is_relative_to(source_folder.resolve())})
-    root = Path(ctx['output_folder']) / 'context_sources' / 'outputs'
-    records = convert_documents(paths, source_root=ctx['output_folder'], output_root=root)
-    sources = source_text_query(ctx['config'], principal='vc-output-artifacts')
+                    and not block.store.path(item['path']).is_relative_to(source_folder)})
+    root = source_folder / 'outputs'
+    records = convert_documents(paths, source_root=block.store.run_dir, output_root=root)
+    sources = source_text_query(block.config, principal='vc-output-artifacts',
+        scope={'job_id': block.job_id, 'run_id': block.run_id})
     receipts, catalog = [], None
     try:
         if sources is not None:
@@ -30,11 +31,11 @@ def index_output_artifacts(ctx, output_files):
     finally:
         if sources is not None:
             sources.close()
-    inventory = [{'path': str(Path(r['markdown_path']).relative_to(ctx['output_folder'])),
+    inventory = [{'path': str(Path(r['markdown_path']).relative_to(block.store.run_dir)),
                   'sha256': r['markdown_sha256'], 'original_ref': r['source_ref']}
                  for r in records]
     catalog_path = root.parent / 'outputs.json'
     write_json(catalog_path, {'files': inventory, 'catalog': catalog, 'receipts': receipts})
     return [*output_files,
-            *[{'kind': 'output_source_markdown', 'path': r['markdown_path']} for r in records],
-            {'kind': 'output_source_catalog', 'path': str(catalog_path)}]
+            *[{'kind': 'output_source_markdown', 'path': str(Path(r['markdown_path']).relative_to(block.store.run_dir))} for r in records],
+            {'kind': 'output_source_catalog', 'path': str(catalog_path.relative_to(block.store.run_dir))}]

@@ -11,13 +11,9 @@ from blueprint_modernization_support import blueprint_path
 from mn_sdk import expand_manifest_source, is_manifest_source
 from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
 from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
-from workspace_paths import companion_workspace
+from mn_sdk.components import ComponentRegistry
 
 ROOT = Path(__file__).resolve().parents[1]
-WORKSPACE = companion_workspace(ROOT)
-SDK_ROOT = WORKSPACE / "mn-python-sdk"
-SKILL_SOURCES = sorted((WORKSPACE / "mn-skills").glob("*/src"))
-AGENT_SOURCES = sorted((WORKSPACE / "mn-agents").glob("*/src"))
 
 
 def _mapped_fields(fields, *, inputs, upstream_outputs, flow_output=None):
@@ -101,74 +97,27 @@ def _run_handler_workflow(
     message_path = tmp_path / f"{blueprint_id}-message.json"
     message_path.write_text(json.dumps({"kwargs": inputs}), encoding="utf-8")
     result: dict = {}
-    source_registry = manifest["agents"]["registry"]
     descriptor_path = tmp_path / "runtime/manifest.json"
     descriptor_path.parent.mkdir()
     descriptor_path.write_text(
         json.dumps(resolved_worker_descriptor(package, runtime_manifest, configuration))
     )
-    if is_manifest_source(manifest):
-        assignments = []
-        for node in runtime_manifest["agents"]["nodes"]:
-            environment = (node.get("config") or {}).get("environment") or {}
-            agent_id = environment.get("MN_WORKFLOW_AGENT_ID")
-            if not environment.get("MN_WORKFLOW_STEP_HANDLER"):
-                continue
-            assignments.append(
-                {
-                    "step_id": environment["MN_WORKFLOW_STEP_ID"],
-                    "agent_id": agent_id,
-                    "invocation_id": environment["MN_WORKFLOW_INVOCATION_ID"],
-                    "needs": [],
-                    "definition": {
-                        "handler": environment["MN_WORKFLOW_STEP_HANDLER"],
-                        "with": json.loads(
-                            environment.get("MN_WORKFLOW_STEP_WITH_JSON", "{}")
-                        ),
-                    },
-                }
-            )
-    else:
-        assignments = [
-            {
-                "step_id": step["id"],
-                "agent_id": assignment["agent_id"],
-                "invocation_id": f"{step['id']}__{assignment['agent_id']}",
-                "needs": assignment.get("needs", []),
-            }
-            for step in manifest["workflow"]["steps"]
-            for assignment in step["run"]["agents"]
-        ]
-
-    agent_outputs = {}
     executed_agents = []
     upstream_outputs = {}
     runtime_nodes = {
         node["node_id"]: node for node in runtime_manifest["agents"]["nodes"]
     }
-    for index, assignment in enumerate(assignments):
-        step_id = assignment["step_id"]
-        agent_id = assignment["agent_id"]
-        invocation_id = assignment["invocation_id"]
-        definition = assignment.get("definition") or source_registry[agent_id]
-        start = runtime_nodes.get(f"{step_id}__start", {}).get("config", {})
-        step_input = (
-            _mapped_fields(
-                start["fields"], inputs=inputs, upstream_outputs=upstream_outputs
-            )
-            if "fields" in start
-            else {"kwargs": inputs}
-        )
+    def invoke(step_id, flow, step_input):
+        nonlocal result
+        node = runtime_nodes[f"{step_id}__{flow.get('alias', flow['agent_id'])}"]
+        binding = node['config']['environment']
+        agent_id = binding['MN_WORKFLOW_AGENT_ID']
+        invocation_id = binding['MN_WORKFLOW_INVOCATION_ID']
         message_path.write_text(
             json.dumps(
                 {
                     "body": {
                         "step_input": step_input,
-                        "agent_outputs": {
-                            dependency: agent_outputs[dependency]
-                            for dependency in assignment.get("needs", [])
-                            if dependency in agent_outputs
-                        },
                         "artifact_refs": [],
                     }
                 }
@@ -184,46 +133,43 @@ def _run_handler_workflow(
                 "MN_RUN_DIR": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
                 "MN_BLUEPRINT_BUNDLE_DIR": str(blueprint),
                 "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor_path),
-                "MN_SDK_COMPONENTS_JSON": json.dumps(
-                    ["blueprint-blocks"]
-                    if "mn_blocks" in manifest.get("metadata", {})
-                    else []
-                ),
+                "MN_SDK_COMPONENTS_JSON": json.dumps(sorted(ComponentRegistry.from_manifest(manifest).enabled)),
                 "MN_WORKFLOW_STEP_ID": step_id,
                 "MN_WORKFLOW_AGENT_ID": agent_id,
                 "MN_WORKFLOW_INVOCATION_ID": invocation_id,
                 "MN_WORKFLOW_IDEMPOTENCY_KEY": f"{blueprint_id}/{invocation_id}",
-                "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config),
+                "MN_BLUEPRINT_CONFIG_JSON": json.dumps(configuration.data),
                 "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs"),
                 "MN_RUNS_ROOT": str(tmp_path / "runs"),
                 "MN_WORKDIR": str(tmp_path / "workspace"),
                 "PYTHONPATH": os.pathsep.join(
-                    value
-                    for value in (
-                        str(payloads),
-                        str(SDK_ROOT),
-                        *(
-                            str(path)
-                            for path in sorted((payloads / "skills").glob("*/src"))
-                            if path.is_dir()
-                        ),
-                        *(str(path) for path in SKILL_SOURCES),
-                        *(str(path) for path in AGENT_SOURCES),
-                        environment.get("PYTHONPATH", ""),
-                    )
-                    if value
+                    # Compile and execute against the same code/distribution
+                    # ordering. Promoting different editable roots can change
+                    # package versions even while importing identical code;
+                    # the worker correctly rejects that identity mismatch.
+                    [str(payloads), *(str(Path(path).resolve()) for path in sys.path if path)]
                 ),
             }
         )
+        command = [sys.executable, "-m", "mn_sdk.step_runtime"]
+        if blueprint_id == "vc_assistant":
+            # Offline owner transport shared across CLI workers. Core's actual
+            # admission and durability transitions are tested in its own suite.
+            setup = (
+                "import sys, runpy; sys.path.insert(0, " + repr(str(ROOT)) + "); "
+                "from vc_assistant.native_test_support import WorkflowBudgetOwner; "
+                "import mn_sdk.integrations.run_budget as budgets; "
+                "owner = WorkflowBudgetOwner(" + repr(str(tmp_path / "workflow-budget.sqlite")) + "); "
+                "budgets._client_factory = lambda **options: owner; "
+                "runpy.run_module('mn_sdk.step_runtime', run_name='__main__')"
+            )
+            command = [sys.executable, "-c", setup]
         completed = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mn_sdk.step_runtime",
+            [*command,
                 "--handler",
-                definition["handler"],
+                binding['MN_WORKFLOW_STEP_HANDLER'],
                 "--with-json",
-                json.dumps(definition.get("with") or {}),
+                binding.get('MN_WORKFLOW_STEP_WITH_JSON', '{}'),
             ],
             cwd=scripts,
             env=environment,
@@ -240,29 +186,44 @@ def _run_handler_workflow(
             )
         )
         assert result["workflow_step_id"] == step_id
-        agent_outputs[agent_id] = dict(result.get("outputs") or {})
         executed_agents.append(agent_id)
-        if (
-            index + 1 == len(assignments)
-            or assignments[index + 1]["step_id"] != step_id
-        ):
-            end = runtime_nodes.get(f"{step_id}__end", {}).get("config", {})
-            upstream_outputs[step_id] = _mapped_fields(
-                end.get("fields", {}),
-                inputs=inputs,
-                upstream_outputs=upstream_outputs,
-                flow_output=agent_outputs[agent_id],
-            )
+        return dict(result.get('outputs') or {})
+
+    def execute(step_id, flow, value):
+        if flow['type'] == 'sequence':
+            for item in flow['items']:
+                value = execute(step_id, item, value)
+            return value
+        if flow['type'] == 'parallel':
+            return {item.get('alias', item.get('agent_id')): execute(step_id, item, value)
+                    for item in flow['items']}
+        assert flow['type'] == 'agent', 'This subprocess fixture does not schedule Core child workflows.'
+        return invoke(step_id, flow, value)
+
+    for step in runtime_manifest['workflow']['steps']:
+        assert set(step.get('needs', [])) <= set(upstream_outputs)
+        graph = step['implementation']['step_graph']
+        step_input = _mapped_fields(graph['input']['fields'], inputs=inputs, upstream_outputs=upstream_outputs)
+        flow_output = execute(step['id'], graph['flow'], step_input)
+        upstream_outputs[step['id']] = _mapped_fields(graph['output']['fields'], inputs=inputs,
+            upstream_outputs=upstream_outputs, flow_output=flow_output)
     assert {
         path.relative_to(blueprint)
         for path in blueprint.rglob("*")
         if path.is_file() and "__pycache__" not in path.parts
     } == {path for path in original_files if "__pycache__" not in path.parts}
+    published_outputs = dict(result.get("outputs") or {})
+    if set(published_outputs) == {"result"} and published_outputs["result"].get("version") == "mn.committed_json/v1":
+        from mn_sdk_common.committed_artifacts import CommittedJsonStore
+        published_outputs = CommittedJsonStore(tmp_path / "runs" / f"{blueprint_id}-handler-test").read(published_outputs["result"])
     return {
-        **dict(result.get("outputs") or {}),
-        **{key: value for key, value in result.items() if key != "outputs"},
+        **published_outputs,
+        **{key: value for key, value in result.items() if key not in {"outputs", "artifacts"}},
+        "worker_artifacts": result.get('artifacts', []),
         "executed_agents": executed_agents,
-        "expected_agents": [item["agent_id"] for item in assignments],
+        "expected_agents": [node['config']['environment']['MN_WORKFLOW_AGENT_ID']
+            for node in runtime_manifest['agents']['nodes']
+            if node.get('config', {}).get('environment', {}).get('MN_WORKFLOW_STEP_HANDLER')],
         "step_outputs": upstream_outputs,
         "run_dir": str(tmp_path / "runs" / f"{blueprint_id}-handler-test"),
     }
@@ -275,8 +236,7 @@ def _run_handler_workflow(
             "vc_assistant",
             {
                 "document_folder": str(
-                    ROOT.parent
-                    / "mn-blueprints"
+                    ROOT
                     / "vc_assistant"
                     / "examples"
                     / "sample_inputs"
@@ -311,8 +271,7 @@ def _run_handler_workflow(
             "financial_advisor",
             {
                 "document_folder": str(
-                    ROOT.parent
-                    / "mn-blueprints"
+                    ROOT
                     / "financial_advisor"
                     / "examples"
                     / "sample_inputs"
@@ -382,7 +341,12 @@ def test_manifest_handlers_execute_as_message_chained_workflows(
         assert assessment["kind"] == "block_result"
         assert "block_assess_procurement_case_specialist" in result["executed_agents"]
     final_ref = result.get("final_artifact")
+    if final_ref is None:
+        final_ref = next(item['reference'] for item in result['artifacts']
+                         if item['reference']['path'] == 'final_artifact.json')
+        from mn_sdk_common.committed_artifacts import CommittedJsonStore
+        CommittedJsonStore(result['run_dir']).validate(final_ref)
     assert isinstance(final_ref, dict)
-    assert final_ref["kind"] == "final_artifact"
+    assert final_ref["kind"] in {"final_artifact", "json"}
     final_path = Path(result["run_dir"]) / final_ref["path"]
     assert final_path.exists()

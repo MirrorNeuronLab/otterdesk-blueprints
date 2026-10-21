@@ -62,18 +62,20 @@ def test_duplicate_records_never_double_count_and_conflicts_fail(modules):
 
 def test_matter_schema_and_frozen_replay(modules, tmp_path):
     from domain.matter_intake import prepare
+    from litigation_native_test_support import block_context
     context = make_context(tmp_path)
     path = tmp_path / "matter.json"
     context["payload"]["matter_file"] = str(path)
     matter = fixture_matter()
     path.write_text(json.dumps(matter))
-    assert prepare(context) == prepare(context)
+    native = block_context(context)
+    assert prepare(native, context['payload']) == prepare(native, context['payload'])
     matter["title"] = "Changed"
     path.write_text(json.dumps(matter))
-    with pytest.raises(ValueError, match="fresh review run"): prepare(context)
+    with pytest.raises(ValueError, match="fresh review run"): prepare(native, context['payload'])
     matter["exclusions"][0]["reviewed_at"] = "Yesterday"
     path.write_text(json.dumps(matter))
-    with pytest.raises(ValueError, match="ISO timestamp"): prepare(context)
+    with pytest.raises(ValueError, match="ISO timestamp"): prepare(native, context['payload'])
 
 
 def test_preflight_failure_precedes_download_and_case_analysis(modules, tmp_path, monkeypatch):

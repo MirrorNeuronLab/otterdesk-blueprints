@@ -11,6 +11,7 @@ from mn_sdk.step_runtime import artifact_reference
 from .config import validate_config, offline_config
 from .lazy import LayerManager
 from .catalog import LayerUnavailable
+from .state import read_state, freeze_files, save_state
 
 
 def _components(adjacency):
@@ -162,16 +163,18 @@ def _write_dsm(path, names, adjacency):
 
 
 @activity_operation('Analyzing repository structure', completed='Analyzing repository structure: completed')
-def analyze_snapshot(context, *, llm_client=None):
-    root = Path(context["run_dir"])
+def analyze_snapshot(block, inputs):
+    capture = inputs['previous']['result']['evidence']
+    evidence = read_state(block, capture, 'capture')
+    root = block.store.run_dir
     snapshot = json.loads((root / "snapshot.json").read_text(encoding="utf-8"))
-    cfg = validate_config(context["config"])
+    cfg = validate_config(block.original_config)
     if cfg["offline"]:
         cfg = offline_config(cfg)
     # Reusable syntax/history extraction is independent of optional lazy views.
     # Publish the useful map before any model task is admitted.
     from .static_analysis import build
-    static_refs = build(context)
+    static_refs = build(block)
     directory = root / "evidence" / "snapshots" / snapshot["id"]
     manager = LayerManager(directory, cfg)
     generation = manager.ensure(("dependencies",))
@@ -209,6 +212,8 @@ def analyze_snapshot(context, *, llm_client=None):
     history['schema_version'] = 'mn.architecture.change_sets.v1'
     (output / "history.json").write_text(json.dumps(history, indent=2), encoding="utf-8")
     refs.append(artifact_reference("change_history", "analysis/history.json"))
-    return {"analysis": refs[0], "modules": len(result["modules"]),
+    files = freeze_files(block, [ref['path'] for ref in refs])
+    return {"analysis": files['analysis/dependencies.json'], "modules": len(result["modules"]),
             "dependencies": len(result["dependencies"]), "cycles": len(result["strongly_connected_cycles"]),
-            "dsm_status": result["dsm"]["status"]}, refs
+            "dsm_status": result["dsm"]["status"],
+            'evidence': save_state(block, 'structure', inputs=evidence['inputs'], files=files, capture=capture)}
