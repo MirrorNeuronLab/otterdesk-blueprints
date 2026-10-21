@@ -195,7 +195,7 @@ and local-budget loaders are removed; workflow-state files are inspection views.
 Domain formulas and StepSpec joins remain intact. Metadata traces preserve local
 records plus upstream specialist-qualified observations; private initialization
 diagnostics may be absent from the aggregate, explicitly qualified in coverage.
-Main SDK requires dev31, blocks dev30, common dev25 and coordinated Core support.
+Main SDK requires dev27, blocks dev27, common dev25 and coordinated Core support.
 Core keeps delivery and logical completion. Full catalog migration still includes
 unfinished CCTV event hooks; no live provider/device qualification is claimed.
 

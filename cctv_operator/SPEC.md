@@ -201,7 +201,7 @@ Native event workers start with a fresh
 run; pre-migration plain-dictionary state is rejected rather than guessed.
 Existing CUDA placement, source/model
 policy, event edges and auxiliary-service timing stay intact. Require matching
-SDK dev34 / blocks dev33 source and Core event/publication support before hook execution.
+SDK dev27 / blocks dev27 source and Core event/publication support before hook execution.
 This is an offline-tested source migration, not a live deployment qualification.
 Supervision remains bounded to 1,000,000 health cycles / 64 MiB of checkpoints;
 rotate the service before either bound. Camera timing remains independent of

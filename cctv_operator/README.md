@@ -11,7 +11,7 @@ The live camera/UI owner now uses `mn.blocks.monitored_service@1` through
 processing phases. Domain hooks own camera resources and first-frame readiness;
 the shared block owns periodic listener health, durable checkpoints, replay and
 cleanup after partial startup or stopping. Native event workers require matching main
-SDK `>=1.3.61.dev34,<2`, blocks `>=1.3.61.dev33,<2`, common `>=1.3.61.dev25,<2`, the coordinated Core
+SDK `>=1.3.61.dev27,<2`, blocks `>=1.3.61.dev27,<2`, common `>=1.3.61.dev25,<2`, the coordinated Core
 event/publication protocol, and supervised-service agent `>=1.3.61.dev5,<2`.
 The migration is qualified by offline listener and process-group tests; the
 historical Spark measurements below predate this path.

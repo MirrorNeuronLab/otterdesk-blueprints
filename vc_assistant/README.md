@@ -231,7 +231,7 @@ The ten StepSpec graphs retain extractor sequencing and parallel joins.
 `workflow_state/` files remain inspection views; native workers read explicit
 scoped checkpoints. Metadata traces combine local records and qualified upstream
 specialist records; initialization diagnostics in private workers can remain local.
-Main SDK requires `1.3.61.dev31`, blocks `1.3.61.dev30`, common
+Main SDK requires `1.3.61.dev27`, blocks `1.3.61.dev27`, common
 `1.3.61.dev25`, and matching Core workflow-budget/private-output support.
 OpenShell remains optional; publishers select `artifact_handoff.export_outputs`
 for Core-owned delivery. This source is not a release or live-provider qualification.

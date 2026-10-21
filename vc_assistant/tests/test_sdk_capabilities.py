@@ -21,8 +21,8 @@ def test_compiled_dependencies_enable_only_required_sdk_capabilities():
     assert {Requirement(item).name for item in source_requirements} == expected
     assert set(component_requirement_lines(compiled)) == source_requirements
     assert "mn-python-sdk-common>=1.3.61.dev25,<2" in source_requirements
-    assert "mn-blueprint-blocks>=1.3.61.dev30,<2" in source_requirements
-    assert any(item["name"] == "mirrorneuron-python-sdk" and item["version"] == ">=1.3.61.dev31,<2"
+    assert "mn-blueprint-blocks>=1.3.61.dev27,<2" in source_requirements
+    assert any(item["name"] == "mirrorneuron-python-sdk" and item["version"] == ">=1.3.61.dev27,<2"
         for item in source["packages"])
     assert compiled["packages"] == source["packages"]
     retired = {
