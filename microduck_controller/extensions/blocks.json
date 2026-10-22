@@ -119,5 +119,24 @@
         "timeout_seconds": 30
       }
     }
+  },
+  "services": {
+    "microduck_web_ui_registrar": {
+      "uses": "mn.blocks.monitored_service@1",
+      "hooks": {
+        "start": "domain.web_ui_service:start",
+        "health": "domain.web_ui_service:health",
+        "ready": "domain.web_ui_service:ready",
+        "cycle": "domain.web_ui_service:cycle",
+        "stop": "domain.web_ui_service:stop"
+      },
+      "config": {
+        "interval_seconds": 5,
+        "max_cycles": null,
+        "buffer_policy": "latest",
+        "startup_timeout_seconds": 60,
+        "max_checkpoint_bytes": 67108864
+      }
+    }
   }
 }

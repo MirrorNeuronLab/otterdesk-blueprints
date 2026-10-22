@@ -12,6 +12,7 @@ import contextlib
 import json
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -331,18 +332,37 @@ def graph_text_score(request: dict[str, Any], _work_dir: Path) -> dict[str, Any]
 def simulation(request: dict[str, Any], work_dir: Path) -> dict[str, Any]:
     prepare_problem_specific_model(request)
     biotarget_source(request)
+
+    batch = request.get("screens")
+    screens = batch if isinstance(batch, list) else [request.get("screen")]
+    if not screens or any(not isinstance(screen, dict) for screen in screens):
+        raise RuntimeError("BioTarget simulation requires one or more screened candidates.")
+    for screen in screens:
+        candidate = screen.get("candidate") if isinstance(screen.get("candidate"), dict) else {}
+        structure = screen.get("structure") if isinstance(screen.get("structure"), dict) else {}
+        if not candidate.get("smiles") or not Path(str(structure.get("path") or "")).is_absolute():
+            raise RuntimeError("BioTarget simulation requires screen.candidate.smiles and an absolute screen.structure.path.")
+    # One checkpoint and CUDA model per adapter batch. Each candidate still
+    # executes independently in parallel, including its native GNINA process.
+    model, device = load_drugclip(request)
+    service = request.get("service") if isinstance(request.get("service"), dict) else {}
+    parallelism = service.get("parallelism") if isinstance(service.get("parallelism"), dict) else {}
+    workers = max(1, min(int(parallelism.get("simulation_workers", 4)), len(screens)))
+    with ThreadPoolExecutor(max_workers=workers) as executor:
+        results = list(executor.map(lambda screen: evaluate_screen(screen, model, device), screens))
+    return {"simulations": results} if isinstance(batch, list) else results[0]
+
+
+def evaluate_screen(screen: dict[str, Any], model: Any, device: Any) -> dict[str, Any]:
     from biotarget.stages.stage_d_evaluation import stage_d_evaluate_binding_and_tox
 
-    screen = request.get("screen") if isinstance(request.get("screen"), dict) else {}
     candidate = screen.get("candidate") if isinstance(screen.get("candidate"), dict) else {}
     structure = screen.get("structure") if isinstance(screen.get("structure"), dict) else {}
     smiles = str(candidate.get("smiles") or "")
     if not smiles or not structure.get("path"):
         raise RuntimeError("BioTarget simulation requires screen.candidate.smiles and screen.structure.path.")
-    model, device = load_drugclip(request)
     molecular_graph = molecule_graph(smiles)
-    with working_directory(work_dir):
-        evaluations = stage_d_evaluate_binding_and_tox([smiles], [molecular_graph], [structure], model, device)
+    evaluations = stage_d_evaluate_binding_and_tox([smiles], [molecular_graph], [structure], model, device)
     if not evaluations:
         raise RuntimeError("BioTarget Stage D returned no evaluation.")
     evaluation = evaluations[0]

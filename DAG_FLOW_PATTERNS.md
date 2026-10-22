@@ -10,6 +10,7 @@ workflow ledger, not only displayed in the UI.
 
 | Blueprint | Runtime flow pattern |
 | --- | --- |
+| General Assistant | Serial batch: freeze task and private memory → Harness2 execution and refinement in OpenShell → verify outputs and retain Job-private context. |
 | Mac security investigator | Serial bounded batch: capture unified logs → reconcile persistent diagnostic history → evaluate available evidence → publish review. Idle between user-initiated runs; no OS file inspection. |
 | CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
 | Drug Discovery Research Assistant | Bounded discovery batch: one cycle evaluates five distinct molecules, then review and reporting complete the run. |

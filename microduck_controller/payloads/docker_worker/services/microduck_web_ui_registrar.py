@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import json
 import os
-import signal
 import socket
 import struct
 import time
@@ -80,7 +79,7 @@ def configured_run_dir() -> Path:
     if value:
         return Path(value).expanduser()
     root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
-    run_id = str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")
+    run_id = str(os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")
     return Path(root).expanduser() / run_id if root else Path.cwd() / "runs" / run_id
 
 
@@ -119,9 +118,10 @@ def _is_private_proxy_host(host: str | None) -> bool:
     )
 
 
-def await_endpoint(path: Path, *, timeout_seconds: float = REGISTRATION_TIMEOUT_SECONDS) -> dict[str, Any]:
+def await_endpoint(path: Path, *, timeout_seconds: float = REGISTRATION_TIMEOUT_SECONDS, check: Callable[[], None] = lambda: None) -> dict[str, Any]:
     deadline = time.monotonic() + timeout_seconds
     while time.monotonic() < deadline:
+        check()
         endpoint = read_endpoint(path)
         if endpoint is not None:
             return endpoint
@@ -156,14 +156,13 @@ def register_endpoint(
     )
 
 
-def serve_mcp_proxy(
+def create_mcp_proxy_server(
     endpoint: dict[str, Any],
     *,
     host: str = MCP_PROXY_HOST,
     port: int = MCP_PROXY_PORT,
     server_factory=ThreadingHTTPServer,
-    on_ready: Callable[[], None] | None = None,
-) -> None:
+) -> ThreadingHTTPServer:
     """Expose the run's private MCP endpoint to the Job response agent only."""
 
     upstream = urlparse(str(endpoint["url"]))
@@ -237,48 +236,16 @@ def serve_mcp_proxy(
         def log_message(self, _format: str, *_args: Any) -> None:
             return
 
-    server = server_factory((host, port), Handler)
-    if on_ready is not None:
-        on_ready()
-    server.serve_forever(poll_interval=0.5)
+    return server_factory((host, port), Handler)
 
 
-def main() -> int:
-    raw_job_data_dir = str(os.environ.get("MN_JOB_DATA_DIR") or "").strip()
-    if not raw_job_data_dir:
-        raise RuntimeError("Microduck Web UI registration requires MN_JOB_DATA_DIR")
-    job_data_dir = Path(raw_job_data_dir).expanduser()
-    job_id = job_data_dir.name
-    if not job_id:
-        raise RuntimeError("MN_JOB_DATA_DIR must identify the direct job data directory")
-
-    endpoint = await_endpoint(configured_run_dir() / WEB_UI_ENDPOINT_ARTIFACT)
-    from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status
-
-
-    def stop(_signum: int, _frame: Any) -> None:
-        mark_web_ui_status(
-            job_data_dir,
-            job_id=job_id,
-            status="stopped",
-            detail="The Microduck service is paused or cancelled.",
-        )
-        raise SystemExit(0)
-
-    signal.signal(signal.SIGTERM, stop)
-    signal.signal(signal.SIGINT, stop)
-
-    # This HostLocal sidecar gives the stable Job response agent one declared,
-    # health-checked service endpoint while the DockerWorker keeps its random
-    # private listener. It forwards only MCP and health paths.
-    serve_mcp_proxy(endpoint, on_ready=lambda: register_endpoint(
-        job_data_dir=job_data_dir,
-        job_id=job_id,
-        endpoint=endpoint,
-        claimer=claim_web_ui,
-    ))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+def serve_mcp_proxy(endpoint, *, on_ready=None, **options):
+    """Run the bounded proxy adapter; production uses the shared service block."""
+    server = create_mcp_proxy_server(endpoint, **options)
+    try:
+        if on_ready is not None:
+            on_ready()
+        server.serve_forever(poll_interval=0.5)
+    finally:
+        if hasattr(server, "server_close"):
+            server.server_close()

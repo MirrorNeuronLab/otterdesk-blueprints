@@ -1,0 +1,30 @@
+FROM ghcr.io/nvidia/openshell-community/sandboxes/base:latest@sha256:aeef1c63f00e2913ea002ccb3aaf925f338b5c5d70e63576f0d95c16a138044e
+
+USER root
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    iproute2 ca-certificates git build-essential rustc cargo default-jdk-headless pandoc poppler-utils \
+    && rm -rf /var/lib/apt/lists/*
+RUN uv venv --clear --python /usr/bin/python3.12 --seed /sandbox/.venv
+ENV VIRTUAL_ENV=/sandbox/.venv PATH=/sandbox/.venv/bin:$PATH
+# Pin the black-box engine to the API exercised by the deterministic integration tests.
+RUN git clone https://github.com/google-research/harness2.git /opt/harness2 \
+    && git -C /opt/harness2 checkout --detach 1cfe254e8d25b15f37048c3730134686abe60335 \
+    && uv pip install --python /sandbox/.venv/bin/python '/opt/harness2[render]' \
+    && rm -rf /opt/harness2/.git
+ARG OPENCODE_VERSION=1.18.33
+RUN set -eu; \
+    case "$(uname -m)" in aarch64|arm64) arch=arm64 ;; x86_64) arch=x64 ;; *) exit 1 ;; esac; \
+    curl -fsSL "https://github.com/anomalyco/opencode/releases/download/v${OPENCODE_VERSION}/opencode-linux-${arch}.tar.gz" -o /tmp/opencode.tar.gz; \
+    tar -xzf /tmp/opencode.tar.gz -C /usr/local/bin opencode; \
+    rm /tmp/opencode.tar.gz; \
+    mkdir -p /sandbox/job /sandbox/.cache/opencode /sandbox/.local/share /sandbox/.config; \
+    curl -fsSL https://models.dev/api.json -o /sandbox/.cache/opencode/models.json; \
+    chown -R sandbox:sandbox /sandbox; \
+    opencode --version; \
+    python3 -c 'import sys; assert sys.version_info[:2] == (3, 12), sys.version; import harness2'
+ENV XDG_CACHE_HOME=/sandbox/.cache \
+    XDG_DATA_HOME=/sandbox/.local/share \
+    XDG_CONFIG_HOME=/sandbox/.config \
+    OPENCODE_DISABLE_MODELS_FETCH=true
+USER sandbox
+WORKDIR /sandbox/job

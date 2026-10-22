@@ -14,7 +14,8 @@ blueprint declares only its product-level behavior and required skills and SDK p
 All published blueprints declare the Markdown context profile.
 CCTV, Architecture, Litigation, VC and Mac security investigator use Membrane v2
 runtime recall. Drug Discovery uses Membrane source intelligence for input, output
-and procedure questions; seven other blueprints disable worker context consumers. See
+and procedure questions; other blueprints disable worker context consumers. General
+Assistant retains its own Job-private Harness2 context inside OpenShell. See
 [the catalog audit and runtime prerequisites](CONTEXT_ENGINE.md).
 Every active context consumer prepares Membrane SDK 2.1 and the v2 RPC service.
 The shared runtime readiness check rejects older engines before submission;
@@ -86,6 +87,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
+| [`general_assistant`](general_assistant/README.md) | Other | General task solving with the default model, 32 GB RAM and private Harness2 improvement in OpenShell. |
 | [`gtm_planner`](gtm_planner/README.md) | Business | Plans marketing work and publishes bounded collaboration packets. |
 | [`gtm_executor`](gtm_executor/README.md) | Business | Executes approved marketing work through declared tools and Job collaboration. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Research | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to `~/Downloads/drug-discovery-research-assistant`, and completes. |

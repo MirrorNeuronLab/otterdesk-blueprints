@@ -1,0 +1,49 @@
+version: 1
+filesystem_policy:
+  include_workdir: true
+  read_only: [/usr, /lib, /proc, /dev/urandom, /app, /etc, /opt/harness2, /var/log]
+  read_write: [/sandbox, /tmp, /dev/null]
+landlock:
+  compatibility: best_effort
+process:
+  run_as_user: sandbox
+  run_as_group: sandbox
+network_policies:
+  conversation_controller:
+    name: conversation-controller
+    endpoints:
+      - host: ${config.harness.gateway_host}
+        port: ${config.harness.core_port}
+    binaries:
+      - {path: /usr/bin/python3.12}
+  runtime_default_model:
+    name: runtime-default-model
+    endpoints:
+      - host: ${config.harness.gateway_host}
+        port: ${config.harness.gateway_port}
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: {method: POST, path: /v1/chat/completions}
+    binaries:
+      - {path: /usr/local/bin/opencode}
+  public_sources:
+    name: public-sources
+    endpoints:
+      - host: github.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: {method: GET, path: /**}
+          - allow: {method: HEAD, path: /**}
+      - host: raw.githubusercontent.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        rules:
+          - allow: {method: GET, path: /**}
+          - allow: {method: HEAD, path: /**}
+    binaries:
+      - {path: /usr/bin/curl}
+      - {path: /usr/bin/git}

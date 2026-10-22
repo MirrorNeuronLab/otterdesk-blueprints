@@ -1,0 +1,91 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "prepare_task": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.intake:prepare"
+      },
+      "inputs": {
+        "task": {
+          "$ref": "run_input",
+          "path": [
+            "task"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 900
+      }
+    },
+    "solve_task": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.solver:solve"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "prepare_task",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 7500
+      }
+    },
+    "publish_task": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.reporting:publish"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "solve_task",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 120
+      }
+    }
+  }
+}

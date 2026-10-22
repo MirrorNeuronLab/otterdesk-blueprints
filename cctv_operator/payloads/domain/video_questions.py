@@ -54,15 +54,15 @@ def answer_video(config, run_dir, run_id, question, *, after="", before="", summ
     llm = config.get("llm") or {}
     primary = (llm.get("configs") or {}).get("primary") or llm
     selected = resolve_config()
+    # Runtime preparation resolves model, provider, endpoint and credentials
+    # together. Catalog defaults must not replace that binding at dispatch.
     selected = replace(selected,
-        model=primary.get("model") or selected.model,
-        provider=primary.get("provider") or selected.provider,
-        backend=primary.get("backend") or llm.get("backend") or selected.backend,
-        api_base=primary.get("api_base") or selected.api_base,
-        timeout_seconds=min(float(primary.get("timeout_seconds", 60)), 60),
-        max_tokens=min(int(primary.get("max_tokens", 1024)), 1024), num_retries=0,
-        required_capabilities=("structured_output",),
-        structured_output_options={"chat_template_kwargs": {"enable_thinking": False}})
+        timeout_seconds=min(float(primary.get("timeout_seconds", 60)), selected.timeout_seconds, 60),
+        max_tokens=min(int(primary.get("max_tokens", 1024)), selected.max_tokens, 1024), num_retries=0,
+        required_capabilities=tuple(dict.fromkeys((*selected.required_capabilities, "structured_output"))),
+        structured_output_options={**selected.structured_output_options,
+            "chat_template_kwargs": {**(selected.structured_output_options.get("chat_template_kwargs") or {}),
+                "enable_thinking": False}})
     with benchmarks.measure("rag.answer", variant=selected.model):
         result = completion_json(system, json.dumps({"question": question, "summarize": summarize,
             "run_id": run_id, "scope": "current_run" if summarize else "camera_history",

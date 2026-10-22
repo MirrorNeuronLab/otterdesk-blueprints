@@ -1,0 +1,48 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "id": "general_assistant",
+  "name": "General Assistant",
+  "version": "2.0.0",
+  "description": "Work on tasks typed in Chat using read-only input files, including Markdown and source code. Save results only to the output folder. Harness2 refines its approach using private Job memory and the runtime default model. Requires 32 GB RAM.",
+  "workflow": "workflow.json",
+  "execution": "execution.json",
+  "contracts": "contracts.json",
+  "config": "config/default.json",
+  "dependencies": "dependencies.json",
+  "license": "LICENSE.md",
+  "terms": "TERM.md",
+  "extensions": {
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.llm": {
+      "file": "extensions/llm.json",
+      "required": true
+    },
+    "mn.storage": {
+      "file": "extensions/storage.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    },
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
+      "required": true
+    }
+  }
+}

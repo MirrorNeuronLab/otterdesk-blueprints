@@ -1,0 +1,3 @@
+{
+  "task": "Convert the Java code in the input folder to Rust. Preserve behavior, create a Cargo project in the output folder and run its tests. Report any behavior you could not verify."
+}

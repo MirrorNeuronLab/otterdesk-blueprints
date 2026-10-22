@@ -121,6 +121,10 @@ credentials or private reasoning enter memory. get_operator_status exposes the
 facility queue/coverage and separate lane health. get_video_history returns up to
 twelve complete matching accounts across Job runs; time bounds need timezone.
 Video Q&A and summaries use the text model, no new image analysis or goal change.
+They retain the runtime-prepared text-model binding and generation controls rather
+than reapplying catalog model/provider/endpoint defaults. Require structured output,
+disable private thinking and retries, and retain the 60-second/1024-token limits
+without increasing a smaller runtime allowance.
 Preserve citations, capture times, omitted counts and source qualification. No
 unique-person/total-appearance claims from repeated samples. Stable Job supervision
 and response services remain SDK-owned, including operation receipts and lifecycle.

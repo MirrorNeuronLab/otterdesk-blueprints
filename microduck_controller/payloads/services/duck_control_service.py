@@ -52,7 +52,7 @@ def configured_run_dir() -> Path:
     if value:
         return Path(value).expanduser()
     root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
-    run_id = str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")
+    run_id = str(os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")
     return Path(root).expanduser() / run_id if root else Path.cwd() / "runs" / run_id
 
 

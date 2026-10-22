@@ -18,6 +18,7 @@ def run_gnina(receptor_path, ligand_smiles):
             "Rebuild the drug-discovery DockerWorker image before running this blueprint."
         )
 
+    work_dir = tempfile.TemporaryDirectory(prefix="gnina-")
     ligand_sdf = None
     try:
         mol = Chem.MolFromSmiles(ligand_smiles)
@@ -30,18 +31,17 @@ def run_gnina(receptor_path, ligand_smiles):
 
         AllChem.MMFFOptimizeMolecule(mol, maxIters=10)
 
-        with tempfile.NamedTemporaryFile(suffix=".sdf", delete=False, dir="/tmp") as f:
+        with tempfile.NamedTemporaryFile(suffix=".sdf", delete=False, dir=work_dir.name) as f:
             ligand_sdf = f.name
 
         writer = Chem.SDWriter(ligand_sdf)
         writer.write(mol)
         writer.close()
 
-        receptor_dir = os.path.dirname(os.path.abspath(receptor_path))
         receptor_name = os.path.basename(receptor_path)
 
         # GNINA has issues with multi-MODEL PDB files from AlphaFold, so we clean it
-        cleaned_receptor = os.path.join(receptor_dir, f"cleaned_{receptor_name}")
+        cleaned_receptor = os.path.join(work_dir.name, f"cleaned_{receptor_name}")
         with open(receptor_path, "r") as fin:
             with open(cleaned_receptor, "w") as fout:
                 for line in fin:
@@ -60,7 +60,7 @@ def run_gnina(receptor_path, ligand_smiles):
         ]
 
         result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=300
+            cmd, capture_output=True, text=True, timeout=300, cwd=work_dir.name
         )  # Increased timeout for slow emulation
 
         if result.returncode != 0:
@@ -98,6 +98,7 @@ def run_gnina(receptor_path, ligand_smiles):
     finally:
         if ligand_sdf and os.path.exists(ligand_sdf):
             os.remove(ligand_sdf)
+        work_dir.cleanup()
 
     raise RuntimeError("GNINA returned no parseable affinity score.")
 

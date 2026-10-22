@@ -1,0 +1,69 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "General task execution and recursive harness improvement in a Job-isolated OpenShell workspace.",
+  "inputs": {
+    "task": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "The task typed in Chat when a run starts, or supplied as a per-run input. Never a saved setup field."
+    },
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": true,
+      "privacy": "confidential",
+      "description": "Read-only task material, including Markdown files and source code. Generated work belongs only in the output folder."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "result",
+      "path": "result.json",
+      "schema_version": "otterdesk.general_assistant.result.v1",
+      "type": "task_result",
+      "required_fields": [
+        "status",
+        "answer",
+        "deliverables",
+        "improvement"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "result",
+        "path": "result.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "answer",
+        "path": "answer.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "deliverables",
+        "path": "deliverables",
+        "mime_type": "application/octet-stream",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "harness_audit",
+        "path": "harness-audit.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      }
+    ]
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled",
+    "notes": "The task, read-only input and Harness2 memory may be read by the runtime model. Task tools cannot write input or reach the Core conversation RPC. Generated work is exported only to the configured output folder. Memory is private to the hired Job."
+  }
+}

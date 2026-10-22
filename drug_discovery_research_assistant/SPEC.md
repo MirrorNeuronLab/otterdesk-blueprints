@@ -27,6 +27,13 @@ The worker launches the SDK step runtime through `/opt/mn-venv/bin/python3`, the
 
 ## Native cross-box contract
 
+The simulation adapter accepts one `screens` batch and returns the corresponding
+`simulations` in input order. It loads DrugClip once per batch, shares the
+read-only model, and retains `service.parallelism.simulation_workers` concurrent
+candidate evaluations. GNINA subprocesses use separate temporary ligand,
+cleaned-receptor, and scratch files, removed on success or failure. The
+one-active-run-per-node rule does not serialize model calls inside that run.
+
 Target discovery, structure generation, candidate generation, binding review, and reporting run in the shared NVIDIA `DockerWorker`. The worker owns the discovery worker and all real DrugClip/GNINA calls with the full `payloads/requirements.txt` stack plus the manifest-declared SDK and agent dependencies. Live cluster mode requires a native dispatcher command. The controller sends it a JSON job containing adapter name, target pool, expanded command, request path, output path, and request payload. BioTarget is bundled in `payloads/biotarget/`; the staged payload is preferred over any external source path. The dispatcher returns a JSON `result` or writes the output path. Missing dispatcher, bundled BioTarget package, checkpoint, GNINA binary, or adapter configuration is a live-run error.
 
 ## Service lifecycle

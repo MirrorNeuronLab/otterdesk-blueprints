@@ -163,6 +163,12 @@ original turn. Missing history is not zero activity. Repeated sightings cannot
 establish unique people or total appearances. Knowledge examples are synthetic
 reference material, never observations.
 
+History questions and summaries retain the text model, provider, endpoint,
+credentials and generation options selected during runtime preparation. Blueprint
+defaults do not replace a prepared gateway route. These requests remain bounded
+to 60 seconds and 1024 answer tokens, with retries and private thinking disabled.
+Smaller runtime request limits remain in force.
+
 Monitoring commands carry command IDs and revisions through Core's declared
 steer_monitoring input. Queued, applied and analyzed are separate states. A late
 old-goal result can remain in history but cannot notify under a newer revision.

@@ -49,6 +49,11 @@ The service produces `web_ui.json`, `duck_service_state.json`, and `duck_command
 
 The default host output folder is `~/Downloads/microduck-controller`.
 
+Version 5.0.1 fixes startup when the execution and physical workflow IDs differ.
+The simulator and Web UI registrar use the same physical run-output directory.
+Deploy the matching Core HostLocal and Web UI SDK fixes and update the idle Job
+definition before starting this version. Existing data does not need a reset.
+
 ## Validation
 
 ```bash
@@ -89,3 +94,14 @@ The `mn.context` descriptor explicitly disables Membrane runtime recall for this
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Live startup contract (5.1.0)
+
+The simulator and its HostLocal control/UI registrar both use the shared
+monitored-service lifecycle. The registrar's ready hook checks the page and code
+assets; opening a browser is not a startup prerequisite. SDK-owned lifecycle
+receipts finish startup progress without completing the live run, and shutdown
+clears the UI claim. The final artifact step remains real shutdown work.
+Requires coordinated SDK/blocks/Web UI dev32 or later and the matching API/Core/
+proxy changes. Update an idle Job definition before starting; retain its identity
+and saved data. No reset or blueprint-specific desktop bypass is needed.

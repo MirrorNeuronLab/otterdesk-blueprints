@@ -1,0 +1,54 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "general_assistant_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "steps": [
+    {
+      "id": "prepare_task",
+      "kind": "source",
+      "label": "Receive task in Chat and prepare read-only input",
+      "goal": "Receive task in Chat and prepare read-only input",
+      "needs": [],
+      "control": {
+        "timeout_seconds": 900,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "solve_task",
+      "kind": "stage",
+      "label": "Solve and refine in OpenShell",
+      "goal": "Solve and refine in OpenShell",
+      "needs": [
+        "prepare_task"
+      ],
+      "control": {
+        "timeout_seconds": 7500,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    },
+    {
+      "id": "publish_task",
+      "kind": "sink",
+      "label": "Publish results and retain lessons",
+      "goal": "Publish results and retain lessons",
+      "needs": [
+        "solve_task"
+      ],
+      "control": {
+        "timeout_seconds": 120,
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}

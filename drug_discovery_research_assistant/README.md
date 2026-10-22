@@ -56,6 +56,16 @@ Cross-box dispatch is an optional advanced configuration. When `cluster_distribu
 
 The dispatcher must accept the job JSON on stdin and return a JSON result or write the declared output file. If it is absent, live runs fail closed rather than running a misleading local fallback. BioTarget Stage D invokes the GNINA binary already installed in the GPU DockerWorker image; it never relies on a nested Docker socket.
 
+Simulation dispatch uses one `screens` batch and returns `simulations`. The
+adapter loads DrugClip once for the batch and shares its read-only model across
+the configured `service.parallelism.simulation_workers` candidate evaluations.
+Inference and GNINA calls remain parallel within the node's one active run.
+Each GNINA call owns a temporary receptor, ligand, and scratch directory;
+parallel candidates never rewrite the same cleaned receptor. A failed native
+evaluation still fails the batch without substituted scores.
+The blueprint no longer declares an LLM concurrency limit of one; node admission
+remains responsible for the one-active-run boundary.
+
 ## Output and safety
 
 The default user-facing output folder is `~/Downloads/drug-discovery-research-assistant`. While the service runs, it publishes `service_status.json`, `cycle_progress.json`, the latest generated candidate pool in `candidates.json`, the latest completed cycle in `latest_cycle_report.json`, and the leading-candidate view in `leading_candidate.json` plus `leading_candidate.svg`; detailed per-cycle artifacts remain under the run directory. After ranking it also writes the optional `web/index.html` and `web_ui.json` outputs. The page shows the leading candidate scores and up to five ranked candidate structures and SMILES strings. Private structure paths and input text remain excluded. Service reports are computational hypotheses only. The blueprint does not authorize wet-lab work, clinical claims, regulatory submissions, or external candidate publication without human approval.

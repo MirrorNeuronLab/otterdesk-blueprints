@@ -1,0 +1,36 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Other",
+  "intent": {
+    "problem": "Tasks cross domains and need an agent that can adapt its working method.",
+    "target_users": "People who need a general co-worker for research, writing, analysis and software.",
+    "safety": {
+      "enabled": true,
+      "mode": "sandboxed_execution",
+      "reason": "Harness2 reads immutable input and writes task files only in the output workspace. Clarifications and notices use the standard conversation channel.",
+      "blocked_actions": [
+        "write_original_host_files",
+        "modify_openshell_policy",
+        "modify_model_weights",
+        "unrestricted_external_mutation",
+        "write_input_files"
+      ]
+    }
+  },
+  "product": {
+    "agent_role": "General problem solver",
+    "benefit": "Gets useful work done and learns evidence-supported working methods across tasks.",
+    "how_it_works": "Harness2 executes, proposes harness changes, probes them, composes a refined harness, and retains adopted harnesses and lessons inside its own context.",
+    "input": "Input folder and output folder at setup; tasks and decisions typed in Chat.",
+    "output": "Answer, generated files and an observed Harness2 refinement audit in the output folder.",
+    "runtime_features": [
+      "General tasks",
+      "OpenShell isolation",
+      "32 GB RAM minimum",
+      "Runtime default model",
+      "Private persistent Harness2 memory",
+      "Recursive self-improvement"
+    ],
+    "customizable_for": "Input and output folders. Give task goals and constraints in Chat."
+  }
+}

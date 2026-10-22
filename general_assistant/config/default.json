@@ -1,0 +1,39 @@
+{
+  "inputs": {
+    "payload": {
+      "input_folder": ""
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/general-assistant"
+  },
+  "harness": {
+    "recursion_steps": 1,
+    "mode": "sequential",
+    "session_timeout_seconds": 600,
+    "walltime_seconds": 7200,
+    "max_sessions": 24,
+    "max_input_files": 512,
+    "max_input_bytes": 33554432,
+    "max_output_files": 512,
+    "max_output_bytes": 33554432,
+    "max_memory_files": 1024,
+    "max_memory_bytes": 8388608,
+    "gateway_host": "host.docker.internal",
+    "gateway_port": 4000,
+    "core_port": 55051
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "mn_local_inputs/workspace",
+        "runtime_path": "mn_local_inputs/workspace",
+        "read_only": true,
+        "allowed_extensions": [
+          "*"
+        ]
+      }
+    ]
+  }
+}

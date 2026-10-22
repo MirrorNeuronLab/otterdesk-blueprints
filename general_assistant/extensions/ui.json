@@ -1,0 +1,33 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "init_config_review": {
+    "required": true,
+    "title": "Choose input and output folders",
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Input folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "input",
+        "required": true,
+        "description": "Read-only files for your tasks, including Markdown and source code."
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "output",
+        "required": true,
+        "default": "~/Downloads/general-assistant",
+        "description": "Completed work is saved here. Choose a folder outside the input folder."
+      }
+    ]
+  },
+  "starter_questions": [
+    "How do I give you a task?",
+    "Can you convert Java code in my input folder to Rust?",
+    "How will you ask me for a decision?"
+  ]
+}

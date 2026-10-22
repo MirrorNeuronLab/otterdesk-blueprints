@@ -1,6 +1,6 @@
 # Catalog context engine contract
 
-All 13 published entries in `index.json` declare the `mn.context` extension with
+All published entries in `index.json` declare the `mn.context` extension with
 `text_memory.contract = mn.context.text.v1`. The runtime recall profile is enabled only where
 worker code actually ingests or retrieves runtime memory. Drug Discovery separately
 enables `source_context` for the stable Job responder and declares the SDK context
@@ -9,6 +9,7 @@ ingestion and citation-backed input/output/procedure queries.
 
 | Published blueprint | Markdown memory | Current boundary |
 | --- | --- | --- |
+| general_assistant | Disabled | Own Harness2 active harness and lesson library in Job-private storage; no Membrane worker recall |
 | mac_security_investigator | Enabled | Loopback-only authored assertion graphs with source locators, pinned scope/knowledge revision, local temporal witnesses; deterministic disable profile is explicit |
 | cctv_operator | Enabled | Camera/source-scoped sampled history before vision; job-scoped observations with run provenance |
 | drug_discovery_research_assistant | Source intelligence | Approved input Markdown, configured procedure and saved scientific results for stable Job Chat; runtime TextMemory recall disabled |

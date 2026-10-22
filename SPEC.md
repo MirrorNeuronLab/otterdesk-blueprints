@@ -74,7 +74,8 @@ CCTV, Architecture, Litigation, VC and Mac security investigator enable it and
 declare the SDK `context` extra;
 Drug Discovery declares the context extra and enables separate `source_context`
 intelligence for complete prepared inputs, configured procedure and saved results.
-It keeps unused TextMemory recall disabled. The remaining seven have disabled
+It keeps unused TextMemory recall disabled. General Assistant retains its own
+Job-private Harness2 memory and improvement library inside OpenShell. Other entries have disabled
 profiles and no worker context consumer. Resolved
 config overrides take precedence. Complete preprocessing output is ingested into
 trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation

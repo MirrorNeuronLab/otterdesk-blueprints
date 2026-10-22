@@ -6,6 +6,13 @@ Run a single live Microduck MuJoCo simulation in a browser and let the stable Ot
 
 ## Runtime contract
 
+Version 5.0.1 resolves the simulator and registrar run-output directory using
+Core's physical `MN_WORKFLOW_RUN_ID` under `MN_RUNS_ROOT`, matching the stock
+block worker. An explicit `MN_RUN_DIR` remains authoritative. `MN_RUN_ID`
+continues to identify the execution in artifacts and published results. Deploy
+the matching Core HostLocal and Web UI SDK identity fixes before starting an
+updated Job definition; no data reset is required.
+
 The blueprint is a manually stopped service. The simulator reserves an OS-selected collision-free private HTTP port for each Run in its DockerWorker network. A HostLocal sidecar uses `mn-python-sdk-web-ui` to register the worker's private DNS endpoint plus its HTTP/WebSocket allowlist on the durable Job UI handle. The same sidecar binds inside the Core container so Docker's host-loopback publication can reach it, but accepts requests only from Core loopback or Docker's discovered host-port gateway; the runtime still advertises and health-checks only `127.0.0.1`. When forwarding, it connects to the private worker DNS endpoint while presenting a loopback `Host` header accepted by FastMCP's DNS-rebinding guard. It exposes only `/health` and `/mcp` on the declarative `microduck-controller-mcp` service so the Job response agent can resolve one passing, Run-scoped endpoint. The desktop renderer uses only OtterDesk's Job UI and Job MCP boundaries and never receives the private upstream address.
 
 The simulator is at `/`, the control-mode view is at `/?control=1`, health is at `/health`, the browser bridge is `/bridge`, and the MCP endpoint is `/mcp`. The service Run starts immediately after hire and continues until paused or stopped; Conversation never starts, resumes, or restarts it.
@@ -100,3 +107,14 @@ The `mn.context` descriptor explicitly disables Membrane runtime recall for this
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Shared service readiness (5.1.0)
+
+`microduck_web_ui_registrar` is a canonical auxiliary monitored-service block.
+Its domain hooks bind the private endpoint, MCP listener and exact UI readiness
+probe; shared SDK code owns startup deadlines, lifecycle receipts, checkpoints,
+cancellation and Web UI status invalidation. It reads the SDK-provided physical
+run directory. The hosting computer's authenticated API relay serves remote
+clients without exposing Docker DNS or listener ports. Startup ends when the
+simulator and registrar are serving; `finalize_service` remains a shutdown phase.
+Deploy matching SDK/blocks/Web UI dev32 and API/Core/proxy contracts together.

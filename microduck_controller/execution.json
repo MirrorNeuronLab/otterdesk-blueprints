@@ -75,10 +75,6 @@
           }
         ],
         "config": {
-          "command": [
-            "python3.12",
-            "microduck_web_ui_registrar.py"
-          ],
           "environment": {},
           "from": "base",
           "no_auto_providers": true,
@@ -88,9 +84,17 @@
           "pool_slots": 1,
           "runner_module": "MirrorNeuron.Runner.HostLocal",
           "tty": false,
-          "upload_as": ".",
-          "upload_path": "services",
-          "workdir": "/sandbox/job"
+          "workdir": "/sandbox/job",
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            },
+            {
+              "source": "services",
+              "target": "services"
+            }
+          ]
         }
       }
     ]

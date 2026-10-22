@@ -27,12 +27,15 @@ from domain.protocol import (
 from services.duck_control_service import (
     MOTION_ROUTINES,
     _web_ui_endpoint_artifact,
+    configured_run_dir as service_run_dir,
     service_settings,
     write_final_artifact,
 )
 from services.microduck_web_ui_registrar import (
     MCP_PROXY_HOST,
     allowed_proxy_clients,
+    await_endpoint,
+    configured_run_dir as registrar_run_dir,
     default_gateway_ipv4,
     read_endpoint,
     register_endpoint,
@@ -594,6 +597,37 @@ def test_service_binds_an_os_selected_private_port_and_publishes_it_for_the_regi
     }
 
 
+def test_registrar_finds_the_block_workers_physical_run_endpoint(tmp_path, monkeypatch):
+    from mn_sdk.step_runtime import StepContext
+
+    monkeypatch.delenv("MN_RUN_DIR", raising=False)
+    monkeypatch.setenv("MN_RUNS_ROOT", str(tmp_path))
+    monkeypatch.setenv("MN_RUN_ID", "execution-id")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "physical-workflow-run")
+    worker_run_dir = tmp_path / StepContext.from_environment().run_id
+    worker_run_dir.mkdir()
+    _web_ui_endpoint_artifact(
+        run_dir=worker_run_dir,
+        proxy_url="http://mn-dw-job-example-shared-1234:62007",
+        port=62007,
+    )
+
+    assert registrar_run_dir() == service_run_dir() == worker_run_dir
+    assert await_endpoint(
+        registrar_run_dir() / "microduck_web_ui_endpoint.json", timeout_seconds=0.1,
+    )["port"] == 62007
+
+
+@pytest.mark.parametrize("resolve_run_dir", [service_run_dir, registrar_run_dir])
+def test_explicit_runtime_directory_remains_authoritative(tmp_path, monkeypatch, resolve_run_dir):
+    monkeypatch.setenv("MN_RUN_DIR", str(tmp_path / "explicit"))
+    monkeypatch.setenv("MN_RUNS_ROOT", str(tmp_path / "runs"))
+    monkeypatch.setenv("MN_RUN_ID", "execution-id")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "physical-workflow-run")
+
+    assert resolve_run_dir() == tmp_path / "explicit"
+
+
 def test_mcp_sidecar_accepts_the_host_loopback_port_forward():
     bound = {}
 
@@ -734,7 +768,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "5.0.0"
+    assert read_blueprint(blueprint).manifest["version"] == "5.1.0"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
@@ -855,12 +889,14 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         if node["node_id"] == "microduck_web_ui_registrar"
     )
     assert registrar["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
-    assert registrar["config"]["command"] == [
-        "python3.12",
-        "microduck_web_ui_registrar.py",
+    assert registrar["config"]["command"] == ["python3", "-m", "mn_sdk.step_runtime"]
+    assert registrar["config"]["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_auxiliary"
+    assert registrar["config"]["upload_paths"] == [
+        {"source": "domain", "target": "domain"}, {"source": "services", "target": "services"},
     ]
-    assert registrar["config"]["upload_path"] == "services"
-    assert registrar["config"]["upload_as"] == "."
+    assert expanded["workflow"]["service_lifecycle"]["phases"] == {
+        "run_microduck_service": "service", "finalize_service": "shutdown",
+    }
     assert registrar["services"][0]["name"] == "microduck-controller-mcp"
     assert registrar["services"][0]["tags"] == [
         "mcp",

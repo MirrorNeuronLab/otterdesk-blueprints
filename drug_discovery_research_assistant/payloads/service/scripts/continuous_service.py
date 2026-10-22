@@ -647,17 +647,19 @@ def run_cycle(config: dict[str, Any], run_dir: Path, cycle_id: int, *, check=Non
     def simulate(screen_result: dict[str, Any]) -> dict[str, Any]:
         if check is not None:
             check()
-        if fake:
-            return fake_simulation(screen_result)
-        structure = screen_result.get("structure") if isinstance(screen_result.get("structure"), dict) else {}
-        target = structure.get("target") if isinstance(structure.get("target"), dict) else {}
-        target_id = target.get("protein_id") or target.get("gene") or structure.get("path") or "target"
-        candidate = screen_result.get("candidate") if isinstance(screen_result.get("candidate"), dict) else {}
-        candidate_id = candidate.get("candidate_id") or candidate.get("smiles") or "candidate"
-        result = run_native_adapter("simulation", config, {"cycle_id": cycle_id, "design_prompt": design_prompt_from_config(config), "screen": screen_result}, job_artifact_dir(cycle_dir, "simulation", target_id, candidate_id), str(pools.get("simulation", "science-simulation")))
-        return result if isinstance(result, dict) else {"screen": screen_result, "result": result}
+        return fake_simulation(screen_result)
 
-    simulations = _parallel(selected, int(parallelism.get("simulation_workers", 4)), simulate)
+    if fake:
+        simulations = _parallel(selected, int(parallelism.get("simulation_workers", 4)), simulate)
+    else:
+        if check is not None:
+            check()
+        result = run_native_adapter("simulation", config, {
+            "cycle_id": cycle_id, "design_prompt": design_prompt_from_config(config), "screens": selected,
+        }, cycle_dir / "simulation", str(pools.get("simulation", "science-simulation")))
+        simulations = result.get("simulations") if isinstance(result, dict) else None
+        if not isinstance(simulations, list) or len(simulations) != len(selected) or any(not isinstance(row, dict) for row in simulations):
+            raise RuntimeError("BioTarget simulation batch returned incomplete candidate evaluations.")
     simulations.sort(key=simulation_sort_key)
     counts["simulations"] = len(simulations)
     publish_cycle_progress(
