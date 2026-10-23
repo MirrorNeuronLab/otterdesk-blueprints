@@ -1,5 +1,6 @@
 # CT reader
 
+A CT scan reader coworker based on nvida NV-resason-CT model. 
 The source folder is `ct_reader`; the stable blueprint ID remains `ct_scan_reader`.
 
 **Research and education only. Not for real diagnosis, treatment, triage, or clinical decisions.** Experimental model output may be incorrect. This co-worker is not a medical device.
@@ -130,3 +131,7 @@ of the committed volume, dispatch fencing and response recovery. Production Pyth
 falls from 247 to 193 lines (−54; −21.9%), across 8 → 6 files, including unchanged
 model-serving code. CUDA placement, the pinned image and public report contracts
 remain unchanged. OpenShell remains optional; this worker retains Docker.
+
+## Reference
+
+Where to find sample inputs: [NVIDIA NV-Reason-CT examples](https://github.com/NVIDIA-Medtech/NV-Reason-CT/tree/main/examples)

@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.1.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -101,15 +101,30 @@ selected DockerWorker. Pin Spark explicitly for validation:
 
 ```bash
 mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
+  --set site.review_owner='Site reviewer'
+```
+
+The default input is the live retail RTSP stream configured in
+`config/default.json`, using the external source profile and camera ID `retail`.
+No local video file is required or staged. The NVIDIA worker must be able to
+reach the stream. OtterDesk's sample setup uses this same live stream; choosing
+your own input requires an approved stream URL through the secure source field.
+
+Recorded playback remains an explicit option:
+
+```bash
+mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
+  --set video_source.profile=bundled_demo \
+  --set video_source.uri=rtsp://127.0.0.1:8554/cctv-demo \
   --set video_source.demo_file=/absolute/path/on/mini/to/approved-test.mp4
 ```
 
-The default demo path is `/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4`.
-It must exist on the submitting machine, be nonempty and fit 512 MiB. The SDK
-stages it; MediaMTX and a looping FFmpeg publisher run in the shared worker.
-The Web UI service owns the publisher; sampling tick cleanup cannot stop it.
-Demo capture timestamps describe recorded playback, not a current facility event.
-No host FFmpeg, runtime reset or reinstallation is required.
+The selected MP4 must exist on the submitting machine, be nonempty and fit
+512 MiB. The SDK stages it only for `bundled_demo`; MediaMTX and a looping FFmpeg
+publisher run in the shared worker. The Web UI service owns the publisher;
+sampling tick cleanup cannot stop it. Demo capture timestamps describe recorded
+playback, not a current facility event. No host FFmpeg, runtime reset or
+reinstallation is required.
 
 For an approved hotel camera:
 

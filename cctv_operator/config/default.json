@@ -82,7 +82,7 @@
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Approved factory or hotel camera monitoring; default warehouse demo is recorded footage.",
+    "description": "Approved camera monitoring; the default input is the live retail RTSP stream.",
     "payload": {
       "alert_policy": {
         "cooldown_seconds": 120,
@@ -91,7 +91,7 @@
       },
       "output_folder": "~/Downloads/cctv-operator",
       "source_mode": "stream",
-      "video_source": "bundled_demo"
+      "video_source": "external"
     }
   },
   "interfaces": {
@@ -713,7 +713,7 @@
       "enabled": true,
       "kind": "video",
       "transport": "rtsp_or_rtmp",
-      "uri": "rtsp://127.0.0.1:8554/cctv-demo"
+      "uri": "rtsp://rtsp.rtsplink.com/live/retail?token=be0a4ca130accf87ce65df19bc619f715eb652b4550890116f104a7b5cf5f282"
     }
   },
   "triggers": {
@@ -724,14 +724,14 @@
     "type": "stream"
   },
   "video_source": {
-    "camera_id": "cctv-demo",
-    "description": "Loop the staged warehouse recording as a demo RTSP stream. External mode uses an approved camera stream.",
+    "camera_id": "retail",
+    "description": "Use the live retail RTSP stream by default, or configure another approved camera stream.",
     "media_accelerator": "nvidia_cuda",
     "mode": "stream",
-    "profile": "bundled_demo",
+    "profile": "external",
     "transport": "rtsp_rtmp",
-    "uri": "rtsp://127.0.0.1:8554/cctv-demo",
-    "demo_file": "/Volumes/128GB/videos/nv-warehouse-4cams/Camera.mp4"
+    "uri": "rtsp://rtsp.rtsplink.com/live/retail?token=be0a4ca130accf87ce65df19bc619f715eb652b4550890116f104a7b5cf5f282",
+    "demo_file": ""
   },
   "web_ui": {
     "dashboard": {

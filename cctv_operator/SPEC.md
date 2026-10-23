@@ -1,4 +1,4 @@
-# CCTV Operator 5.1 specification
+# CCTV Operator 5.1.1 specification
 
 ## Purpose and scope
 
@@ -35,6 +35,13 @@ operator-supplied review owner, otherwise Unassigned. Never invent assignments,
 deadlines, action completion, speed, distance or external sensor measurements.
 
 ## Capture and admission
+
+The default source is the configured live retail RTSP stream with external
+profile and camera ID `retail`. Default and OtterDesk sample launches require
+no local MP4 and do not stage or start a recorded-video publisher. Custom stream
+URLs retain the secure input contract. Recorded playback requires explicit
+`bundled_demo` profile, local publisher URI and an approved MP4 path. Existing
+saved source configurations remain explicit overrides.
 
 Retain the independent resident CUDA relay, person and caption lanes. Default
 relay: 1280-wide full-view MJPEG at8FPS, aspect preserved; fps selection precedes

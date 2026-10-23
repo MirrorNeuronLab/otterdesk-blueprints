@@ -229,12 +229,11 @@
         "VIDEO_SOURCE_URI",
         "CCTV_MEDIA_ACCELERATOR"
       ],
-      "description": "The bundled Docker demo or one approved external RTSP/RTMP stream; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
+      "description": "The live retail RTSP stream by default, or another approved stream; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
       "media_accelerator": "nvidia_cuda",
       "mode": "stream",
-      "profile": "bundled_demo",
-      "transport": "rtsp_rtmp",
-      "uri": "rtsp://127.0.0.1:8554/cctv-demo"
+      "profile": "external",
+      "transport": "rtsp_rtmp"
     }
   }
 }

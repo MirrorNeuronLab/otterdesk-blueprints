@@ -11,7 +11,7 @@ Tell it what to watch for on your camera feed. Get alerts with images and times 
 - attention_instruction: Operator instruction for a detail to watch in the current stream.
 - output_folder: Default local output folder for generated artifacts and reports.
 - slack_destination: Optional approved Slack destination for alert delivery.
-- video_source: Bundled Docker demo stream by default, or one approved external RTSP/RTMP URI.
+- video_source: Live retail RTSP stream by default, or another approved external RTSP/RTMP URI. No local video file is needed for the default stream.
 - visual_targets: Configured subjects, objects, or activities to detect.
 - demo_file: Local warehouse demo MP4 staged from the submitting computer, used only in bundled_demo profile.
 - monitoring_goal: Visible event condition that triggers a chat report with capture time and a frame.

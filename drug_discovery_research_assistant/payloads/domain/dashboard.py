@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import html
 import json
 from collections.abc import Mapping
@@ -10,6 +11,7 @@ from typing import Any
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from mn_sdk_common.publication import ArtifactWrite, publish_bundle
 from mn_sdk_web_ui import static_run_report_handle
+from mn_web_report_skill import render_document
 
 
 TERMINAL_FAILURE_EVENTS = {
@@ -446,7 +448,7 @@ def _draw_candidate_png(smiles: str) -> bytes:
 
 
 def render_static_dashboard(state: Mapping[str, Any]) -> str:
-    """Render a self-contained, script-free result page for the runtime proxy."""
+    """Compose scientific views in the shared offline report shell."""
 
     metrics = _mapping(state.get("metrics"))
     molecule = _mapping(state.get("molecule"))
@@ -482,7 +484,7 @@ def render_static_dashboard(state: Mapping[str, Any]) -> str:
     candidate_id = html.escape(str(molecule.get("candidate_id") or "Awaiting ranking"))
     smiles = html.escape(str(molecule.get("smiles") or "—"))
     candidate_cards = "".join(
-        '<article>' + (
+        '<article class="card">' + (
             '<img src="' + html.escape(str(row["image"]), quote=True)
             + '" alt="Two-dimensional structure of ' + html.escape(str(row["id"]), quote=True)
             + '">'
@@ -491,17 +493,36 @@ def render_static_dashboard(state: Mapping[str, Any]) -> str:
         + html.escape(str(row["smiles"])) + '</code></article>'
         for row in _items(state.get("ranked_candidates"))
     )
-    return f"""<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Drug Discovery Research Assistant</title><style>
-body{{margin:0;background:#eef2ec;color:#15241f;font:14px/1.5 system-ui,sans-serif}}main{{max-width:1180px;margin:auto;padding:28px 20px}}h1{{font-size:32px}}section{{background:#fff;border:1px solid #d9e1dc;border-radius:16px;padding:20px;margin:16px 0}}.grid{{display:grid;grid-template-columns:1fr 1fr;gap:16px}}.candidate-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}}article{{border:1px solid #d9e1dc;border-radius:12px;padding:12px}}article img{{height:220px}}table{{width:100%;border-collapse:collapse}}th,td{{padding:9px;border-bottom:1px solid #edf1ee;text-align:left;vertical-align:top}}th{{color:#64746e}}img{{display:block;width:100%;height:360px;object-fit:contain;background:#f8faf6}}code{{overflow-wrap:anywhere}}.warning{{background:#fff0d7;border-color:#ead0a5}}time{{color:#64746e}}@media(max-width:760px){{.grid{{grid-template-columns:1fr}}}}
-</style></head><body><main><h1>Drug Discovery Research Assistant</h1>
-<section class="warning"><strong>Scientific review boundary</strong><p>{warning}</p></section>
-<div class="grid"><section><h2>Leading candidate</h2>{molecule_markup}<h3>{candidate_id}</h3><code>{smiles}</code><table>{score_rows}</table></section>
-<section><h2>Run and workflow</h2><table>{metric_rows}</table></section></div>
-<section><h2>Recent progress</h2><ol>{event_rows or '<li>No recorded events.</li>'}</ol></section>
-<section><h2>Ranked candidate structures</h2><p>Computational structures for review; SMILES strings are shown below each drawing.</p><div class="candidate-grid">{candidate_cards or '<p>No ranked candidates are available yet.</p>'}</div></section>
-</main></body></html>\n"""
+    return render_document(
+        title="Drug discovery results",
+        identity=str(metrics.get("Overall status") or "Review packet ready"),
+        content_html=f"""
+<p class="qualification">{warning}</p>
+<section id="overview"><h2>Leading candidate</h2><div class="discovery-overview">
+<div class="card">{molecule_markup}<h3>{candidate_id}</h3><code>{smiles}</code></div>
+<div><h3>Computational scores</h3><div class="table-wrap"><table><tbody>{score_rows}</tbody></table></div>
+<p class="qualification">Higher simulation stability ranks first, followed by DrugCLIP score. These scores do not establish experimental efficacy or safety.</p></div></div></section>
+<section id="candidates" hidden><h2>Ranked candidate structures</h2><p class="qualification">Computational structures for review; SMILES strings are shown below each drawing.</p><div class="candidate-grid">{candidate_cards or '<p>No ranked candidates are available yet.</p>'}</div></section>
+<section id="progress" hidden><h2>Run and workflow</h2><div class="table-wrap"><table><tbody>{metric_rows}</tbody></table></div><h3>Recent progress</h3><ol>{event_rows or '<li>No recorded events.</li>'}</ol></section>
+<section id="limits" hidden><h2>Scientific review boundary</h2><div class="card"><p>{warning}</p><p>Independent binding, selectivity, ADMET, and toxicity evidence is required before downstream action.</p><p>Laboratory work, clinical claims, regulatory submissions, procurement, and external publication require separate human review and authorization.</p></div></section>
+""",
+        script='''const tabs = JSON.parse(document.getElementById("report-data").textContent).tabs;
+MNWebReport.createReport({tabs, navigationLabel: "Discovery views", actions: [
+    {id: "download", label: "Download review", icon: "download", href: "../final_artifact.json"}
+], onView(view) { for (const [id, , panel] of tabs) document.getElementById(panel).hidden = id !== view; }});''',
+        data={"tabs": [["overview", "Overview", "overview"],
+                       ["candidates", "Candidates", "candidates"],
+                       ["progress", "Progress", "progress"],
+                       ["limits", "Scope and limits", "limits"]]},
+        style='''.discovery-overview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px}
+.candidate-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:20px}
+.candidate-grid .card{margin-bottom:0}
+.report img{display:block;width:100%;height:280px;object-fit:contain}
+.report code{display:block;font:12px/1.6 var(--mono);overflow-wrap:anywhere}
+.report time{color:var(--report-muted)}
+@media(max-width:900px){.discovery-overview{grid-template-columns:minmax(0,1fr)}}''',
+        description="Computational hypotheses for human scientific review.",
+    )
 
 
 def publish_static_dashboard(block) -> dict[str, Any]:
@@ -553,6 +574,8 @@ def publish_static_dashboard(block) -> dict[str, Any]:
                 "alt": f"Two-dimensional structure of {row['id']}",
                 "caption": row["smiles"],
                 "filename": row.get("preview", ""),
+                **({"sha256": hashlib.sha256(previews[row["preview"]]).hexdigest()}
+                   if row.get("preview") else {}),
             }
             for index, row in enumerate(candidates, start=1)
         ],

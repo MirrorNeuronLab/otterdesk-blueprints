@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 import importlib.util
@@ -62,6 +63,8 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     assert manifest["kind"] == "WorkflowSource"
     assert manifest["type"] == "batch"
     assert manifest["identity"]["id"] == "drug_discovery_research_assistant"
+    assert any(package["name"] == "mirrorneuron-web-report-skill"
+               for package in manifest["skill_dependencies"])
     assert manifest["packages"] == [
         {
             "type": "pip",
@@ -629,7 +632,12 @@ def test_drug_discovery_domain_renders_static_result_dashboard():
     assert "candidate-17" in rendered
     assert "DrugCLIP" in rendered
     assert "Scientific review boundary" in rendered
-    assert "<script" not in rendered
+    assert 'class="report vbg-report"' in rendered
+    assert 'id="report-actions"' in rendered
+    assert 'id="report-navigation"' in rendered
+    assert 'id="report-inspector-ui"' in rendered
+    assert "MNWebReport.createReport" in rendered
+    assert "Content-Security-Policy" in rendered
 
 
 def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, monkeypatch):
@@ -666,7 +674,26 @@ def test_drug_discovery_dashboard_shows_ranked_smiles_and_drawings(tmp_path, mon
     ]
     assert (tmp_path / "output" / "web" / "candidate-1.png").exists()
     assert (tmp_path / "output" / "web" / "candidate-5.png").exists()
-    assert "<script" not in page
+    for item in media["items"]:
+        assert item["sha256"] == hashlib.sha256(preview_png).hexdigest()
+    assert 'class="report vbg-report"' in page
+
+
+def test_drug_discovery_missing_png_keeps_candidate_evidence(tmp_path, monkeypatch):
+    module = _load_drug_discovery_domain_module("dashboard")
+    block = native_block(tmp_path / "run", monkeypatch)
+    block.store.commit("final_artifact.json", {"ranked_candidates": [
+        {"candidate": {"candidate_id": "candidate-a", "smiles": "CCO"}}]})
+    monkeypatch.setattr(module, "_draw_candidate_svg", lambda _smiles: "<svg/>")
+    def unavailable(_smiles):
+        raise RuntimeError("PNG renderer unavailable")
+    monkeypatch.setattr(module, "_draw_candidate_png", unavailable)
+    module.publish_static_dashboard(block)
+    media = block.store.read_path("web/conversation_media.json")
+    assert media["items"][0]["caption"] == "CCO"
+    assert media["items"][0]["filename"] == "" and "sha256" not in media["items"][0]
+    assert block.store.path("web/index.html").is_file()
+    assert block.store.path("web/candidate-1.svg").is_file()
 
 
 def test_drug_discovery_web_ui_projects_durable_progress_without_candidates(
@@ -855,6 +882,7 @@ def test_drug_discovery_reporting_writes_the_declared_final_contract(tmp_path, m
 
 
 def test_drug_discovery_optional_dashboard_failure_does_not_fail_reporting(tmp_path, monkeypatch):
+    from mn_sdk.integrations.block_publication_files import verified_files
     block = native_block(tmp_path / "run", monkeypatch)
     module = _load_drug_discovery_domain_module("reporting")
     dashboard = _load_drug_discovery_domain_module("dashboard")
@@ -865,6 +893,8 @@ def test_drug_discovery_optional_dashboard_failure_does_not_fail_reporting(tmp_p
     assert block.store.read_path("final_artifact.json")["candidate_count"] == 5
     assert published["web_ui"] == {}
     assert published["web_ui_error"] == "Optional result dashboard was not rendered: OSError"
+    assert "final_artifact.json" in verified_files(block, published["published_files"])
+    assert "web/index.html" not in published["published_files"]["files"]
 
 
 def test_discovery_runs_once_even_with_legacy_unlimited_config(tmp_path):

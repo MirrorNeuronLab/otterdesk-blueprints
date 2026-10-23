@@ -66,7 +66,7 @@
     "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   },
   "capabilities": [
-    "Try the included demo or connect one approved RTSP/RTMP camera stream.",
+    "Try the live retail stream or connect one approved RTSP/RTMP camera stream.",
     "Keeps camera credentials out of logs and public reports.",
     "Reports sampled monitoring-goal events with frame times and evidence you can review.",
     "Leaves safety, security, access, and disciplinary decisions to you.",
@@ -77,7 +77,7 @@
     "benefit": "Focus your attention on the events you want to watch for, with times and frames you can review.",
     "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
     "how_it_works": "Independent RF-DETR person sampling plus periodic scene audits feed bounded Cosmos sequences. Facility rules and forecasts bind selected frames; reports retain unexamined rules, human review actions and stage measurements.",
-    "input": "The included demo stream or one approved RTSP/RTMP camera stream, plus what to watch for and your alert settings.",
+    "input": "The live retail stream or another approved RTSP/RTMP camera stream, plus what to watch for and your alert settings.",
     "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
     "problem": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
     "runtime_features": [

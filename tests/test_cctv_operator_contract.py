@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
+from urllib.parse import parse_qs, urlsplit
 
 from mn_sdk import (
     build_deferred_runtime_model_plan,
@@ -90,6 +92,29 @@ def test_cctv_operator_uses_the_blueprint_owned_lazy_special_vlm_route():
     assert report["issues"] == []
 
 
+def test_cctv_default_uses_live_rtsp_without_a_local_video(monkeypatch):
+    blueprint = ROOT / "cctv_operator"
+    config = resolve_config(read_blueprint(blueprint)).data
+    source = config["video_source"]
+    uri = urlsplit(source["uri"])
+    assert (source["profile"], source["camera_id"]) == ("external", "retail")
+    assert (uri.scheme, uri.hostname, uri.path) == ("rtsp", "rtsp.rtsplink.com", "/live/retail")
+    assert parse_qs(uri.query).get("token")
+    assert source["demo_file"] == ""
+    assert config["streams"]["cctv_operator_stream"]["uri"] == source["uri"]
+    monkeypatch.syspath_prepend(str(blueprint / "payloads"))
+    policy = importlib.import_module("domain.source_validation")
+    probes = []
+    monkeypatch.setenv("FFPROBE_BINARY", "/synthetic/ffprobe")
+    monkeypatch.setattr(policy, "probe_stream", lambda uri, **_options: probes.append(uri))
+
+    result = policy.validate_source(config)
+
+    assert probes == [source["uri"]]
+    assert "validated" in result
+    assert parse_qs(uri.query)["token"][0] not in result
+
+
 def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
     blueprint = ROOT / "cctv_operator"
     manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
@@ -97,7 +122,9 @@ def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
 
     demo = tmp_path / "Camera.mp4"
     demo.write_bytes(b"fixture-video")
-    config["video_source"]["demo_file"] = str(demo)
+    config["video_source"].update(
+        profile="bundled_demo", uri="rtsp://127.0.0.1:8554/cctv-demo", demo_file=str(demo)
+    )
 
     report = run_input_validation(
         blueprint,

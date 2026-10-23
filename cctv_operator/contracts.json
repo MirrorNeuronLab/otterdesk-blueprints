@@ -159,8 +159,8 @@
       "privacy": "internal"
     },
     "video_source": {
-      "description": "Bundled Docker demo stream by default, or one approved external RTSP/RTMP URI.",
-      "example": "bundled_demo",
+      "description": "Live retail RTSP stream by default, or another approved external RTSP/RTMP URI.",
+      "example": "external",
       "type": "domain_value",
       "required": true,
       "privacy": "internal"
