@@ -95,7 +95,6 @@
     "profile": "first_pass"
   },
   "model_preflight": {
-    "enabled": true,
-    "timeout_seconds": 10
+    "enabled": true
   }
 }

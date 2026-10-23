@@ -431,9 +431,13 @@ The default `review.profile=first_pass` performs one round (up to two enquiries)
 uses observed structural relationships, and limits investigation decisions to six.
 A separate harmless readiness decision checks the selected model before source
 acquisition or case inference. It sends no case material, preserves the configured
-provider, and fails with `case/model_preflight.json` when verified-context admission
-is unsupported. The 10-second setting bounds the model request after readiness;
-SDK preparation can take longer. Platform input staging occurs before this check.
+provider, and fails with `case/model_preflight.json` when the readiness request cannot
+complete or its structured result is invalid. Preflight inherits the selected model's
+configured request timeout (180 seconds in the primary profile). An optional positive,
+finite `model_preflight.timeout_seconds` only shortens that limit; omission or null
+inherits it. SDK preparation and transport/repair attempts can take longer than one
+request timeout. Receipts retain the effective timeout and a safe failure reason;
+timeout failures do not imply unsupported context admission. Platform input staging occurs before this check.
 No local-model fallback is used. The installed remote serving-tokenizer prerequisite
 still applies; this release does not change the SDK or runtime.
 
@@ -585,3 +589,9 @@ streamed hashes rather than copied into a 64 MiB common JSON record. Optional UI
 failure remains contained. SDK/blocks >=1.3.61.dev26 and common >=1.3.61.dev25 are
 required together. Offline compiled-binding tests establish these boundaries,
 not live model, graph-engine or deployment readiness.
+
+Version 5.0.1 corrects the default readiness timeout without changing the model,
+request schema, output reserve, evidence policy or failure boundary. A healthy model
+requiring more than ten seconds may complete within its configured request budget.
+Existing prepared Jobs and frozen runs retain their prior code and configuration;
+an updated Job definition and new run are required to use this correction.

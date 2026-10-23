@@ -122,8 +122,13 @@ uses observed structural relationships, and limits investigation decisions to si
 A separate harmless readiness decision checks the selected model before source
 acquisition or case inference. It sends no case material, preserves the configured
 provider, and records readiness in `case/model_preflight.json`. The current SDK can report
-unsupported token counting as unknown without blocking model generation. The 10-second setting bounds the model request after readiness;
-SDK preparation can take longer. Platform input staging occurs before this check.
+unsupported token counting as unknown without blocking model generation. Preflight uses
+the selected model's configured request timeout (180 seconds in the primary profile).
+An optional positive `model_preflight.timeout_seconds` can shorten that timeout;
+omitting it or setting it to null inherits the model setting. SDK preparation and
+transport/repair attempts can take longer than one request timeout. The receipt records
+the effective timeout and distinguishes request timeouts from other readiness failures
+without storing provider error text. Platform input staging occurs before this check.
 No local-model fallback is used. Source integrity and known context limits still apply.
 
 First-pass planning checks a 600-second allowance between rounds; it does not
@@ -646,3 +651,8 @@ Use SDK and blocks >=1.3.61.dev26 with common >=1.3.61.dev25. Existing Docker an
 model choices are preserved. Deterministic tests cover compiled parent/child
 bindings, publication replay, file tampering, optional UI failure and interrupted
 export; they do not qualify a live model, Docker graph engine or deployment.
+
+Version 5.0.1 removes the separate ten-second default preflight cap so a model that
+responds within its configured request timeout can pass readiness. Existing prepared
+Jobs retain their frozen code and configuration; update the Job definition from this
+blueprint before starting a new run. Retrying an old frozen run keeps its old cap.

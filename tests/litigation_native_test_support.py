@@ -62,7 +62,7 @@ def phase(original, step_id):
             idempotency_key=f"{native.run_id}/{step_id}", message={"body": {"step_input": ports}})
         options = {"block_step_id": step_id, "revision": compiled["metadata"]["mn_blocks_lock"]["revision"]}
         if step_id == "preserved_autonomous_explorer":
-            options = {"revision": "litigation_analyst@5.0.0", "instance": {"uses": "mn.blocks.domain_operation@1",
+            options = {"revision": f"{package.manifest['id']}@{package.manifest['version']}", "instance": {"uses": "mn.blocks.domain_operation@1",
                 "hooks": {"operation": "domain.research:investigate", "verify": "domain.research:verified"}}}
         result = run(invocation, **options, resources={"llm": llm_client} if llm_client is not None else {})
         context["_native_" + step_id] = result.outputs["result"]
