@@ -23,8 +23,7 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 300
+        "max_calls": 1
       }
     },
     "extract_software_rules": {
@@ -50,8 +49,7 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 2000
+        "max_calls": 1
       }
     },
     "review_software_rules": {
@@ -77,8 +75,7 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 3900
+        "max_calls": 1
       }
     },
     "verify_software_rules": {
@@ -104,8 +101,7 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 3900
+        "max_calls": 1
       }
     },
     "publish_rules_report": {
@@ -131,8 +127,7 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 300
+        "max_calls": 1
       }
     }
   }

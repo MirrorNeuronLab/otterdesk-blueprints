@@ -477,18 +477,18 @@ def test_cctv_operator_batch_revision_can_clear_attention_state(monkeypatch, tmp
     assert event["payload"]["cleared"] is True
 
 
-def test_cctv_setup_offers_live_sample_and_secure_external_source():
+def test_cctv_setup_requires_a_secure_source_without_a_live_sample():
     ui = json.loads((ROOT / "cctv_operator/extensions/ui.json").read_text())
     guide = ui["setup_guide"]
-    assert guide["sample"]["available"] is True
-    assert guide["sample"]["values"]["video_source.profile"] == "external"
+    assert guide["sample"]["available"] is False
     assert guide["real"]["values"]["video_source.profile"] == "external"
     fields = {field["path"]: field for field in guide["fields"]}
     stream = fields["video_source.uri"]
     assert stream["secret"] is True
-    assert stream["required"] is False
-    assert stream["requiredModes"] == ["real"]
-    assert stream["active_when_any"] == [{"key": "video_source.profile", "equals": "external"}]
+    assert stream["required"] is True
+    assert not stream.get("default")
+    assert not stream.get("requiredModes")
+    assert not stream.get("active_when_any")
     assert set(stream["protocols"]) == {"rtsp:", "rtsps:", "rtmp:", "rtmps:"}
     assert all(not field["required"] for key, field in fields.items()
                if key not in {"video_source.profile", "video_source.uri", "video_source.demo_file", "inputs.payload.monitoring_goal"})

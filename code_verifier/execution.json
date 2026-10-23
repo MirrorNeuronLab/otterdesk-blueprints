@@ -14,7 +14,10 @@
       "min_gb": 1
     },
     "gpu": {
-      "min_count": 0
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "memory_operator": ">=",
+      "enforcement": "hard"
     }
   },
   "agents": {
@@ -38,7 +41,6 @@
             "target": "prompts"
           }
         ],
-        "timeout_seconds": 3900,
         "upload_path": "domain",
         "upload_as": "domain"
       }

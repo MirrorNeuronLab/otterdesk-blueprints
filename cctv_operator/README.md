@@ -101,14 +101,17 @@ selected DockerWorker. Pin Spark explicitly for validation:
 
 ```bash
 mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
+  --set video_source.uri=rtsp://camera.example/approved-stream \
   --set site.review_owner='Site reviewer'
 ```
 
-The default input is the live retail RTSP stream configured in
-`config/default.json`, using the external source profile and camera ID `retail`.
-No local video file is required or staged. The NVIDIA worker must be able to
-reach the stream. OtterDesk's sample setup uses this same live stream; choosing
-your own input requires an approved stream URL through the secure source field.
+There is no built-in stream URL or live sample. Each new OtterDesk hire asks
+for an approved RTSP or RTMP URL through the required secure input field.
+Monitoring stays unavailable until that answer is saved. Saved co-workers keep
+their configured source. The NVIDIA worker must be able to reach the stream.
+Hiring prepares the co-worker without connecting to a camera; the native monitor
+validates the supplied source before publishing a ready session or sampling.
+No local video file is required for an external stream.
 
 Recorded playback remains an explicit option:
 
@@ -265,8 +268,8 @@ workflow topology, execution/model recipes, contracts and defaults remain separa
 The camera/UI owner uses the SDK monitored-service block. Ingress now uses a
 direct `domain.monitor_ingress:process` event hook: SDK owns immutable scoped
 state/replay, and Core resolves the start/steering ports and logical completion.
-The old ingress script is removed. The submission validator and native start
-share one source-validation policy; completed replay never probes the camera again.
+The old ingress script is removed. Native start validates the configured source;
+completed replay never probes the camera again.
 Sampling also uses a direct `domain.sampling:process` event hook. It freezes each
 instruction and completed resident admission, captures all selected frame bytes
 with their hashes, and emits a typed evidence reference. The SDK publishes

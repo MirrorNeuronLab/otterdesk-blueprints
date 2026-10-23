@@ -14,8 +14,8 @@
     "max_extraction_attempts": 3,
     "max_rules": 2000,
     "max_turns_per_rule": 8,
-    "extraction_timeout_seconds": 3600,
-    "verification_timeout_seconds": 3600,
+    "extraction_timeout_seconds": null,
+    "verification_timeout_seconds": null,
     "human_review_timeout_seconds": 3600
   },
   "llm": {

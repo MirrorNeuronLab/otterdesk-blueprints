@@ -82,7 +82,7 @@
   "input_skills": {},
   "inputs": {
     "adapter": "mock",
-    "description": "Approved camera monitoring; the default input is the live retail RTSP stream.",
+    "description": "Approved camera monitoring with a stream URL provided during setup.",
     "payload": {
       "alert_policy": {
         "cooldown_seconds": 120,
@@ -713,7 +713,7 @@
       "enabled": true,
       "kind": "video",
       "transport": "rtsp_or_rtmp",
-      "uri": "rtsp://rtsp.rtsplink.com/live/retail?token=be0a4ca130accf87ce65df19bc619f715eb652b4550890116f104a7b5cf5f282"
+      "uri": ""
     }
   },
   "triggers": {
@@ -725,12 +725,12 @@
   },
   "video_source": {
     "camera_id": "retail",
-    "description": "Use the live retail RTSP stream by default, or configure another approved camera stream.",
+    "description": "Connect an approved RTSP or RTMP camera stream.",
     "media_accelerator": "nvidia_cuda",
     "mode": "stream",
     "profile": "external",
     "transport": "rtsp_rtmp",
-    "uri": "rtsp://rtsp.rtsplink.com/live/retail?token=be0a4ca130accf87ce65df19bc619f715eb652b4550890116f104a7b5cf5f282",
+    "uri": "",
     "demo_file": ""
   },
   "web_ui": {

@@ -534,19 +534,6 @@
   "users": [
     "Video operators, security reviewers, safety operations teams, and site-access coordinators."
   ],
-  "input_validation": {
-    "rules": [
-      {
-        "command": [
-          "/usr/bin/python3",
-          "payloads/agents/validation/validate_video_source.py"
-        ],
-        "name": "video_source_validate",
-        "timeout_seconds": 12,
-        "type": "command"
-      }
-    ]
-  },
   "artifacts": {
     "artifacts": [
       {

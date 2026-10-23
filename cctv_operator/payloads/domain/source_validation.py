@@ -1,13 +1,18 @@
-"""Validate the approved single-camera source for submission and native ingress."""
+"""Validate the approved single-camera source before native monitoring starts."""
 from __future__ import annotations
 
 import ipaddress
 import os
-from pathlib import Path
 import shutil
 import sys
 import urllib.parse
-from mn_live_video_analysis_skill import probe_stream, redact_source_uri, validate_stream_uri
+from pathlib import Path
+
+from mn_live_video_analysis_skill import (
+    probe_stream,
+    redact_source_uri,
+    validate_stream_uri,
+)
 
 BUNDLED_DEMO_PROFILE = "bundled_demo"
 BUNDLED_DEMO_URI = "rtsp://127.0.0.1:8554/cctv-demo"
@@ -33,6 +38,9 @@ def validate_source(config: dict) -> str:
         )
 
     uri = video_source_uri(video_source)
+    if not uri:
+        return fail("config.required", "A video stream URL is required.",
+                    "Enter an approved RTSP or RTMP URL during setup before starting.", status=2)
     profile = video_source_profile(video_source, uri)
     if profile not in {BUNDLED_DEMO_PROFILE, "external"}:
         return fail(

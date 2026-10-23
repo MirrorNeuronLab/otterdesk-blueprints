@@ -13,7 +13,7 @@ from .artifacts import read, save, text
 from .model import ask, client, failure_details
 from .extraction_outcome import require_rule_candidates
 from .publication import deliver_reports
-from .configuration import BLUEPRINT_ID, settings
+from .configuration import BLUEPRINT_ID, settings, phase_deadline
 from .rule_sources import (ExtractionContractError, SourceSelectionError,
                            source_lines, bind_sources, apply_source_repairs)
 from . import rule_cache
@@ -296,7 +296,7 @@ def extract(block, inputs, *, llm=None):
     capture = block.store.read(capture_ref)
     llm = llm or block.resources.get("llm")
     policy = settings(block)
-    deadline = time.monotonic() + policy['extraction_timeout_seconds']
+    deadline = phase_deadline(policy, 'extraction_timeout_seconds')
     if block.store.path('rules.json').is_file():
         result = read(block, 'rules.json')
         stop_failed_extraction(block, result)

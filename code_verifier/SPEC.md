@@ -1,6 +1,31 @@
 # Code verifier specification
 
+## Activity-based run supervision
+
+The workflow declares `execution.supervision: "activity"`. Matching Core and SDK
+supervise process liveness and real packet/model progress without phase-wide
+elapsed limits. Extraction and verification time allowances default to `null`;
+operators may still set an explicit 1–3600 second computation budget. Individual
+model requests remain bounded to 90 seconds; packet, retry, rule and turn limits
+still apply. Human review retains its bounded approval expiry and advertises a
+waiting state rather than stalled computation. Completion remains a durable
+runtime receipt.
+
+Deploy the matching Core/SDK/common/blocks update on execution owners and
+reprepare the saved Job before starting a new run. Existing failed-run definitions
+and retry checkpoints retain their original limits; source changes do not alter
+an already accepted run.
+
 ## Mission and outputs
+
+Execution requires one accelerator with at least 49,152 MiB (48 GiB) of GPU or
+unified accelerator memory, enforced as a hard placement requirement. All phases
+and managed inference share the selected computer's run reservation. A smaller
+computer may submit and stage inputs but cannot own the workflow. In a mini/Spark
+topology, the 24 GiB mini is ineligible and Spark owns the Job. A missing eligible
+computer blocks preparation; it never selects mini or routes managed inference
+outside the reservation. Saved Job definitions retain their owner and requirements;
+existing Jobs on an ineligible computer must be recreated on an eligible owner.
 
 Given a local repository checkout or plain software folder, read complete captured
 `SPEC.md`/`spec.md`, Markdown, reStructuredText and text documentation; extract
@@ -158,8 +183,8 @@ single complete line up to 12 KB. It admits at most `review.max_extraction_packe
 packets (default 512, bounded 1–2048), including adaptive children. The investigation
 allowance defaults to 2000 rules and is bounded 1–2000; every candidate remains
 visible and requires approval. Excess candidates receive Unknown rows.
-Extraction failures/deadlines become reviewable gaps; verification deadlines
-mark remaining rows Unknown. Extraction defaults to a one-hour deadline and an
+Extraction failures and explicitly configured deadlines become reviewable gaps; verification deadlines
+mark remaining rows Unknown. Extraction has no default elapsed deadline and requests an
 8,192-token output allowance; verification retains 3,500 tokens per request.
 Model requests have 90-second deadlines. Bounded retries and adaptation never
 substitute deterministic model success. Core cancellation

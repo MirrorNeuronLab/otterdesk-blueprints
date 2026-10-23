@@ -79,10 +79,25 @@
       },
       {
         "default": "external",
-        "description": "Use the live retail RTSP stream by default, or supply another approved RTSP/RTMP URI.",
+        "description": "Connect an approved RTSP or RTMP camera stream.",
         "label": "Video source profile",
         "path": "video_source.profile",
         "type": "domain_value"
+      },
+      {
+        "path": "video_source.uri",
+        "label": "What is your video stream URL?",
+        "type": "password",
+        "secret": true,
+        "role": "input",
+        "required": true,
+        "protocols": [
+          "rtsp:",
+          "rtsps:",
+          "rtmp:",
+          "rtmps:"
+        ],
+        "description": "Enter an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address. The URL is stored securely."
       },
       {
         "path": "video_source.demo_file",
@@ -159,15 +174,9 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Start with the live retail stream or connect your approved camera stream.",
+    "introduction": "Connect an approved camera stream to start monitoring.",
     "sample": {
-      "available": true,
-      "title": "Live retail stream",
-      "description": "Review the default live retail RTSP stream. No local video file is needed.",
-      "expected_output": "Live video, goal-match messages with event times and frames, and video summaries on request.",
-      "values": {
-        "video_source.profile": "external"
-      }
+      "available": false
     },
     "real": {
       "introduction": "What is your video stream URL? The NVIDIA video worker must be able to reach it. If the stream runs on this Mac, bind the server to its network interface and use the Mac's LAN address, not 127.0.0.1 or localhost.",
@@ -210,7 +219,7 @@
         "path": "video_source.profile",
         "label": "Video source",
         "type": "text",
-        "required": true,
+        "required": false,
         "choices": [
           {
             "label": "Live stream",
@@ -224,23 +233,14 @@
         "type": "password",
         "secret": true,
         "role": "input",
-        "required": false,
-        "requiredModes": [
-          "real"
-        ],
+        "required": true,
         "protocols": [
           "rtsp:",
           "rtsps:",
           "rtmp:",
           "rtmps:"
         ],
-        "active_when_any": [
-          {
-            "key": "video_source.profile",
-            "equals": "external"
-          }
-        ],
-        "description": "The sample uses the configured live retail stream. For your own stream, enter an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address. The URL is stored securely."
+        "description": "Enter an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address. The URL is stored securely."
       },
       {
         "default": "",

@@ -347,13 +347,14 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["llm"]["model"] == "default"
     assert config["llm"]["backend"] == "llama.cpp"
     assert resolve_llm_environment(config, container=True) == {
-        "MN_LLM_API_BASE": "http://mn-litellm-proxy:4000/v1",
+        "MN_LLM_API_BASE": "auto",
         "MN_LLM_BACKEND": "llama.cpp",
         "MN_LLM_CONTEXT_SIZE": "8192",
         "MN_LLM_MAX_TOKENS": "1800",
         "MN_LLM_MODEL": "default",
         "MN_LLM_NUM_RETRIES": "2",
-        "MN_LLM_PROVIDER": "litellm",
+        "MN_LLM_PROVIDER": "docker_model_runner",
+        "MN_RUNTIME_MODEL_MANAGED": "1",
         "MN_LLM_RETRY_BACKOFF_SECONDS": "1.0",
         "MN_LLM_TIMEOUT_SECONDS": "60",
         "MN_LLM_STRUCTURED_OUTPUT_OPTIONS_JSON": '{"chat_template_kwargs":{"enable_thinking":false}}',

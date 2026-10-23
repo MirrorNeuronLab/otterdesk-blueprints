@@ -4,7 +4,8 @@
   "mode": "static_dag",
   "execution": {
     "strategy": "serial",
-    "max_parallel_steps": 1
+    "max_parallel_steps": 1,
+    "supervision": "activity"
   },
   "steps": [
     {
@@ -14,7 +15,6 @@
       "goal": "Capture source and docs with exact source references and explicit limits.",
       "needs": [],
       "control": {
-        "timeout_seconds": 300,
         "retry": {
           "max_attempts": 1
         }
@@ -29,7 +29,6 @@
         "capture_software_sources"
       ],
       "control": {
-        "timeout_seconds": 2000,
         "retry": {
           "max_attempts": 1
         }
@@ -44,7 +43,6 @@
         "extract_software_rules"
       ],
       "control": {
-        "timeout_seconds": 3900,
         "retry": {
           "max_attempts": 1
         }
@@ -59,7 +57,6 @@
         "review_software_rules"
       ],
       "control": {
-        "timeout_seconds": 3900,
         "retry": {
           "max_attempts": 1
         }
@@ -74,7 +71,6 @@
         "verify_software_rules"
       ],
       "control": {
-        "timeout_seconds": 300,
         "retry": {
           "max_attempts": 1
         }

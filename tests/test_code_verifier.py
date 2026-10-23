@@ -1009,6 +1009,7 @@ def test_platform_stages_source_and_markdown_before_capture(context, modules, mo
 
 
 def test_deadline_keeps_every_rule_without_extra_model_calls(modules, context, monkeypatch, authority):
+    context.config['review']['verification_timeout_seconds'] = 3600
     modules['intake'].capture(context, context.resources['inputs'])
     modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
     authority.approve(context)
@@ -1020,6 +1021,46 @@ def test_deadline_keeps_every_rule_without_extra_model_calls(modules, context, m
     assert len(results) == 2
     assert all(r['status'] == 'unknown' and 'time limit' in r['explanation'] for r in results)
     assert not model.calls
+
+
+def test_extraction_continues_past_old_total_deadline_and_keeps_packet_coverage(modules, context, monkeypatch):
+    import itertools
+    source = Path(context.resources['inputs']['input_folder'])
+    (source / 'SPEC.md').write_text('The software must validate input.\n' * 150)
+    modules['intake'].capture(context, context.resources['inputs'])
+    ticks = itertools.count(0, 2001)
+    monkeypatch.setattr(modules['rules'].time, 'monotonic', lambda: next(ticks))
+    model = Model([{'complete': True, 'rules': []}] * 3)
+    modules['rules'].extract(context, phase_inputs(context), llm=model)
+    result = modules['artifacts'].read(context, 'rules.json')
+    assert len(model.calls) == len(result['extraction_coverage']) == 3
+    assert result['extraction_gaps'] == []
+
+
+def test_verification_continues_past_old_total_deadline(modules, context, monkeypatch, authority):
+    import itertools
+    modules['intake'].capture(context, context.resources['inputs'])
+    modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
+    authority.approve(context)
+    ticks = itertools.count(0, 2001)
+    monkeypatch.setattr(modules['verification'].time, 'monotonic', lambda: next(ticks))
+    model = Model([reading(), judgment(), reading(), judgment()])
+    modules['verification'].verify(context, phase_inputs(context), llm=model)
+    results = modules['artifacts'].read(context, 'verification.json')['results']
+    assert [result['status'] for result in results] == ['pass', 'pass']
+    assert len(model.calls) == 4
+
+
+def test_activity_compilation_has_no_hidden_phase_block_or_runner_deadlines():
+    from mn_sdk.blueprints import compile_blueprint, read_blueprint
+    compiled = compile_blueprint(read_blueprint(PACKAGE)).manifest
+    assert compiled['workflow']['execution']['supervision'] == 'activity'
+    assert all('timeout_seconds' not in step['control'] for step in compiled['workflow']['steps'])
+    assert all('timeout_seconds' not in block['limits'] for block in compiled['metadata']['mn_blocks_lock']['steps'].values())
+    workers = [node for node in compiled['agents']['nodes'] if node.get('agent_type') == 'executor']
+    assert len(workers) == 5
+    assert all('timeout_seconds' not in node['config'] for node in workers)
+    assert all(node['config']['agent_beacon_required'] for node in workers)
 
 
 def test_report_rejects_missing_rule_and_changed_capture(modules, context):

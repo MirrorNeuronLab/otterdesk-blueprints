@@ -36,12 +36,14 @@ deadlines, action completion, speed, distance or external sensor measurements.
 
 ## Capture and admission
 
-The default source is the configured live retail RTSP stream with external
-profile and camera ID `retail`. Default and OtterDesk sample launches require
-no local MP4 and do not stage or start a recorded-video publisher. Custom stream
-URLs retain the secure input contract. Recorded playback requires explicit
-`bundled_demo` profile, local publisher URI and an approved MP4 path. Existing
-saved source configurations remain explicit overrides.
+There is no default stream URL or live sample. Each new hire requires the
+supervisor to supply an approved stream URL through the secure setup field;
+launch remains blocked until it is saved. Existing saved source configurations
+remain explicit overrides. Hiring does not probe a camera. The native monitor
+validates the source before emitting a ready session or admitting sampling.
+External streams require no local MP4 or recorded-video publisher. Recorded
+playback requires an explicit `bundled_demo` profile, local publisher URI and
+an approved MP4 path.
 
 Retain the independent resident CUDA relay, person and caption lanes. Default
 relay: 1280-wide full-view MJPEG at8FPS, aspect preserved; fps selection precedes

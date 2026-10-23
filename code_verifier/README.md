@@ -1,5 +1,21 @@
 # Code verifier
 
+## Activity-based run supervision
+
+The workflow declares `execution.supervision: "activity"`. Matching Core and SDK
+supervise process liveness and real packet/model progress without phase-wide
+elapsed limits. Extraction and verification time allowances default to `null`;
+operators may still set an explicit 1–3600 second computation budget. Individual
+model requests remain bounded to 90 seconds; packet, retry, rule and turn limits
+still apply. Human review retains its bounded approval expiry and advertises a
+waiting state rather than stalled computation. Completion remains a durable
+runtime receipt.
+
+Deploy the matching Core/SDK/common/blocks update on execution owners and
+reprepare the saved Job before starting a new run. Existing failed-run definitions
+and retry checkpoints retain their original limits; source changes do not alter
+an already accepted run.
+
 Turn `SPEC.md`, `spec.md` and other Markdown/text documentation into a list of
 software expectations. This co-worker saves editable `rules.md`, asks you to
 approve the rules in Chat, investigates each approved rule separately, and writes a report with rule, pass/fail/unknown, evidence
@@ -17,7 +33,14 @@ SDK source update. Other folders remain subject to capture limits and exclusions
 ## Run
 
 Requires the existing MirrorNeuron runtime, Python 3.12, the declared `mn-skills`
-packages and a working SDK model route. The default model is the runtime default;
+packages, a working SDK model route, and a runtime computer with at least 48 GiB
+of GPU or unified accelerator memory. The complete workflow and its managed model
+run on that reserved computer; a 24 GiB mini cannot host this co-worker. In a
+mini/Spark setup, MirrorNeuron selects Spark before accepting work. Existing Jobs
+retain their runtime owner: a Job previously prepared on mini must be recreated
+on an eligible computer after updating this blueprint. Changing its settings does
+not move it to Spark.
+The default model is the runtime default;
 the blueprint preserves the SDK-prepared model/provider/endpoint binding.
 An operator-registered remote default uses the runtime's LLM proxy with the same
 model and credentials. It does not require a local copy of that chat model.

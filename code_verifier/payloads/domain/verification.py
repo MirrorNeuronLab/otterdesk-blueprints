@@ -11,7 +11,7 @@ from mn_sdk.llm import LLMError
 from .artifacts import read, save
 from .intake import role
 from .model import ask, client, failure_details
-from .configuration import BLUEPRINT_ID, settings
+from .configuration import BLUEPRINT_ID, settings, phase_deadline
 from .rule_review import require_approved_rules
 
 
@@ -127,7 +127,7 @@ def verify(block, inputs, *, llm=None):
     capture = block.store.read(capture_ref)
     llm = llm or block.resources.get("llm")
     policy = settings(block)
-    deadline = time.monotonic() + policy['verification_timeout_seconds']
+    deadline = phase_deadline(policy, 'verification_timeout_seconds')
     rules = read(block, 'rules.json')
     index, analysis = TextSearchIndex(capture['sources']), read(block, 'static-analysis.json')
     if rules['snapshot_id'] != index.snapshot_id:

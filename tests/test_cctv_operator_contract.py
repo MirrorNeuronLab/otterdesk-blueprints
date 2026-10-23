@@ -2,15 +2,22 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
 
+import pytest
 from mn_sdk import (
     build_deferred_runtime_model_plan,
     required_blueprint_models,
     run_input_validation,
     run_model_validation,
 )
-from mn_sdk.blueprints import blueprint_definition, read_blueprint, resolve_config
+from mn_sdk.blueprints import (
+    blueprint_definition,
+    catalog_record,
+    read_blueprint,
+    resolve_config,
+)
 from mn_sdk.model_preparation import model_validation_inputs_with_prepared_models
 from mn_sdk.submission_preparation import (
     manifest_nodes,
@@ -92,16 +99,34 @@ def test_cctv_operator_uses_the_blueprint_owned_lazy_special_vlm_route():
     assert report["issues"] == []
 
 
-def test_cctv_default_uses_live_rtsp_without_a_local_video(monkeypatch):
+def test_cctv_requires_a_secure_stream_answer_without_a_default_or_sample():
+    blueprint = ROOT / "cctv_operator"
+    package = read_blueprint(blueprint)
+    config = resolve_config(package).data
+    metadata = catalog_record(package, "cctv_operator")
+    assert config["video_source"]["uri"] == ""
+    assert config["streams"]["cctv_operator_stream"]["uri"] == ""
+    guide = metadata["setup_guide"]
+    assert guide["sample"]["available"] is False
+    for fields in (guide["fields"], metadata["init_config_review"]["fields"]):
+        field = next(field for field in fields if field["path"] == "video_source.uri")
+        assert field["required"] is True
+        assert field["secret"] is True
+        assert field["type"] == "password"
+        assert not field.get("default")
+        assert not field.get("active_when_any")
+
+
+def test_cctv_uses_the_supplied_stream_and_redacts_its_credentials(monkeypatch):
     blueprint = ROOT / "cctv_operator"
     config = resolve_config(read_blueprint(blueprint)).data
+    config["video_source"]["uri"] = "rtsp://camera.example/live?token=synthetic-test-token"
     source = config["video_source"]
     uri = urlsplit(source["uri"])
     assert (source["profile"], source["camera_id"]) == ("external", "retail")
-    assert (uri.scheme, uri.hostname, uri.path) == ("rtsp", "rtsp.rtsplink.com", "/live/retail")
+    assert (uri.scheme, uri.hostname, uri.path) == ("rtsp", "camera.example", "/live")
     assert parse_qs(uri.query).get("token")
     assert source["demo_file"] == ""
-    assert config["streams"]["cctv_operator_stream"]["uri"] == source["uri"]
     monkeypatch.syspath_prepend(str(blueprint / "payloads"))
     policy = importlib.import_module("domain.source_validation")
     probes = []
@@ -115,9 +140,8 @@ def test_cctv_default_uses_live_rtsp_without_a_local_video(monkeypatch):
     assert parse_qs(uri.query)["token"][0] not in result
 
 
-def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
+def test_cctv_monitor_accepts_an_explicit_bundled_demo(tmp_path, monkeypatch):
     blueprint = ROOT / "cctv_operator"
-    manifest = blueprint_definition(read_blueprint(blueprint / "manifest.json"))
     config = resolve_config(read_blueprint(blueprint)).data
 
     demo = tmp_path / "Camera.mp4"
@@ -126,24 +150,12 @@ def test_cctv_operator_accepts_the_bundled_demo_before_submission(tmp_path):
         profile="bundled_demo", uri="rtsp://127.0.0.1:8554/cctv-demo", demo_file=str(demo)
     )
 
-    report = run_input_validation(
-        blueprint,
-        manifest,
-        config=config,
-        env={
-            "MN_ENV": "dev",
-            "MN_HOME": str(tmp_path / ".mn"),
-            "MN_SKILLS_ROOT": str(WORKSPACE / "mn-skills"),
-            "MN_USE_LOCAL_SKILLS": "1",
-            "PYTHONPATH": "",
-        },
-    )
-
-    assert report["ok"] is True
-    assert report["issues"] == []
+    monkeypatch.syspath_prepend(str(blueprint / "payloads"))
+    policy = importlib.import_module("domain.source_validation")
+    assert "DockerWorker" in policy.validate_source(config)
 
 
-def test_cctv_operator_rejects_an_empty_external_stream_before_submission(
+def test_cctv_hiring_can_prepare_without_connecting_to_a_camera(
     tmp_path,
 ):
     blueprint = ROOT / "cctv_operator"
@@ -168,9 +180,21 @@ def test_cctv_operator_rejects_an_empty_external_stream_before_submission(
         },
     )
 
-    assert report["ok"] is False
-    assert report["issues"][0]["code"] == "config.invalid_scheme"
-    assert report["issues"][0]["location"]["path"] == "video_source.uri"
+    assert report["ok"] is True
+    assert not manifest.get("input_validation", {}).get("rules")
+
+
+def test_cctv_monitor_rejects_a_missing_url_before_publishing_a_ready_session(monkeypatch):
+    blueprint = ROOT / "cctv_operator"
+    monkeypatch.delenv("VIDEO_SOURCE_URI", raising=False)
+    monkeypatch.syspath_prepend(str(blueprint / "payloads"))
+    policy = importlib.import_module("domain.source_validation")
+    ingress = importlib.import_module("domain.monitor_ingress")
+    config = resolve_config(read_blueprint(blueprint)).data
+    with pytest.raises(policy.SourceValidationError) as result:
+        ingress.process(SimpleNamespace(config=config), {"payload": {"type": "cctv_operator_start"}, "state": {}})
+    assert result.value.report["issues"][0]["code"] == "config.required"
+    assert result.value.report["issues"][0]["location"]["path"] == "video_source.uri"
 
 
 def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(

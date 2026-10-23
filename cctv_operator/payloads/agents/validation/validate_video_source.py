@@ -1,5 +1,5 @@
 #!/usr/bin/env python3.12
-"""Submission validation boundary; source policy is shared with native ingress."""
+"""Standalone source check using the native monitor's validation policy."""
 import json
 import os
 from pathlib import Path
