@@ -138,8 +138,8 @@ def test_case_and_comparison_block_handoffs_are_verified_and_replayable(tmp_path
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, manifest)))
     store = CommittedJsonStore(tmp_path / "runs/case-block")
     environment = {"MN_RUN_DIR": str(store.run_dir), "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+        "MN_JOB_OUTPUT_DIR": str(tmp_path / "output"),
         "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'}
-    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(tmp_path / "output"))
 
     def invoke(step_id, inputs, *, alias=None):
         context = StepContext(step_id=step_id, run_id="case-block", idempotency_key="case-block/" + (alias or step_id),

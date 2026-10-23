@@ -26,6 +26,18 @@ The blueprint follows VC Assistant's model contract: `llm.model` is logical
 the concrete model, endpoint, preparation, and placement; blueprint code must
 not replace them with machine-specific choices.
 
+Version 4.0.2 requires schema-constrained JSON for each autonomous phase and
+specialist review and declares `structured_output` as a required model capability.
+The domain-owned contracts declare required fields and types,
+reject extra fields, constrain evidence references to supplied sources, and bind
+per-hypothesis reviews/designs to their supplied identity. The SDK sends strict
+JSON Schema generation options and validates the returned object against the
+same contract before normalization. One bounded semantic repair is permitted;
+exhausted validation fails the required live phase without a fallback packet.
+Older clients without per-call schema support fail explicitly. Manifest/config
+schemas validate blueprint documents, not model answers. Provider transport and
+runtime admission failures are not JSON output validation failures.
+
 Version 1.3.0 hard-requires one GPU with at least 49,152 MB of memory.
 The logical default-model contract does not pin concrete-model parameters or
 quantization. The selected model retains its runtime-owned hardware checks,
@@ -91,9 +103,13 @@ uses Membrane's source intelligence for exact, cited report sections, independen
 of this blueprint's disabled worker runtime-recall profile. Unavailable or oversized
 source evidence fails visibly; conversation does not substitute curated RAG.
 
-## Block composition (4.0.0)
+## Block composition (4.0.1)
 
-All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work. The research procedure records its start and completion: completed analysis replays without model calls; an interrupted analysis requires reconciliation before another attempt. Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
+All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work.
+
+The research procedure records its evidence and authored-configuration identity and freezes completed analysis with an SDK checkpoint. Core may retry incomplete read-only analysis with the same evidence and authored configuration, including Core-authorized allowance increases; a stale start marker does not require manual reconciliation. Completed analysis replays without model calls, including recovery after an interruption while saving the final state. Strict live-model errors retain the provider failure instead of replacing it with fallback output.
+
+Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
 
 ## Blueprint package format
 

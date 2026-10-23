@@ -6,7 +6,6 @@ import hashlib
 import json
 import os
 import re
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +14,7 @@ from mn_sdk.blueprint_support import (
     DeterministicFallbackLLM,
     fake_llm_mode_enabled,
     source_manifest,
+    utc_now_iso as utc_now_iso,
 )
 from mn_sdk_common.prompts import PromptLibrary
 
@@ -133,9 +133,6 @@ REVIEW_PROMPT_FILES = {
     "portfolio_llm_reviewer": "portfolio-llm-review.md",
 }
 PROMPTS = PromptLibrary.from_script(__file__, parents_up=1)
-
-def utc_now_iso() -> str:
-    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 def redact_value(value: Any) -> Any:
     if isinstance(value, dict):

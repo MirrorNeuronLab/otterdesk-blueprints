@@ -1,50 +1,17 @@
 """Frozen repository evidence and phase authority for architecture review."""
 
 import hashlib
-import os
-from pathlib import Path
 
-from mn_sdk.blueprint_support import (
-    BlueprintBundleLayout,
-    expand_runtime_path,
-    source_manifest,
-)
+from mn_sdk.integrations.block_inputs import capture_declared_inputs
 from mn_sdk_common.committed_artifacts import (
     COMMITTED_JSON_VERSION,
     CommittedArtifactRef,
-    validate_embedded_references,
 )
 from .catalog_store import fingerprint
 
-INPUTS = frozenset(source_manifest(__file__)["contracts"]["inputs"])
-
 
 def request_inputs(block, request):
-    values = {
-        key: value
-        for key, value in block.original_config.get("inputs", {})
-        .get("payload", {})
-        .items()
-        if key in INPUTS
-    }
-    values.update(
-        {
-            key: value
-            for key, value in request.items()
-            if key in INPUTS and value is not None
-        }
-    )
-    runtime = Path(
-        os.environ.get("MN_WORKDIR")
-        or BlueprintBundleLayout.discover(__file__).runtime_dir
-    )
-    for key in ("input_folder", "graph_export", "review_file"):
-        if values.get(key):
-            path = expand_runtime_path(values[key])
-            values[key] = str(
-                (path if path.is_absolute() else runtime / path).resolve(strict=True)
-            )
-    return values
+    return capture_declared_inputs(block, request, runtime_file=__file__)
 
 
 def freeze_files(block, names):
@@ -82,7 +49,7 @@ def save_state(block, phase, *, inputs, files, capture=None):
 
 
 def read_state(block, reference, phase):
-    state = block.store.read(reference)
+    state = block.read_evidence(reference)
     if (
         state.get("version") != "architecture.evidence/v1"
         or state.get("phase") != phase
@@ -93,7 +60,6 @@ def read_state(block, reference, phase):
         raise ValueError(
             "Architecture evidence has different phase, run or configuration"
         )
-    validate_embedded_references(block.store, state)
     for name, ref in state["files"].items():
         block.check()
         if name.startswith("web/") or name == "web_ui.json":

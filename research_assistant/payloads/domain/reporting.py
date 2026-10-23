@@ -13,11 +13,9 @@ from mn_sdk.blueprint_support import append_human_event, read_human_events
 
 from .autonomous import _experiment_concepts
 from .common import BLOCKED_ACTIONS, BLUEPRINT_ID, BLUEPRINT_NAME, OUTPUT_TYPE, RESEARCH_ACTIONS
-from .evidence import _status_counts
-from .state import read_state, save_state, output_directory
-from mn_sdk_common.publication import ArtifactWrite, publish_bundle
-from mn_sdk_common.committed_artifacts import CommittedJsonStore
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
+from .state import read_state, save_state
+from mn_sdk_common.publication import ArtifactWrite
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
 
 
 def _safe_warning(item: Any) -> dict[str, Any]:
@@ -520,7 +518,7 @@ def render_research_markdown(packet: dict[str, Any]) -> str:
 
 
 def publish_documents(block, packet, result):
-    output_dir = output_directory(block)
+    output_dir = block.output_directory
     quality = research_artifact_quality(packet)
     health = {
         "schema_version": "mn.blueprint.run_health.v1",
@@ -554,12 +552,7 @@ def publish_documents(block, packet, result):
         encoded = content().encode("utf-8") if kind == "markdown" else json.dumps(
             content, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
         writes.append(ArtifactWrite(name, path, encoded, kind=kind, authoritative=kind == "json"))
-    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
-    if output_dir != block.store.run_dir:
-        target = CommittedJsonStore(output_dir)
-        for item in receipt["artifacts"]:
-            path = item["reference"]["path"]
-            copy_path_to_host(block.store.path(path), target.path(path))
+    receipt = publish_artifact_bundle(block, writes, receipt_path=block.root + "/publication.json")
     from .conversation_sources import publish_outputs
     publish_outputs(output_dir, packet["run_id"])
     return receipt

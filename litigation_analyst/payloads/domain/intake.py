@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from mn_sdk.integrations.block_inputs import declared_inputs
+from mn_sdk.integrations.block_inputs import capture_declared_inputs
 from .ingestion.corpus import CaseCorpus
 from .sample_data import prepare_emc2, EMC2_DOCUMENTATION, attribution
 
@@ -17,7 +17,7 @@ from .sample_data import prepare_emc2, EMC2_DOCUMENTATION, attribution
 def prepare_sources(context, inputs):
     from .state import capture, capture_result, json_reference, read_capture
     run_dir = context.store.run_dir
-    payload = declared_inputs(context, inputs, runtime_file=__file__)
+    payload = capture_declared_inputs(context, inputs, runtime_file=__file__)
     llm_client = context.resources.get("llm")
     if context.store.path("case/capture.json").exists():
         ref = json_reference(context, "case/capture.json", kind="block_checkpoint")

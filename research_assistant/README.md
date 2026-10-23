@@ -14,6 +14,18 @@ does not declare a machine-specific model, endpoint, or placement. MirrorNeuron
 owns model selection and routing; the payload only calls the configured actor
 client supplied by the runtime.
 
+Version 4.0.2 sends a phase-specific strict JSON Schema for every research phase
+and specialist review, and declares the model's `structured_output` capability
+as required. `payloads/domain/model_contracts.py` owns the field,
+type, array, identity and source-reference contracts. The SDK constrains model
+generation and validates the returned object against the same schema before
+research normalization or publication. A contract mismatch gets one bounded
+repair attempt; an unusable live response fails without synthetic replacement.
+This requires the SDK's schema-aware `generate_json(response_schema=...)`
+contract; older clients fail explicitly. Configuration-document `$schema` URLs
+and `strict_json` alone do not define model response fields. Runtime admission
+or HTTP failures remain request failures, rather than JSON syntax failures.
+
 Version 1.3.0 requires one GPU with at least 49,152 MB of memory.
 The runtime selects a compatible default model; the blueprint does not pin
 Nemotron-specific parameter or quantization hints.
@@ -144,9 +156,13 @@ oversized source evidence remains an explicit query failure.
 .venv/bin/python -m pytest -q
 ```
 
-## Block composition (4.0.0)
+## Block composition (4.0.1)
 
-All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work. The research procedure records its start and completion: completed analysis replays without model calls; an interrupted analysis requires reconciliation before another attempt. Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
+All seven specialist handlers consume native block contexts and committed artifact references directly. Five single-specialist phases use declared domain-operation blocks; the final audit/publish sequence retains its StepSpec graph. Both preflight branches must reference the same captured evidence, and changed evidence fails before model work.
+
+The research procedure records its evidence and authored-configuration identity and freezes completed analysis with an SDK checkpoint. Core may retry incomplete read-only analysis with the same evidence and authored configuration, including Core-authorized allowance increases; a stale start marker does not require manual reconciliation. Completed analysis replays without model calls, including recovery after an interruption while saving the final state. Strict live-model errors retain the provider failure instead of replacing it with fallback output.
+
+Publication requires a completed packet audit and uses SDK artifact publication and document conversion. The two preflight branches, join, isolated research worker, live-model requirement and human experiment authority remain intact.
 
 ## Blueprint package format
 

@@ -8,6 +8,7 @@ import shutil
 from types import SimpleNamespace
 
 import pytest
+from mn_blueprint_blocks.context import BlockContext
 from mn_live_video_analysis_skill import write_frame_batch
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
 from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
@@ -142,7 +143,8 @@ def test_native_window_freezes_evidence_and_publication_repairs_without_source(s
     assert len(evidence["files"]) == 3
     assert not path.exists()  # The SDK has not published before Core acceptance.
     # Exercise shared delivery as the accepted owner boundary in this unit test.
-    owner = SimpleNamespace(check=lambda: None, store=sampler.store, environment={}, agent_id="adaptive_frame_sampler")
+    owner = BlockContext(store=sampler.store, invocation_id="accepted-owner", revision="test",
+        environment={}, agent_id="adaptive_frame_sampler")
     deliver_files(owner, first.publication)
     assert json.loads(path.read_text()) == batch
     assert (path.parent / "frame-01.jpg").read_bytes() == b"synthetic-frame-0"

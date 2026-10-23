@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from mn_sdk.blueprint_support import write_json
+from mn_sdk_common.files import atomic_write_text
 from mn_sdk.context_session.contracts import digest
 from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
 from mn_live_video_analysis_skill import redact_source_uri
@@ -178,6 +179,4 @@ def publish_camera_markdown(config, run_dir, observation, markdown):
         if len(body.encode("utf-8")) <= CAMERA_MARKDOWN_MAX_BYTES:
             break
         part += 1
-    temporary = path.with_suffix(".md.tmp")
-    temporary.write_text(body, encoding="utf-8")
-    temporary.replace(path)
+    atomic_write_text(path, body)

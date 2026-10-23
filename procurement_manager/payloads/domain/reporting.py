@@ -26,11 +26,10 @@ from .llm_analysis import (
     known_source_refs,
     validate_report_narrative,
 )
-from .state import read_state, save_state, output_directory
-from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from .state import read_state, save_state
+from mn_sdk_common.publication import ArtifactWrite
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
 from mn_blueprint_blocks.contracts import fingerprint
-from mn_sdk_common.committed_artifacts import CommittedJsonStore
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 
 
 NARRATIVE_STATE_FIELDS = ("llm_generation", "llm_usage", "llm_warnings", "_llm_analysis_results")
@@ -71,7 +70,7 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
 
 def publish_documents(block, final_artifact, result):
     """Project procurement outputs; the SDK commits the complete report bundle."""
-    output_dir = output_directory(block)
+    output_dir = block.output_directory
     quality = build_artifact_quality(final_artifact)
     health = {"schema_version": "mn.blueprint.run_health.v1", "status": "completed_with_warnings" if final_artifact.get("warnings") else "completed", "warning_count": len(final_artifact.get("warnings") or []), "llm": result.get("llm", {})}
     ledger = [
@@ -108,12 +107,7 @@ def publish_documents(block, final_artifact, result):
         encoded = content().encode("utf-8") if kind == "markdown" else json.dumps(
             content, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
         writes.append(ArtifactWrite(name, path, encoded, kind=kind, authoritative=kind == "json"))
-    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
-    if output_dir != block.store.run_dir:
-        output = CommittedJsonStore(output_dir)
-        for item in receipt["artifacts"]:
-            relative = item["reference"]["path"]
-            copy_path_to_host(block.store.path(relative), output.path(relative))
+    receipt = publish_artifact_bundle(block, writes, receipt_path=block.root + "/publication.json")
     publish_outputs(output_dir, final_artifact["run_id"])
     return receipt
 

@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 from .common import *
+from mn_sdk.blueprint_support import slugify
 from mn_docs_to_markdown_skill import DocumentExtractionError, extract_folder_records, convert_documents, MarkdownConversionError
-
-def slugify(value: str) -> str:
-    from mn_sdk.blueprint_support import slugify as shared_slugify
-
-    return shared_slugify(value)
 
 def redactor(text: str) -> str:
     return redact_common_pii(text)

@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse, urlsplit
 
+from mn_sdk_common.files import atomic_write_json
+
 CCTV_MCP_ENDPOINT_ARTIFACT = "cctv_operator_mcp_endpoint.json"
 CCTV_CONTROL_ARTIFACT = "cctv_operator_control.json"
 CCTV_MCP_PORT = 62009
@@ -312,14 +314,9 @@ def main() -> int:
         raise RuntimeError("CCTV Operator MCP requires its runtime-assigned port")
     proxy_port = int(allocated_port)
     control_path = configured_run_dir() / CCTV_CONTROL_ARTIFACT
-    control_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = control_path.with_name(f".{control_path.name}.{os.getpid()}.tmp")
-    with temporary.open("x", encoding="utf-8") as handle:
-        os.chmod(temporary, 0o600)
-        # The video worker uses host networking, so loopback reaches this
-        # HostLocal control listener without relying on Docker DNS.
-        json.dump({"url": f"http://127.0.0.1:{proxy_port}/control/steer"}, handle)
-    os.replace(temporary, control_path)
+    # The video worker uses host networking, so loopback reaches this
+    # HostLocal control listener without relying on Docker DNS.
+    atomic_write_json(control_path, {"url": f"http://127.0.0.1:{proxy_port}/control/steer"})
 
     def stop(_signum: int, _frame: Any) -> None:
         raise SystemExit(0)

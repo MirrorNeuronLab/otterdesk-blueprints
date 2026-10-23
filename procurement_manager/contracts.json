@@ -102,7 +102,7 @@
     },
     "output_folder": {
       "description": "Default local output folder for generated artifacts and reports.",
-      "example": "~/Downloads/purchasing-manager",
+      "example": "~/Downloads/procurement-manager",
       "path_kind": "directory",
       "privacy": "confidential",
       "required": false,

@@ -4,10 +4,10 @@ import importlib
 import json
 from pathlib import Path
 import sys
-from types import SimpleNamespace
 
 import pytest
 from mn_blueprint_blocks.event_processing import scope
+from mn_blueprint_blocks.context import BlockContext
 from mn_blueprint_blocks.testing import BlockHarness
 from mn_live_video_analysis_skill import write_frame_batch
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
@@ -91,7 +91,8 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
     # Model the owner publication boundary after successful event acceptance;
     # separate native transition tests assert the worker never copies early.
     if getattr(result, "publication", None):
-        deliver_files(SimpleNamespace(check=lambda: None, store=harness.store, environment={}, agent_id="visual_detector"), result.publication)
+        deliver_files(BlockContext(store=harness.store, invocation_id="accepted-owner", revision="test",
+            environment={}, agent_id="visual_detector"), result.publication)
     return {"next_state": harness.store.read(result.event_result["next"])["data"], "events": result.events}, prompts
 
 

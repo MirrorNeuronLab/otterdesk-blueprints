@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import ipaddress
 import re
-import os
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -377,16 +376,6 @@ def _public_research_url(value: str) -> str:
         return ""
 
 
-def resolve_input_folder(config: dict[str, Any], inputs: dict[str, Any], root: Path) -> Path | None:
-    value = inputs.get("input_folder") or (config.get("inputs") or {}).get("payload", {}).get("input_folder")
-    if not value:
-        return None
-    path = expand_runtime_path(value)
-    if not path.is_absolute():
-        from .state import bundle_layout
-        runtime_dir = Path(os.environ["MN_WORKDIR"]) if os.environ.get("MN_WORKDIR") else bundle_layout().runtime_dir
-        path = runtime_dir / path
-    return path
 
 
 def load_input_documents(folder: Path | None, config: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -435,7 +424,6 @@ __all__ = [
     "load_input_documents",
     "normalize_inputs",
     "parse_plain_text_purchase_request",
-    "resolve_input_folder",
     "resolve_request_from_documents",
     "runtime_user_home",
 ]

@@ -3,6 +3,25 @@ from typing import Any
 from mn_sdk.blueprint_support import BudgetedLlmClient, build_action_budget, build_llm_call_limiter
 from mn_sdk.blueprint_support.step_execution import append_debug
 from .common import quick_test_enabled, research_llm
+from .model_contracts import review_schema
+
+
+class ResearchLlmClient(BudgetedLlmClient):
+    """Attach the declared specialist review contract to shared actor calls."""
+
+    @property
+    def strict(self):
+        return self._require_live or bool(getattr(self._llm, "strict", False))
+
+    def generate_json(self, *, system_prompt, user_prompt, fallback, **kwargs):
+        if "response_schema" not in kwargs:
+            kwargs.update(
+                response_schema=review_schema(fallback["actor_id"], fallback["role"]),
+                schema_name="research_specialist_review", validation_retries=1,
+            )
+        return super().generate_json(
+            system_prompt=system_prompt, user_prompt=user_prompt, fallback=fallback, **kwargs,
+        )
 
 
 def init_research_llm(
@@ -20,7 +39,7 @@ def init_research_llm(
     )
     limiter = build_llm_call_limiter(config, fake_mode=quick_test)
     configured_llm = research_llm(config, llm_client)
-    llm = BudgetedLlmClient(
+    llm = ResearchLlmClient(
         configured_llm,
         action_budget,
         require_live=require_live,

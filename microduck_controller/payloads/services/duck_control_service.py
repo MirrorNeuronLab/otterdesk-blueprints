@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import asyncio
 import ipaddress
-import json
 import os
 import re
 import socket
@@ -16,6 +15,7 @@ from typing import Any, Literal
 from urllib.parse import urlparse, urlunparse
 
 from mn_sdk.blueprint_support import load_runtime_config
+from mn_sdk_common.files import atomic_write_json
 
 SERVICE_ROOT = Path(__file__).resolve().parents[1]
 if str(SERVICE_ROOT) not in sys.path:
@@ -163,13 +163,6 @@ def _is_loopback_host(value: str) -> bool:
         return False
 
 
-def _write_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    temporary.replace(path)
-
-
 def _safe_run_id() -> str:
     return str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")[:160]
 
@@ -181,7 +174,7 @@ def _service_artifact(
     state: dict[str, Any],
     history: list[dict[str, Any]],
 ) -> None:
-    _write_json(
+    atomic_write_json(
         run_dir / SERVICE_STATE_ARTIFACT,
         {
             "schema_version": "mn.microduck.service_state.v1",
@@ -194,7 +187,7 @@ def _service_artifact(
             "active_command_id": state.get("active_command_id") or "",
         },
     )
-    _write_json(
+    atomic_write_json(
         run_dir / COMMAND_HISTORY_ARTIFACT,
         {
             "schema_version": "mn.microduck.command_history.v1",
@@ -205,7 +198,7 @@ def _service_artifact(
 
 
 def _web_ui_artifact(*, run_dir: Path, public_url: str) -> None:
-    _write_json(
+    atomic_write_json(
         run_dir / WEB_UI_ARTIFACT,
         {
             "schema_version": "mn.blueprint.web_ui.v1",
@@ -222,7 +215,7 @@ def _web_ui_artifact(*, run_dir: Path, public_url: str) -> None:
 def _web_ui_endpoint_artifact(*, run_dir: Path, proxy_url: str, port: int) -> None:
     """Publish the selected internal endpoint for the job UI registrar."""
 
-    _write_json(
+    atomic_write_json(
         run_dir / WEB_UI_ENDPOINT_ARTIFACT,
         {
             "schema_version": "mn.microduck.web_ui_endpoint.v1",
@@ -265,7 +258,7 @@ def write_final_artifact(run_dir: Path) -> dict[str, Any]:
         ],
         "message": "The browser-backed Microduck service was deliberately stopped; no command is replayed.",
     }
-    _write_json(run_dir / "final_artifact.json", artifact)
+    atomic_write_json(run_dir / "final_artifact.json", artifact)
     return artifact
 
 

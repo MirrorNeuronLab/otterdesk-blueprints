@@ -508,8 +508,7 @@ def publish_static_dashboard(block) -> dict[str, Any]:
     """Write the optional result UI; callers decide whether failures are fatal."""
 
     run_dir = block.store.run_dir
-    from .configuration import output_directory
-    output_dir = output_directory(block)
+    output_dir = block.output_directory
     config = block.config
     state = discovery_dashboard_state(
         run_id=block.run_id,

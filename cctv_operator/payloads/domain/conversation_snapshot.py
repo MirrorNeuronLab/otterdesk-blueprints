@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import hashlib
-import os
 import subprocess
 import base64
 from pathlib import Path
 
+from mn_sdk_common.files import atomic_write_bytes, atomic_write_json
 
 MAX_PREVIEW_BYTES = 75 * 1024
 
@@ -53,9 +52,7 @@ def event_snapshot(run_dir: Path, event: dict, *, run_id: str,
         raise ValueError("event output is outside this run")
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / f"{digest}.jpg"
-    temporary = target.with_suffix(".tmp")
-    temporary.write_bytes(preview)
-    os.replace(temporary, target)
+    atomic_write_bytes(target, preview)
     return {"run_id": run_id, "mime_type": "image/jpeg",
             "data": base64.b64encode(preview).decode("ascii"),
             "title": f"Frame {frame_seq}", "alt": f"Goal match from {camera_id} at {event['observed_at']}",
@@ -73,9 +70,7 @@ def publish_snapshot(run_dir: Path, image_path: Path, *, run_id: str,
     except ValueError:
         return False
     image_name = "cctv_snapshot.jpg"
-    image_tmp = web_dir / ".cctv_snapshot.jpg.tmp"
-    image_tmp.write_bytes(preview)
-    os.replace(image_tmp, web_dir / image_name)
+    atomic_write_bytes(web_dir / image_name, preview)
     manifest = {
         "schema": "otterdesk.conversation_media.v1",
         "run_id": run_id,
@@ -88,7 +83,5 @@ def publish_snapshot(run_dir: Path, image_path: Path, *, run_id: str,
             "caption": f"Camera {camera_id}; frame {frame_seq}. Review the original live stream before acting.",
         }],
     }
-    manifest_tmp = web_dir / ".conversation_media.json.tmp"
-    manifest_tmp.write_text(json.dumps(manifest), encoding="utf-8")
-    os.replace(manifest_tmp, web_dir / "conversation_media.json")
+    atomic_write_json(web_dir / "conversation_media.json", manifest)
     return True

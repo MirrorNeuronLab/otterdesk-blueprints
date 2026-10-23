@@ -6,6 +6,10 @@ is retained solely for smoke tests and emits explicit synthetic provenance.
 """
 from __future__ import annotations
 
+from functools import partial
+from mn_sdk.blueprint_support import read_json_file as load_json
+from mn_sdk_common.files import atomic_write_json as json_dump, atomic_write_text
+
 import argparse
 import hashlib
 import html
@@ -25,6 +29,8 @@ from typing import Any
 # Direct script entrypoints share the staged payload's single domain package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from domain.candidates import best_screen_per_candidate, five_distinct_candidates
+
+text_dump = partial(atomic_write_text, create_parents=True)
 
 STOP_REQUESTED = Event()
 REQUIRED_ADAPTERS = ("candidate_generator", "folding", "drugclip", "simulation")
@@ -58,22 +64,6 @@ def utc_now() -> str:
 
 def request_stop(*_: Any) -> None:
     STOP_REQUESTED.set()
-
-
-def json_dump(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(
-        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
-    temporary.replace(path)
-
-
-def text_dump(path: Path, value: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(value, encoding="utf-8")
-    temporary.replace(path)
 
 
 def _bounded_preview_dimension(value: Any, default: int) -> int:
@@ -323,23 +313,6 @@ def resolve_output_folder(config: dict[str, Any], run_dir: Path) -> Path:
     if configured_output:
         return Path(os.path.expandvars(str(configured_output))).expanduser()
     return run_dir / "outputs"
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return value
-
-
-def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    result = dict(base)
-    for key, value in override.items():
-        if isinstance(value, dict) and isinstance(result.get(key), dict):
-            result[key] = deep_merge(result[key], value)
-        else:
-            result[key] = value
-    return result
 
 
 def is_fake(config: dict[str, Any]) -> bool:

@@ -1,5 +1,7 @@
 """Research evidence joins, analysis completion and publication contracts."""
 import importlib
+from copy import deepcopy
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -58,18 +60,83 @@ def test_completed_research_replays_without_more_model_calls(research, monkeypat
     assert block.store.read_path('final_artifact.json')['generation_provenance']['llm_calls'] == 18
 
 
-def test_interrupted_research_does_not_repeat_model_procedure(research, monkeypatch):
+@pytest.mark.parametrize('increase_allowance', [False, True])
+def test_interrupted_read_only_research_can_retry(research, monkeypatch, increase_allowance):
     block, modules, branches = research
     calls = []
+    run_research = modules['autonomous'].run_autonomous_research
     def interrupted(*args, **kwargs):
         calls.append(True)
+        if len(calls) == 1:
+            raise TimeoutError('interrupted research')
+        return run_research(*args, **kwargs)
+    monkeypatch.setattr(modules['autonomous'], 'run_autonomous_research', interrupted)
+    with pytest.raises(TimeoutError):
+        modules['autonomous'].autonomous_research(block, branches)
+    assert not block.store.path('research/analysis-checkpoint.json').exists()
+    assert not block.store.path('final_artifact.json').exists()
+    if increase_allowance:
+        retry_config = deepcopy(block.config)
+        retry_config['budgets']['max_llm_calls'] *= 2
+        block = replace(block, config=retry_config)
+    retried = modules['autonomous'].autonomous_research(block, branches)
+    assert calls == [True, True]
+    assert modules['verification'].audit_packet(block, {'previous': retried})['status'] == 'passed'
+    assert modules['autonomous'].autonomous_research(block, branches) == retried
+
+
+def test_completed_analysis_checkpoint_recovers_before_state_publication(research, monkeypatch):
+    block, modules, branches = research
+    save_state = modules['autonomous'].save_state
+    def interrupted(*args, **kwargs):
+        raise TimeoutError('interrupted state publication')
+    monkeypatch.setattr(modules['autonomous'], 'save_state', interrupted)
+    with pytest.raises(TimeoutError, match='state publication'):
+        modules['autonomous'].autonomous_research(block, branches)
+    assert block.store.path('research/analysis-checkpoint.json').exists()
+    assert not block.store.path('research/completed-analysis.json').exists()
+    monkeypatch.setattr(modules['autonomous'], 'save_state', save_state)
+    monkeypatch.setattr(modules['autonomous'], 'init_research_llm', lambda *a, **kw: pytest.fail('Checkpoint repeated model work'))
+    recovered = modules['autonomous'].autonomous_research(block, branches)
+    assert modules['verification'].audit_packet(block, {'previous': recovered})['status'] == 'passed'
+
+
+def test_incomplete_analysis_rejects_changed_configuration(research, monkeypatch):
+    from mn_sdk_common.committed_artifacts import CommittedArtifactConflict
+    block, modules, branches = research
+    def interrupted(*args, **kwargs):
         raise TimeoutError('interrupted research')
     monkeypatch.setattr(modules['autonomous'], 'run_autonomous_research', interrupted)
     with pytest.raises(TimeoutError):
         modules['autonomous'].autonomous_research(block, branches)
-    with pytest.raises(BlockError) as raised:
+    block.config['execution']['quick_test'] = False
+    block = replace(block, original_config=None)
+    monkeypatch.setattr(modules['autonomous'], 'init_research_llm', lambda *a, **kw: pytest.fail('Changed configuration reached model work'))
+    with pytest.raises(CommittedArtifactConflict):
         modules['autonomous'].autonomous_research(block, branches)
-    assert raised.value.code == 'outcome_unknown' and calls == [True]
+
+
+def test_live_provider_failure_remains_visible_on_retry(research, monkeypatch):
+    from mn_sdk import llm as sdk_llm
+    from mn_sdk.blueprint_support import runtime as sdk_runtime
+    block, modules, branches = research
+    block.config['execution']['quick_test'] = False
+    block = replace(block, original_config=None)
+    monkeypatch.setenv('MN_LLM_PROVIDER', 'litellm')
+    monkeypatch.setenv('MN_LLM_API_BASE', 'http://runtime-selected.example/v1')
+    monkeypatch.setenv('MN_LLM_MODEL', 'default')
+    monkeypatch.setattr(sdk_runtime, 'select_default_model', lambda *a, **kw: {
+        'selected_model': 'external-route', 'model': 'default', 'provider': 'litellm'})
+    calls = []
+    def unavailable(*args, **kwargs):
+        calls.append(True)
+        raise sdk_llm.LLMError('Runtime model gateway is unavailable.')
+    monkeypatch.setattr(sdk_llm, 'runtime_model_json_request', unavailable)
+    for _ in range(2):
+        with pytest.raises(RuntimeError, match='research_phase:source_analysis.*Runtime model gateway is unavailable'):
+            modules['autonomous'].autonomous_research(block, branches)
+    assert calls == [True, True]
+    assert not block.store.path('research/completed-analysis.json').exists()
     assert not block.store.path('final_artifact.json').exists()
 
 
@@ -95,6 +162,7 @@ def test_live_mode_does_not_reuse_a_quick_test_analysis(research):
     block, modules, branches = research
     modules['autonomous'].autonomous_research(block, branches)
     block.config['execution']['quick_test'] = False
+    block = replace(block, original_config=None)
     with pytest.raises(ValueError, match='different evidence or configuration'):
         modules['autonomous'].autonomous_research(block, branches)
 

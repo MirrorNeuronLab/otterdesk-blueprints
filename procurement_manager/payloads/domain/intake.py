@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from mn_sdk.integrations.block_inputs import save_declared_inputs
 from mn_sdk.agent_events import report_activity
+from mn_sdk.integrations.block_inputs import configured_input_path
 
-from pathlib import Path
 from typing import Any
 
-from .inputs import load_input_documents, resolve_input_folder, resolve_request_from_documents
+from .inputs import load_input_documents, resolve_request_from_documents
 from .knowledge import load_purchase_knowledge, prepare_purchase_rag, retrieve_purchase_rag_context
 from .llm_analysis import generate_structured_analysis
 from .research import _normalize_intake_plan, build_public_queries
@@ -53,13 +54,12 @@ def collect_context(
     llm_client = llm_client or block.resources.get("llm")
     inputs = purchase_inputs(block, inputs["request"])
     layout = bundle_layout()
-    root = layout.root
-    folder = resolve_input_folder(block.config, inputs, root)
+    folder = configured_input_path(block.config, inputs, "input_folder", runtime_file=__file__, environment=block.environment)
     documents, warnings = load_input_documents(folder, block.config)
     inputs, request = resolve_request_from_documents(inputs, documents)
     knowledge = load_purchase_knowledge(layout.payload_root / "knowledge")
     state = {
-        "input_artifact": block.store.commit("inputs.json", inputs, kind="purchase_inputs").to_dict(),
+        "input_artifact": save_declared_inputs(block, inputs, runtime_file=__file__).to_dict(),
         "inputs": inputs,
         "request": request,
         "research_links": request["research_links"],

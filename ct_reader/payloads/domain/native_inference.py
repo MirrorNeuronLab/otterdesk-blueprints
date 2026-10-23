@@ -1,11 +1,13 @@
 """CT request policy; the stock native block owns dispatch and recovery."""
 
 from pathlib import Path
+from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 MAX_CT_BYTES = 64 * 1024 * 1024
 
 
 def prepare(block, inputs):
+    inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)
     source = Path(inputs.get("ct_file") or "")
     region = inputs.get("region")
     prompt = inputs.get("prompt") or f'write a structured {"abdominal" if region == "abdomen" else "chest"} CT report'

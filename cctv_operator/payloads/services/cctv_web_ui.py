@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 
 from mn_live_video_analysis_skill import redact_source_urls
+from mn_sdk_common.files import atomic_write_json
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 WEB_UI_NODE_ID = "cctv_web_ui"
@@ -1082,11 +1083,7 @@ def start_operator_mcp_server(
             "run_id": run_id,
         }
         target = run_dir / CCTV_MCP_ENDPOINT_ARTIFACT
-        temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-        with temporary.open("x", encoding="utf-8") as handle:
-            os.chmod(temporary, 0o600)
-            handle.write(json.dumps(endpoint, sort_keys=True) + "\n")
-        os.replace(temporary, target)
+        atomic_write_json(target, endpoint)
     except BaseException:
         managed.stop()
         raise

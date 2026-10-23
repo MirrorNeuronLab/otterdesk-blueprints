@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 import sys
-from types import SimpleNamespace
 
+from mn_blueprint_blocks.context import BlockContext
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
 from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
 from mn_sdk.integrations.block_publication_files import deliver_files
@@ -48,6 +48,7 @@ class NativeReport:
         result = run(context, **self.options)
         # Simulate accepted owner copy; Core acceptance/handoff is independently
         # verified by ExUnit and native tests assert zero worker-side copying.
-        deliver_files(SimpleNamespace(check=lambda: None, store=self.store, environment={}, agent_id="report_writer"), result.publication)
+        deliver_files(BlockContext(store=self.store, invocation_id="owner-copy", revision="test",
+            environment={}, agent_id="report_writer"), result.publication)
         self.state_file.write_text(json.dumps({"agent_state": {"version": "mn.block_event_state/v1", "reference": result.event_result["next"]}}))
         return result

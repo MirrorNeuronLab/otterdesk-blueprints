@@ -3,13 +3,12 @@ from contextlib import contextmanager
 from copy import deepcopy
 import fcntl
 import json
-import os
 import re
 from pathlib import Path
 import shutil
-import tempfile
 from datetime import datetime
 
+from mn_sdk_common.files import atomic_write_bytes
 from .catalog_store import fingerprint
 from .workspace_projection import compare
 
@@ -17,18 +16,9 @@ ACTIONS = {'Accept with qualification', 'Revise', 'Request evidence', 'Dismiss',
 
 
 def atomic(path, body):
-    path.parent.mkdir(parents=True, exist_ok=True)
     if path.is_symlink():
         raise ValueError('Workspace output must not be a link')
-    fd, name = tempfile.mkstemp(prefix='.publish-', dir=path.parent)
-    try:
-        with os.fdopen(fd, 'wb') as stream:
-            stream.write(body)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(name, path)
-    finally:
-        Path(name).unlink(missing_ok=True)
+    atomic_write_bytes(path, body, create_parents=True)
 
 
 def json_bytes(value):

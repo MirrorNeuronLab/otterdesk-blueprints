@@ -5,13 +5,11 @@ documents and the JSON audit bundle are not additional conversation subjects.
 """
 
 import hashlib
-from pathlib import Path
 
 from mn_docs_to_markdown_skill import convert_documents
 
 
 def publish_outputs(block):
-    from .state import output_directory
     root = block.store.run_dir
     report = root / "financial_advisor_report.md"
     if report.is_symlink() or not report.is_file():
@@ -19,6 +17,6 @@ def publish_outputs(block):
     run_key = hashlib.sha256(block.run_id.encode("utf-8")).hexdigest()
     return convert_documents(
         [report], source_root=root,
-        output_root=output_directory(block) / "context_sources" / "outputs" / run_key,
+        output_root=block.output_directory / "context_sources" / "outputs" / run_key,
         max_bytes=4 * 1024 * 1024,
     )

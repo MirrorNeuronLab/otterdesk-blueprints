@@ -1,10 +1,8 @@
 """Native intake specialists over verified, explicit VC evidence snapshots."""
 
-from pathlib import Path
-
 from mn_sdk.agent_events import activity_operation
 from mn_sdk.blueprint_support import slugify, write_json
-from mn_sdk.integrations.block_inputs import declared_inputs
+from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 from .common import utc_now_iso
 from .composition import hydrate_cached_companies
@@ -15,7 +13,7 @@ from .intake import (
     OcrRequiredError, MarkdownConversionError,
 )
 from .intake_state import (
-    output_directory, prepare_snapshot, publish_snapshot, read_snapshot, source_inventory,
+    prepare_snapshot, publish_snapshot, read_snapshot, source_inventory,
     materialize_sources, capture_processed_inputs,
 )
 from .runtime_tools import append_event
@@ -23,13 +21,10 @@ from .runtime_tools import append_event
 
 @activity_operation('Checking startup folders for changes', completed='Checking startup folders for changes: completed')
 def startup_folder_watcher(block, inputs):
-    values = declared_inputs(block, inputs, runtime_file=__file__)
+    values = capture_declared_inputs(block, inputs, runtime_file=__file__)
     folder = values.get("document_folder") or values.get("input_folder")
     if not folder:
-        folder = (block.original_config.get("document_sources") or {}).get("folder_path")
-    if not folder:
         raise ValueError("VC intake requires a staged document folder")
-    values["document_folder"] = values["input_folder"] = str(Path(folder).absolute())
     files = source_inventory(block, values["document_folder"])
     state = {"inputs": values, "started_at": utc_now_iso(), "files": files,
              "force_reprocess": force_reprocess_enabled(values, block.config)}
@@ -61,7 +56,7 @@ def document_evidence_extractor(block, inputs):
     folder, _ = materialize_sources(block, state)
     try:
         state["records"] = scan_documents(folder, block.config,
-            source_output_folder=output_directory(block) / "context_sources" / "inputs",
+            source_output_folder=block.output_directory / "context_sources" / "inputs",
             source_scope={"job_id": block.job_id, "run_id": block.run_id})
     except (OcrRequiredError, MarkdownConversionError) as exc:
         ocr = isinstance(exc, OcrRequiredError) or isinstance(exc.__cause__, OcrRequiredError)
@@ -88,7 +83,7 @@ def document_evidence_extractor(block, inputs):
 @activity_operation('Normalizing company claims', completed='Normalizing company claims: completed')
 def claim_normalizer(block, inputs):
     state = read_snapshot(block, inputs, "document_evidence_extractor")
-    output = output_directory(block)
+    output = block.output_directory
     queue = build_company_work_queue(state["records"], load_watch_state(output),
         force_reprocess=state["force_reprocess"])
     state["cached"] = hydrate_cached_companies(output, block.config, state["records"], queue)

@@ -3,10 +3,10 @@ import fcntl
 import json
 import os
 from pathlib import Path
-from uuid import uuid4
 
 from mn_graph_analysis_skill import (FileIdentityRegistry, compute_content_hash,
     get_repository_identity, git_rename_hints)
+from mn_sdk_common.files import atomic_write_json
 
 
 def capture_file_identities(source, run_dir, context, hashes):
@@ -34,7 +34,5 @@ def capture_file_identities(source, run_dir, context, hashes):
         except (OSError, SubprocessError):
             pass
         value = {'registry': registry.export(), 'git_anchor': anchor}
-        temporary = ledger.with_name(ledger.name + '.' + uuid4().hex + '.tmp')
-        temporary.write_text(json.dumps(value, sort_keys=True))
-        temporary.replace(ledger)
+        atomic_write_json(ledger, value)
     return repository_id, identities

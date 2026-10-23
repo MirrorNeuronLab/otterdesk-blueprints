@@ -61,6 +61,15 @@ integrity, stop, suppression, and uncertain-send coverage.
 See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
 event-driven, fork/join, service, and linear flow contracts.
 
+Run-input configuration uses the shared SDK block helpers in
+`mn_sdk.integrations.block_inputs`. `@/` means the blueprint root, for example
+`@/examples/sample_inputs`; ordinary staged relative paths use the worker root.
+The SDK owns default/override merging, linked input paths and immutable saved
+input artifacts. Blueprint hooks retain domain normalization and validation.
+Use an updated SDK and reprepare existing Job definitions after this change.
+See [shared block ownership and the catalog audit](SHARED_BLOCKS.md) for the
+remaining runtime, evidence, file, and publication boundaries.
+
 ## Persistent co-worker conversation
 
 Every published blueprint declares the stable Job response service. After

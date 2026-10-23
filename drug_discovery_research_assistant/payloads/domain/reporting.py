@@ -1,10 +1,10 @@
 """Five-candidate scientific ranking and required review qualifications."""
 import json
 from mn_sdk.agent_events import report_activity
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
-from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_sdk_common.publication import ArtifactWrite
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
 
-from .configuration import BLUEPRINT_ID, output_directory
+from .configuration import BLUEPRINT_ID
 from .native_stages import read_discovery_state, write_discovery_state
 from .candidates import five_distinct_candidates
 from service.scripts.continuous_service import is_fake, simulation_sort_key
@@ -35,16 +35,11 @@ def publish_ranking(block, inputs):
                         "cycle_progress.json", "discovery_service_review.json",
                         *[reference["path"] for reference in state.get("cycle_artifacts", [])]]}
     encoded = json.dumps(artifact, sort_keys=True, ensure_ascii=False, allow_nan=False).encode("utf-8")
-    receipt = publish_bundle(block.store, [ArtifactWrite(name, path, encoded, kind="json", authoritative=True)
+    receipt = publish_artifact_bundle(block, [ArtifactWrite(name, path, encoded, kind="json", authoritative=True)
         for name, path in [("review", "discovery_service_review.json"), ("final_artifact", "final_artifact.json"),
                            ("result", "result.json")]], receipt_path=block.root + "/publication.json")
     state["final_report"] = artifact
     state_ref = write_discovery_state(block, state, "ranking")
-    output = output_directory(block)
-    if output != block.store.run_dir:
-        for item in receipt["artifacts"]:
-            reference = item["reference"]
-            copy_path_to_host(block.store.path(reference["path"]), output / reference["path"])
     web_ui, web_ui_error = {}, ""
     try:
         from .dashboard import publish_static_dashboard

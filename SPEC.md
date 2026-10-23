@@ -127,6 +127,14 @@ source manifests and payloads must not implement a separate host copy.
 Bundle-local config paths use SDK `@/` references and are resolved by the shared
 staging/runtime contract. Blueprint code consumes resolved paths and does not
 implement alternate path syntax.
+All generic run-input configuration belongs to the SDK block integration:
+`declared_inputs` merges configured defaults, explicit ports and linked staging
+fields; `capture_declared_inputs` resolves and saves the inputs;
+`save_declared_inputs` persists values after domain normalization. The contract's
+`input_adapters.resolved_artifact` owns the saved path. Blueprints retain domain
+validation and policy, and must not duplicate input merging, path interpretation
+or direct `inputs.json` persistence. Updating the SDK and repreparing existing
+Job definitions is required; previously submitted configurations are immutable.
 
 Persistent cross-run state is explicit in `metadata.job_data.resources`.
 Resources declare a logical name, validated relative job-data path,

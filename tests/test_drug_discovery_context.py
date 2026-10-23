@@ -51,7 +51,7 @@ def test_source_profile_prepares_membrane_without_unused_runtime_recall():
 def test_input_context_survives_failed_first_stage_and_retains_complete_documents(discovery, monkeypatch):
     sources, stages, ctx = discovery
     ctx.config["api_key"] = "SECRET-CREDENTIAL"
-    ctx.config["inputs"]["payload"]["targets"] = []
+    ctx.resources['inputs']["targets"] = []
     folder = Path(ctx.config["inputs"]["payload"]["input_folder"])
     (folder / "notes.md").write_text("Background.\n" * 300 + "TAIL-ASSAY-CONSTRAINT: review selectivity.\n")
     (folder / ".credentials.txt").write_text("HIDDEN-SECRET")
@@ -108,7 +108,7 @@ def test_disabled_source_profile_does_not_read_inputs_or_publish(discovery):
 
 def test_provided_target_is_preserved_without_a_disease_search(discovery, monkeypatch):
     _, stages, ctx = discovery
-    ctx.config["inputs"]["payload"]["targets"][0]["score_opentargets"] = .999
+    ctx.resources['inputs']["targets"] = [{"gene": "BACE1", "protein_id": "P56817", "score_opentargets": .999}]
     monkeypatch.setattr(stages, "stage_a_target_discovery", lambda *args, **kwargs: pytest.fail("Provided targets must not invoke disease search"))
     assert stages.discover_targets(ctx, ctx.resources['inputs'])["target_count"] == 1
     state = ctx.store.read_path("discovery/targets.json")
@@ -124,12 +124,41 @@ def test_missing_optional_step_inputs_keep_saved_defaults_and_input_documents(di
     assert ctx.store.read_path("discovery/targets.json")["targets"] == [{"gene": "BACE1", "protein_id": "P56817"}]
     assert len(list((ctx.resources['output_folder'] / "context_sources" / "inputs").rglob("*.md"))) == 4
     ctx.resources['inputs']["targets"] = []
-    assert stages.research_inputs(ctx, ctx.resources['inputs'])["targets"] == []
+    from mn_sdk.integrations.block_inputs import declared_inputs
+    assert declared_inputs(ctx, ctx.resources['inputs'], runtime_file=stages.__file__)["targets"] == []
+
+
+def test_default_bundle_input_is_resolved_and_saved_by_common_blocks(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(BLUEPRINT / "payloads"))
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(tmp_path / "outputs"))
+    config = load_blueprint_config(BLUEPRINT)
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    block = BlockContext(store=CommittedJsonStore(tmp_path / "run"), config=config,
+        invocation_id="sample-inputs", revision="test", run_id="sample-run", job_id="sample-job",
+        environment={"MN_WORKDIR": str(tmp_path / "unrelated-worker"), "MN_JOB_OUTPUT_DIR": str(tmp_path / "outputs")})
+    stages = importlib.import_module("domain.native_stages")
+    assert stages.discover_targets(block, {"input_folder": None})["target_count"] == 1
+    inputs = block.store.read_path("inputs.json")
+    assert inputs["input_folder"] == str(BLUEPRINT / "examples/sample_inputs")
+    assert block.original_config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    documents = list((tmp_path / "outputs/context_sources/inputs").rglob("*.md"))
+    assert documents and any("BACE1" in path.read_text() for path in documents)
+
+
+def test_compiled_sample_stages_inputs_without_absolute_path_override(tmp_path):
+    from block_workflow_fixture import run_sample
+    result = run_sample("drug_discovery_research_assistant", config={"mode": "mock"},
+        runs_root=tmp_path / "runs", run_id="default-sample", through_step="target_discovery")
+    assert result["target_count"] == 1
+    run = tmp_path / "runs/default-sample"
+    inputs = json.loads((run / "inputs.json").read_text())
+    assert "mn_local_inputs" in inputs["input_folder"] and "@/" not in inputs["input_folder"]
+    assert (Path(inputs["input_folder"]) / "target_profile.json").is_file()
 
 
 def test_disease_search_uses_the_explicit_name_and_preserves_therapeutic_text(discovery, monkeypatch):
     _, stages, ctx = discovery
-    inputs = ctx.config["inputs"]["payload"]
+    inputs = ctx.resources['inputs']
     inputs.update(targets=[], disease="Alzheimer disease")
     seen = []
     def lookup(disease):
@@ -146,7 +175,7 @@ def test_disease_search_uses_the_explicit_name_and_preserves_therapeutic_text(di
     [{"protein_id": "P56817", "gene": ["BACE1"]}], [{"protein_id": "P568170", "gene": "BACE1"}]])
 def test_invalid_explicit_targets_do_not_fall_back_to_other_targets(discovery, monkeypatch, targets):
     _, stages, ctx = discovery
-    ctx.config["inputs"]["payload"]["targets"] = targets
+    ctx.resources['inputs']["targets"] = targets
     monkeypatch.setattr(stages, "stage_a_target_discovery", lambda *args, **kwargs: pytest.fail("Invalid explicit targets cannot become a disease search"))
     with pytest.raises(ValueError, match="targets|target"):
         stages.discover_targets(ctx, ctx.resources['inputs'])

@@ -85,6 +85,8 @@ def test_research_manifest_has_one_isolated_autonomous_specialist():
     source = source_manifest("research_assistant")
     expanded = expanded_manifest("research_assistant")
     assert source["llm"]["require_live"] is True
+    assert source["llm"]["strict_json"] is True
+    assert source["llm"]["required_capabilities"] == ["structured_output"]
     assert source["llm"]["context_size"] == 16384
     assert "parameter_count_b" not in source["llm"]
     assert "quantization" not in source["llm"]
@@ -482,7 +484,7 @@ class LLM:
         self.calls = 0
         self.prompts = {{}}
 
-    def generate_json(self, system_prompt, user_prompt, fallback):
+    def generate_json(self, system_prompt, user_prompt, fallback, **kwargs):
         self.calls += 1
         phase = system_prompt.split("Research phase: ", 1)[1].split(".", 1)[0]
         self.prompts[phase] = user_prompt
@@ -655,7 +657,7 @@ class CapturingLLM:
         self.calls = 0
         self.prompts = []
 
-    def generate_json(self, system_prompt, user_prompt, fallback):
+    def generate_json(self, system_prompt, user_prompt, fallback, **kwargs):
         self.calls += 1
         phase = system_prompt.split("Research phase: ", 1)[1].split(".", 1)[0]
         self.prompts.append((phase, user_prompt))

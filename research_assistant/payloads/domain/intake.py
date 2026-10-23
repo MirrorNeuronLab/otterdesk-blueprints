@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from mn_sdk.integrations.block_inputs import save_declared_inputs
 from mn_sdk.agent_events import report_activity
 
 from typing import Any
@@ -21,5 +22,5 @@ def frame_goal(block, inputs) -> dict[str, Any]:
         constraints=inputs.get("constraints") or {},
     )
     state = {"inputs": inputs, "goal": goal,
-        "input_artifact": block.store.commit("inputs.json", inputs, kind="research_inputs").to_dict()}
+        "input_artifact": save_declared_inputs(block, inputs, runtime_file=__file__).to_dict()}
     return {"goal": goal, "state": save_state(block, state, "goal")}

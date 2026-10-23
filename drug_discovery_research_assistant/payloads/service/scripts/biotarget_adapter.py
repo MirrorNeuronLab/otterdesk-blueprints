@@ -7,6 +7,9 @@ blueprint.  Dependencies must be installed on the worker that receives the job.
 """
 from __future__ import annotations
 
+from mn_sdk.blueprint_support import read_json_file as load_json
+from mn_sdk_common.files import atomic_write_json as dump_json
+
 import argparse
 import contextlib
 import json
@@ -18,18 +21,6 @@ from typing import Any, Iterator
 
 
 _MODEL_REFERENCE_VALIDATIONS: dict[str, dict[str, Any]] = {}
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    value = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(value, dict):
-        raise ValueError(f"{path} must contain a JSON object")
-    return value
-
-
-def dump_json(path: Path, value: Any) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def biotarget_source(request: dict[str, Any]) -> Path:

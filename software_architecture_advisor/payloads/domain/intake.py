@@ -1,6 +1,7 @@
 """Select and capture the repository for this architecture investigation."""
 
 from mn_sdk.agent_events import activity_operation
+from mn_sdk_common.files import atomic_write_json
 import json
 from pathlib import Path
 from .catalog_contract import load_snapshot
@@ -35,9 +36,7 @@ def capture_input(block, inputs):
             manifest = load_snapshot(run_dir)['manifest']
         else:
             manifest = ingest_source(source, run_dir / 'evidence', config, Path(facts) if facts else None)
-            temporary = run_dir / 'snapshot.json.tmp'
-            temporary.write_text(json.dumps(manifest, indent=2), encoding='utf-8')
-            temporary.replace(run_dir / 'snapshot.json')
+            atomic_write_json(run_dir / 'snapshot.json', manifest)
     path = f"evidence/snapshots/{manifest['id']}"
     files = freeze_files(block, ['snapshot.json', *[str(file.relative_to(run_dir))
         for file in (run_dir/path).iterdir() if file.is_file()]])

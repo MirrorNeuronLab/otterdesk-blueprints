@@ -1,7 +1,6 @@
 """Native scientific operations consuming immutable predecessor state."""
 import re
 from pathlib import Path
-from mn_sdk_common.committed_artifacts import validate_embedded_references
 from mn_sdk.agent_events import report_activity
 from mn_sdk.blueprint_support import write_json
 from biotarget.stages.stage_a_discovery import stage_a_target_discovery
@@ -13,8 +12,7 @@ from .conversation_sources import publish_inputs, publish_results
 
 
 def read_discovery_state(block, inputs):
-    state = block.store.read(inputs["previous"]["state"])
-    validate_embedded_references(block.store, state)
+    state = block.read_evidence(inputs["previous"]["state"])
     return state
 
 
@@ -45,7 +43,6 @@ def discover_targets(block, inputs):
     report_activity("Researching target biology", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
     inputs = research_inputs(block, inputs)
     publish_inputs(block, inputs)
-    block.store.commit("inputs.json", inputs, kind="discovery_inputs")
     targets = inputs.get("targets")
     if targets is not None and not isinstance(targets, list):
         raise ValueError("Protein targets must be a list of UniProt identifiers.")

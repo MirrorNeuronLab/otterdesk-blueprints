@@ -261,7 +261,6 @@ from mn_sdk.blueprints import read_blueprint, resolve_config
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from domain.intake import step_financial_folder_watcher
-from domain.state import output_directory
 root = Path({str(blueprint_path("financial_advisor"))!r})
 os.environ.update(MN_JOB_ID='financial-runtime-job', MN_WORKFLOW_ATTEMPT_ID='attempt-3', MN_RUN_ID='financial-runtime-run', MN_JOB_OUTPUT_DIR={str(tmp_path / 'job-output')!r})
 context = StepContext.from_environment()
@@ -272,7 +271,7 @@ first = step_financial_folder_watcher(block, {{'request': {{'document_folder': s
 assert step_financial_folder_watcher(block, {{'request': {{'document_folder': str(root / 'examples/sample_inputs'), 'output_folder': 'ignored-local-output'}}}}) == first
 state = block.store.read(first['state'])
 print(json.dumps({{'job_id': block.job_id, 'attempt_id': context.attempt_id, 'run_dir': str(block.store.run_dir),
-    'output_folder': str(output_directory(block)), 'document_folder': state['inputs']['document_folder'],
+    'output_folder': str(block.output_directory), 'document_folder': state['inputs']['document_folder'],
     'stored_payload_folder': block.store.read(state['input_artifact'])['document_folder']}}))
 """)
     assert result['job_id'] == 'financial-runtime-job' and result['attempt_id'] == 'attempt-3'
@@ -281,7 +280,7 @@ print(json.dumps({{'job_id': block.job_id, 'attempt_id': context.attempt_id, 'ru
     assert result['document_folder'] == result['stored_payload_folder'] == str(blueprint_path('financial_advisor') / 'examples/sample_inputs')
 
 
-def test_financial_native_intake_reads_staged_folder_when_message_payload_is_dot(tmp_path):
+def test_financial_native_intake_reads_staged_folder_when_message_omits_paths(tmp_path):
     staged = tmp_path / 'staged-documents'
     staged.mkdir()
     (staged / 'statement.txt').write_text('Sample statement')
@@ -293,7 +292,7 @@ from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from domain.intake import step_financial_folder_watcher
 block = BlockContext(store=CommittedJsonStore({str(tmp_path / 'run')!r}), invocation_id='intake', revision='test',
     config=resolve_config(read_blueprint({str(blueprint_path('financial_advisor'))!r}), {{'document_sources': {{'folder_path': {str(staged)!r}}}, 'execution': {{'quick_test': True}}}}).data)
-result = step_financial_folder_watcher(block, {{'request': {{'document_folder': '.', 'input_folder': '.'}}}})
+result = step_financial_folder_watcher(block, {{'request': {{'document_folder': None, 'input_folder': None}}}})
 state = block.store.read(result['state'])
 print(json.dumps({{'folder': state['inputs']['document_folder'], 'files': [item['name'] for item in state['workflow']['financial_folder_watcher']['files']]}}))
 """)

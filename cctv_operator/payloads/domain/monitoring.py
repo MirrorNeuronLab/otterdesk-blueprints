@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 import time
 import uuid
 from typing import Any, Mapping
-
 
 MAX_INSTRUCTION_CHARS = 500
 MONITORING_STATE_FILENAME = "monitoring_state.json"
@@ -77,19 +75,17 @@ def write_monitoring_state(
     run_dir: str | Path,
     state: Mapping[str, Any],
 ) -> Path:
+    # Submission validation imports the pure steering policy before runtime
+    # packages are prepared; storage is required only when publishing state.
+    from mn_sdk_common.files import atomic_write_json
+
     target = Path(run_dir) / MONITORING_STATE_FILENAME
-    target.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema": "otterdesk.cctv_operator.monitoring_state.v1",
         **initial_monitoring_state(),
         **dict(state),
     }
-    temporary = target.with_name(f".{target.name}.{os.getpid()}.tmp")
-    temporary.write_text(
-        json.dumps(payload, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
-    os.replace(temporary, target)
+    atomic_write_json(target, payload)
     return target
 
 

@@ -62,12 +62,15 @@
   "default_config": "primary",
   "quick_test_uses_fake": true,
   "require_live": true,
+  "required_capabilities": [
+    "structured_output"
+  ],
   "structured_output_options": {
     "chat_template_kwargs": {
       "enable_thinking": false
     }
   },
-  "strict_json": false,
+  "strict_json": true,
   "configs": {
     "primary": {
       "provider": "docker_model_runner",

@@ -7,6 +7,7 @@ import time
 from uuid import uuid4
 
 from mn_graph_analysis_skill import GraphClient
+from mn_sdk_common.files import atomic_write_json
 from .catalog import LAYERS, LayerUnavailable
 from .events import emit
 from .ingest import digest
@@ -15,12 +16,6 @@ from . import static_layers as static
 from . import derived_layers as derived
 
 COLLECTOR_VERSION = "multi-graph/4-static-code"
-
-
-def atomic_json(path, value):
-    temporary = path.with_name(path.name + "." + uuid4().hex + ".tmp")
-    temporary.write_text(json.dumps(value, sort_keys=True))
-    temporary.replace(path)
 
 
 class LayerManager:
@@ -171,7 +166,7 @@ class LayerManager:
             emit("graph.unavailable", layer=layer, scope=scope, cached=True, error=attempts[key]["error"])
             raise LayerUnavailable(attempts[key]["error"])
         attempts[key] = {"status": "building", "fingerprint": fingerprint, "started_at": time.time()}
-        atomic_json(attempts_path, attempts)
+        atomic_write_json(attempts_path, attempts)
         began = time.perf_counter()
         emit("graph.build.started", layer=layer, scope=scope, dependencies=list(dependencies), fingerprint=fingerprint)
         try:
@@ -200,7 +195,7 @@ class LayerManager:
             self._validate_size(value)
             record_file = self.root / "records" / (fingerprint + ".json")
             record_file.parent.mkdir(exist_ok=True)
-            atomic_json(record_file, value)
+            atomic_write_json(record_file, value)
             entry = {"layer": layer, "scope": scope, "fingerprint": fingerprint, "dependencies": dependencies,
                      "records": str(record_file.relative_to(self.root)), "record_sha256": digest(record_file.read_bytes()),
                      "details": {k: v for k, v in value["details"].items() if k not in {"model_trace", "raw_log"}},
@@ -222,14 +217,14 @@ class LayerManager:
             if self.progress:
                 self.progress(f"Graph ready: {layer} ({scope})")
             attempts.pop(key, None)
-            atomic_json(attempts_path, attempts)
+            atomic_write_json(attempts_path, attempts)
             self.events.append({"layer": layer, "scope": scope, "cache_hit": False, "build_ms": round((time.perf_counter()-began)*1000, 3),
                                 "model_calls": value["details"].get("model_calls", 0)})
             emit("graph.build.completed", **self.events[-1])
         except Exception as exc:
             attempts[key] = {"status": "unavailable" if isinstance(exc, LayerUnavailable) else "failed", "fingerprint": fingerprint,
                              "error": f"{type(exc).__name__}: {exc}", "finished_at": time.time()}
-            atomic_json(attempts_path, attempts)
+            atomic_write_json(attempts_path, attempts)
             if self.progress:
                 self.progress(f"Graph {attempts[key]['status']}: {layer} ({scope})")
             self.events.append({"layer": layer, "scope": scope, "cache_hit": False, "status": attempts[key]["status"], "error": str(exc)})
@@ -311,7 +306,7 @@ class LayerManager:
         emit("graph.integrity_check.started", generation=generation)
         client.check()
         emit("graph.integrity_check.completed", generation=generation)
-        atomic_json(directory / "generation.json", {"id": generation, "entries": entries})
+        atomic_write_json(directory / "generation.json", {"id": generation, "entries": entries})
         pointer = self.root / ("current-" + generation + ".tmp")
         pointer.write_text(generation)
         pointer.replace(self.root / "CURRENT")

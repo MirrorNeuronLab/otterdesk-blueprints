@@ -5,10 +5,10 @@ from pathlib import Path
 from mn_code_search_skill import TextSearchIndex
 from mn_static_code_analysis_skill import SUPPORTED_EXTENSIONS, analyze_sources
 from mn_sdk.agent_events import report_activity
-from mn_sdk.blueprint_support import expand_runtime_path
+from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 from .artifacts import read
-from .configuration import BLUEPRINT_ID, job_directory, settings
+from .configuration import BLUEPRINT_ID, settings
 
 EXCLUDED = {'.git', '.svn', 'node_modules', 'vendor', 'dist', 'build', '.venv',
             'venv', '__pycache__', '.next', 'coverage', '.idea', '.vscode'}
@@ -92,16 +92,11 @@ def capture(block, inputs):
 
 
 def capture_sources(block, inputs):
+    inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)
     folder = inputs.get('input_folder')
     if not folder:
         raise ValueError('Choose a repository checkout or source folder.')
-    selected = expand_runtime_path(folder)
-    if not selected.is_absolute():
-        workdir = os.environ.get('MN_WORKDIR')
-        if not workdir:
-            raise ValueError('SDK worker directory is required for staged source paths.')
-        selected = Path(workdir) / selected
-    root = selected.resolve(strict=True)
+    root = Path(folder).resolve(strict=True)
     run_root = block.store.run_dir
     if run_root == root or run_root.is_relative_to(root):
         raise ValueError('Run outputs must be outside the inspected source folder.')
@@ -110,7 +105,7 @@ def capture_sources(block, inputs):
         # Keep repository paths separate from supervisor-owned blueprint knowledge.
         sources = {'repository/' + p: v for p, v in sources.items()}
         omitted = [{**item, 'path': 'repository/' + item['path']} for item in omitted]
-    knowledge = job_directory(block) / 'knowledge' / 'rules'
+    knowledge = block.job_directory / 'knowledge' / 'rules'
     custom = {}
     if knowledge.is_symlink() or knowledge.parent.is_symlink():
         raise ValueError('Job knowledge must not be a symlink.')

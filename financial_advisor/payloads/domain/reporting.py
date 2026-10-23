@@ -3,10 +3,9 @@
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
-from .state import read_state, save_result, output_directory
-from mn_sdk_common.publication import ArtifactWrite, publish_bundle
-from mn_sdk_common.committed_artifacts import CommittedJsonStore
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
+from .state import read_state, save_result
+from mn_sdk_common.publication import ArtifactWrite
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
 from .conversation_sources import publish_outputs
 from .knowledge import financial_knowledge_reference, load_prompt
 from .review_services import actor_review
@@ -394,7 +393,6 @@ def step_financial_advice_reporter(block, inputs) -> dict[str, Any]:
     )
     state.setdefault("actor_findings", {})["financial_advice_reporter"] = finding
     final_artifact = build_final_artifact(block, state)
-    export_folder = output_directory(block)
     artifacts = {
         "bank_statement_extraction.json": final_artifact["bank_statement_extraction"],
         "household_finance_summary.json": final_artifact["household_finance_summary"],
@@ -434,12 +432,7 @@ def step_financial_advice_reporter(block, inputs) -> dict[str, Any]:
     writes = [ArtifactWrite(name, name, json.dumps(value, sort_keys=True, ensure_ascii=False, allow_nan=False).encode(),
         kind="json", authoritative=True) for name, value in artifacts.items()]
     writes.append(ArtifactWrite("financial_report", "financial_advisor_report.md", markdown_report(final_artifact).encode(), kind="markdown"))
-    receipt = publish_bundle(block.store, writes, receipt_path=block.root + "/publication.json")
-    if export_folder != block.store.run_dir:
-        exported = CommittedJsonStore(export_folder)
-        for item in receipt["artifacts"]:
-            relative = item["reference"]["path"]
-            copy_path_to_host(block.store.path(relative), exported.path(relative))
+    receipt = publish_artifact_bundle(block, writes, receipt_path=block.root + "/publication.json")
     publish_outputs(block)
     return {**save_result(block, state, "financial_advice_reporter", {"review_only": True, "output_files": final_artifact["output_files"]}),
         "artifacts": receipt["artifacts"]}

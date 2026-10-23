@@ -1,5 +1,6 @@
 """Financial document inventory, extraction, and statement packet operations."""
 
+from mn_sdk.integrations.block_inputs import save_declared_inputs
 from mn_sdk.agent_events import activity_operation
 
 from .common import *
@@ -9,7 +10,7 @@ from .source_ingestion import *
 @activity_operation('Checking financial folders for changes', completed='Checking financial folders for changes: completed')
 def step_financial_folder_watcher(block, inputs):
     from mn_blueprint_blocks.contracts import fingerprint
-    from .state import finance_inputs, output_directory, INPUT_KEYS
+    from .state import finance_inputs, INPUT_KEYS
     from .knowledge import load_financial_knowledge
     block.check()
     request_identity = fingerprint({key: value for key, value in inputs["request"].items() if key in INPUT_KEYS})
@@ -32,7 +33,7 @@ def step_financial_folder_watcher(block, inputs):
         block.store.commit(started_path, started, kind="financial_intake_start")
     state = {**started, "inputs": selected, "workflow": {}, "actor_findings": {},
         "knowledge": load_financial_knowledge(),
-        "input_artifact": block.store.commit("inputs.json", selected, kind="financial_inputs").to_dict()}
+        "input_artifact": save_declared_inputs(block, selected, runtime_file=__file__).to_dict()}
     files = []
     folder = Path(selected["document_folder"])
     for path in iter_input_files(folder):
@@ -40,7 +41,7 @@ def step_financial_folder_watcher(block, inputs):
         reference = block.store.commit_bytes("financial/sources/" + path.relative_to(folder).as_posix(), path.read_bytes(), kind="financial_source")
         files.append({"name": path.name, "artifact": reference.to_dict()})
     result = save_result(block, state, "financial_folder_watcher", {
-        "document_folder": selected["document_folder"], "output_folder": str(output_directory(block)),
+        "document_folder": selected["document_folder"], "output_folder": str(block.output_directory),
         "files": files, "file_count": len(files), "monitoring": selected.get("monitoring") or {}, "ready": True})
     block.store.commit(receipt_path, result["state"], kind="financial_intake_receipt")
     return result

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from mn_sdk.agent_events import report_activity
+from mn_sdk.integrations.block_inputs import configured_input_path
 
 import csv
 import io
@@ -14,7 +15,7 @@ from typing import Any
 from mn_public_research_orchestrator_skill import BrowserResearch, load_browser as _load_web_browser_skill
 
 from .common import BLUEPRINT_ID, runtime_asset_root
-from .inputs import expand_runtime_path, load_input_documents, resolve_input_folder
+from .inputs import expand_runtime_path, load_input_documents
 from .knowledge import load_research_knowledge, prepare_research_rag, retrieve_research_rag_context
 from .state import read_state, save_state
 
@@ -28,7 +29,7 @@ def prepare_evidence_context(
     quick_test: bool,
 ) -> dict[str, Any]:
     """Build the same evidence state for direct and staged workflow execution."""
-    folder = resolve_input_folder(config, inputs, root)
+    folder = configured_input_path(config, inputs, "input_folder", runtime_file=__file__)
     documents, document_warnings = load_input_documents(folder, config)
     knowledge = load_research_knowledge(runtime_asset_root())
     rag = prepare_research_rag(config, runtime_asset_root(), knowledge, documents, run_id)

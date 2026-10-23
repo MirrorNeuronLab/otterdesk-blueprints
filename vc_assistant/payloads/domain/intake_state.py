@@ -1,18 +1,11 @@
 """Scoped VC intake evidence; workflow-state files are derived inspection views."""
 
 from pathlib import Path, PurePosixPath
-import os
 
 from mn_sdk.blueprint_support import write_workflow_state
 from mn_sdk.integrations.block_files import capture_file, materialize_file
-from mn_sdk_common.committed_artifacts import validate_embedded_references
 
 from .intake import _document_paths
-
-
-def output_directory(block):
-    environment = os.environ if block.environment is None else block.environment
-    return Path(environment.get("MN_JOB_OUTPUT_DIR") or block.store.run_dir)
 
 
 def checkpoint_path(role):
@@ -44,7 +37,6 @@ def snapshot_reference(inputs):
 
 def read_snapshot(block, inputs, role):
     state = block.read_checkpoint(snapshot_reference(inputs), expected_path=checkpoint_path(role))
-    validate_embedded_references(block.store, state)
     if state.get("stage") != role:
         raise ValueError("VC intake evidence belongs to a different phase")
     return state
@@ -96,7 +88,7 @@ def materialize_sources(block, state):
 
 
 def capture_processed_inputs(block, records):
-    root = output_directory(block)
+    root = block.output_directory
     paths = {record["markdown_artifact"]["path"] for values in records.values() for record in values}
     paths.add("context_sources/inputs.json")
     captured = []

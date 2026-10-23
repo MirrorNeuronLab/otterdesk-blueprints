@@ -13,7 +13,6 @@ from typing import Any
 
 from mn_sdk.context_engine import context_memory_section_enabled
 from mn_sdk_common.files import atomic_write_text
-from .configuration import output_directory
 
 MAX_SOURCE_BYTES = 4 * 1024 * 1024
 MAX_INPUT_FILES = 64
@@ -46,7 +45,7 @@ def _source_root(block) -> Path | None:
         raise ValueError("Discovery conversation sources require a runtime run identity")
     # Runtime identity remains in the document; the directory is path-safe.
     key = hashlib.sha256(run_id.encode()).hexdigest()[:24]
-    return output_directory(block) / "context_sources" / "inputs" / key
+    return block.output_directory / "context_sources" / "inputs" / key
 
 
 def _publish(path: Path, text: str) -> None:

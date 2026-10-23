@@ -52,14 +52,15 @@ def purchase(tmp_path, monkeypatch):
 def test_delivery_retry_preserves_five_call_budget(purchase, monkeypatch):
     block, modules, model, joined = purchase
     publish = modules['reporting']
-    copy = publish.copy_path_to_host
+    from mn_sdk.blueprint_support import shared_outputs
+    copy = shared_outputs.copy_path_to_host
     def interrupted(*args):
         raise OSError('output copy interrupted')
-    monkeypatch.setattr(publish, 'copy_path_to_host', interrupted)
+    monkeypatch.setattr(shared_outputs, 'copy_path_to_host', interrupted)
     with pytest.raises(OSError):
         publish.publish_report(block, joined)
     assert model.calls == 5 and block.store.path('procurement/report-analysis.json').exists()
-    monkeypatch.setattr(publish, 'copy_path_to_host', copy)
+    monkeypatch.setattr(shared_outputs, 'copy_path_to_host', copy)
     result = publish.publish_report(block, joined)
     assert model.calls == 5
     final = block.store.read_path('final_artifact.json')

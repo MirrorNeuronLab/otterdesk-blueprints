@@ -3,7 +3,6 @@
 from mn_sdk.agent_events import activity_operation
 
 import json
-import os
 from pathlib import Path
 from mn_sdk.step_runtime import artifact_reference
 from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
@@ -200,7 +199,7 @@ def publish(block, inputs):
         raise ValueError('Architecture summary differs from the terminal investigation')
     block.check()
     report, files, results = assemble(block)
-    folder = Path(os.environ.get('MN_JOB_OUTPUT_DIR') or block.store.run_dir)
+    folder = block.output_directory
     output, _ = write_review(block, report, files, results, output_folder=folder,
         review_file=evidence['inputs'].get('review_file'))
     names = ['review_index.json', 'web_ui.json']

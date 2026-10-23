@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from mn_sdk.agent_events import report_activity
-from mn_blueprint_blocks.contracts import BlockError, fingerprint
+from mn_blueprint_blocks.contracts import fingerprint
 
 import json
 import os
@@ -25,6 +25,7 @@ from .evidence import (
 from .state import save_state, read_state
 from .synthesis import evidence_digest, evidence_links_for_hypothesis, normalize_source_refs
 from .model import init_research_llm
+from .model_contracts import phase_schema, validate_phase
 from .preflight import load_preflight
 
 
@@ -175,6 +176,10 @@ def _phase_generate_json(
         ),
         user_prompt=json.dumps(context, sort_keys=True, default=str),
         fallback=phase_fallback,
+        response_schema=phase_schema(phase, context),
+        schema_name="research_" + phase,
+        validator=lambda value: validate_phase(phase, context, value),
+        validation_retries=1,
     )
     if check is not None:
         check()
@@ -1081,7 +1086,7 @@ def autonomous_research(
     block.check()
     state, preflight = load_preflight(block, inputs)
     state["preflight_artifacts"] = {name: inputs[name]["assessment"] for name in preflight}
-    identity = {"preflight": state["preflight_artifacts"], "configuration": fingerprint(block.config)}
+    identity = {"preflight": state["preflight_artifacts"], "configuration": fingerprint(block.original_config)}
     completed = "research/completed-analysis.json"
     if block.store.path(completed).exists():
         reference = block.store.read_path(completed)
@@ -1090,16 +1095,28 @@ def autonomous_research(
             raise ValueError("Completed research belongs to different evidence or configuration")
         return {"tool_calls": (saved["autonomous"].get("session") or {}).get("tool_calls_used", 0), "state": reference}
     started = "research/analysis-started.json"
-    if block.store.path(started).exists():
-        block.store.commit(started, identity, kind="research_analysis_start")
-        raise BlockError("outcome_unknown", "Reconcile the interrupted research analysis before another attempt.")
+    # This phase only reads evidence and proposes work. Keep the identity fence,
+    # but let Core retry incomplete analysis without inventing an unknown effect.
+    block.store.commit(started, identity, kind="research_analysis_start")
+    state["analysis_identity"] = identity
+    checkpoint_path = "research/analysis-checkpoint.json"
+    checkpoint = block.freeze_checkpoint(
+        checkpoint_path,
+        lambda: _analyze_research(block, state, preflight, llm_client=llm_client),
+    )
+    state = block.read_checkpoint(checkpoint, expected_path=checkpoint_path)
+    reference = save_state(block, state, "autonomous")
+    block.store.commit(completed, reference, kind="completed_research_analysis")
+    return {"tool_calls": (state["autonomous"].get("session") or {}).get("tool_calls_used", 0), "state": reference}
+
+
+def _analyze_research(block, state, preflight, *, llm_client=None):
     research = state["inputs"]
     llm, action_budget = init_research_llm(block, llm_client or block.resources.get("llm"))
     documents = state.get("documents") or []
     sources = state.get("sources") or []
     evidence = state.get("evidence") or research_evidence(research, documents, sources)
     posture = {**(state.get("posture") or deterministic_research_posture(evidence)), "preflight": preflight}
-    block.store.commit(started, identity, kind="research_analysis_start")
     recommendation, autonomous, autonomous_warnings = run_autonomous_research(
         llm, research, evidence, state.get("rag") or {}, posture, block.config, documents, sources,
         workspace=Path(os.environ.get("MN_WORKDIR") or block.store.run_dir / "workspace"), check=block.check,
@@ -1124,10 +1141,7 @@ def autonomous_research(
             "Research Assistant requires live model-backed synthesis; one or more research phases used fallback output."
         )
     state.update({"inputs": research, "evidence": verified_evidence, "posture": deterministic_research_posture(verified_evidence), "preflight": preflight, "recommendation": recommendation, "autonomous": autonomous, "actor_findings": actor_findings, "warnings": [*(state.get("warnings") or []), *autonomous_warnings], "llm_usage": usage, "llm_action_budget": action_budget.summary(include_actions=True)})
-    state["analysis_identity"] = identity
-    reference = save_state(block, state, "autonomous")
-    block.store.commit(completed, reference, kind="completed_research_analysis")
-    return {"tool_calls": (autonomous.get("session") or {}).get("tool_calls_used", 0), "state": reference}
+    return state
 
 
 __all__ = [

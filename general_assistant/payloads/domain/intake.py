@@ -4,6 +4,7 @@ from pathlib import Path
 from mn_blueprint_blocks.contracts import fingerprint
 from mn_opencode_skill import OpenCodeGateway
 from mn_sdk.agent_events import report_activity
+from mn_sdk.integrations.block_inputs import declared_inputs, save_declared_inputs
 
 from .configuration import settings
 from .conversation import Conversation
@@ -18,14 +19,16 @@ def prepare(block, inputs):
     checkpoint = block.root + "/task/request.json"
 
     def admit():
-        folder = inputs.get("input_folder") or block.config["inputs"]["payload"].get("input_folder")
+        values = declared_inputs(block, inputs, runtime_file=__file__)
+        folder = values.get("input_folder")
         if not isinstance(folder, str) or not folder.strip():
             raise ValueError("Choose an input folder before starting work")
-        task = inputs.get("task")
+        task = values.get("task")
         if task is None:
             task = Conversation(block).ask("task", "What would you like me to do with the input folder?")
         if not isinstance(task, str) or not task.strip() or len(task.encode()) > 64000:
             raise ValueError("task must contain 1..64000 UTF-8 bytes")
+        save_declared_inputs(block, {**values, "task": task.strip()}, runtime_file=__file__)
         attachments, total = {}, 0
         if folder:
             root = Path(folder).resolve(strict=True)
