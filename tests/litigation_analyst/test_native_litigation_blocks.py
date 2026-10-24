@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2] / "litigation_analyst"
 
 
 @pytest.fixture
-def native_case(tmp_path, monkeypatch):
+def native_case(tmp_path, monkeypatch, request):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
     from domain.graph_projection.projector import CaseGraphProjector
     from domain.graph_projection import build_records
@@ -33,7 +33,8 @@ def native_case(tmp_path, monkeypatch):
     monkeypatch.setattr(GraphClient, "check", lambda self: "ok")
     package = read_blueprint(ROOT)
     configuration = resolve_config(package, {"model_preflight": {"enabled": False},
-        "source_relationships": {"mode": "structural"}, "review": {"profile": "standard"}})
+        "source_relationships": {"mode": "structural"}, "review": {"profile": "standard"},
+        **getattr(request, 'param', {})})
     compiled = compile_blueprint(package, configuration).manifest
     descriptor = tmp_path / "manifest.json"
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, configuration)))
@@ -198,6 +199,32 @@ def test_native_publication_recovers_failed_export_without_repeating_investigati
     assert (destination / 'runs/run/case/evidence.sqlite3').exists()
     assert (destination / 'final_report.md').read_text().startswith('Audit paths below are relative to `runs/run/`.')
     assert json.loads((destination / 'review_index.json').read_text())['audit_root'] == 'runs/run'
+
+
+@pytest.mark.parametrize('native_case', [{'text_memory': {'enabled': False}}], indirect=True)
+def test_compiled_case_uses_real_sdk_fake_models_through_planning_and_publication(native_case, monkeypatch):
+    from mn_sdk.llm import LLMClient
+    from mn_sdk.model_access import runtime
+    from mn_sdk.run_outputs import output_metadata
+
+    def no_live_model(*_args, **_kwargs):
+        pytest.fail('Fake execution must not prepare or contact a live model')
+    monkeypatch.setenv('MN_BLUEPRINT_FAKE_LLM', '1')
+    monkeypatch.setattr(runtime.urllib.request, 'urlopen', no_live_model)
+    monkeypatch.setattr(runtime, '_default_client_factory', no_live_model)
+    case = native_case
+    # The compiled descriptor selects the documented memory-free profile because
+    # this fixture's source transport cannot hydrate authored records across corpora.
+    terminal = case.investigate(LLMClient(strict=True, provider='fake'))
+    proposal = json.loads(case.store.path('case/rounds/proposal-00.json').read_text())['proposal']
+    assert proposal['decision'] == 'execute' and proposal['hypotheses']
+    assert all(item['support_query'] != item['counter_query'] for item in proposal['hypotheses'])
+    result = case.execute('write_review_draft', {'previous': terminal})
+    assert case.execute('write_review_draft', {'previous': terminal}) == result
+    assert {item['name'] for item in output_metadata(case.store.run_dir)} == {
+        'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
+        'transaction_appendix.md', 'review_index.json',
+    }
 
 
 def test_domain_file_postconditions_preserve_large_case_artifacts(native_case):
