@@ -1,5 +1,12 @@
 # Litigation Analyst
 
+Version 5.0.2 registers the four reviewed Markdown reports and `review_index.json`
+with the existing SDK publication adapter so the runtime API can list and download
+their verified bytes. Case originals, model receipts and audit databases remain
+outside this download allowlist. SDK >=1.4.1.dev15 is required to register the
+authoritative run files while preserving the separate host export's relocated
+links. Completed runs retain their original files.
+
 ## Version 3.3.1: simpler matter review
 
 The local workspace has eight primary views: **Overview**, **Findings**,

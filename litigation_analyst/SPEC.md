@@ -1,5 +1,13 @@
 # Litigation Analyst specification
 
+Version 5.0.2 publishes the existing four-report allowlist and `review_index.json`
+through the SDK's verified artifact-bundle adapter after domain verification and
+host export. Successful publication registers exact byte sizes and hashes for
+runtime downloads; case originals, model receipts and audit databases are not
+added. Replay verifies the existing bytes without repeating investigation. The
+explicit publication destination is the run store; the existing host export keeps
+its relocated links and audit root. This requires SDK >=1.4.1.dev15.
+
 ## Version 3.3.1 navigation and disclosure
 
 Expose eight primary task groups: Overview, Findings, Questions, Evidence,

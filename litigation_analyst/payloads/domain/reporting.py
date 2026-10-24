@@ -169,6 +169,8 @@ def write_review(context, inputs):
         artifact_reference("consistency_review", "case/consistency_review.json"),
         artifact_reference("performance", "case/performance.json"),
     ] + workspace_refs + [artifact_reference("workspace_status", "workspace_status.json")]
+    from .report_publication import publish_review_files
+    publish_review_files(context)
     files = {ref["path"] for ref in refs} | {"case/evidence.sqlite3"}
     if (run_dir / "web").is_dir():
         files.update(path.relative_to(run_dir).as_posix() for path in (run_dir / "web").rglob("*") if path.is_file())

@@ -88,7 +88,7 @@ def native_case(tmp_path, monkeypatch):
         pytest.fail('compiled investigation did not reach its terminal summary')
 
     return SimpleNamespace(execute=execute, store=store, folder=folder, original=original,
-        calls=calls, marker=marker, config=configuration.data, investigate=investigate)
+        calls=calls, marker=marker, config=configuration.data, investigate=investigate, environment=env)
 
 
 def test_compiled_native_capture_and_index_preserve_frozen_sources(native_case):
@@ -151,6 +151,17 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     assert 'Approval notice' in case.store.path('final_report.md').read_text()
     assert case.store.path('case/workspace.json').exists()
     assert bool(published['web_ui']) is not ui_failure
+    from mn_sdk.run_outputs import output_metadata
+    downloads = output_metadata(case.store.run_dir)
+    assert {item['name'] for item in downloads} == {
+        'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
+        'transaction_appendix.md', 'review_index.json',
+    }
+    for item in downloads:
+        data = Path(item['path']).read_bytes()
+        assert item['sha256'] == hashlib.sha256(data).hexdigest()
+        assert item['size_bytes'] == len(data)
+    assert not any(item['relative_path'].startswith('case/') for item in downloads)
     assert not case.marker.exists() and len(case.calls) == 1
     assert len(json.dumps(result.outputs)) < 2048
     count = len(model.calls)
@@ -177,6 +188,7 @@ def test_native_publication_recovers_failed_export_without_repeating_investigati
     monkeypatch.setattr(reporting, 'copy_path_to_host', export)
     destination = tmp_path / 'delivered'
     monkeypatch.setenv('MN_JOB_OUTPUT_DIR', str(destination))
+    case.environment['MN_JOB_OUTPUT_DIR'] = str(destination)
     with pytest.raises(OSError, match='interrupted export'):
         case.execute('write_review_draft', {'previous': terminal})
     published = case.execute('write_review_draft', {'previous': terminal})
@@ -184,6 +196,8 @@ def test_native_publication_recovers_failed_export_without_repeating_investigati
     assert len(attempts) == 2 and len(model.calls) == count
     assert (destination / 'final_report.md').exists()
     assert (destination / 'runs/run/case/evidence.sqlite3').exists()
+    assert (destination / 'final_report.md').read_text().startswith('Audit paths below are relative to `runs/run/`.')
+    assert json.loads((destination / 'review_index.json').read_text())['audit_root'] == 'runs/run'
 
 
 def test_domain_file_postconditions_preserve_large_case_artifacts(native_case):
