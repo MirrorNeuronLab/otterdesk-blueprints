@@ -82,9 +82,14 @@ research-only result validation and report composition. The shared block freezes
 the volume reference before dispatch; the SDK uses the declared native model,
 zero retries and a 600s transport timeout within the 900s block limit. A saved
 response recovers interrupted report publication without another model request.
+The native block declares its response schema through the SDK. Explicit fake
+mode uses its nonclinical structural example; the answer says that no scan
+findings were evaluated. Live requests keep the same native HTTP body and domain
+validation. Final report delivery and runtime download registration use the
+SDK's verified publication adapter.
 An interrupted request with no durable response remains uncertain and requires
-an explicit new run or reconciliation. Use SDK/blocks `>=1.3.61.dev26,<2` and
-common `>=1.3.61.dev25,<2`. Offline compiled-worker tests cover replay, invalid
+an explicit new run or reconciliation. Use SDK/blocks `>=1.4.1.dev14,<2` and
+common `>=1.3.61.dev38,<2`. Offline compiled-worker tests cover replay, invalid
 responses, frozen inputs, unknown outcomes and interrupted Markdown publication.
 The historical live checks below predate this migration.
 

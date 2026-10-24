@@ -60,6 +60,12 @@ base64 encoding and materialized only for dispatch. The block freezes that reque
 before the effect and preserves the raw native response before publication.
 Publication retries reuse both, including if the original local file changes.
 Unknown dispatch outcomes remain blocked, and completed replay verifies published
-artifact bytes. SDK/blocks >=1.3.61.dev26 with matching native capability support
+artifact bytes. SDK/blocks >=1.4.1.dev14 with matching native capability support
 are required. The existing Docker worker, NVIDIA requirement, managed model
 lifecycle, pinned image and scientific limitations remain authoritative.
+
+The native block declares the required research-only marker, nonempty answer
+and model revision in `config.response_schema`. The SDK checks that contract
+without changing live request bodies. Explicit fake mode uses a structural
+example stating that no scan findings were evaluated. Final JSON and Markdown
+are registered as verified runtime downloads through the SDK publication adapter.

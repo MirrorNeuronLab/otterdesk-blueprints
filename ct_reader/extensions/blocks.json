@@ -80,7 +80,37 @@
       },
       "config": {
         "model": "ct",
-        "request_timeout_seconds": 600
+        "request_timeout_seconds": 600,
+        "response_schema": {
+          "type": "object",
+          "properties": {
+            "research_only": {
+              "const": true
+            },
+            "answer": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32000
+            },
+            "model_revision": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "required": [
+            "research_only",
+            "answer",
+            "model_revision"
+          ],
+          "examples": [
+            {
+              "research_only": true,
+              "answer": "Simulated output for workflow testing. No scan findings were evaluated.",
+              "model_revision": "simulated"
+            }
+          ]
+        }
       }
     }
   }

@@ -80,6 +80,7 @@ def worker(tmp_path, monkeypatch):
         inputs=inputs,
         scan=scan,
         source=b"synthetic-injected-volume",
+        environment=environment,
     )
 
 
@@ -102,6 +103,7 @@ def test_ct_compiled_worker_dispatches_exact_native_model_and_publishes_bounded_
         options["provider"] == "docker_model_runner" and options["backend"] == "docker"
     )
     assert options["model_spec"]["protocol"] == "http_json"
+    assert options["response_schema"]["properties"]["research_only"] == {"const": True}
     assert options["num_retries"] == 0 and options["timeout_seconds"] == 600
     result = worker.store.read(first.outputs["result"])
     saved = worker.store.read(result["report"])
@@ -111,6 +113,8 @@ def test_ct_compiled_worker_dispatches_exact_native_model_and_publishes_bounded_
     assert saved["input_sha256"] == hashlib.sha256(worker.source).hexdigest()
     assert saved["model_revision"] == "pinned" and len(result["artifacts"]) == 2
     assert "Not for real diagnosis" in worker.store.path("report.md").read_text()
+    from mn_sdk.run_outputs import output_metadata
+    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md'}
     assert len(json.dumps(first.outputs).encode()) < 2048
     assert "Synthetic model output" not in json.dumps(first.outputs)
     worker.scan.write_bytes(b"changed local file after capture")
@@ -169,6 +173,25 @@ def test_invalid_native_response_never_publishes_or_repeats_inference(
         assert error.value.code == "invalid_native_result"
     assert len(worker.calls) == 1
     assert not worker.store.path("final_artifact.json").exists()
+
+
+def test_ct_fake_mode_uses_shared_native_schema_and_registers_reports(worker, monkeypatch):
+    from mn_sdk.model_access import runtime
+    from mn_sdk.integrations import block_native
+    worker.environment['MN_BLUEPRINT_FAKE_LLM'] = '1'
+    def forbidden(*_args, **_kwargs):
+        pytest.fail('Fake CT execution contacted a live model or runtime control client')
+    monkeypatch.setattr(runtime.urllib.request, 'urlopen', forbidden)
+    monkeypatch.setattr(runtime, '_default_client_factory', forbidden)
+    monkeypatch.setattr(block_native, 'runtime_model_json_request', runtime.runtime_model_json_request)
+    first = worker.execute()
+    result = worker.store.read(first.outputs['result'])
+    report = worker.store.read(result['report'])
+    assert report['model_revision'] == 'simulated' and report['answer'].startswith('Simulated output')
+    assert report['research_only'] is True and 'Not for real diagnosis' in report['notice']
+    from mn_sdk.run_outputs import output_metadata
+    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md'}
+    assert worker.execute() == first and worker.calls == []
 
 
 def test_unknown_ct_dispatch_remains_blocked_without_a_second_model_request(
