@@ -1,5 +1,7 @@
 # Specification
 
+- The simulator image installs the MCP SDK from the public MirrorNeuron package
+  registry and uses PyPI for its public dependencies. No build credentials are required.
 - The executable authority is `type: service` with one root
   `MirrorNeuron.Runner.DockerCompose` worker.
 - The desktop sample profile launches the bundled `warehouse` scenario from

@@ -1,5 +1,8 @@
 # ROS AMR Controller
 
+Version 3.0.1 installs the simulator's MCP SDK from MirrorNeuron's public package
+registry, alongside public Python dependencies. Building requires no registry credentials.
+
 This long-lived service runs the ROS 2 Jazzy TurtleBot warehouse simulation as
 an isolated Docker Compose project on the selected CUDA/NVIDIA runtime node.
 In OtterDesk, **Try a sample** starts the bundled warehouse scenario with the

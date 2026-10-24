@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import json
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -96,6 +97,16 @@ def test_ros_amr_compose_owns_mcp_and_opt_in_x11_mounts():
         "warehouse-video-ui:\n    image: nginx:alpine\n    network_mode: host" in source
     )
     assert "COPY --chmod=0755 ./docker/entrypoint.sh /entrypoint.sh" in dockerfile
+
+
+def test_ros_mcp_image_uses_the_public_runtime_package_registry():
+    from mn_sdk.skill_dependencies import GAR_PIP_INDEX_URL, PYPI_PIP_INDEX_URL
+
+    dockerfile = SOURCE.joinpath('docker/Dockerfile.gpu').read_text().replace('\\\n', ' ')
+    install = next(line for line in dockerfile.splitlines() if 'mn-python-sdk-mcp>=' in line)
+    arguments = shlex.split(install)
+    assert arguments[arguments.index('--index-url') + 1] == GAR_PIP_INDEX_URL
+    assert arguments[arguments.index('--extra-index-url') + 1] == PYPI_PIP_INDEX_URL
 
 
 def test_ros_amr_warehouse_map_uses_a_compact_staged_image():
