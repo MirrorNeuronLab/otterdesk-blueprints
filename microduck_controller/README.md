@@ -1,5 +1,9 @@
 # Microduck Controller
 
+Version 5.1.1 removes an obsolete Docker copy of the empty `agents/` directory.
+The service uses the SDK block worker and its `domain/` hooks; packaged builds
+require only the declared runtime sources.
+
 Microduck Controller packages the Microduck RL playground as a live OtterDesk service. Open its browser control tab, then use ordinary language in OtterDesk to inspect or control the visible robot. The stable Job agent reads the blueprint-owned control manual and invokes only the service's bounded MCP tools.
 
 Version 5 composes ordinary command admission with the SDK's native async-device

@@ -6,6 +6,10 @@ Run a single live Microduck MuJoCo simulation in a browser and let the stable Ot
 
 ## Runtime contract
 
+Version 5.1.1 builds from packaged files without requiring an empty `agents/`
+directory. SDK block handlers remain the executable workers; domain and service
+sources, knowledge and the built browser application are the image payload.
+
 Version 5.0.1 resolves the simulator and registrar run-output directory using
 Core's physical `MN_WORKFLOW_RUN_ID` under `MN_RUNS_ROOT`, matching the stock
 block worker. An explicit `MN_RUN_DIR` remains authoritative. `MN_RUN_ID`

@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import asyncio
 import json
+import shlex
 import sys
 from pathlib import Path
 
@@ -757,6 +758,21 @@ def test_docker_worker_context_contains_the_exact_runtime_sources():
     assert not (worker / "web_app" / "dist").exists()
 
 
+def test_dockerfile_copies_only_sources_present_in_the_packaged_context():
+    worker = PAYLOADS / 'docker_worker'
+    # Archives contain files, not empty local directories left by a migration.
+    files = {path.relative_to(worker).as_posix() for path in worker.rglob('*')
+             if path.is_file() and not {'__pycache__', 'node_modules', 'dist'} & set(path.parts)
+             and path.name != '.DS_Store'}
+    for line in (worker / 'Dockerfile').read_text().splitlines():
+        arguments = shlex.split(line)
+        if not arguments or arguments[0] != 'COPY' or any(value.startswith('--from=') for value in arguments):
+            continue
+        for source in arguments[1:-1]:
+            prefix = source.rstrip('/')
+            assert prefix in files or any(name.startswith(prefix + '/') for name in files), source
+
+
 def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_job_agent():
     from mn_sdk import expand_manifest_source
 
@@ -768,7 +784,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "5.1.0"
+    assert read_blueprint(blueprint).manifest["version"] == "5.1.1"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
