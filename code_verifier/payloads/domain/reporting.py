@@ -6,7 +6,8 @@ import json
 from hashlib import sha256
 
 from mn_sdk.agent_events import report_activity
-from mn_sdk_common.publication import ArtifactWrite, publish_bundle
+from mn_sdk_common.publication import ArtifactWrite
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
 
 from .artifacts import read, save
 from .publication import deliver_reports
@@ -117,10 +118,11 @@ def publish(block, inputs):
         return json.dumps(static_run_report_handle(block.store.run_dir, "web/index.html",
             title="Code verification", optional=True)).encode("utf-8")
 
-    receipt = publish_bundle(block.store, [
+    receipt = publish_artifact_bundle(block, [
         ArtifactWrite("final_artifact", "final_artifact.json", encoded, kind="json", authoritative=True),
         ArtifactWrite("result", "result.json", encoded, kind="json", authoritative=True),
         ArtifactWrite("report", "report.md", ("\n".join(lines) + "\n").encode("utf-8"), kind="markdown"),
+        ArtifactWrite("rules_markdown", "rules.md", block.store.path("rules.md").read_bytes(), kind="markdown", mode=0o644),
         ArtifactWrite("web_report", "web/index.html", page, kind="html", required=False, revision=revision),
         ArtifactWrite("web_ui", "web_ui.json", handle, kind="json", required=False, revision=revision, mode=0o644),
     ], receipt_path=block.root + "/publication.json")

@@ -158,6 +158,10 @@ def test_complete_pipeline_rules_report_and_idempotency(modules, context, author
     assert 'connect-src &#x27;none&#x27;' in page
     assert json.loads((context.store.run_dir / 'web_ui.json').read_text())['adapter'] == 'static_html'
     output = context.resources['output_folder']
+    from mn_sdk.run_outputs import output_metadata
+    published = {item['name']: item for item in output_metadata(context.store.run_dir)}
+    assert {'result.json', 'final_artifact.json', 'report.md', 'rules.md'} <= published.keys()
+    assert published['rules.md']['sha256'] == sha256(context.store.path('rules.md').read_bytes()).hexdigest()
     for name in ['report.md', 'rules.md', 'rules.json', 'result.json', 'verification.json',
                  'source/store.py', 'reviews/original-rules.json', 'web/index.html', 'web_ui.json']:
         assert (output / name).read_bytes() == (context.store.run_dir / name).read_bytes()
@@ -1509,7 +1513,8 @@ def test_native_publication_retains_more_than_one_bundle_of_source_files(modules
         llm=Model([reading(), judgment(), reading(), judgment()]))
     published = modules['reporting'].publish(context, {'previous': verified})
     assert published['summary'] == {'pass': 2}
-    assert len(published['artifacts']) == 5
+    assert {item['id'] for item in published['artifacts']} == {
+        'final_artifact', 'result', 'report', 'rules_markdown', 'web_report', 'web_ui'}
     for number in range(130):
         assert context.store.path(f'source/extra/module_{number}.py').read_text() == f'value = {number}\n'
         assert (context.resources['output_folder'] / f'source/extra/module_{number}.py').is_file()

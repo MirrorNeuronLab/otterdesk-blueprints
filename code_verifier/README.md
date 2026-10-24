@@ -241,6 +241,8 @@ an empty extracted list establishes no conformance result; custom rules receive
 Unknown judgments. Fake mode never proves source correctness.
 Review documents use the SDK's immutable, host-readable artifact publication so
 the supervisor can load them after replication from a container-owned run.
+The SDK publication adapter registers verified result, rules and report downloads
+in the runtime output inventory.
 
 ## Shared web report
 

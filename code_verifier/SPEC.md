@@ -50,6 +50,8 @@ The supervisor's digest-addressed Markdown review document is committed as a
 host-readable shared artifact before its Core interaction is published. Replay
 verifies identical bytes; private checkpoints keep private permissions.
 Editable `rules.md` uses the same host-readable permissions on each replacement.
+Final reports use the SDK publication adapter to verify delivery and register
+receipt-backed runtime downloads, including the editable rules document.
 
 `knowledge/rules/*.md` contains `## RULE-ID` or `## RULE-ID — Short title` sections
 and Markdown statement bodies. Titles are at most 120 UTF-16 units; statements
