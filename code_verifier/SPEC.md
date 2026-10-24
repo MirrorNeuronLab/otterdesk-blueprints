@@ -40,6 +40,17 @@ the SDK stages folders using this blueprint's declared directory exclusions.
 
 ## Rule contract
 
+Extraction, source-repair and investigation calls send their response schemas
+through the SDK's structured-output API. Structural validation cannot replace
+exact source admission or supervisor approval. Explicit fake-model execution may
+return an empty extraction or Unknown judgments; it establishes no conformance
+result and retains the same human review gate.
+
+The supervisor's digest-addressed Markdown review document is committed as a
+host-readable shared artifact before its Core interaction is published. Replay
+verifies identical bytes; private checkpoints keep private permissions.
+Editable `rules.md` uses the same host-readable permissions on each replacement.
+
 `knowledge/rules/*.md` contains `## RULE-ID` or `## RULE-ID — Short title` sections
 and Markdown statement bodies. Titles are at most 120 UTF-16 units; statements
 are at most 4,000 UTF-8 bytes. Exported rules retain their titles and stable IDs.

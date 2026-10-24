@@ -14,4 +14,4 @@ def read(block, name):
 def text(block, name, value):
     target = block.store.path(name)
     target.parent.mkdir(parents=True, exist_ok=True)
-    atomic_write_text(target, value)
+    atomic_write_text(target, value, mode=0o644)

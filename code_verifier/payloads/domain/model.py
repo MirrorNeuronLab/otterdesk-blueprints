@@ -6,6 +6,8 @@ import re
 from mn_sdk.llm import LLMClient
 from mn_sdk.model_access.errors import ModelAccessError
 
+from .model_contracts import response_schema
+
 
 def client(*, extraction=False):
     result = LLMClient.from_env(strict=True)
@@ -22,7 +24,8 @@ def ask(llm, prompt, packet):
     encoded = json.dumps(packet, ensure_ascii=False)
     if len(encoded.encode()) > 100_000:
         raise ValueError('Model evidence packet exceeds 100 KB; select a smaller source scope.')
-    result = llm.completion_json(system, encoded, fallback=None)
+    result = llm.generate_json(system_prompt=system, user_prompt=encoded, fallback=None,
+        response_schema=response_schema(prompt), schema_name='software_review_response')
     if not isinstance(result, dict):
         raise ValueError('Model did not return a JSON object.')
     return result

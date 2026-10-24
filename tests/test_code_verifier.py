@@ -4,7 +4,6 @@ from copy import deepcopy
 import importlib
 import json
 import math
-import os
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from hashlib import sha256
@@ -112,6 +111,9 @@ class Model:
             raise value
         return value
 
+    def generate_json(self, *, system_prompt, user_prompt, response_schema, schema_name, **kwargs):
+        return self.completion_json(system_prompt, user_prompt)
+
 
 def extracted():
     statements = ['The software must reject an empty name.', 'The software must not save plaintext passwords.']
@@ -168,6 +170,51 @@ def test_complete_pipeline_rules_report_and_idempotency(modules, context, author
     modules['verification'].verify(context, phase_inputs(context), llm=Model([]))
     modules['reporting'].publish(context, phase_inputs(context))
     assert modules['artifacts'].read(context, 'final_artifact.json') == final
+
+
+@pytest.mark.parametrize('custom', [False, True])
+def test_sdk_fake_model_pipeline_retains_approval_and_unknowns(modules, context, authority, monkeypatch, custom):
+    import mn_sdk.model_access.runtime as transport
+    model = importlib.import_module('domain.model')
+    monkeypatch.setenv('MN_BLUEPRINT_FAKE_LLM', '1')
+    monkeypatch.setattr(transport.urllib.request, 'urlopen',
+        lambda *_args, **_kwargs: pytest.fail('Fake review contacted a model'))
+    if custom:
+        (context.resources['job_data_dir'] / 'knowledge/rules/custom.md').write_text(
+            '## CUSTOM-1\n\nThe software must reject an empty name.\n')
+    modules['intake'].capture(context, context.resources['inputs'])
+    modules['rules'].extract(context, phase_inputs(context), llm=model.client(extraction=True))
+    with pytest.raises(modules['rule_review'].RulesReviewRequired):
+        modules['verification'].verify(context, phase_inputs(context), llm=model.client())
+    authority.approve(context)
+    modules['verification'].verify(context, phase_inputs(context), llm=model.client())
+    modules['reporting'].publish(context, phase_inputs(context))
+    final = modules['artifacts'].read(context, 'final_artifact.json')
+    assert final['assessment_status'] == 'needs_review'
+    assert final['summary'] == ({'unknown': 1} if custom else {})
+    assert final['rules_review']['status'] == 'approved'
+    assert len(final['rules']) == int(custom)
+    assert all(row['status'] == 'unknown' and not row['tests_executed'] for row in final['results'])
+
+
+def test_schema_calls_do_not_fall_back_when_injected_client_is_not_strict(modules, monkeypatch):
+    import mn_sdk.llm as sdk_llm
+    model = importlib.import_module('domain.model')
+    def unavailable(*_args, **_kwargs):
+        raise RuntimeError('Provider unavailable')
+    monkeypatch.setattr(sdk_llm, '_completion_request', unavailable)
+    llm = sdk_llm.LLMClient(strict=False, provider='openai', model='example', num_retries=0)
+    with pytest.raises(sdk_llm.LLMError):
+        model.ask(llm, 'extract.md', {'document': {'text': 'Synthetic source'}})
+
+
+def test_editable_shared_markdown_retains_host_readable_permissions(modules, context):
+    for value in ('Original rule\n', 'Edited rule\n'):
+        modules['artifacts'].text(context, 'rules.md', value)
+        target = context.store.path('rules.md')
+        assert target.read_text() == value
+        if sys.platform != 'win32':
+            assert target.stat().st_mode & 0o777 == 0o644
 
 
 def test_staged_report_reaches_batch_host_output(modules, context, authority, tmp_path):
@@ -406,7 +453,9 @@ def test_registered_remote_default_uses_gateway_without_loading_local_model(modu
     monkeypatch.setattr(access.urllib.request, 'urlopen', gateway)
     model = importlib.import_module('domain.model')
     client = model.client(extraction=True)
-    assert model.ask(client, 'extract.md', {'document':{'text':'Synthetic test input.'}}) == extracted()
+    answer = model.ask(client, 'extract.md', {'document':{'text':'Synthetic test input.'}})
+    assert {key: answer[key] for key in ('complete', 'rules')} == extracted()
+    assert sent[0]['response_format']['type'] == 'json_schema'
     assert len(sent) == 1 and sent[0]['model'] == 'default'
     assert client.provider == 'litellm' and client.backend == 'provider'
 
@@ -1109,6 +1158,31 @@ def test_no_verification_before_human_decision(modules, context, authority):
     assert len(authority.published) == 1
     assert receipt['status'] == 'approved' and review['capture']
     assert modules['rule_review'].require_approved_rules(context, modules['artifacts'].read(context, 'rules.json')) == receipt
+
+
+@pytest.mark.parametrize('existing_private_copy', [False, True])
+def test_review_document_is_host_readable_before_publication(modules, context, authority, monkeypatch, existing_private_copy):
+    from mn_sdk_common.files import atomic_write_text
+    prepare_rules(modules, context)
+    rules = modules['artifacts'].read(context, 'rules.json')
+    reference = modules['rule_review'].review_requests(rules)[1][0]['markdown_review']
+    target = context.store.path(reference['artifact_path'])
+    if existing_private_copy:
+        encoded = modules['rule_review'].rule_document.encoded_document(rules)
+        atomic_write_text(target, encoded, create_parents=True)
+    private = context.store.path('private-checkpoint.txt')
+    atomic_write_text(private, 'Private checkpoint')
+    def inspect_publication():
+        assert sha256(target.read_bytes()).hexdigest() == reference['sha256']
+        if sys.platform != 'win32':
+            assert target.stat().st_mode & 0o777 == 0o644
+            assert private.stat().st_mode & 0o777 == 0o600
+    publish = authority.publish
+    def checked_publish(*args, **kwargs):
+        inspect_publication()
+        return publish(*args, **kwargs)
+    monkeypatch.setattr(modules['rule_review'].human_interactions, 'publish_human_interaction_event', checked_publish)
+    authority.approve(context)
 
 
 @pytest.mark.parametrize('decision', ['reject', 'respond', ''])

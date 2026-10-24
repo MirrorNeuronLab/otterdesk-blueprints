@@ -234,6 +234,14 @@ rejected.
 
 Tests: `python -m pytest tests/test_code_verifier.py -q` from the catalog.
 
+Model calls declare the extraction, source-repair and investigation response
+schemas through the SDK. Exact source-handle admission and human approval still
+apply after structural validation. With the runtime's explicit fake-model mode,
+an empty extracted list establishes no conformance result; custom rules receive
+Unknown judgments. Fake mode never proves source correctness.
+Review documents use the SDK's immutable, host-readable artifact publication so
+the supervisor can load them after replication from a container-owned run.
+
 ## Shared web report
 
 The offline report uses `mn-web-report-skill` (distribution

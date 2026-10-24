@@ -129,7 +129,9 @@ def review(block, inputs):
             raise RulesReviewRequired('Rule review expired. Start a new run to review the rules.')
         if status == 'missing':
             save(block, f'reviews/state-{digest}.json', rules)
-            text(block, request['markdown_review']['artifact_path'], rule_document.encoded_document(rules))
+            block.store.commit_bytes(request['markdown_review']['artifact_path'],
+                rule_document.encoded_document(rules).encode('utf-8'),
+                kind='markdown_review', mode=0o644)
             human_interactions.publish_human_interaction_event(
                 block.run_id, 'human_input_requested', {**request, 'expires_at': plan['expires_at']})
         if status != 'revised':
