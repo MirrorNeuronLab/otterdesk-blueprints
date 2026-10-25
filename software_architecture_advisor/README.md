@@ -42,7 +42,7 @@ The retired, unregistered hypothesis workflow and runtime dictionaries are remov
 OpenShell remains explicitly selected for the packet-review worker. It uses the
 stock SDK handler with `domain.sandbox_review:review_admitted`; SDK/Core own
 private input staging and commit receipts. Other phases retain Docker workers.
-SDK/blocks `>=1.3.61.dev26,<2` with the coordinated native-context and OpenShell
+SDK `>=1.4.1.dev15,<2` and blocks `>=1.3.61.dev38,<2` with the coordinated native-context and OpenShell
 support are required. Source and installed implementations must match the
 compiled lock. No deployment or new live qualification is claimed here.
 
@@ -214,6 +214,15 @@ The configured output folder defaults to `~/Downloads/software_architecture_advi
 `data/` and `web/` are Job-level entries: each run adds an immutable snapshot
 and refreshes the latest dashboard. They are delivered by the SDK at the folder
 root, rather than inside `run_<timestamp>/`.
+
+Version 7.0.1 registers the current run's frozen `data/`, `reports/`, `web/`
+files and `review_index.json` through the SDK publication and delivery API.
+Downloads carry verified byte counts and hashes; completed work must also finish
+required delivery. Captured source, confidential task audits and budget ledgers
+remain outside this public download inventory. Existing host exports and
+cumulative Job history retain their own layout. This requires SDK
+`>=1.4.1.dev15,<2`; explicit fake-model OpenCode gateways require the shared
+OpenCode skill `>=1.4.1.dev2,<2`.
 
 ```text
 software_architecture_advisor/

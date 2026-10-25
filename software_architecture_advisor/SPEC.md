@@ -1,4 +1,4 @@
-# Architecture Advisor 5.0.0 specification
+# Architecture Advisor 7.0.1 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -84,7 +84,7 @@ Source packets preserve exact offsets and a 24 KB bound, including Unicode.
 
 ## Model selection
 
-SDK `>=1.3.58.dev65` is the minimum runtime contract. Definition creation and
+SDK `>=1.4.1.dev15` is the minimum runtime contract. Definition creation and
 bundle replacement use its bounded submission deadline, with the matching Core
 owner-forwarding deadline. This does not change task or model-call allowances.
 
@@ -233,6 +233,16 @@ filtered sharing and webpage natural-language answers are not implemented.
 Their absence must remain visible and cannot be represented by synthetic data.
 
 ## Deliverables and acceptance
+
+Version 7.0.1 publishes the current frozen `data/`, `reports/`, `web/` and
+`review_index.json` files through SDK `publish_files` and `deliver_files`.
+Required delivery registers receipt-verified run downloads before publication
+can complete; failures remain retryable without repeating captured research.
+The SDK owns batching, byte verification, atomic delivery and the output index.
+Captured source, confidential `catalog/` audit and SQLite budgets are not public
+downloads. Explicit run-only delivery preserves existing product-owned host
+exports and cumulative Job history. SDK >=1.4.1.dev15 supplies that destination
+contract; OpenCode skill >=1.4.1.dev2 supports endpoint-free fake model bindings.
 
 Publish report Markdown/JSON; selected section files (23 in full-catalog mode); coverage for 150 aspects and
 all source packets; canonical evidence, claims and findings; recommendations,
@@ -665,6 +675,6 @@ removed. Named graph queries, source support/counterevidence, source safety,
 focused/full-catalog policies and history/review-import tests remain. The current
 suite covers the actual compiled native bindings, including zero model calls for
 explicit static-only requests, tampered-source rejection and interrupted required
-publication. SDK/blocks >=1.3.61.dev26 with matching native-context/OpenShell
+publication. SDK >=1.4.1.dev15 and blocks >=1.3.61.dev38 with matching native-context/OpenShell
 support are required. Offline tests do not qualify the RGX binary, live gateway,
 provider, policy provisioning or multi-node execution.

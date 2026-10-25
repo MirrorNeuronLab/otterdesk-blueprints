@@ -1,6 +1,8 @@
 """Render and publish verified architecture catalog artifacts."""
 
 from mn_sdk.agent_events import activity_operation
+from mn_sdk.integrations.block_publication_files import deliver_files, publish_files
+from mn_sdk_common.publication import ArtifactWrite
 
 import json
 from pathlib import Path
@@ -214,6 +216,16 @@ def publish(block, inputs):
         names.append('events.log')
     frozen = freeze_files(block, names)
     publication = save_state(block, 'publication', inputs=evidence['inputs'], files=frozen)
+    public = publish_files(block, [
+        ArtifactWrite(name, name, block.store.read_bytes(reference),
+            kind='json' if name.endswith('.json') else 'markdown' if name.endswith('.md') else 'bytes',
+            authoritative=name.endswith('.json'))
+        for name, reference in frozen.items()
+        if name == 'review_index.json' or name.startswith(('data/', 'web/', 'reports/'))
+    ], name='architecture_review')
+    # Existing exports preserve cumulative Job history. Register this run's
+    # frozen public files without replacing those product-owned host copies.
+    deliver_files(block, public, output_directory=block.store.run_dir)
     audit = []
     immutable = [*captured['files'], *[name for name in evidence['files'] if not name.startswith('web/')],
         *[name for name in names if name.startswith('catalog/')], 'snapshot.json']

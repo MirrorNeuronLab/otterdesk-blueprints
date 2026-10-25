@@ -9,6 +9,7 @@ import pytest
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
 from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
 from mn_sdk.integrations.block_worker import run
+from mn_sdk.published_outputs import published_output_items
 from mn_sdk.step_runtime import StepContext
 from mn_sdk_common.committed_artifacts import (
     CommittedArtifactIntegrityError,
@@ -113,6 +114,14 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
     assert store.path("reports/report.md").is_file()
     assert store.path("web/index.html").is_file()
     assert len(store.read_path("data/coverage.json")["aspects"]) == 150
+    public = published_output_items(store.run_dir)
+    names = {item['path'] for item in public}
+    assert {'reports/report.md', 'data/report.json', 'review_index.json', 'web/index.html'} <= names
+    assert all(name == 'review_index.json' or name.startswith(('data/', 'web/', 'reports/')) for name in names)
+    for item in public:
+        encoded = store.path(item['path']).read_bytes()
+        assert item['size_bytes'] == len(encoded)
+        assert item['sha256'] == hashlib.sha256(encoded).hexdigest()
     before = list(imports)
     (source / "app.py").write_text("changed after capture")
     assert (
@@ -127,6 +136,7 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
         == structure
     )
     assert invoke("publish_architecture_review", publish_input) == result
+    assert published_output_items(store.run_dir) == public
     assert imports == before
     assert store.read_path("catalog/terminal.json")["usage"]["catalog_models"] == 0
     assert (store.run_dir.parents[3] / "delivery/reports/report.md").is_file()
@@ -201,6 +211,26 @@ def test_publication_replay_rejects_changed_terminal_authority(native):
     store.path("catalog/terminal.json").write_text("{}")
     with pytest.raises(CommittedArtifactIntegrityError):
         invoke("publish_architecture_review", work)
+
+
+def test_required_download_delivery_failure_replays_without_research(native, monkeypatch):
+    from domain import catalog_publication
+
+    store, _, _, imports, invoke = native
+    _, _, work = prepare(native)
+    before = list(imports)
+    original = catalog_publication.deliver_files
+    monkeypatch.setattr(catalog_publication, 'deliver_files',
+        lambda *a, **k: (_ for _ in ()).throw(OSError('injected download delivery failure')))
+    with pytest.raises(OSError, match='download delivery failure'):
+        invoke('publish_architecture_review', work)
+    assert store.path('reports/report.md').is_file()
+    assert published_output_items(store.run_dir) == []
+    monkeypatch.setattr(catalog_publication, 'deliver_files', original)
+    result = invoke('publish_architecture_review', work)
+    assert store.read(result.outputs['result'])['status'] == 'partial'
+    assert any(item['path'] == 'reports/report.md' for item in published_output_items(store.run_dir))
+    assert imports == before
 
 
 def test_publication_rejects_a_source_reference_in_place_of_terminal_authority(native):
