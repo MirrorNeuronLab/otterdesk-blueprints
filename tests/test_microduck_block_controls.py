@@ -53,7 +53,10 @@ async def ready(bridge):
     async def sender(value):
         messages.append(value)
 
-    hub = bridge.BridgeHub()
+    # Admission/replay tests do not model browser heartbeat expiry. Keep their
+    # lease independent of filesystem/thread scheduling; bridge tests advance
+    # an injected clock explicitly to verify the one-second safety stop.
+    hub = bridge.BridgeHub(clock=lambda: 0.0)
     await hub.claim("browser", sender)
     await hub.update_state(
         "browser",
