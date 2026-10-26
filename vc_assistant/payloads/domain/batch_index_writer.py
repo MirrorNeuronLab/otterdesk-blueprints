@@ -3,8 +3,8 @@
 import json
 
 from mn_sdk.agent_events import activity_operation
-from mn_sdk.blueprint_support import bounded_int, elapsed_ms_from_started_at, observation_trace_summary
-from mn_sdk.integrations.block_publication_files import publish_files, merge_publications, deliver_files
+from mn_sdk.blueprint_support import bounded_int, elapsed_ms_from_started_at, observation_trace_summary, utc_now_iso
+from mn_sdk.integrations.block_publication_files import freeze_file_publication, merge_publications, deliver_files
 from mn_sdk_common.publication import ArtifactWrite
 from mn_public_research_orchestrator_skill import flatten_research_ledger
 
@@ -43,8 +43,9 @@ def compose_batch(block, state, resources, observation_summary):
     processed_company_names, skipped_company_names = (
         processed_and_skipped_company_names(company_work_queue)
     )
-    research_coverage = build_research_coverage(research_ledgers)
-    method_coverage = build_method_coverage(analyses)
+    generated_at = utc_now_iso()
+    research_coverage = build_research_coverage(research_ledgers, generated_at=generated_at)
+    method_coverage = build_method_coverage(analyses, generated_at=generated_at)
     cache_policy_summary = build_cache_policy_summary(
         company_work_queue,
         processed_company_names=processed_company_names,
@@ -245,19 +246,18 @@ def batch_index_writer(block, inputs):
     writes = [ArtifactWrite(name, name, (json.dumps(value, sort_keys=True, ensure_ascii=False) + '\n').encode(),
         kind='json', authoritative=True) for name, value in values.items()]
     writes.append(ArtifactWrite('trace', 'llm_rag_trace.jsonl', block.store.read_bytes(projection['trace'])))
-    publication = merge_publications(block, state['published_files'], publish_files(block, writes, name='batch'))
+    publication = merge_publications(block, state['published_files'], freeze_file_publication(block, lambda: writes, name='batch'))
     deliver_files(block, publication)
-    source_path = block.root + '/prepared-output-sources.json'
-    def source_publication():
+    def prepare_sources():
         inventory = index_output_artifacts(block, artifact['output_files'])
         files = [ArtifactWrite(item['path'], item['path'], block.store.path(item['path']).read_bytes())
             for item in inventory if item['kind'] in {'output_source_markdown', 'output_source_catalog'}]
         # Input inventory already contains converted company sources; de-duplicate
         # logical names before selecting the latest source catalog revision.
         files = list({write.path: write for write in files}.values())
-        return publish_files(block, files, name='batch-sources')
-    source_ref = block.freeze_checkpoint(source_path, source_publication)
-    publication = merge_publications(block, publication, block.read_checkpoint(source_ref, expected_path=source_path))
+        return files
+    publication = merge_publications(block, publication,
+        freeze_file_publication(block, prepare_sources, name='batch-sources'))
     state.update(stage='batch_index_writer', published_files=publication, batch_projection=prepared.to_dict())
     final = block.freeze_checkpoint(checkpoint_path('batch_index_writer'), lambda: state)
     return {'status': 'completed', 'state': final.to_dict(), 'published_files': publication,

@@ -164,8 +164,8 @@ def compose_company_outputs(
             for analysis in analyses
         ],
     }
-    research_coverage = build_research_coverage(research_ledgers)
-    method_coverage = build_method_coverage(analyses)
+    research_coverage = build_research_coverage(research_ledgers, generated_at=generated_at)
+    method_coverage = build_method_coverage(analyses, generated_at=generated_at)
     add_json(output_folder / "company_index.json", index)
     add_json(output_folder / "company_work_queue.json", queue)
     add_json(output_folder / "research_coverage.json", research_coverage)

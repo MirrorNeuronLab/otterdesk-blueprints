@@ -11,7 +11,7 @@ from .knowledge import require_ready_rag, retrieve_knowledge_rag_context
 from .research_agentic import build_research_agent_rag_query, run_agentic_research_agent
 from .research_core import _research_agent_enabled, agentic_research_config, normalized_research_ledger
 from .research_policy import build_adaptive_research_plan
-from .research_services import research_resources
+from .research_services import reconcile_research_effect, research_resources
 
 
 def plan_snapshot(block, state):
@@ -76,7 +76,8 @@ def research_planner(block, inputs):
 
     # Planning can include billed models and browser tools. Freeze its complete
     # response before optional review; an interrupted outcome fences redispatch.
-    block.register_capability("vc_research_plan", Capability(plan, block.revision))
+    block.register_capability("vc_research_plan", Capability(plan, block.revision,
+        reconcile=lambda _request: reconcile_research_effect(block, budget_scope="planning")))
     state = block.invoke("vc_research_plan", {"state": snapshot_reference(inputs)}, key="plan")
     views = {f"{collection}/{slugify(company)}.json": value
         for collection, values in state["cached"].items() for company, value in values.items()}

@@ -29,7 +29,7 @@ copied into input artifacts.
 | Blueprint | Shared behavior used after the audit |
 | --- | --- |
 | Drug Discovery | Input capture, runtime destinations, evidence reads, receipt delivery, atomic files, config merge/read helpers |
-| Financial Advisor | Input aliases/defaults, input saving, runtime destinations, evidence reads, receipt delivery, timestamp helper |
+| Financial Advisor | Input aliases/defaults, input saving, runtime destinations, evidence reads, common capability dispatch/replay, observed model outcomes and usage, receipt delivery, timestamp helper |
 | Procurement Manager | Input defaults and paths, input saving, runtime destination, evidence reads, receipt delivery |
 | Research Assistant | Input defaults with its existing empty-answer policy, input saving, runtime destination, evidence reads, receipt delivery |
 | VC Assistant | Input capture, linked paths, runtime destination, existing portable file capture and scoped checkpoints; redundant slug wrapper removed |

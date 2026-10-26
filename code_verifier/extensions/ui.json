@@ -6,12 +6,13 @@
     "fields": [
       {
         "path": "inputs.payload.input_folder",
-        "label": "Source folder",
+        "label": "Source code folder",
         "type": "local_path",
         "path_kind": "directory",
         "role": "input",
         "required": true,
-        "description": "Choose a local repository checkout or folder containing specifications, docs and source."
+        "description": "Choose a local repository checkout or folder containing specifications, docs and source.",
+        "default": ""
       },
       {
         "path": "review.rules_mode",
@@ -37,8 +38,14 @@
         "default": "project_docs",
         "description": "Project docs excludes generated benchmark and test reports. Source capture remains available for evidence.",
         "choices": [
-          {"label": "Project docs", "value": "project_docs"},
-          {"label": "All captured docs", "value": "all_captured_docs"}
+          {
+            "label": "Project docs",
+            "value": "project_docs"
+          },
+          {
+            "label": "All captured docs",
+            "value": "all_captured_docs"
+          }
         ]
       },
       {
@@ -56,7 +63,7 @@
     "kind": "output",
     "adapter": "static_html",
     "title": "Code verification",
-    "description": "Optional offline rules report with captured source evidence.",
+    "description": "Explore rule results and captured source evidence in the conversation workspace.",
     "registration": {
       "artifact": "web/index.html",
       "scope": "run",
@@ -67,5 +74,20 @@
     "How do I add or edit my Markdown rules?",
     "What does a pass mean, and what remains unknown?",
     "Show the evidence and confidence for a rule."
-  ]
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Choose the source code folder to review.",
+    "sample": {
+      "available": false,
+      "values": {}
+    },
+    "real": {
+      "introduction": "Choose the source code folder to review.",
+      "values": {
+        "inputs.payload.input_folder": ""
+      }
+    },
+    "fields": []
+  }
 }

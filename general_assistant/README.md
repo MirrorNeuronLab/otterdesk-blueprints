@@ -1,6 +1,6 @@
 # General Assistant
 
-Give this co-worker a task in Chat. It uses [Harness2](https://github.com/google-research/harness2)
+By default, this co-worker summarizes `~/Downloads` into `summary.md`. It uses [Harness2](https://github.com/google-research/harness2)
 to work with files in a read-only input folder and save generated work in a
 separate output folder. Markdown files, documents and source code are readable
 input. Harness2 refines its working approach and retains private lessons for
@@ -8,19 +8,23 @@ later tasks of the same hired co-worker; model weights stay fixed.
 
 ## Setup and use
 
-Setup has exactly two fields: **Input folder** and **Output folder**. Choose
-separate folders. The input folder supplies task material; it is never a place
-to save edits, build products or generated files. The output folder defaults to
-`~/Downloads/general-assistant`.
+Setup has three fields: **Input folder**, **Output folder** and **Instructions**.
+Input defaults to `~/Downloads`. Instructions default to “Summarize the contents
+of the input folder and save the summary as summary.md in the output folder.”
+Output defaults to `~/Documents/general-assistant`, outside the input folder.
+Choose separate folders. Input supplies read-only task material; edits, build
+products and generated files belong in output.
 
-Start a run and type the task in the co-worker conversation when asked. For example:
+Confirm the settings and start a run to create the summary. Change Instructions
+to give the co-worker another task. For example:
 
 > Convert the Java code in the input folder to Rust. Preserve behavior, create
 > a Cargo project in the output folder, run its tests, and report anything you
 > could not verify.
 
-The task is a per-run instruction, not saved configuration. Markdown within
-input is supporting material, not permission to start unrelated work or change
+Saved instructions apply to each run unless a per-run task overrides them.
+When no instructions are configured, the co-worker asks for a task in Chat.
+Markdown within input is supporting material, not permission to start unrelated work or change
 the filesystem boundary. The launcher can also supply a task as a run input:
 
 ```bash
@@ -104,8 +108,9 @@ through `MN_LLM_API_KEY`; model subprocesses do not inherit the Core token.
 SDK/Core deliver `result.json`, `answer.md`, `harness-audit.json` and generated
 `deliverables/` into `<output folder>/run_<timestamp>/`. Converted source is
 created directly as a deliverable, rather than by editing input and exporting a
-diff. The audit records actual sessions, available usage receipts, adopted harness
-and lesson counts. Private memory, raw sessions and caches are excluded.
+diff. The default task writes `deliverables/summary.md`. The audit records actual
+sessions, available usage receipts, adopted harness and lesson counts. Private
+memory, raw sessions and caches are excluded.
 
 Default quotas are 512 files / 32 MiB for input and output, and 1,024 files / 8 MiB
 for private memory. Symlinks, conflicting output names and quota overflow fail.

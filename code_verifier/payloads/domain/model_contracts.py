@@ -19,15 +19,17 @@ def response_schema(prompt):
         return object_schema({'repairs': {'type': 'array', 'items': object_schema({
             'index': {'type': 'integer', 'minimum': 0}, 'source_ids': sources})}})
     if prompt == 'verify.md':
-        return {'anyOf': [
-            object_schema({'action': {'const': 'finish'},
-                'status': {'enum': ['unknown', 'pass', 'fail']},
+        # Strict model routes require an object at the schema root. Keep the
+        # action union inside that object, with explicit types on every branch.
+        return object_schema({'decision': {'anyOf': [
+            object_schema({'action': {'type': 'string', 'enum': ['finish']},
+                'status': {'type': 'string', 'enum': ['unknown', 'pass', 'fail']},
                 'confidence': {'type': 'number', 'minimum': 0, 'maximum': 1},
                 'explanation': {**text, 'maxLength': 6000},
                 'evidence_ids': {'type': 'array', 'maxItems': 12, 'items': text}}),
-            object_schema({'action': {'const': 'search'}, 'query': text}),
-            object_schema({'action': {'const': 'read'}, 'path': text,
+            object_schema({'action': {'type': 'string', 'enum': ['search']}, 'query': text}),
+            object_schema({'action': {'type': 'string', 'enum': ['read']}, 'path': text,
                 'start_line': {'type': 'integer', 'minimum': 1},
                 'end_line': {'type': 'integer', 'minimum': 1}}),
-        ]}
+        ]}})
     raise ValueError('Unknown software review model contract.')

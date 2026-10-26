@@ -34,6 +34,9 @@ Markdown from Job knowledge; obtain supervisor approval of the exact list in
 OtterDesk Chat; verify each approved rule independently against
 captured implementation; publish an editable Markdown list and evidence table.
 
+The first setup question requires the source code folder with no suggested or
+default path. Samples are available only by explicitly selecting their folder.
+
 The five serial logical phases are capture, extract, review, verify, publish. Each phase declares a stock domain-operation block. Domain hooks
 retain code-review policy and approval authority. Core owns routing and completion. Workers consume the native block context directly. Core execution is unchanged;
 the SDK stages folders using this blueprint's declared directory exclusions.
@@ -45,6 +48,11 @@ through the SDK's structured-output API. Structural validation cannot replace
 exact source admission or supervisor approval. Explicit fake-model execution may
 return an empty extraction or Unknown judgments; it establishes no conformance
 result and retains the same human review gate.
+
+Verification returns an object containing `decision`; its nested union selects
+search, read or finish. Every branch uses explicit action/status types. A root
+union must not be sent to strict model routes. Trusted code unwraps the decision
+before applying the unchanged source-evidence and confidence checks.
 
 The supervisor's digest-addressed Markdown review document is committed as a
 host-readable shared artifact before its Core interaction is published. Replay
@@ -236,6 +244,9 @@ handle are staged separately after rendering. The runtime owns host delivery and
 batch run folders; the blueprint never derives or writes a host Downloads path.
 The UI extension declares `static_html`, allowing OtterDesk to open the delivered
 `web/index.html` after validating its adjacent handle.
+The publication result returns the SDK `published_files` manifest for report
+JSON/Markdown and the optional page/handle. Native workers export these verified
+bytes for the conversation workspace; optional presentation remains optional.
 
 ## Native block composition (3.0.0)
 

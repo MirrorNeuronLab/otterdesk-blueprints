@@ -171,6 +171,136 @@ def test_factory_worker_preserves_cited_review_queue_in_memory_and_output(monkey
     assert "Shift lead" in retained.read_text() and "not_observed" in prompts[0]
 
 
+@pytest.mark.parametrize("profile", ["factory", "hotel"])
+def test_group_at_startup_notifies_with_one_frame_and_no_hazard(profile, monkeypatch, tmp_path, capsys):
+    from test_cctv_operator_conversation import ROOT, _load_detector, _run_detector
+    detector = _load_detector()
+    config = json.loads((ROOT / "cctv_operator/config/default.json").read_text())
+    config["site"]["profile"] = profile
+    config["text_memory"]["enabled"] = False
+    evidence = "A group of people is visible: two helmeted people stand together beside the entrance."
+    group = {**finding("group_presence"), "visible_evidence": evidence}
+    result = {"site_findings": [group], "summary": evidence, "confidence": .9,
+              "helmet_observations": [], "risk_predictions": []}
+    output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1, "camera_id": "entrance"}, config=config, detection=result)
+    assert output["next_state"]["last_error"] is None
+    notices = [event["payload"] for event in output["events"] if event["type"] == "human_notice"]
+    assert len(notices) == 1
+    notice = notices[0]
+    assert evidence in notice["message"]
+    assert notice["risk_level"] == "low"
+    assert notice["observed_at"] == "1970-01-01T00:00:01Z"
+    assert notice["goal_event"]["evidence_frame"] == 1
+    assert notice["image"]["run_id"] == "test-run"
+    assert notice["chat_delivery"] == "otterdesk_worker_chat"
+    assert "group_presence" in prompts[0]
+    assert output["next_state"]["active_site_rules"] == ["group_presence"]
+
+    repeated, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 2, "camera_id": "entrance"}, config=config,
+        detection=result, state=output["next_state"])
+    assert not any(event["type"] == "human_notice" for event in repeated["events"])
+
+
+@pytest.mark.parametrize("status,confidence", [("not_observed", .95), ("possible", .9), ("observed", .3)])
+def test_single_person_uncertain_or_low_confidence_group_stays_quiet(status, confidence, monkeypatch, tmp_path, capsys):
+    from test_cctv_operator_conversation import _load_detector, _run_detector
+    detector = _load_detector()
+    row = {**finding("group_presence", status), "confidence": confidence,
+           "visible_evidence": "Only one person can be clearly distinguished in the sampled view."}
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1}, config={"site": {"profile": "factory"}},
+        detection={"site_findings": [row], "confidence": confidence})
+    assert output["next_state"]["last_error"] is None
+    assert not any(event["type"] == "human_notice" for event in output["events"])
+
+
+def test_group_absence_rearms_only_when_confident_and_cooldown_has_elapsed(monkeypatch):
+    from cctv_operator.payloads.domain.detection_policy import evaluate_alert
+    monkeypatch.setattr(time, "time", lambda: 200.)
+    config = {"site": {"profile": "factory"}}
+    goal = PROFILES["factory"]["goal"]
+    policy = {"min_confidence": .6, "cooldown_seconds": 120}
+    state = {"active_site_rules": ["group_presence"], "site_notice_clocks": {"group_presence": 100.}}
+    for status, confidence in [("possible", .9), ("not_observed", .3)]:
+        row = {**finding("group_presence", status), "confidence": confidence}
+        sample = enrich({"site_findings": [row]}, batch(), config, goal, "")
+        notice_state(sample, batch(), config, policy, state, goal, "")
+        assert state["active_site_rules"] == ["group_presence"]
+
+    absent = enrich({"site_findings": [finding("group_presence", "not_observed")]}, batch(), config, goal, "")
+    notice_state(absent, batch(), config, policy, state, goal, "")
+    assert state["active_site_rules"] == []
+    present = enrich({"site_findings": [finding("group_presence")]}, batch(), config, goal, "")
+    decision = evaluate_alert(present, policy,
+        notice_state(present, batch(), config, policy, state, goal, ""), active_goal=goal, now=200.)
+    assert not decision["notify"]
+    monkeypatch.setattr(time, "time", lambda: 221.)
+    decision = evaluate_alert(present, policy,
+        notice_state(present, batch(), config, policy, state, goal, ""), active_goal=goal, now=221.)
+    assert decision["notify"]
+
+
+def test_explicit_goal_keeps_group_presence_as_supplementary_material(monkeypatch, tmp_path, capsys):
+    from test_cctv_operator_conversation import _load_detector, _run_detector
+    detector = _load_detector()
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1, "instruction": "Watch only for a blocked route.", "instruction_revision": 1},
+        config={"site": {"profile": "factory"}},
+        detection={"detected_target": False, "site_findings": [finding("group_presence")], "confidence": .9})
+    assert output["next_state"]["last_error"] is None
+    assert not any(event["type"] == "human_notice" for event in output["events"])
+
+
+def test_hazard_notice_does_not_consume_an_unreported_group(monkeypatch):
+    monkeypatch.setattr(time, "time", lambda: 500.)
+    config = {"site": {"profile": "factory"}}
+    goal = PROFILES["factory"]["goal"]
+    policy = {"min_confidence": .6, "cooldown_seconds": 120}
+    state = {}
+    findings = [finding(), {**finding("group_presence", frames=[2]),
+                           "visible_evidence": "A group of people is visible near the entrance."}]
+    first = enrich({"site_findings": findings}, batch(), config, goal, "")
+    notice_state(first, batch(), config, policy, state, goal, "")
+    record_notice(first, state, 500.)
+    assert state["active_site_rules"] == ["blocked_route"]
+    next_sample = enrich({"site_findings": findings}, batch(), config, goal, "")
+    assert notice_state(next_sample, batch(), config, policy, state, goal, "")["notified_goal"] is None
+    assert next_sample["site_notice_rule_ids"] == ["group_presence"]
+    assert next_sample["goal_event"]["evidence_frame"] == 2
+    assert next_sample["detection_report"].startswith("A group of people is visible")
+
+
+def test_medium_severity_finding_precedes_low_severity_group_notice():
+    config = {"site": {"profile": "hotel"}}
+    goal = PROFILES["hotel"]["goal"]
+    sample = enrich({"site_findings": [finding("group_presence"),
+        {**finding("possible_spill", frames=[2]), "confidence": .8}]}, batch(), config, goal, "")
+    assert sample["risk_level"] == "medium"
+    assert sample["goal_event"]["evidence_frame"] == 2
+    notice_state(sample, batch(), config, {"min_confidence": .6, "cooldown_seconds": 120}, {}, goal, "")
+    assert sample["site_notice_rule_ids"] == ["possible_spill"]
+
+
+def test_group_notice_image_and_time_follow_group_evidence_not_an_existing_hazard(monkeypatch, tmp_path, capsys):
+    import base64
+    from test_cctv_operator_conversation import _load_detector, _run_detector
+    detector = _load_detector()
+    frames = [{"timestamp": 1., "content": jpeg()}, {"timestamp": 2., "content": jpeg("white")}]
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1}, config={"site": {"profile": "factory"}}, selected=frames,
+        state={**detector.initial_state(), "active_site_rules": ["blocked_route"]},
+        detection={"site_findings": [finding(), {**finding("group_presence", frames=[2]),
+            "visible_evidence": "A group of people is visible at the entrance."}], "confidence": .9})
+    assert output["next_state"]["last_error"] is None
+    notice = next(event["payload"] for event in output["events"] if event["type"] == "human_notice")
+    assert notice["observed_at"] == "1970-01-01T00:00:02Z"
+    assert notice["goal_event"]["evidence_frame"] == 2
+    assert base64.b64decode(notice["image"]["data"]) == frames[1]["content"]
+    assert "1970-01-01T00:00:02Z" in notice["image"]["caption"]
+
+
 def test_stale_camera_frame_never_advances_person_episode(tmp_path):
     from cctv_operator.payloads.domain.live_monitor import LiveMonitor
     class Detector:

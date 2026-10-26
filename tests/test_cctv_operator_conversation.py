@@ -27,7 +27,7 @@ def _load_detector():
 
 
 def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
-                  state=None, message=None, config=None, gate=None, review_approved=None):
+                  state=None, message=None, config=None, gate=None, review_approved=None, selected=None):
     # Tests select explicit domain settings while executing the actual compiled
     # binding, event admission, scoped state, effects and publication contracts.
     config = config or {"video_source": {"mode": "stream", "uri": "rtsp://camera.example/unit-test"}}
@@ -39,7 +39,7 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
     camera = payload.get("camera_id") or "cctv"
     instruction = module.normalize_attention_instruction(payload.get("instruction"))
     revision = int(payload.get("instruction_revision") or 0)
-    selected = [{"timestamp": 1.0, "score": .5, "content": b"\xff\xd8jpeg-frame\xff\xd9"}]
+    selected = selected or [{"timestamp": 1.0, "score": .5, "content": b"\xff\xd8jpeg-frame\xff\xd9"}]
     path, batch = write_frame_batch(run_dir, batch_id=batch_id, trigger="on_demand" if instruction else "baseline",
         source={"mode": "stream", "uri": "rtsp://camera.example/unit-test", "name": "rtsp://camera.example/unit-test", "position_seconds": 0},
         instruction=instruction, instruction_revision=revision, candidates=selected, selected=selected,

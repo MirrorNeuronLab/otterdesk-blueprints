@@ -11,7 +11,7 @@ from .knowledge import require_ready_rag, retrieve_knowledge_rag_context
 from .research_agentic import build_research_agent_rag_query, run_agentic_research_agent
 from .research_core import agentic_research_config, _research_agent_enabled
 from .research_orchestration import _run_research_agent, _with_agentic_gap_fill
-from .research_services import research_resources
+from .research_services import reconcile_research_effect, research_resources
 
 
 def collect_snapshot(block, state, role, base):
@@ -75,7 +75,8 @@ def collect_evidence(block, inputs, role):
         state = block.read_checkpoint(request.data["state"], expected_path=checkpoint_path("research_planner"))
         return collect_snapshot(block, state, role, request.data["state"])
 
-    block.register_capability("vc_public_research", Capability(collect, block.revision))
+    block.register_capability("vc_public_research", Capability(collect, block.revision,
+        reconcile=lambda _request: reconcile_research_effect(block, budget_scope="public-research")))
     state = block.invoke("vc_public_research", {"state": base}, key="collect")
     branch = state["research_branch"]
     views = {**{f"research_ledgers_by_agent/{role}/{slugify(company)}.json": sources

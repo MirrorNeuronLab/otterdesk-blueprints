@@ -522,7 +522,7 @@ def test_cctv_ui_uses_the_shared_dynamic_port_and_external_handle_contract():
     config = resolve_config(read_blueprint(blueprint)).data
 
     assert "resolve_web_ui_binding" in source
-    assert "claim_web_ui" in source
+    assert "claim_service_web_ui" in source
     assert "json-render" not in source
     assert config["web_ui"]["service"]["port"] == 0
 

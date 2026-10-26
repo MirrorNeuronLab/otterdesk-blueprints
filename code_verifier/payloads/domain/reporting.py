@@ -7,7 +7,7 @@ from hashlib import sha256
 
 from mn_sdk.agent_events import report_activity
 from mn_sdk_common.publication import ArtifactWrite
-from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
+from mn_sdk.integrations.block_publication_files import publish_artifact_bundle, publish_files
 
 from .artifacts import read, save
 from .publication import deliver_reports
@@ -136,5 +136,13 @@ def publish(block, inputs):
         save(block, "presentation-status.json", {"status": "unavailable", "error_type": type(error).__name__})
         report_activity("The Markdown report is ready. The optional web view could not be delivered.",
                         kind="action", owner_blueprint=BLUEPRINT_ID, run_dir=block.store.run_dir)
+    # The native worker exports only declared published files across the worker
+    # boundary. Include the page and handle, as well as the authoritative report.
+    published_files = publish_files(block, [
+        ArtifactWrite(item['id'], item['reference']['path'], block.store.read_bytes(item['reference']),
+            kind=item['reference']['kind'], required=item['required'])
+        for item in receipt['artifacts']
+    ], name='rules_report')
     return {"rules": len(results), "summary": counts, "report": "report.md",
-            "artifacts": receipt["artifacts"], "warnings": receipt["warnings"]}
+            "artifacts": receipt["artifacts"], "warnings": receipt["warnings"],
+            "published_files": published_files}

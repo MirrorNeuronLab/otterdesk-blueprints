@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.1.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.2.0 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -16,6 +16,12 @@ event/publication protocol, and supervised-service agent `>=1.3.61.dev5,<2`.
 The migration is qualified by offline listener and process-group tests; the
 historical Spark measurements below predate this path.
 
+The Web UI claim uses the SDK's monitored-service lifecycle. The SDK supplies
+execution/run identities and the current service generation; CCTV supplies only
+its listener, title and presentation metadata. The handle becomes Running after
+startup health succeeds, and stopped or failed on cleanup. Reprepare existing Job
+definitions to load this revision; a runtime reset is not required.
+
 ## Factory and hotel setup
 
 `site.profile` selects `factory`, `hotel` or `custom`. Factory is the default.
@@ -26,8 +32,8 @@ remain visible as supplementary review material; omitted rules stay unexamined.
 
 | Profile | Review rules | Limits |
 | --- | --- | --- |
-| Factory | Visible travel-path obstruction; person near moving industrial equipment; clearly visible uncovered head | No invented speed/distance, collision certainty, PPE requirement or compliance verdict |
-| Hotel | Visible travel-path obstruction; person appears down on the floor; possible spill/floor hazard | Approved public/common areas only; no diagnosis, inferred fall, identity or private-room monitoring |
+| Factory | Group presence; visible travel-path obstruction; person near moving industrial equipment; clearly visible uncovered head | No invented speed/distance, collision certainty, PPE requirement or compliance verdict |
+| Hotel | Group presence; visible travel-path obstruction; person appears down on the floor; possible spill/floor hazard | Approved public/common areas only; no diagnosis, inferred fall, identity or private-room monitoring |
 | Custom | Operator's explicit visible condition | No built-in facility rule assumptions |
 
 Each finding identifies observed, possible or not_observed status, supporting
@@ -37,6 +43,17 @@ an uncovered-head observation needs a same-frame visible uncovered head. Frame
 binding verifies provenance, not the truth of the model's interpretation.
 The Markdown report has a facility review queue and unexamined-rule coverage.
 Possible findings and forecasts do not become confirmed-event notices.
+
+Both facility profiles can notify from the first analyzed sample showing two or more
+people together, including a stationary group already present when monitoring
+starts. No helmet issue or other hazard is required. The notice says a group is
+visible; arrival is claimed only with sampled before-and-after evidence. Repeated
+views stay quiet until a confident absence rearms the rule and its cooldown ends.
+If several new rules match, the highest-priority finding is reported first; other
+findings remain eligible for their own notice on subsequent analyzed samples.
+This uses the existing Cosmos analysis path and does not bypass model latency.
+Reprepare existing Job definitions to load the updated rules and prompt; an explicit
+saved goal or Chat instruction still takes precedence over profile defaults.
 
 Optional `site.zones` contains up to twelve `id`, `name`, `bounds` objects, with
 normalized full-view `[x1,y1,x2,y2]` rectangles. These guide interpretation; they

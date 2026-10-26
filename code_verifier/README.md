@@ -57,14 +57,17 @@ mn blueprint run ./code_verifier \
   --set inputs.payload.input_folder=/absolute/path/to/your/repository
 ```
 
-In OtterDesk, hire **Code verifier**, choose the source folder, and
+In OtterDesk, hire **Code verifier**, choose the source code folder in the first
+setup question (it has no default path), and
 start the review. The runtime stages inputs and owns output delivery. Reports
 are saved beneath `~/Downloads/code-verifier/run_<timestamp>/` by
 default, with authoritative artifacts in the runtime-provided run directory.
 The report writer stages declared artifacts in the SDK-provided output folder;
 the runtime copies them to Downloads after completion. `latest.html` links to
 the most recently delivered run. Open its `web/index.html` in a browser, or use
-**Open web UI** in OtterDesk when the installed blueprint has this declaration.
+the completed run's web report in Chat to inspect it in the conversation workspace.
+The page and its handle are declared worker exports, using the same publication
+contract as Drug Discovery.
 
 For a tiny synthetic input, select `code_verifier/examples/sample_inputs`
 as the source folder. It contains a name guard, a plaintext-password counterexample,
@@ -243,6 +246,13 @@ Review documents use the SDK's immutable, host-readable artifact publication so
 the supervisor can load them after replication from a container-owned run.
 The SDK publication adapter registers verified result, rules and report downloads
 in the runtime output inventory.
+
+Version 3.0.1 wraps verification actions in a `decision` object so strict model
+routes receive an object-root JSON schema, with explicit action and status types.
+Earlier schemas used a root union that such routes reject before returning a
+response. This fixes the blueprint request contract without changing the runtime
+or relaxing evidence requirements. Existing reports keep their original results;
+start a new review with the updated blueprint to reassess them.
 
 ## Shared web report
 

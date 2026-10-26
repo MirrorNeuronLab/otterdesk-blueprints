@@ -103,6 +103,7 @@ startup materials.
 - `execution.max_company_workers`: maximum changed-company packets processed concurrently; defaults to one for local Docker Model Runner stability.
 - `backpressure.llm`: serializes and spaces local LLM calls so agentic research does not overwhelm Docker Model Runner.
 - Concurrent RAG-consuming workers use the SDK RAG package's job-scoped Unix-socket service. One owner process retains the sole DuckDB connection to `databases/rag/knowledge.duckdb`; every specialist agent indexes and queries through that shared connection.
+- Research preparation can retry when the Core action ledger proves that this invocation has admitted no model or browser work. An admitted action with no saved result remains fenced for reconciliation; another specialist's actions do not block preparation recovery.
 - `internet_research`: public verification targets, bounded browser timeouts, Crunchbase/profile URL templates, and explicit deep-render controls.
 - `internet_research.max_parallel_research_agents`: maximum research agents running in parallel per changed company.
 - `scoring.max_workers`: maximum parallel method scorers per changed company.
@@ -226,6 +227,15 @@ Batch review and report data freeze before publication; interrupted delivery
 reuses the same bytes and cannot repeat model work. All 21 roles now use the
 Core-owned action allowance. The runtime-context bridge, local counter loader
 and blueprint runtime wrapper are removed.
+
+Company coverage artifacts use the saved report clock. Company, batch and source
+publications use the SDK's `freeze_file_publication` preparation boundary: the
+complete file inventory and bytes freeze before any publication receipt. Retrying
+an interrupted publication reuses those bytes, including source catalogs, without
+reindexing completed sources or repeating known reviews. Invalid or corrupt receipts
+remain errors. Deploy the matching SDK source/package and reprepare saved Job
+definitions before retrying with this behavior; existing staged workers retain
+their original code.
 
 The ten StepSpec graphs retain extractor sequencing and parallel joins.
 `workflow_state/` files remain inspection views; native workers read explicit

@@ -116,8 +116,13 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
     assert len(store.read_path("data/coverage.json")["aspects"]) == 150
     public = published_output_items(store.run_dir)
     names = {item['path'] for item in public}
-    assert {'reports/report.md', 'data/report.json', 'review_index.json', 'web/index.html'} <= names
-    assert all(name == 'review_index.json' or name.startswith(('data/', 'web/', 'reports/')) for name in names)
+    assert {'reports/report.md', 'data/report.json', 'review_index.json', 'web/index.html', 'web_ui.json'} <= names
+    assert all(name in {'review_index.json', 'web_ui.json'} or name.startswith(('data/', 'web/', 'reports/')) for name in names)
+    handle = store.read_path('web_ui.json')
+    assert handle['kind'] == 'output' and handle['adapter'] == 'static_html'
+    assert handle['metadata']['sha256'] == hashlib.sha256(store.path('web/index.html').read_bytes()).hexdigest()
+    assert handle['metadata']['optional'] is False
+    assert (store.run_dir.parents[3] / 'delivery/web_ui.json').read_bytes() == store.path('web_ui.json').read_bytes()
     for item in public:
         encoded = store.path(item['path']).read_bytes()
         assert item['size_bytes'] == len(encoded)

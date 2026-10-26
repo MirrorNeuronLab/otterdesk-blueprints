@@ -4,6 +4,7 @@ import math
 from .goal_events import goal_event
 
 RULES = {
+    "group_presence": {"title": "A group of people is visible", "severity": "low", "test": "At least two real people are visible together in the same selected frame. Notify on first observation even if they are already present at monitoring startup, stationary, or wearing helmets. Do not require a hazard or proof of arrival; say a group is visible unless sampled before-and-after frames establish that it appeared.", "review": "Review the group and its visible activity in the sampled camera view."},
     "blocked_route": {"title": "Visible travel-path obstruction", "severity": "high", "test": "An object visibly obstructs the designated travel path; perspective or clearance uncertainty is possible, not confirmed.", "review": "Ask the duty operator to verify the path on the live camera and inspect the area if appropriate."},
     "vehicle_proximity": {"title": "Person near moving industrial equipment", "severity": "high", "test": "Person and industrial vehicle approach or cross the same visible area across multiple frames; no invented distance, speed or collision certainty.", "review": "Have the site operator review the sampled motion and separation; follow the site's approved safety procedure."},
     "uncovered_head": {"title": "Clearly visible uncovered head", "severity": "medium", "test": "A clearly visible uncovered head, with a not_worn helmet observation on that exact frame. PPE applicability is a site-policy question, not established by the camera.", "review": "Confirm whether this is a designated PPE area and review the original view before taking any action."},
@@ -11,10 +12,14 @@ RULES = {
     "possible_spill": {"title": "Possible spill or floor hazard", "severity": "medium", "test": "A visible floor patch or object may affect a walking path. Reflections and unknown surface condition remain uncertain; video cannot confirm slipperiness.", "review": "Ask housekeeping or the duty operator to inspect the area and confirm the surface condition."},
 }
 PROFILES = {
-    "factory": {"goal": "Watch for visible travel-path obstructions, a person near moving industrial equipment, or a clearly visible uncovered head; distinguish observations from possible risks.", "rules": ["blocked_route", "vehicle_proximity", "uncovered_head"]},
-    "hotel": {"goal": "Watch approved public/common areas for visible travel-path obstructions, a person appearing down on the floor, or possible spills; distinguish observations from possible risks.", "rules": ["blocked_route", "person_on_floor", "possible_spill"]},
+    "factory": {"goal": "Notify when a group of two or more people is visible together, or for visible travel-path obstructions, a person near moving industrial equipment, or a clearly visible uncovered head; distinguish observations from possible risks.", "rules": ["group_presence", "blocked_route", "vehicle_proximity", "uncovered_head"]},
+    "hotel": {"goal": "Watch approved public/common areas and notify when a group of two or more people is visible together, or for visible travel-path obstructions, a person appearing down on the floor, or possible spills; distinguish observations from possible risks.", "rules": ["group_presence", "blocked_route", "person_on_floor", "possible_spill"]},
     "custom": {"goal": "", "rules": []},
 }
+
+
+def _finding_priority(finding):
+    return ({"high": 0, "medium": 1, "low": 2}[finding["severity"]], -finding["confidence"], finding["rule_id"])
 
 
 def context(config):
@@ -108,7 +113,7 @@ def enrich(detection, batch, config, goal, attention):
         detection["detected"] = bool(observed)
         detection["detection_count"] = len(observed)
         if observed:
-            chosen = min(observed, key=lambda f: (f["severity"] != "high", -f["confidence"], f["rule_id"]))
+            chosen = min(observed, key=_finding_priority)
             indices = sorted(chosen["evidence_frames"])
             detection.update(confidence=chosen["confidence"], risk_level=chosen["severity"], detection_report=chosen["visible_evidence"],
                 goal_event={"start_frame": indices[0], "end_frame": indices[-1], "evidence_frame": indices[-1]})
@@ -135,10 +140,13 @@ def notice_state(detection, batch, config, policy, state, goal, attention):
     now = time.time()
     candidates = [f for f in detection["site_findings"] if f["status"] == "observed" and f["rule_id"] not in active
         and f["confidence"] >= policy["min_confidence"] and now - clocks.get(f["rule_id"], 0) >= policy["cooldown_seconds"]]
-    detection["site_notice_rule_ids"] = [f["rule_id"] for f in candidates]
+    detection["site_notice_rule_ids"] = []
     if not candidates:
         return {**state, "notified_goal": goal}
-    chosen = min(candidates, key=lambda f: (f["severity"] != "high", -f["confidence"], f["rule_id"]))
+    chosen = min(candidates, key=_finding_priority)
+    # Only the finding actually reported is consumed. Other new findings remain
+    # eligible for their own notice, including a group alongside a hazard.
+    detection["site_notice_rule_ids"] = [chosen["rule_id"]]
     # Bind this notice to its chosen newly observable rule's already validated frame.
     indices = sorted(chosen["evidence_frames"])
     raw = {"detected_target": True, "goal_event": {"start_frame": indices[0], "end_frame": indices[-1], "evidence_frame": indices[-1]}}

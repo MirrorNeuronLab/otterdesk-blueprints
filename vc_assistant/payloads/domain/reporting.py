@@ -214,7 +214,7 @@ def render_markdown(analysis: dict[str, Any], sources: list[dict[str, Any]], evi
     lines += ["", "## User Decision Boundary", "Use the claims, confidence scores, assumptions, and source refs to decide what to review next."]
     return "\n".join(lines) + "\n"
 
-def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]]) -> dict[str, Any]:
+def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str, Any]]]], *, generated_at: str) -> dict[str, Any]:
     shared = shared_build_research_coverage(research_ledgers)
     companies = []
     for entity in shared.get("entities", []):
@@ -241,12 +241,12 @@ def build_research_coverage(research_ledgers: dict[str, dict[str, list[dict[str,
             }
         )
     return {
-        "generated_at": utc_now_iso(),
+        "generated_at": generated_at,
         "company_count": len(companies),
         "companies": companies,
     }
 
-def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
+def build_method_coverage(analyses: list[dict[str, Any]], *, generated_at: str) -> dict[str, Any]:
     shared = shared_build_method_coverage(analyses, entity_id_key="company_name")
     shared_companies = {
         str(entity.get("entity_id") or ""): entity
@@ -261,7 +261,7 @@ def build_method_coverage(analyses: list[dict[str, Any]]) -> dict[str, Any]:
         }
         for analysis in analyses
     ]
-    return {"generated_at": utc_now_iso(), "method_ids": METHOD_IDS, "companies": companies}
+    return {"generated_at": generated_at, "method_ids": METHOD_IDS, "companies": companies}
 
 def quality_check(status: str, message: str, **metadata: Any) -> dict[str, Any]:
     return shared_quality_check(status=status, message=message, **metadata)

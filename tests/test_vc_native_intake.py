@@ -434,6 +434,32 @@ def test_unknown_public_research_outcome_fences_browser_redispatch(intake, monke
     assert failure.value.code == "outcome_unknown" and len(calls) == 1
 
 
+@pytest.mark.parametrize("role", ["research_planner", "rendered_page_researcher"])
+def test_research_preparation_failure_can_retry_before_dispatch(intake, monkeypatch, role):
+    from mn_sdk_rag import RagError
+
+    config, calls = public_config(intake), []
+    install_public_tool(monkeypatch, calls)
+    upstream = normalized(intake, config=config) if role == "research_planner" else planned(intake, config)
+    if role != "research_planner":
+        # Another specialist's admitted work does not make this scope uncertain.
+        intake.invoke("funding_researcher", {"previous": upstream}, config=config)
+    module = importlib.import_module("domain.research_planner" if role == "research_planner"
+        else "domain.public_researcher")
+    prepare = module.research_resources
+    def unavailable(*args, **kwargs):
+        raise RagError("Synthetic knowledge retrieval failed with HTTP 503")
+    monkeypatch.setattr(module, "research_resources", unavailable)
+    for _ in range(2):
+        with pytest.raises(RagError, match="HTTP 503"):
+            intake.invoke(role, {"previous": upstream}, config=config)
+    assert len(calls) == (0 if role == "research_planner" else 1)
+    monkeypatch.setattr(module, "research_resources", prepare)
+    result = intake.invoke(role, {"previous": upstream}, config=config)
+    assert intake.invoke(role, {"previous": upstream}, config=config) == result
+    assert len(calls) == (0 if role == "research_planner" else 2)
+
+
 def test_checkpoint_recovery_does_not_repeat_research_when_another_worker_spends(intake, monkeypatch):
     config, calls = public_config(intake), []
     plan = planned(intake, config)
@@ -682,6 +708,76 @@ def test_native_publication_crosses_private_workers_with_complete_sources_and_re
     scope = (corpus_job_id("job", "sources"), None)
     assert scope in text_memory_transport.scopes
     assert any("score-only" in body for body in text_memory_transport.scopes[scope].values())
+
+
+@pytest.mark.parametrize("interruption", ["delivery", "source_index"])
+def test_company_publication_retry_preserves_coverage_bytes(intake, monkeypatch, interruption):
+    from mn_sdk.blueprint_support import shared_outputs
+    writer = importlib.import_module("domain.company_report_writer")
+    reporting = importlib.import_module("domain.reporting")
+    clock = "2026-01-01T00:00:00+00:00"
+    monkeypatch.setattr(writer, "utc_now_iso", lambda: clock)
+    monkeypatch.setattr(reporting, "utc_now_iso", lambda: clock)
+    config, model = publication_config(intake), PlanningModel()
+    evidence = audited(intake, config)
+    copy, index = shared_outputs.copy_path_to_host, writer.index_output_artifacts
+
+    def interrupted_copy(source, target):
+        if Path(target).name == "company_index.json":
+            raise OSError("synthetic company publication interruption")
+        return copy(source, target)
+
+    def interrupted_index(*args):
+        raise OSError("synthetic company publication interruption")
+
+    if interruption == "delivery":
+        monkeypatch.setattr(shared_outputs, "copy_path_to_host", interrupted_copy)
+    else:
+        monkeypatch.setattr(writer, "index_output_artifacts", interrupted_index)
+    with pytest.raises(OSError, match="publication interruption"):
+        intake.invoke("company_report_writer", {"previous": evidence}, config=config, model=model)
+    receipt_path = next(intake.store.run_dir.glob("blocks/*/publications/*/receipts/0.json"))
+    receipt_bytes = receipt_path.read_bytes()
+    report_clock = clock
+    clock = "2026-01-01T00:01:00+00:00"
+    monkeypatch.setattr(shared_outputs, "copy_path_to_host", copy)
+    monkeypatch.setattr(writer, "index_output_artifacts", index)
+    result = intake.invoke("company_report_writer", {"previous": evidence}, config=config, model=model)
+    assert receipt_path.read_bytes() == receipt_bytes
+    for name in ("research_coverage.json", "method_coverage.json", "company_index.json"):
+        assert intake.store.read_path(name)["generated_at"] == report_clock
+        assert (intake.root / "output" / name).read_bytes() == intake.store.path(name).read_bytes()
+    assert intake.store.read_path("watch_state.json")["updated_at"] == report_clock
+    assert model.calls == 1
+    assert intake.invoke("company_report_writer", {"previous": evidence}, config=config, model=model) == result
+    assert model.calls == 1
+
+
+@pytest.mark.parametrize("role", ["company_report_writer", "batch_index_writer"])
+def test_source_publication_retry_reuses_catalog_without_reindexing(intake, monkeypatch, role):
+    config, model = publication_config(intake), PlanningModel()
+    evidence = audited(intake, config)
+    if role == "batch_index_writer":
+        evidence = intake.invoke("company_report_writer", {"previous": evidence}, config=config, model=model)
+    module = importlib.import_module("domain." + role)
+    publish = module.freeze_file_publication
+    def interrupted(block, produce, *, name):
+        publication = publish(block, produce, name=name)
+        if name.endswith("-sources"):
+            raise OSError("synthetic interruption after source receipts")
+        return publication
+    monkeypatch.setattr(module, "freeze_file_publication", interrupted)
+    with pytest.raises(OSError, match="after source receipts"):
+        intake.invoke(role, {"previous": evidence}, config=config, model=model)
+    calls = model.calls
+    monkeypatch.setattr(module, "freeze_file_publication", publish)
+    monkeypatch.setattr(module, "index_output_artifacts", lambda *_a: pytest.fail("Retry indexed source subjects again"))
+    result = intake.invoke(role, {"previous": evidence}, config=config, model=model)
+    assert intake.invoke(role, {"previous": evidence}, config=config, model=model) == result
+    assert model.calls == (calls + 1 if role == "company_report_writer" else calls)
+    published = intake.store.read(result)["published_files"]
+    catalog = published["files"]["context_sources/outputs.json"]
+    assert (intake.root / "output/context_sources/outputs.json").read_bytes() == intake.store.read_bytes(catalog)
 
 
 def test_batch_delivery_failure_reuses_review_and_frozen_report_bytes(intake, monkeypatch):

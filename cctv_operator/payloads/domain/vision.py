@@ -117,7 +117,7 @@ def _analyze(block, prepared, payload, batch, view, raw, metadata):
             decision.update(notify=False, reason="superseded_monitoring_instruction")
         observation.update(matched_alert_targets=list(decision["matched_targets"]), alert_decision=decision)
         if decision["notify"]:
-            observation["event_image"] = event_snapshot(view, matched, run_id=block.run_id, camera_id=camera, frame_seq=frame)
+            observation["event_image"] = event_snapshot(view, observation["goal_event"], run_id=block.run_id, camera_id=camera, frame_seq=frame)
         projected = update_conversation_context(state, observation)
         events.append({"type": "cctv_operator_deep_analysis_completed", "payload": {
             "camera_id": camera, "frame_seq": frame, "frame_batch_ref": payload["frame_batch_ref"],

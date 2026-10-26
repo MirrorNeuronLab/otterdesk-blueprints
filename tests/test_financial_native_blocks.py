@@ -169,3 +169,98 @@ def test_interrupted_financial_review_does_not_repeat_unknown_model_work(finance
         modules['cash_flow'].step_cash_flow_llm_analyst(block, {'result': cash})
     assert raised.value.code == 'outcome_unknown' and model.calls == 1
     assert not block.store.path('financial/cash_flow_llm_analyst.json').exists()
+
+
+def cash_flow_ready(finance):
+    block, modules, inventory, _, _ = finance
+    docs = modules['intake'].step_financial_document_reader(block, {'result': inventory})
+    bank = modules['intake'].step_bank_statement_extractor(block, {'previous': docs})
+    return modules['cash_flow'].step_cash_flow_normalizer(block, {'result': bank})
+
+
+def restarted(block, model):
+    from dataclasses import replace
+    return replace(block, store=CommittedJsonStore(block.store.run_dir),
+        cancelled=lambda: False, resources={'llm': model})
+
+
+@pytest.mark.parametrize('interruption', ['cancelled', 'review_write', 'receipt_write'])
+def test_observed_financial_review_recovers_with_usage_after_restart(finance, monkeypatch, interruption):
+    block, modules, _, _, _ = finance
+    cash = cash_flow_ready(finance)
+
+    class Observed(DeterministicFallbackLLM):
+        def generate_json(self, *, system_prompt, user_prompt, fallback):
+            response = super().generate_json(system_prompt=system_prompt,
+                user_prompt=user_prompt, fallback=fallback)
+            self.input_tokens, self.output_tokens, self.total_tokens = 120, 30, 150
+            if interruption == 'cancelled':
+                block.cancelled = lambda: True
+            return response
+
+    model = Observed('synthetic-observed')
+    block.resources['llm'] = model
+    commit = block.store.commit
+    target = ('financial/reviews/cash_flow_llm_analyst.json' if interruption == 'review_write'
+        else 'financial/reviews/cash_flow_llm_analyst-receipt.json')
+
+    def interrupt_write(path, *args, **kwargs):
+        if str(path) == target:
+            raise OSError('synthetic review publication interruption')
+        return commit(path, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        if interruption != 'cancelled':
+            patch.setattr(block.store, 'commit', interrupt_write)
+        with pytest.raises(BlockError if interruption == 'cancelled' else OSError):
+            modules['cash_flow'].step_cash_flow_llm_analyst(block, {'result': cash})
+    assert model.calls == 1
+
+    replacement = DeterministicFallbackLLM('synthetic-replacement')
+    fresh = restarted(block, replacement)
+    result = modules['cash_flow'].step_cash_flow_llm_analyst(fresh, {'result': cash})
+    usage = fresh.store.read(result['state'])['llm_usage']
+    assert usage['calls'] == 1 and usage['total_tokens'] == 150
+    assert replacement.calls == 0
+    assert not list(block.store.run_dir.glob('financial/reviews/*-started.json'))
+
+
+@pytest.mark.parametrize('failure_phase', ['initialization', 'request'])
+def test_rejected_live_financial_model_replays_original_error(finance, monkeypatch, failure_phase):
+    block, modules, _, _, _ = finance
+    cash = cash_flow_ready(finance)
+    services = importlib.import_module('domain.review_services')
+    monkeypatch.setattr(services, 'live_llm_requested', lambda *_: True)
+
+    class Rejected(DeterministicFallbackLLM):
+        def generate_json(self, **kwargs):
+            self.calls += 1
+            raise RuntimeError('Runtime model preparation failed: HTTP Error 404: Not Found')
+
+    model = Rejected('synthetic-rejected')
+    block.resources['llm'] = model
+    initializations = []
+    if failure_phase == 'initialization':
+        def initialize(*args):
+            initializations.append(True)
+            raise RuntimeError('Runtime model preparation failed: HTTP Error 404: Not Found')
+        monkeypatch.setattr(services, 'build_llm_client', initialize)
+    for context in (block, restarted(block, model)):
+        with pytest.raises(RuntimeError, match='HTTP Error 404: Not Found') as error:
+            modules['cash_flow'].step_cash_flow_llm_analyst(context, {'result': cash})
+        assert not isinstance(error.value, BlockError)
+    assert len(initializations) == (1 if failure_phase == 'initialization' else 0)
+    assert model.calls == (0 if failure_phase == 'initialization' else 1)
+    assert not block.store.path('financial/cash_flow_llm_analyst.json').exists()
+
+
+def test_live_financial_review_rejects_fallback_on_replay(finance, monkeypatch):
+    block, modules, _, _, model = finance
+    cash = cash_flow_ready(finance)
+    services = importlib.import_module('domain.review_services')
+    monkeypatch.setattr(services, 'live_llm_requested', lambda *_: True)
+    for context in (block, restarted(block, model)):
+        with pytest.raises(RuntimeError, match='Required live LLM call'):
+            modules['cash_flow'].step_cash_flow_llm_analyst(context, {'result': cash})
+    assert model.calls == 1
+    assert not block.store.path('financial/cash_flow_llm_analyst.json').exists()

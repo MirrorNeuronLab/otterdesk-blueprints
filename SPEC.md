@@ -6,6 +6,8 @@ Python workers use Python 3.12, matching the MirrorNeuron runtime and SDK. Pytho
 
 For a configured host output folder such as `~/Downloads/<job name>`, batch
 blueprints put job-level entries declared in `outputs.job_files` at the root.
+General Assistant defaults to `~/Documents/general-assistant` because its
+read-only input defaults to `~/Downloads`.
 The prepared `context_sources/` folder is always a job-level root entry.
 Each run's remaining output belongs in `run_<timestamp>/`; timestamps use UTC,
 and delivery retries reuse the same folder. Service blueprints publish all

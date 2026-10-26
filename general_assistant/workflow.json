@@ -10,8 +10,8 @@
     {
       "id": "prepare_task",
       "kind": "source",
-      "label": "Receive task in Chat and prepare read-only input",
-      "goal": "Receive task in Chat and prepare read-only input",
+      "label": "Prepare instructions and read-only input",
+      "goal": "Prepare instructions and read-only input",
       "needs": [],
       "control": {
         "timeout_seconds": 900,

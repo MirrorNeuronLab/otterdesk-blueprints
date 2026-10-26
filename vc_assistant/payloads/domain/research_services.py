@@ -20,6 +20,21 @@ class ResearchResources:
     limiter: LlmCallLimiter
 
 
+def reconcile_research_effect(block, *, budget_scope):
+    """Prove that preparation failed before any model/browser admission."""
+    budget = RunActionBudget(block, name="research_actions", scope=budget_scope,
+        client=block.resources.get("workflow_budget"))
+    for action in budget.summary(include_actions=True)["actions"]:
+        if not action["cost"]:
+            continue
+        scope = action.get("scope")
+        if (not isinstance(scope, str) or len(scope) != 64
+                or any(char not in "0123456789abcdef" for char in scope)
+                or scope == budget.scope):
+            return {"state": "unknown"}
+    return {"state": "not_started"}
+
+
 def research_resources(block, state, role, *, need_model=True, need_knowledge=True, budget_scope="review"):
     knowledge, rag = {}, {}
     if need_knowledge:

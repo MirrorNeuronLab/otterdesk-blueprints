@@ -1,6 +1,7 @@
 """Shared, domain-specific model review policy and usage accounting."""
 
 from .common import *
+from mn_blueprint_blocks.context import Capability
 from mn_blueprint_blocks.contracts import BlockError, fingerprint
 from mn_sdk.blueprint_support import BudgetedLlmClient, build_action_budget, build_llm_call_limiter
 from mn_sdk.blueprint_support.step_execution import append_debug
@@ -145,20 +146,6 @@ def actor_review(
             raise ValueError("Financial review belongs to different evidence or configuration")
         state["llm_usage"] = saved["cumulative_usage"]
         return saved["response"]
-    started_path = f"financial/reviews/{step_id}-started.json"
-    if block.store.path(started_path).exists():
-        block.store.commit(started_path, {"identity": identity}, kind="financial_review_start")
-        raise BlockError("outcome_unknown", "Reconcile the interrupted financial review before another model attempt.")
-    raw_llm = build_llm_client(config, state["inputs"], block.resources.get("llm"))
-    before = llm_usage(raw_llm)
-    limit = int((config.get("research_budget") or {}).get("default_actions", (config.get("budgets") or {}).get("default_action_budget", 80)))
-    remaining = max(0, limit - int((state.get("llm_usage") or {}).get("calls", 0)))
-    llm = BudgetedLlmClient(raw_llm,
-        build_action_budget({"research_budget": {"default_actions": remaining}}),
-        require_live=live_llm_requested(config, state["inputs"]),
-        limiter=build_llm_call_limiter(config, fake_mode=fake_llm_requested(config, state["inputs"])),
-        run_dir=block.store.run_dir, observation_writer=append_debug) if raw_llm is not None else None
-    profile = step_model_profile(config, step_id)
     llm_config = config.get("llm") if isinstance(config.get("llm"), dict) else {}
     agents = llm_config.get("agents") if isinstance(llm_config.get("agents"), dict) else {}
     actor_spec = agents.get(step_id) if isinstance(agents.get(step_id), dict) else {}
@@ -178,66 +165,91 @@ def actor_review(
     if fallback:
         default_fallback.update(copy.deepcopy(fallback))
     fallback = default_fallback
-    if llm is None:
-        response = fallback
-    else:
-        block.store.commit(started_path, {"identity": identity}, kind="financial_review_start")
+
+    def review(_request):
         try:
-            response = llm.generate_json(
-                system_prompt=render_prompt(
-                    "actor-review-system.md",
-                    actor_id=step_id,
-                    role=role,
-                    responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
-                    prompt_details=prompt_details,
-                ),
-                user_prompt=json.dumps(
-                    {
-                        "actor_id": step_id,
-                        "role": role,
-                        "task": summary,
-                        "context": redact_value(context),
-                        "knowledge_context": knowledge_context_for_step(active_knowledge, step_id, max_chars=1200),
-                        "output_contract": {
-                            "required_fields": [
-                                "summary",
-                                "key_findings",
-                                "review_questions",
-                                "evidence_gaps",
-                                "risk_flags",
-                                "next_steps",
-                                "confidence",
-                                "review_only",
-                                "source_refs",
-                            ],
-                            "source_ref_rule": "Use only supplied local source_refs or explicitly supplied public source URLs.",
-                            "unknown_rule": "If evidence is absent, say unknown or review-required; never infer a financial fact.",
-                            "size_rule": "Keep summary under 600 characters. Return at most 5 concise items in each list field and at most 12 source_refs. Do not repeat a finding across fields.",
-                        },
-                    },
-                    sort_keys=True,
-                    default=str,
-                ),
-                fallback=fallback,
-            )
+            raw_llm = build_llm_client(config, state["inputs"], block.resources.get("llm"))
         except BlockError:
             raise
         except Exception as exc:
-            if live_llm_requested(config, state["inputs"]):
-                raise RuntimeError(f"Live LLM review failed for {step_id}: {exc}") from exc
+            return {"error": f"Unable to initialize financial review {step_id}: {exc}"}
+        before = llm_usage(raw_llm)
+        limit = int((config.get("research_budget") or {}).get("default_actions", (config.get("budgets") or {}).get("default_action_budget", 80)))
+        remaining = max(0, limit - int((state.get("llm_usage") or {}).get("calls", 0)))
+        llm = BudgetedLlmClient(raw_llm,
+            build_action_budget({"research_budget": {"default_actions": remaining}}),
+            require_live=live_llm_requested(config, state["inputs"]),
+            limiter=build_llm_call_limiter(config, fake_mode=fake_llm_requested(config, state["inputs"])),
+            run_dir=block.store.run_dir, observation_writer=append_debug) if raw_llm is not None else None
+        if llm is None:
+            response = fallback
+        else:
+            try:
+                response = llm.generate_json(
+                    system_prompt=render_prompt(
+                        "actor-review-system.md",
+                        actor_id=step_id,
+                        role=role,
+                        responsibilities="\n".join(f"- {item}" for item in responsibilities) or "- Preserve source-grounded, review-only output.",
+                        prompt_details=prompt_details,
+                    ),
+                    user_prompt=json.dumps(
+                        {
+                            "actor_id": step_id,
+                            "role": role,
+                            "task": summary,
+                            "context": redact_value(context),
+                            "knowledge_context": knowledge_context_for_step(active_knowledge, step_id, max_chars=1200),
+                            "output_contract": {
+                                "required_fields": [
+                                    "summary",
+                                    "key_findings",
+                                    "review_questions",
+                                    "evidence_gaps",
+                                    "risk_flags",
+                                    "next_steps",
+                                    "confidence",
+                                    "review_only",
+                                    "source_refs",
+                                ],
+                                "source_ref_rule": "Use only supplied local source_refs or explicitly supplied public source URLs.",
+                                "unknown_rule": "If evidence is absent, say unknown or review-required; never infer a financial fact.",
+                                "size_rule": "Keep summary under 600 characters. Return at most 5 concise items in each list field and at most 12 source_refs. Do not repeat a finding across fields.",
+                            },
+                        },
+                        sort_keys=True,
+                        default=str,
+                    ),
+                    fallback=fallback,
+                )
+            except BlockError:
+                raise
+            except Exception as exc:
+                if live_llm_requested(config, state["inputs"]):
+                    return {"error": f"Live LLM review failed for {step_id}: {exc}"}
+                response = copy.deepcopy(fallback)
+                response["llm_error"] = str(exc)
+        if not isinstance(response, dict):
             response = copy.deepcopy(fallback)
-            response["llm_error"] = str(exc)
-    block.check()
-    if not isinstance(response, dict):
-        response = copy.deepcopy(fallback)
-    response.setdefault("actor_id", step_id)
-    response.setdefault("llm_config", profile["llm_config"])
-    response.setdefault("model", profile["model"])
-    response.setdefault("runtime_model", profile["runtime_model"])
-    response.setdefault("generated_at", utc_now_iso())
-    delta = usage_delta(before, llm_usage(raw_llm))
-    if delta.get("fallback_calls") and live_llm_requested(config, state["inputs"]):
-        raise RuntimeError(f"Financial review {step_id} requires live model evidence")
+        response.setdefault("actor_id", step_id)
+        response.setdefault("llm_config", profile["llm_config"])
+        response.setdefault("model", profile["model"])
+        response.setdefault("runtime_model", profile["runtime_model"])
+        response.setdefault("generated_at", utc_now_iso())
+        delta = usage_delta(before, llm_usage(raw_llm))
+        if delta.get("fallback_calls") and live_llm_requested(config, state["inputs"]):
+            return {"error": f"Financial review {step_id} requires live model evidence"}
+        return {"response": response, "usage": delta}
+
+    # The shared block journal owns dispatch, response persistence and unknown
+    # outcomes. Save observed failures too, so replay preserves the actual cause
+    # instead of turning a rejected model request into an interrupted review.
+    capability = f"financial_review:{step_id}"
+    block.register_capability(capability, Capability(review, block.revision))
+    outcome = block.invoke(capability, {"identity": identity}, key=step_id)
+    if "error" in outcome:
+        raise RuntimeError(outcome["error"])
+    response, delta = outcome["response"], outcome["usage"]
     cumulative = copy.deepcopy(state.get("llm_usage") or {})
     for key, value in delta.items():
         cumulative[key] = value if key in {"provider", "model"} else int(cumulative.get(key, 0)) + value

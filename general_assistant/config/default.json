@@ -1,11 +1,12 @@
 {
   "inputs": {
     "payload": {
-      "input_folder": ""
+      "input_folder": "~/Downloads",
+      "task": "Summarize the contents of the input folder and save the summary as summary.md in the output folder."
     }
   },
   "outputs": {
-    "folder_path": "~/Downloads/general-assistant"
+    "folder_path": "~/Documents/general-assistant"
   },
   "harness": {
     "recursion_steps": 1,

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 import pytest
-from mn_sdk.blueprints import read_blueprint, resolve_config, compile_blueprint, blueprint_definition
+from mn_sdk.blueprints import read_blueprint, resolve_config, compile_blueprint, blueprint_definition, catalog_record
 from workspace_paths import companion_workspace
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -73,11 +73,12 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     config=json.loads((BLUEPRINT/'config/default.json').read_text())
     execution=json.loads((BLUEPRINT/'execution.json').read_text())
     assert 'output_folder' not in config
-    assert config['inputs']['payload']['repository_url']=='https://github.com/mit-pdos/xv6-riscv'
+    assert not config['inputs']['payload'].get('repository_url')
+    assert config['inputs']['payload']['input_folder'] == ''
     assert execution['job_name']=='software_architecture_advisor'
     assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
     assert config['outputs']['write_run_store'] is True
-    assert config['outputs']['job_files'] == ['data', 'web', 'reports']
+    assert config['outputs']['job_files'] == ['data', 'web', 'reports', 'web_ui.json']
 
     monkeypatch.setenv('HOME',str(tmp_path))
     manifest={
@@ -92,7 +93,31 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     copies=json.loads(prepared.manifest_json)['metadata']['mn_storage']['output_copy']
     assert any(item['target_path']==str(tmp_path/'Downloads/software_architecture_advisor')
                for item in copies)
-    assert all({'data', 'web', 'reports'} <= set(item['job_files']) for item in copies)
+    assert all({'data', 'web', 'reports', 'web_ui.json'} <= set(item['job_files']) for item in copies)
+
+
+def test_delivered_dashboard_keeps_its_handle_beside_the_job_web_folder(tmp_path):
+    from mn_sdk.blueprint_support.shared_outputs import materialize_shared_storage_outputs
+    from mn_sdk_web_ui import static_run_report_handle
+
+    config = json.loads((BLUEPRINT / 'config/default.json').read_text())
+    host = tmp_path / 'shared'
+    submission = host / 'submissions/job'
+    source = submission / 'outputs/runs/review'
+    (source / 'web').mkdir(parents=True)
+    page = b'<html><body>Architecture report</body></html>'
+    (source / 'web/index.html').write_bytes(page)
+    handle = static_run_report_handle(source, 'web/index.html', title='Architecture review', optional=False)
+    (source / 'web_ui.json').write_text(json.dumps(handle))
+    target = tmp_path / 'Downloads/architecture'
+    storage = {'host_root': str(host), 'runtime_root': '/runtime/shared',
+        'host_submission_path': str(submission), 'run_id': 'review', 'output_copy': [{
+            'source_path': '/runtime/shared/submissions/job/outputs/runs/review',
+            'target_path': str(target), 'layout': 'batch', 'job_files': config['outputs']['job_files']}]}
+    result = materialize_shared_storage_outputs(storage, publish_results=False)
+    assert not result['errors']
+    assert (target / 'web/index.html').read_bytes() == page
+    assert json.loads((target / 'web_ui.json').read_text()) == handle
 
 
 def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modules, tmp_path):
@@ -131,26 +156,19 @@ def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modu
         analyze_dependencies(snapshot, nodes, edges, {}, max_dsm_modules=3)
 
 
-def test_desktop_sample_selects_public_repository_without_graph_export(modules):
-    ui=json.loads((BLUEPRINT/'extensions/ui.json').read_text())
+def test_desktop_setup_only_asks_for_an_unfilled_source_folder(modules):
+    ui=catalog_record(read_blueprint(BLUEPRINT), 'software_architecture_advisor')
     guide=ui['setup_guide']
-    sample=guide['sample']['values']
-    fields={field['path']: field for field in guide['fields']}
-    assert guide['sample']['available'] is True
-    assert fields['inputs.payload.goal']['type']=='textarea'
-    assert fields['inputs.payload.goal']['required'] is True
-    assert sample['inputs.payload.goal'].strip()
-    assert len(sample['inputs.payload.goal']) <= 1000
-    assert fields['inputs.payload.graph_export']['path_kind']=='file'
-    assert fields['inputs.payload.input_folder']['activeWhenAny']==[
-        {'key': 'inputs.payload.repository_url', 'equals': ''}
-    ]
-    assert sample['inputs.payload.graph_export']==''
-    assert sample['inputs.payload.input_folder']==''
-    assert modules['intake'].source_input({
-        'repository_url': sample['inputs.payload.repository_url'],
-        'input_folder': sample['inputs.payload.input_folder'],
-    })=='https://github.com/mit-pdos/xv6-riscv.git'
+    assert guide['sample']['available'] is False
+    assert len(guide['fields']) == 1
+    field = guide['fields'][0]
+    assert field['path'] == 'inputs.payload.input_folder'
+    assert field['required'] is True and field['default'] == ''
+    assert field['type'] == 'local_path' and field['path_kind'] == 'directory'
+    assert guide['real']['values'] == {'inputs.payload.input_folder': ''}
+    assert ui['init_config_review']['fields'] == []
+    assert ui['web_ui']['enabled'] is True
+    assert ui['web_ui']['adapter'] == 'static_html' and ui['web_ui']['kind'] == 'output'
     assert modules['intake'].source_input({
         'repository_url': '',
         'input_folder': str(BLUEPRINT/'examples/sample_repository'),
@@ -197,17 +215,14 @@ def test_folder_with_spaces_and_canonical_url(modules,tmp_path):
     assert modules['intake'].source_input({'repository_url':'https://github.com/a/b/'})=='https://github.com/a/b.git'
 
 
-def test_shared_input_validation_accepts_default_and_rejects_missing_source(tmp_path):
+def test_shared_input_validation_requires_a_source_folder_first(tmp_path):
     from mn_sdk import run_input_validation
 
     package = read_blueprint(BLUEPRINT)
     manifest = blueprint_definition(package)
     config = resolve_config(package).data
 
-    assert run_input_validation(BLUEPRINT, manifest, config=config)['ok'] is True
-    missing_config = json.loads(json.dumps(config))
-    missing_config['inputs']['payload'].pop('repository_url')
-    missing = run_input_validation(BLUEPRINT, manifest, config=missing_config)
+    missing = run_input_validation(BLUEPRINT, manifest, config=config)
 
     assert missing['ok'] is False
     issue = missing['issues'][0]

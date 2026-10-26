@@ -6,8 +6,9 @@
   },
   "inputs": {
     "payload": {
-      "monitoring_goal": "Watch approved public/common areas for visible travel-path obstructions, a person appearing down on the floor, or possible spills; distinguish observations from possible risks.",
+      "monitoring_goal": "Watch approved public/common areas and notify when a group of two or more people is visible together, or for visible travel-path obstructions, a person appearing down on the floor, or possible spills; distinguish observations from possible risks.",
       "visual_targets": [
+        "a group of people is visible",
         "visible travel-path obstruction",
         "person appears down on the floor",
         "possible spill or floor hazard"
@@ -17,6 +18,7 @@
         "min_confidence": 0.65,
         "cooldown_seconds": 30,
         "notify_on": [
+          "a group of people is visible",
           "visible travel-path obstruction",
           "person appears down on the floor",
           "possible spill or floor hazard"

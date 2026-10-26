@@ -2,11 +2,14 @@
 
 ## Product contract
 
-Version 2.0.0 has two setup fields: input folder and output folder. The input
-folder is required, readable task material, including Markdown and source code.
-The human types tasks and subsequent decisions in Chat. Task text may also be
-supplied as a per-run input; it is not saved setup configuration. If absent,
-admission requests it through the standard human-interaction channel.
+Version 2.1.0 has three setup fields: input folder, output folder and instructions.
+Input defaults to `~/Downloads`; instructions default to summarizing its contents
+into `summary.md` in output. Output defaults to `~/Documents/general-assistant`
+so generated files remain outside the read-only input folder. Input is required,
+readable task material, including Markdown and source code. Instructions are
+saved configuration and may be overridden by an explicit per-run task. If absent,
+admission requests a task through the standard human-interaction channel.
+Subsequent clarification questions and human decisions remain in Chat.
 
 The co-worker handles general writing, analysis, planning, document and software
 tasks. For Java-to-Rust conversion, it reads Java input and creates the Rust
@@ -54,8 +57,8 @@ The outer OpenShell policy continues to authorize binaries, hosts and HTTP route
 ## Conversation contract
 
 Core remains the authority for human notices, questions and response receipts.
-Task entry uses a blocking missing-information request. Solver work/refinement
-and result-ready notifications use nonblocking notices. OtterDesk's existing
+Missing task instructions use a blocking missing-information request. Solver
+work/refinement and result-ready notifications use nonblocking notices. OtterDesk's existing
 interaction subscription and reply controls present these in Chat. Standard Job
 MCP tools retain lifecycle supervision; human replies use the Core interaction
 contract. There is no new domain MCP tool or alternate conversation store.
@@ -93,13 +96,14 @@ access are explicit limitations, not successful checks.
 ## Outputs and evaluation
 
 Public results are result.json, answer.md, harness-audit.json and generated
-files under deliverables/. Private memory, CLI state and raw session context are
-not exported. The SDK/Core deliver declared outputs to the configured output
+files under deliverables/. The default task creates deliverables/summary.md.
+Private memory, CLI state and raw session context are not exported. The SDK/Core
+deliver declared outputs to the configured output
 folder using standard run_<timestamp> layout.
 
-Acceptance compiles the source package, verifies exactly two setup fields and
-32 GB/default-model contracts, exercises both actual Harness2 recursion modes
-with deterministic sessions, checks task entry and clarification continuation,
+Acceptance compiles the source package, verifies the three setup fields,
+Downloads/summary defaults and 32 GB/default-model contracts, exercises both actual
+Harness2 recursion modes with deterministic sessions, checks task entry and clarification continuation,
 rejects foreign/expired replies, preserves Markdown and source, and verifies
 private memory, replay, quotas and declared publication. Shared skill tests
 exercise actual Linux write/rename/delete/truncation/hardlink/symlink/descendant
@@ -108,7 +112,9 @@ model, authentication and desktop conversation acceptance are deployment checks.
 
 ## Limits and compatibility
 
-Deploy matching OpenCode scope support before distributing this major version.
+Deploy matching OpenCode scope support before distributing the 2.x package.
+The 2.1.0 defaults apply to newly configured co-workers; existing saved settings
+are not rewritten. Per-run tasks and Core clarification replies remain compatible.
 Internal gateway/Core addresses and recursion budgets remain deployment defaults,
 not customer setup fields. Default egress is model, controller RPC and declared
 GitHub reads. Input, task and private context may be visible to the configured

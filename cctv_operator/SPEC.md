@@ -1,4 +1,4 @@
-# CCTV Operator 5.1.1 specification
+# CCTV Operator 5.2.0 specification
 
 ## Purpose and scope
 
@@ -10,14 +10,22 @@ response, identity tracking, injury diagnosis or legal-compliance certification.
 
 ## Product policy
 
-Factory rules are blocked_route, vehicle_proximity and uncovered_head. Hotel rules
-are blocked_route, person_on_floor and possible_spill. site.profile selects these
-and the default notification goal atomically; a blank/omitted monitoring_goal uses
+Factory rules are group_presence, blocked_route, vehicle_proximity and uncovered_head.
+Hotel rules are group_presence, blocked_route, person_on_floor and possible_spill.
+site.profile selects these and the default notification goal atomically; a blank/omitted monitoring_goal uses
 that goal. An explicit custom/Chat goal replaces it. Omitted rules are unexamined.
 Custom profile uses explicit operator direction without built-in facility rules.
 site.rule_ids can select unique rules within its profile. Up to twelve normalized
 named full-view rectangles guide interpretation only. They never imply privacy
 masking or metric calibration. Hotel use is limited to approved common areas.
+
+group_presence means at least two real people visible together in the same selected
+frame. It is a low-severity observation independent of hazards, movement or helmet
+status. The first matching sample can notify even if the group is already present
+at startup; arrival requires reliable sampled before-and-after evidence. One person
+across multiple frames is not a group. Possible/unclear views do not notify. Existing
+per-rule confidence, absence rearming and cooldown apply through the Cosmos notice
+path; this policy does not promise inference or end-to-end latency.
 
 Every site finding follows the bounded contract: rule_id, observed/possible/
 not_observed status, confidence in 0..1, visible_evidence (<=800 chars) and unique
@@ -111,6 +119,10 @@ Local source files must exist on the submitter; missing files fail explicitly.
 entrypoint. Domain `live_service` hooks own the demo publisher process group,
 private MCP/relay listeners, resident monitor, first-frame readiness and UI claim.
 The SDK supplies lifecycle supervision, per-cycle health and hashed progress.
+Its service UI helper owns execution/run identity, generation and claim status;
+the blueprint must not override those reserved metadata fields. Startup health
+promotes the claim to running, and cleanup preserves SDK ownership bookkeeping
+so stopped/failed updates cannot overwrite a replacement generation.
 Listener health/checkpoints run every60s, independently of camera/person/caption
 timing. Lane failures keep their existing separate visible health; they neither
 certify absence nor automatically kill the other lane. Startup failure closes

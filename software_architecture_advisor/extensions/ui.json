@@ -6,95 +6,27 @@
   },
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Try the public example repository or choose a local source folder.",
+    "introduction": "Choose the source code folder to review.",
     "sample": {
-      "available": true,
-      "title": "xv6 example",
-      "description": "Explore the public xv6 RISC-V kernel, component relationships and function changes.",
-      "expected_output": "An interactive component and function evolution map, focused architecture review and cited next steps.",
-      "values": {
-        "inputs.payload.goal": "Explain xv6 component boundaries and critical call paths, show function development in the captured Git window, and recommend the most useful next decision with evidence and limitations.",
-        "inputs.payload.repository_url": "https://github.com/mit-pdos/xv6-riscv",
-        "inputs.payload.input_folder": "",
-        "inputs.payload.graph_export": ""
-      }
+      "available": false,
+      "values": {}
     },
     "real": {
-      "introduction": "Enter a public GitHub repository URL or choose a local source folder.",
+      "introduction": "Choose the source code folder to review.",
       "values": {
-        "inputs.payload.repository_url": "",
-        "inputs.payload.input_folder": "",
-        "inputs.payload.graph_export": ""
+        "inputs.payload.input_folder": ""
       }
     },
     "fields": [
       {
-        "path": "opencode.model",
-        "label": "OpenCode review model",
-        "type": "select",
-        "required": true,
-        "choices": [
-          {
-            "label": "Runtime default",
-            "value": "mn/default"
-          },
-          {
-            "label": "Muse Spark 1.3 FreeOpenCode Zen",
-            "value": "opencode/muse-spark-1.3-contributor-free"
-          },
-          {
-            "label": "Muse Glimmer 30BLocal Spark",
-            "value": "spark/muse-glimmer-30b"
-          }
-        ],
-        "description": "Choose the runtime model used for every review task. Muse choices require a registered model route."
-      },
-      {
-        "path": "inputs.payload.goal",
-        "label": "Decision to support",
-        "type": "textarea",
-        "required": true,
-        "description": "Describe the architecture decision, important journey or failure scenario, and any constraints the review should prioritize."
-      },
-      {
-        "path": "inputs.payload.repository_url",
-        "label": "Repository URL",
-        "type": "url",
-        "default": "https://github.com/mit-pdos/xv6-riscv",
-        "description": "Public GitHub repository root. Leave empty when using a local folder."
-      },
-      {
         "path": "inputs.payload.input_folder",
-        "label": "Source folder",
+        "label": "Source code folder",
         "type": "local_path",
         "path_kind": "directory",
         "role": "input",
-        "requiredModes": [
-          "real"
-        ],
-        "activeWhenAny": [
-          {
-            "key": "inputs.payload.repository_url",
-            "equals": ""
-          }
-        ],
-        "description": "Local source folder, staged for the worker."
-      },
-      {
-        "path": "inputs.payload.graph_export",
-        "label": "Graph export",
-        "type": "local_path",
-        "path_kind": "file",
-        "role": "input",
-        "description": "Optional evidence graph export file."
-      },
-      {
-        "path": "inputs.payload.review_file",
-        "label": "Review decisions",
-        "type": "local_path",
-        "path_kind": "file",
-        "role": "input",
-        "description": "Optional architecture-reviews.json exported from the dashboard. Decisions are bound to repository and evidence identity."
+        "required": true,
+        "default": "",
+        "description": "Choose the local source code folder to review."
       }
     ]
   },
@@ -104,11 +36,16 @@
     "Which callers, components and tests should we inspect before changing a hotspot?"
   ],
   "web_ui": {
+    "enabled": true,
+    "kind": "output",
+    "adapter": "static_html",
+    "title": "Architecture review",
+    "description": "Explore the architecture report and source evidence in the conversation workspace.",
     "data_source": "job_data_and_run_artifacts",
-    "preferred_adapter": "static_html",
-    "static_html": {
+    "registration": {
       "artifact": "web/index.html",
-      "writes": "web_ui.json handle; offline page renders retained real snapshot data"
+      "scope": "run",
+      "writes": "static-html web_ui.json handle in the run output"
     }
   }
 }

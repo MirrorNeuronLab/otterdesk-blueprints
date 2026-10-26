@@ -21,8 +21,8 @@
     "agent_role": "General problem solver",
     "benefit": "Gets useful work done and learns evidence-supported working methods across tasks.",
     "how_it_works": "Harness2 executes, proposes harness changes, probes them, composes a refined harness, and retains adopted harnesses and lessons inside its own context.",
-    "input": "Input folder and output folder at setup; tasks and decisions typed in Chat.",
-    "output": "Answer, generated files and an observed Harness2 refinement audit in the output folder.",
+    "input": "Input folder, output folder and instructions at setup; clarifications and decisions in Chat. Defaults to summarizing Downloads.",
+    "output": "A summary.md file by default, an answer, generated files and an observed Harness2 refinement audit in the output folder.",
     "runtime_features": [
       "General tasks",
       "OpenShell isolation",
@@ -31,6 +31,6 @@
       "Private persistent Harness2 memory",
       "Recursive self-improvement"
     ],
-    "customizable_for": "Input and output folders. Give task goals and constraints in Chat."
+    "customizable_for": "Input and output folders and instructions. Answer clarification questions in Chat."
   }
 }

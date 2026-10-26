@@ -18,6 +18,12 @@ The durable data plane is the run filesystem. The live message plane is acknowle
 
 The workflow requests `manual_recover`. Redis retains bounded live coordination state, but a lost runtime lease does not trigger repeated automatic reconstruction of the full 46-agent graph. The supported recovery path is to submit a fresh run against the same durable inputs and filesystem artifacts; completed artifact writes and invocation idempotency records make that rerun safe.
 
+Within an invocation, research planning and collection reconcile their effect
+intent against the Core-owned action ledger. Preparation may retry only when
+that invocation's budget scope has no admitted action. Unknown model/browser
+outcomes stay fenced; unrelated specialists' actions do not establish dispatch
+for this invocation. Required knowledge retrieval retains its original failure.
+
 Production code follows a strict ownership boundary. `payloads/steps` owns orchestration declarations, the SDK block worker owns execution, `payloads/domain` owns VC-specific evidence/research/valuation/report policy, and `payloads/runtime` owns runtime context and shared-service preparation. Domain-neutral message envelopes, artifact references, durable replay, document intake utilities, and control agents belong to the SDK, reusable agents, and skills. No aggregate `agents/domain.py` compatibility module is permitted.
 
 Every scorer registry ID resolves to a distinct stock block binding and domain hook. The shared scorer executor handles durable queue mechanics, while deterministic formulas remain individually inspectable under `domain/valuation` (`first_chicago.py`, `berkus.py`, `scorecard.py`, and the other method modules).
@@ -195,6 +201,12 @@ and local-budget loaders are removed; workflow-state files are inspection views.
 Domain formulas and StepSpec joins remain intact. Metadata traces preserve local
 records plus upstream specialist-qualified observations; private initialization
 diagnostics may be absent from the aggregate, explicitly qualified in coverage.
+Company coverage timestamps come from the frozen report clock. Every company,
+batch and source publication freezes its complete byte inventory through the SDK
+before the first receipt. Completed source preparation is reused after interruption,
+including a crash after receipts but before the enclosing phase checkpoint. Receipt
+verification remains strict; retries do not replace changed or corrupt artifacts.
+The matching SDK and re-prepared Job definitions are required for this behavior.
 Main SDK requires dev27, blocks dev27, common dev25 and coordinated Core support.
 Core keeps delivery and logical completion. Full catalog migration still includes
 unfinished CCTV event hooks; no live provider/device qualification is claimed.

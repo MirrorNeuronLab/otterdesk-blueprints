@@ -11,6 +11,7 @@ from .improvement_prompts import markdown as prompts_markdown
 from .catalog_store import CatalogStore
 from .code_map import render as render_map
 from mn_web_report_skill import write_assets
+from mn_sdk_web_ui import static_run_report_handle
 
 
 def render(workspace, index, *, historical=False):
@@ -91,10 +92,8 @@ def publish(block, report, registers, *, workspace=None, review_file=None):
         atomic(web / 'review-register.html', render_register(latest, index).encode('utf-8'))
         shutil.copytree(store / 'data', root / 'data', dirs_exist_ok=True)
         shutil.copytree(web, root / 'web', dirs_exist_ok=True)
-    page = (root / 'web/index.html').resolve()
-    handle = {'kind': 'output', 'adapter': 'static_html', 'title': 'Architecture investigation',
-        'path': str(page), 'url': page.as_uri(), 'metadata': {'renderer': 'static_html',
-        'snapshot': latest['snapshot_id'], 'publication': latest['id'], 'read_only_source': True}}
+    handle = static_run_report_handle(root, 'web/index.html', title='Architecture review', optional=False)
+    handle['metadata'].update(snapshot=latest['snapshot_id'], publication=latest['id'], read_only_source=True)
     atomic(root / 'web_ui.json', json_bytes(handle))
     refs = [artifact_reference('architecture_workspace', 'data/workspace.json'),
         artifact_reference('architecture_history', 'data/index.json'),

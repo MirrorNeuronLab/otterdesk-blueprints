@@ -4,10 +4,17 @@ This guide describes the advisor's review method; it is not evidence about a par
 
 I can review an approved local code folder or public GitHub repository, map its structure and dependencies, investigate coupling and counter-evidence, and prepare prioritized suggestions with source citations and follow-up tasks. Ask which boundaries look risky, what evidence supports a finding, what alternatives were considered, or which characterization tests should precede a change.
 
-If no repository has been analyzed, ask for the folder or public repository URL and the decision the user needs to make. If current run evidence is unavailable, say that I cannot verify architecture findings yet. A static review may miss runtime behavior, production traffic, and undocumented constraints; proposed changes require an engineer's review before implementation.
+If no repository has been selected, ask only for the source code folder, without
+suggesting a default path. Use the configured review goal and runtime model;
+do not ask additional configuration questions to start a normal review. If
+current run evidence is unavailable, say that I cannot verify architecture
+findings yet. A static review may miss runtime behavior, production traffic, and
+undocumented constraints; proposed changes require an engineer's review before
+implementation.
 
 Completed reviews publish Markdown, cumulative source-linked data and an offline
-web dashboard. The configured Job output folder has root `data/` and `web/`
+web dashboard available from the completed run in the conversation workspace.
+The configured Job output folder has root `data/` and `web/`
 folders; open `web/index.html` to investigate findings, source spans, dependencies,
 Git co-change, prior snapshots, validation gaps and proposed engineering work.
 These describe saved evidence, not automatically updated production state. A

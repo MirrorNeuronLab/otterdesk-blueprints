@@ -112,7 +112,8 @@ class Model:
         return value
 
     def generate_json(self, *, system_prompt, user_prompt, response_schema, schema_name, **kwargs):
-        return self.completion_json(system_prompt, user_prompt)
+        value = self.completion_json(system_prompt, user_prompt)
+        return {'decision': value} if 'decision' in response_schema.get('properties', {}) else value
 
 
 def extracted():
@@ -210,6 +211,55 @@ def test_schema_calls_do_not_fall_back_when_injected_client_is_not_strict(module
     llm = sdk_llm.LLMClient(strict=False, provider='openai', model='example', num_retries=0)
     with pytest.raises(sdk_llm.LLMError):
         model.ask(llm, 'extract.md', {'document': {'text': 'Synthetic source'}})
+
+
+def test_verification_uses_object_root_schema_through_real_sdk(modules, context, authority, monkeypatch):
+    """Strict routes reject root unions before returning any model response."""
+    from jsonschema import validate
+    from mn_sdk.llm import LLMClient
+    import mn_sdk.llm as sdk_llm
+
+    modules['intake'].capture(context, context.resources['inputs'])
+    modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
+    authority.approve(context)
+    responses = iter([{'action': 'search', 'query': 'name'}, reading(), judgment(),
+                      reading(), judgment('fail', .8)])
+    calls = []
+
+    def strict_route(messages, config, **kwargs):
+        schema = config.structured_output_options['response_format']['json_schema']['schema']
+        if schema.get('type') != 'object' or 'anyOf' in schema:
+            raise RuntimeError('The response schema root must be an object.')
+        assert schema['required'] == ['decision'] and schema['additionalProperties'] is False
+        for branch in schema['properties']['decision']['anyOf']:
+            assert branch['properties']['action']['type'] == 'string'
+        action = next(responses)
+        action.pop('evidence', None)  # Only trusted code may supply source text.
+        body = {'decision': action}
+        validate(body, schema)
+        calls.append(json.loads(messages[1]['content']))
+        return {'choices': [{'message': {'content': json.dumps(body)}, 'finish_reason': 'stop'}],
+                'usage': {'prompt_tokens': 100, 'completion_tokens': 50, 'total_tokens': 150}}
+
+    monkeypatch.setattr(sdk_llm, '_completion_request', strict_route)
+    llm = LLMClient(strict=True, provider='openai', model='test', num_retries=0)
+    modules['verification'].verify(context, phase_inputs(context), llm=llm)
+    results = modules['artifacts'].read(context, 'verification.json')['results']
+    assert [r['status'] for r in results] == ['pass', 'fail']
+    assert len(calls) == 5 and all(r['evidence'][0]['quote'] == IMPLEMENTATION for r in results)
+
+
+def test_initial_source_folder_is_required_and_has_no_suggested_path():
+    from mn_sdk.blueprints import catalog_record, read_blueprint
+
+    package = read_blueprint(PACKAGE)
+    definition = catalog_record(package, 'code_verifier')
+    field = definition['init_config_review']['fields'][0]
+    assert field['path'] == 'inputs.payload.input_folder'
+    assert field['required'] is True and field['default'] == ''
+    assert definition['setup_guide']['sample']['available'] is False
+    assert definition['setup_guide']['real']['values'][field['path']] == ''
+    assert package.document('config')['inputs']['payload']['input_folder'] == ''
 
 
 def test_editable_shared_markdown_retains_host_readable_permissions(modules, context):
@@ -1515,6 +1565,10 @@ def test_native_publication_retains_more_than_one_bundle_of_source_files(modules
     assert published['summary'] == {'pass': 2}
     assert {item['id'] for item in published['artifacts']} == {
         'final_artifact', 'result', 'report', 'rules_markdown', 'web_report', 'web_ui'}
+    from mn_sdk.integrations.block_publication_files import verified_files, optional_files
+    exported = verified_files(context, published['published_files'])
+    assert {'report.md', 'result.json', 'rules.md', 'web/index.html', 'web_ui.json'} <= exported.keys()
+    assert optional_files(context, published['published_files']) == {'web/index.html', 'web_ui.json'}
     for number in range(130):
         assert context.store.path(f'source/extra/module_{number}.py').read_text() == f'value = {number}\n'
         assert (context.resources['output_folder'] / f'source/extra/module_{number}.py').is_file()

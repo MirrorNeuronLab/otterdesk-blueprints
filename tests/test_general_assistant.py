@@ -40,13 +40,13 @@ def domain(monkeypatch):
 
 def context(tmp_path, *, job="job-one", run="run-one", step="prepare_task", config=None):
     config = copy.deepcopy(config or resolve_config(read_blueprint(BLUEPRINT)).data)
-    if not config["inputs"]["payload"].get("input_folder"):
+    if config["inputs"]["payload"].get("input_folder") in {None, "", "~/Downloads"}:
         folder = tmp_path / "configured-input"
         folder.mkdir(exist_ok=True)
         (folder / "notes.md").write_text("# Supporting notes\nSynthetic task material.")
         config["inputs"]["payload"]["input_folder"] = str(folder)
     return BlockContext(store=CommittedJsonStore(tmp_path / run), invocation_id=run + ":" + step,
-        revision="general_assistant@2.0.0", config=config,
+        revision="general_assistant@2.1.0", config=config,
         job_id=job, run_id=run, step_id=step, job_data_dir=str(tmp_path / job))
 
 
@@ -67,8 +67,18 @@ def test_catalog_default_model_memory_and_openshell_boundary():
     assert config["artifact_handoff"]["version"] == "mn.artifact_handoff/v1"
     assert not config.get("sync_shared_storage")
     fields = package.extension("mn.ui")["init_config_review"]["fields"]
-    assert [field["path"] for field in fields] == ["inputs.payload.input_folder", "outputs.folder_path"]
-    assert "task" not in resolve_config(package).data["inputs"]["payload"]
+    assert [field["path"] for field in fields] == [
+        "inputs.payload.input_folder", "outputs.folder_path", "inputs.payload.task"]
+    defaults = resolve_config(package).data
+    assert defaults["inputs"]["payload"]["input_folder"] == "~/Downloads"
+    assert defaults["inputs"]["payload"]["task"] == (
+        "Summarize the contents of the input folder and save the summary as summary.md in the output folder.")
+    assert defaults["outputs"]["folder_path"] == "~/Documents/general-assistant"
+    for field in fields:
+        value = defaults
+        for key in field["path"].split("."):
+            value = value[key]
+        assert field["default"] == value
     assert config["pass_env"] == ["MN_GRPC_AUTH_TOKEN", "MN_LLM_API_KEY"]
     assert_modular_payload("general_assistant")
     assert_registry_handlers_import("general_assistant")
@@ -111,7 +121,9 @@ def test_admission_is_private_immutable_and_replayable(domain, tmp_path):
 
 
 def test_task_is_typed_in_conversation_and_markdown_is_readable(domain, tmp_path, conversation_events):
-    block = context(tmp_path)
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    config["inputs"]["payload"].pop("task")
+    block = context(tmp_path, config=config)
     admitted = domain.intake.prepare(block, {})
     request = block.store.read(admitted["request"])["data"]
     assert request["task"] == "Convert the Java code to Rust"
@@ -122,7 +134,17 @@ def test_task_is_typed_in_conversation_and_markdown_is_readable(domain, tmp_path
     assert len(conversation_events) == 1
 
 
-def test_compiled_workers_receive_task_in_chat_and_publish_output(domain, monkeypatch, tmp_path, conversation_events):
+@pytest.mark.parametrize("task", [None, "Use this task just for this run."])
+def test_saved_instructions_apply_unless_a_run_overrides_them(domain, tmp_path, conversation_events, task):
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    config["inputs"]["payload"]["task"] = "Use these saved instructions."
+    block = context(tmp_path, config=config)
+    admitted = domain.intake.prepare(block, {"task": task})
+    assert block.store.read(admitted["request"])["data"]["task"] == (task or "Use these saved instructions.")
+    assert not any(event["type"] == "human_input_requested" for event in conversation_events)
+
+
+def test_compiled_workers_use_default_instructions_and_publish_summary(domain, monkeypatch, tmp_path, conversation_events):
     pytest.importorskip("harness2")
     from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run
@@ -150,9 +172,9 @@ def test_compiled_workers_receive_task_in_chat_and_publish_output(domain, monkey
     store = CommittedJsonStore(tmp_path / "run")
     prepared = store.read(result.outputs["result"])
     request = store.read(prepared["request"])["data"]
-    assert request["task"] == "Convert the Java code to Rust"
+    assert request["task"] == config.data["inputs"]["payload"]["task"]
     assert set(request["attachments"]) == {"notes.md"}
-    assert conversation_events[0]["type"] == "human_input_requested"
+    assert not any(event["type"] == "human_input_requested" for event in conversation_events)
     engine = importlib.import_module("domain.engine")
     monkeypatch.setattr(engine, "run_opencode", SimulatedModel())
     monkeypatch.setattr(domain.solver, "require_openshell", lambda: None)
@@ -167,6 +189,12 @@ def test_compiled_workers_receive_task_in_chat_and_publish_output(domain, monkey
     published = store.read(result.outputs["result"])
     assert published["status"] == "completed"
     assert store.read_path("result.json")["deliverables"]
+    assert store.read_bytes(published["artifacts"]["deliverables"]["summary.md"]) == b"# Summary\nSynthetic Markdown material.\n"
+    from mn_sdk.integrations.block_publication_files import deliver_files
+    step_block = context(tmp_path, run="run", step="publish_task", config=config.data)
+    step_block.environment = {"MN_JOB_OUTPUT_DIR": str(tmp_path / "delivered")}
+    deliver_files(step_block, published["published_files"])
+    assert (tmp_path / "delivered/deliverables/summary.md").is_file()
     assert (source / "notes.md").read_text() == "# Synthetic Markdown material"
     assert any(event["payload"].get("message", "").startswith("Your results are ready")
                for event in conversation_events)
@@ -239,6 +267,9 @@ class SimulatedModel:
         else:
             (folder / "output/answer.md").write_text("# Result\nThe checked answer is 42.\n")
             (folder / "output/data.txt").write_text("42\n")
+            if "summary.md" in (folder / "TASK.md").read_text():
+                assert "Synthetic Markdown material" in (folder / "input/notes.md").read_text()
+                (folder / "output/summary.md").write_text("# Summary\nSynthetic Markdown material.\n")
             assert folder / "input" not in request.writable_paths
             assert folder not in request.writable_paths
             assert request.writable_paths[0] == folder / "output"
@@ -378,5 +409,8 @@ def test_solver_question_waits_for_real_conversation_reply(domain, monkeypatch, 
 def test_missing_or_foreign_human_reply_cannot_resume_task(domain, monkeypatch, tmp_path, event):
     conversation = importlib.import_module("domain.conversation")
     monkeypatch.setattr(conversation.human_interactions, "await_human_decision", lambda *args, **kwargs: event)
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    config["inputs"]["payload"].pop("task")
+    block = context(tmp_path, config=config)
     with pytest.raises(RuntimeError, match="reply in Chat"):
-        domain.intake.prepare(context(tmp_path), {})
+        domain.intake.prepare(block, {})

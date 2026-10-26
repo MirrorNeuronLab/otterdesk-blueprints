@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.1 specification
+# Architecture Advisor 7.0.2 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -18,11 +18,12 @@ failed tasks and capped source packets remain visible; they never imply health.
 
 ## Source input
 
-The default source is the public repository
-`https://github.com/mit-pdos/xv6-riscv`. Supply exactly one public
-HTTPS GitHub repository root URL or local source folder. Clear
-`inputs.payload.repository_url` when choosing `inputs.payload.input_folder`.
-Changing the source requires a new run.
+Initial setup asks only for the local source code folder. It is required and
+starts empty; there is no sample/default source or additional setup question.
+The default model, review goal and focused review policy remain preconfigured.
+Advanced command-line configuration may supply a public HTTPS GitHub repository
+root URL instead. Exactly one source must be selected. Changing the source
+requires a new run.
 
 Capture includes code files only. Documents (including Markdown), JSON/YAML/TOML
 data and sample datasets do not enter frozen sources, retrieval, source packets
@@ -88,7 +89,7 @@ SDK `>=1.4.1.dev15` is the minimum runtime contract. Definition creation and
 bundle replacement use its bounded submission deadline, with the matching Core
 owner-forwarding deadline. This does not change task or model-call allowances.
 
-`opencode.model` is operator-configurable and exposed in setup. Its default
+`opencode.model` is operator-configurable through advanced configuration. Its default
 is `mn/default`, the runtime's model selection, including a registered API
 default. `mn/<catalog-id>` selects
 a particular runtime model. Existing Muse display labels normalize to their
@@ -153,7 +154,7 @@ reports state the terminal reason, task status and source omissions.
 
 The final publication phase produces real source-linked JSON, Markdown and an
 offline interactive dashboard from the same validated records. `outputs.job_files`
-declares `data`, `reports` and `web`; SDK host delivery places them at the configured Job
+declares `data`, `reports`, `web` and `web_ui.json`; SDK host delivery places them at the configured Job
 folder root (`~/Downloads/software_architecture_advisor`) and leaves ordinary
 audit outputs in their standard run folders. The blueprint does not derive host
 paths or perform a separate data/web host copy.
@@ -166,6 +167,11 @@ UI composition belongs to focused domain modules and bundled local assets;
 there is no dashboard service, entrypoint or runtime health dependency. The web
 artifact is required by this product contract: failure remains explicit with
 already-published data/Markdown preserved.
+
+The UI extension enables `static_html` output in the conversation workspace.
+Publication registers and delivers `web_ui.json` with the report page, including
+its verified byte count and digest. The existing runtime proxy serves the page;
+the blueprint starts no service and changes no runtime behavior.
 
 Version 3.8.2 also selects the complete published `report.md` and the section
 Markdown produced by that publication as conversation sources. The declared

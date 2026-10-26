@@ -5,7 +5,8 @@ import threading
 import time
 from http.client import HTTPConnection
 
-from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
+from mn_sdk.integrations.service_web_ui import claim_service_web_ui
+from mn_sdk_web_ui import resolve_web_ui_binding
 
 DEMO_LAUNCHER = "/opt/cctv-demo/start_demo_stream.sh"
 
@@ -27,7 +28,6 @@ def start(block, inputs):
     from services import cctv_web_ui as ui
 
     resources = block.resources
-    resources["job_data"] = ui.configured_job_data_dir(block.job_id)
     start_demo(block.config)
     service = ui.CCTVWebUIService(
         run_id=block.run_id, run_dir=block.store.run_dir, config=dict(block.config)
@@ -61,17 +61,15 @@ def start(block, inputs):
         and not service.preview_stream.wait_for_first_frame()
     ):
         raise RuntimeError("CCTV Web UI preview did not produce a video frame")
-    claim_web_ui(
-        resources["job_data"],
-        job_id=block.job_id,
+    claim_service_web_ui(
+        block,
         title="CCTV Operator",
         url=ui.public_service_url(binding.host, port),
         service_name=ui.WEB_UI_SERVICE_NAME,
         node_id=ui.WEB_UI_NODE_ID,
         http_ports=[port],
-        metadata={"run_id": block.run_id, "upstream": "cctv-operator-docker-worker"},
+        metadata={"upstream": "cctv-operator-docker-worker"},
     )
-    resources["claimed"] = True
 
 
 def _ready(port):
@@ -102,27 +100,20 @@ def cycle(block, inputs):
 def stop(block, inputs):
     resources = block.resources
     try:
-        if resources.get("claimed"):
-            mark_web_ui_status(
-                resources["job_data"],
-                job_id=block.job_id,
-                status="stopped",
-                detail="The CCTV service is paused or cancelled.",
-            )
+        if "server" in resources:
+            resources["server"].stop()
+        elif "service" in resources:
+            resources["service"].stop()
     finally:
         try:
-            if "server" in resources:
-                resources["server"].stop()
-            elif "service" in resources:
-                resources["service"].stop()
+            if "mcp" in resources:
+                resources["mcp"].stop()
         finally:
-            try:
-                if "mcp" in resources:
-                    resources["mcp"].stop()
-            finally:
-                if (
-                    "web_thread" in resources
-                    and resources["web_thread"].ident is not None
-                ):
-                    resources["web_thread"].join(timeout=3)
-                resources.clear()
+            if (
+                "web_thread" in resources
+                and resources["web_thread"].ident is not None
+            ):
+                resources["web_thread"].join(timeout=3)
+            # The SDK still needs its claim ownership to publish stopped/failed.
+            for key in ("service", "mcp", "server", "web_thread"):
+                resources.pop(key, None)

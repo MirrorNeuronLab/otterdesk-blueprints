@@ -28,6 +28,10 @@ def ask(llm, prompt, packet):
         response_schema=response_schema(prompt), schema_name='software_review_response')
     if not isinstance(result, dict):
         raise ValueError('Model did not return a JSON object.')
+    if prompt == 'verify.md':
+        result = result.get('decision')
+        if not isinstance(result, dict):
+            raise ValueError('Model did not return a verification decision object.')
     return result
 
 

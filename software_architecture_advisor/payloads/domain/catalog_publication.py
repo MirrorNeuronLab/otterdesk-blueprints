@@ -165,7 +165,7 @@ def write_review(block, report, files, results, *, output_folder=None, review_fi
         names += [str(path.relative_to(root)) for directory in ('data','web','reports')
                   for path in sorted((root/directory).rglob('*')) if path.is_file()]
         names += [path for _,path in static_paths]
-        for name in dict.fromkeys([*names, "review_index.json"]):
+        for name in dict.fromkeys([*names, "web_ui.json", "review_index.json"]):
             copy_path_to_host(root / name, Path(output_folder) / name)
     publish_outputs(block, output_folder=output_folder, section_paths=[path for _, path in links])
     refs = [
@@ -221,7 +221,7 @@ def publish(block, inputs):
             kind='json' if name.endswith('.json') else 'markdown' if name.endswith('.md') else 'bytes',
             authoritative=name.endswith('.json'))
         for name, reference in frozen.items()
-        if name == 'review_index.json' or name.startswith(('data/', 'web/', 'reports/'))
+        if name in {'review_index.json', 'web_ui.json'} or name.startswith(('data/', 'web/', 'reports/'))
     ], name='architecture_review')
     # Existing exports preserve cumulative Job history. Register this run's
     # frozen public files without replacing those product-owned host copies.

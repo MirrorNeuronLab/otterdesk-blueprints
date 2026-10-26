@@ -107,8 +107,8 @@
   "inputs": {
     "adapter": "json",
     "payload": {
-      "repository_url": "https://github.com/mit-pdos/xv6-riscv",
-      "goal": "Explain the component graph and critical call paths, show how functions and coupling evolved in the captured Git window, identify change hotspots and blast radius, and recommend the next useful decisions with exact evidence and limitations."
+      "goal": "Explain the component graph and critical call paths, show how functions and coupling evolved in the captured Git window, identify change hotspots and blast radius, and recommend the next useful decisions with exact evidence and limitations.",
+      "input_folder": ""
     }
   },
   "outputs": {
@@ -120,7 +120,8 @@
     "job_files": [
       "data",
       "web",
-      "reports"
+      "reports",
+      "web_ui.json"
     ]
   },
   "offline": false,

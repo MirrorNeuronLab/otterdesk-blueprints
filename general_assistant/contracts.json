@@ -6,7 +6,7 @@
       "type": "string",
       "required": false,
       "privacy": "confidential",
-      "description": "The task typed in Chat when a run starts, or supplied as a per-run input. Never a saved setup field."
+      "description": "Saved instructions for each run. Defaults to summarizing the input folder into summary.md. A per-run task overrides these instructions; if absent, ask in Chat."
     },
     "input_folder": {
       "type": "local_path",

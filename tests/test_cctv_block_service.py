@@ -33,7 +33,7 @@ def test_camera_service_block_owns_real_listeners_and_cleans_partial_start(
     monkeypatch.syspath_prepend(str(bundle / "payloads"))
     ui = importlib.import_module("services.cctv_web_ui")
     lifecycle = importlib.import_module("domain.live_service")
-    previews, private, servers = [], [], []
+    previews, private, servers, claims = [], [], [], []
 
     class Preview:
         enabled = True
@@ -69,10 +69,24 @@ def test_camera_service_block_owns_real_listeners_and_cleans_partial_start(
         servers.append(result)
         return result
 
+    original_start, original_cycle = lifecycle.start, lifecycle.cycle
+
+    def start(block, inputs):
+        original_start(block, inputs)
+        claim = json.loads((job_data / "web_ui.json").read_text())
+        assert claim["status"] == "starting"
+        assert "readiness" not in claim["metadata"]
+
+    def cycle(block, inputs):
+        claims.append(json.loads((job_data / "web_ui.json").read_text()))
+        return original_cycle(block, inputs)
+
     monkeypatch.setattr(ui, "CUDAMJPEGPreview", preview)
     monkeypatch.setattr(ui.CCTVWebUIService, "start_monitor", monitor)
     monkeypatch.setattr(ui, "start_operator_mcp_server", start_mcp)
     monkeypatch.setattr(ui, "CCTVWebUIServer", web_server)
+    monkeypatch.setattr(lifecycle, "start", start)
+    monkeypatch.setattr(lifecycle, "cycle", cycle)
     if failure == "health":
         original_health = lifecycle.health
         checks = []
@@ -89,7 +103,8 @@ def test_camera_service_block_owns_real_listeners_and_cleans_partial_start(
         "MN_JOB_DATA_DIR": job_data,
         "MN_HOME": tmp_path / "home",
         "MN_RUN_DIR": output,
-        "MN_RUN_ID": "camera-run",
+        "MN_RUN_ID": "camera-execution",
+        "MN_WORKFLOW_RUN_ID": "camera-run",
         "MN_JOB_ID": "camera-job",
         "MN_JOB_SHARED_STORAGE_ROOT": tmp_path / "shared",
     }.items():
@@ -109,12 +124,15 @@ def test_camera_service_block_owns_real_listeners_and_cleans_partial_start(
     context = StepContext(
         step_id="",
         job_id="camera-job",
+        job_data_dir=str(job_data),
         run_id="camera-run",
         agent_id="cctv_web_ui",
         config=config,
         message={"envelope": {"message_id": "camera-delivery"}},
         environment={
             "MN_RUN_DIR": str(output),
+            "MN_RUN_ID": "camera-execution",
+            "MN_WORKFLOW_RUN_ID": "camera-run",
             "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
             "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]',
         },
@@ -139,4 +157,14 @@ def test_camera_service_block_owns_real_listeners_and_cleans_partial_start(
     assert previews and all(item.stopped for item in previews)
     assert all(server._server.socket.fileno() == -1 for server in servers)
     if failure not in {"monitor_start", "first_frame"}:
-        assert json.loads((job_data / "web_ui.json").read_text())["status"] == "stopped"
+        assert claims
+        claim = claims[0]
+        assert claim["status"] == "running"
+        assert claim["metadata"]["readiness"]["ready"] is True
+        assert claim["metadata"]["execution_id"] == "camera-execution"
+        assert claim["metadata"]["run_id"] == "camera-run"
+        receipts = [json.loads(path.read_text()) for path in output.glob("blocks/*/service/lifecycle/*/*.json")]
+        assert {receipt["generation"] for receipt in receipts} == {claim["metadata"]["generation"]}
+        stopped = json.loads((job_data / "web_ui.json").read_text())
+        assert stopped["status"] == ("failed" if failure == "health" else "stopped")
+        assert "readiness" not in stopped["metadata"]

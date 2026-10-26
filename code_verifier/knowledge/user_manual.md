@@ -1,6 +1,7 @@
 # Code verifier manual
 
-Choose a local repository checkout or source/docs folder and start a run. The
+Choose a local repository checkout or source/docs folder in the first setup
+question. No source folder is selected by default. Start a run. The
 co-worker reads documentation, creates rules.md, asks you to approve the rules
 in this conversation, verifies approved rules one by one, and
 writes report.md with pass/fail/unknown, exact evidence and confidence 0–1.
@@ -53,6 +54,8 @@ Review cited source, omissions and limitations before making decisions.
 The normal output folder is ~/Downloads/code-verifier, with each run
 in its runtime-delivered timestamp folder. Rules, full structured results,
 captured source, hashes, syntax coverage and investigations accompany report.md.
+Open the completed run's web report in this conversation to inspect rule results
+and evidence in the workspace.
 Remote URLs are not fetched; clone first. Convert PDF/Word/image docs to UTF-8
 Markdown before selection. Never include unauthorized source or secrets.
 

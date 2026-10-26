@@ -117,9 +117,9 @@ intelligence for these report questions. Raw financial inputs and JSON audit
 records are excluded. SDK >=1.3.58.dev86 is required for bounded whole-section
 selection; review and downstream approval requirements remain unchanged.
 
-## Block composition (4.0.0)
+## Block composition (4.0.1)
 
-All 17 specialist bindings reference their owning native domain functions. The seven ordered logical steps and their StepSpec specialist sequences remain intact. Intake commits the approved source bytes; every specialist consumes a verified immutable evidence packet. Model reviews retain SDK budgets, backpressure and diagnostics, with evidence-bound completion receipts for publication retries. An interrupted model review with no completed response requires reconciliation before another model attempt. SDK publication commits the customer report and audit bundle, then the document skill prepares the complete saved Markdown as the conversation subject. Publication requires a completed audit and preserves review-only financial policy; Core owns scheduling and logical completion.
+All 17 specialist bindings reference their owning native domain functions. The seven ordered logical steps and their StepSpec specialist sequences remain intact. Intake commits the approved source bytes; every specialist consumes a verified immutable evidence packet. Model reviews use the common block capability journal for dispatch and replay, alongside SDK budgets, backpressure and diagnostics. Version 4.0.1 saves an observed response and its token usage before checking cancellation or publishing domain artifacts, so those interruptions recover without repeating model work. Observed live-model failures replay their original diagnostic; only a genuinely interrupted call without an observed outcome requires reconciliation. Normal runs continue to require live responses and never substitute fallback financial advice. SDK publication commits the customer report and audit bundle, then the document skill prepares the complete saved Markdown as the conversation subject. Publication requires a completed audit and preserves review-only financial policy; Core owns scheduling and logical completion.
 
 ## Blueprint package format
 

@@ -4,6 +4,10 @@ Understand how your software is organized, where changes may cause problems, and
 
 ## Inputs
 
+Choose the **Source code folder** when first setting up the co-worker. The field
+starts empty and is the only setup question. The default model and review goal
+are already configured. Advanced inputs remain available:
+
 - repository_url: Public HTTPS GitHub repository-root URL. Mutually exclusive with input_folder.
 - input_folder: Local source folder, staged by the platform. Mutually exclusive with repository_url.
 - goal: Architecture investigation objective.
@@ -13,8 +17,8 @@ Understand how your software is organized, where changes may cause problems, and
 
 ## Outputs and review
 
-The default source is https://github.com/mit-pdos/xv6-riscv. Select a different
-public repository or clear that URL when choosing a local folder.
+Open the architecture report from the completed run in this conversation to
+inspect the web content in its workspace. Reports are also saved as local files.
 
 Open **Component and function evolution map** from the dashboard or report.
 Start with the dependency matrix, then switch to the dependency graph, hotspot
@@ -33,7 +37,7 @@ The focused review uses six selected topics with independent challenges and
 summaries. Other catalog topics remain explicitly not analyzed. Missing history,
 parser gaps and indirect calls remain unknown. An exhaustive catalog review is
 available through `catalog_review.profile=full_catalog` with larger budgets.
-The model uses your runtime default, including a Nemotron override. Reports do
+The model uses your runtime default. Reports do
 not authorize source edits or execute suggested work.
 
 Consult the published run results and their evidence before making decisions. Missing evidence does not establish that an event or condition did not occur.

@@ -62,22 +62,20 @@ neighbors and evidence, then use the model report to decide what to review next.
 
 ## Run
 
-Run the default xv6 repository review:
+In OtterDesk, choose the **Source code folder** to review. This is the only
+setup question, and it starts empty. The review uses the runtime's default model
+and the blueprint's focused review settings.
 
-```bash
-mn blueprint run ./software_architecture_advisor
-```
-
-To review a local repository instead:
+From the command line:
 
 ```bash
 mn blueprint run ./software_architecture_advisor \
-  --set inputs.payload.repository_url= \
   --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
-The default URL is `https://github.com/mit-pdos/xv6-riscv`. Supply exactly one
-source: a public HTTPS GitHub repository root or a local folder. The platform
+There is no default source. Advanced command-line runs may instead supply
+`inputs.payload.repository_url=https://github.com/mit-pdos/xv6-riscv` and leave
+the folder empty. Supply exactly one source. The platform
 stages local input; reviewed source is never imported or executed. Capture
 includes code only: Markdown, other documents, JSON/YAML/TOML data, and sample
 data files are ignored. Documentation, examples, samples, fixtures, dependencies
@@ -115,10 +113,10 @@ Mini and Spark LiteLLM gateways. Deployments using other gateway hosts must
 set `opencode.gateway_hosts` to authorize those exact endpoints. SDK and CLI
 render the policy's configuration bindings before provisioning and staging.
 
-## Choose the model
+## Advanced model configuration
 
-The setup form offers Runtime default, Muse Spark 1.3 FreeOpenCode Zen and
-Muse Glimmer 30BLocal Spark. The Muse choices require registered runtime routes;
+The initial setup uses Runtime default. Model overrides such as Muse Spark 1.3
+FreeOpenCode Zen and Muse Glimmer 30BLocal Spark require registered runtime routes;
 upstream endpoint and credential configuration belongs to the runtime catalog.
 Their existing display labels normalize to the corresponding provider/model IDs.
 For example:
@@ -126,7 +124,6 @@ For example:
 ```bash
 mn blueprint run ./software_architecture_advisor \
   --set opencode.model=mn/default \
-  --set inputs.payload.repository_url= \
   --set inputs.payload.input_folder=/absolute/path/to/repository
 ```
 
@@ -169,6 +166,7 @@ For an exhaustive catalog review, explicitly select its larger scope and budgets
 
 ```bash
 mn blueprint run ./software_architecture_advisor \
+  --set inputs.payload.input_folder=/absolute/path/to/repository \
   --set catalog_review.profile=full_catalog \
   --set catalog_review.max_tasks=1024 \
   --set catalog_review.max_calls=1024 \
@@ -211,7 +209,7 @@ interruption; use a new run for an explicitly chosen retry.
 ## Results
 
 The configured output folder defaults to `~/Downloads/software_architecture_advisor`.
-`data/` and `web/` are Job-level entries: each run adds an immutable snapshot
+`data/`, `reports/`, `web/` and `web_ui.json` are Job-level entries: each run adds an immutable snapshot
 and refreshes the latest dashboard. They are delivered by the SDK at the folder
 root, rather than inside `run_<timestamp>/`.
 
@@ -223,6 +221,10 @@ remain outside this public download inventory. Existing host exports and
 cumulative Job history retain their own layout. This requires SDK
 `>=1.4.1.dev15,<2`; explicit fake-model OpenCode gateways require the shared
 OpenCode skill `>=1.4.1.dev2,<2`.
+
+Version 7.0.2 enables the report as a conversation output and delivers its
+`web_ui.json` handle alongside `web/index.html`. Open the architecture report
+from the completed run in Chat to inspect it in the conversation workspace.
 
 ```text
 software_architecture_advisor/
@@ -237,6 +239,7 @@ software_architecture_advisor/
   web/                          # Reusable rendering shells, JS, CSS and D3 license
     index.html / code-map.html / review-register.html / assets/
     snapshots/<publication-id>.html / maps/<publication-id>.html / reviews/<publication-id>.html
+  web_ui.json                   # Report handle beside the Job-level web folder
   run_<timestamp>/              # SDK run audit and original capture
 ```
 
@@ -314,7 +317,6 @@ later run to persist them in Job history:
 
 ```bash
 mn blueprint run ./software_architecture_advisor \
-  --set inputs.payload.repository_url= \
   --set inputs.payload.input_folder=/absolute/path/to/repository \
   --set inputs.payload.review_file=/absolute/path/to/architecture-reviews.json
 ```
@@ -706,6 +708,7 @@ frames, without requiring a registry publication:
 cd /Users/homer/Projects/otterdesk-blueprints
 MN_USE_LOCAL_SKILLS=1 MN_WORKSPACE_ROOT=/Users/homer/Projects/mirror-neuron-set \
   mn blueprint run ./software_architecture_advisor \
+  --set inputs.payload.input_folder=/absolute/path/to/repository \
   --set opencode.model=mn/default --web-ui --benchmark
 ```
 
@@ -726,7 +729,7 @@ for capture.
 
 ### Other repositories and source formats
 
-The source URL is configurable; xv6 is only the default example. For RedisRaft:
+The source URL remains an advanced option; xv6 is an explicit example. For RedisRaft:
 
 ```bash
 MN_USE_LOCAL_SKILLS=1 MN_WORKSPACE_ROOT=/Users/homer/Projects/mirror-neuron-set \

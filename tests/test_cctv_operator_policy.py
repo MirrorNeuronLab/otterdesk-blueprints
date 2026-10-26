@@ -24,9 +24,13 @@ def test_demo_starts_with_factory_goal_and_markdown_summary_contract():
     config = json.loads((blueprint / "config/default.json").read_text())
     ui = json.loads((blueprint / "extensions/ui.json").read_text())
     assert config["site"]["profile"] == "factory"
+    assert "A group of people is visible" in policy.configured_visual_targets(config)
+    assert "two or more people" in policy.configured_monitoring_goal(config)
     assert "Visible travel-path obstruction" in policy.configured_visual_targets(config)
     assert "industrial equipment" in policy.configured_monitoring_goal(config)
     config["site"]["profile"] = "hotel"
+    assert "A group of people is visible" in policy.configured_visual_targets(config)
+    assert "two or more people" in policy.configured_monitoring_goal(config)
     assert "common areas" in policy.configured_monitoring_goal(config)
     assert "Person appears down on the floor" in policy.configured_visual_targets(config)
     assert policy.configured_visual_targets({}) == list(policy.DEFAULT_VISUAL_TARGETS)
