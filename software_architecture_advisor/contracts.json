@@ -42,19 +42,6 @@
       "description": "Optional bounded JSON review export from the architecture dashboard. Does not authorize source edits."
     }
   },
-  "input_validation": {
-    "rules": [
-      {
-        "command": [
-          "/usr/bin/python3",
-          "payloads/agents/validation/validate_source_input.py"
-        ],
-        "name": "source_input_validate",
-        "timeout_seconds": 5,
-        "type": "command"
-      }
-    ]
-  },
   "outputs": {
     "artifacts": [
       {

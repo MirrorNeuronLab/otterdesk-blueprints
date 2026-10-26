@@ -50,10 +50,7 @@ def test_compiled_contract_and_docker_handlers(modules):
     assert len(compiled['agents']['nodes']) >= 9
     assert source['response_service'] == {'enabled': True}
     assert source['contracts']['inputs']['input_folder']['type'] == 'local_path'
-    assert source['input_validation']['rules'][0]['command'] == [
-        '/usr/bin/python3',
-        'payloads/agents/validation/validate_source_input.py',
-    ]
+    assert not source.get('input_validation', {}).get('rules')
     for name, record in source['agents']['registry'].items():
         assert name not in {s['id'] for s in source['workflow']['steps']}
         assert callable(importlib.import_module(record['handler']).run)
@@ -215,19 +212,18 @@ def test_folder_with_spaces_and_canonical_url(modules,tmp_path):
     assert modules['intake'].source_input({'repository_url':'https://github.com/a/b/'})=='https://github.com/a/b.git'
 
 
-def test_shared_input_validation_requires_a_source_folder_first(tmp_path):
+def test_hiring_accepts_an_unanswered_source_folder(tmp_path):
     from mn_sdk import run_input_validation
 
     package = read_blueprint(BLUEPRINT)
     manifest = blueprint_definition(package)
     config = resolve_config(package).data
 
-    missing = run_input_validation(BLUEPRINT, manifest, config=config)
+    assert config['inputs']['payload']['input_folder'] == ''
+    report = run_input_validation(BLUEPRINT, manifest, config=config)
 
-    assert missing['ok'] is False
-    issue = missing['issues'][0]
-    assert issue['code'] == 'config.required'
-    assert '--set inputs.payload.input_folder=' in issue['help']
+    assert report['ok'] is True
+    assert report['issues'] == []
 
     source = tmp_path / 'source folder'
     source.mkdir()

@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.2 specification
+# Architecture Advisor 7.0.3 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -18,8 +18,13 @@ failed tasks and capped source packets remain visible; they never imply health.
 
 ## Source input
 
-Initial setup asks only for the local source code folder. It is required and
-starts empty; there is no sample/default source or additional setup question.
+Hiring accepts an unanswered source folder so initial setup can ask for it in
+Chat. Setup asks only for the local source code folder. It is required before
+starting and starts empty; there is no sample/default source or additional setup
+question.
+The blueprint declares no hire-time source validation rule. The capture phase
+validates the source before analysis and rejects missing, unavailable or
+ambiguous inputs.
 The default model, review goal and focused review policy remain preconfigured.
 Advanced command-line configuration may supply a public HTTPS GitHub repository
 root URL instead. Exactly one source must be selected. Changing the source

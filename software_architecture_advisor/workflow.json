@@ -79,7 +79,7 @@
           "run": {
             "handler": "mn_sdk.integrations.block_worker",
             "with": {
-              "revision": "software_architecture_advisor@7.0.2",
+              "revision": "software_architecture_advisor@7.0.3",
               "instance": {
                 "uses": "mn.blocks.domain_operation@1",
                 "hooks": {

@@ -103,6 +103,36 @@ def prepare(native):
     return capture, structure, {"previous": {"result": summary}}
 
 
+@pytest.mark.parametrize("source_kind, error, message", [
+    ("missing", ValueError, "Specify exactly one"),
+    ("unavailable", FileNotFoundError, "missing"),
+    ("file", ValueError, "must be a directory"),
+    ("ambiguous", ValueError, "Specify exactly one"),
+])
+def test_capture_rejects_unanswered_or_invalid_sources_before_analysis(
+    native, source_kind, error, message
+):
+    store, source, marker, imports, invoke = native
+    inputs = {}
+    if source_kind == "unavailable":
+        inputs["input_folder"] = str(source / "missing")
+    elif source_kind == "file":
+        inputs["input_folder"] = str(source / "app.py")
+    elif source_kind == "ambiguous":
+        inputs = {
+            "input_folder": str(source),
+            "repository_url": "https://github.com/example/repository",
+        }
+
+    with pytest.raises(error, match=message):
+        invoke("capture_repository", inputs)
+
+    assert imports == []
+    assert not marker.exists()
+    assert not store.path("snapshot.json").exists()
+    assert not store.path("capture-request.json").exists()
+
+
 def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(native):
     store, source, marker, imports, invoke = native
     capture, structure, publish_input = prepare(native)

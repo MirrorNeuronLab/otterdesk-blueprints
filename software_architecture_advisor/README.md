@@ -62,9 +62,12 @@ neighbors and evidence, then use the model report to decide what to review next.
 
 ## Run
 
-In OtterDesk, choose the **Source code folder** to review. This is the only
-setup question, and it starts empty. The review uses the runtime's default model
-and the blueprint's focused review settings.
+In OtterDesk, hire the co-worker first, then choose the **Source code folder**
+when asked in Chat. This is the only setup question, and it starts empty.
+Hiring does not require a source folder. Setup requires a folder before starting;
+the capture phase rejects missing, unavailable or ambiguous sources before analysis.
+The review uses the runtime's default model and the blueprint's focused review
+settings.
 
 From the command line:
 
