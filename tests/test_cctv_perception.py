@@ -59,9 +59,13 @@ def test_video_question_reads_complete_markdown_without_vision(monkeypatch, tmp_
     import hashlib
     from cctv_operator.payloads.domain.runtime_memory import CameraMemory
     monkeypatch.setenv('MN_RUN_ID', 'run')
+    monkeypatch.setenv('MN_LLM_MODEL', 'text-model')
+    monkeypatch.setenv('MN_LLM_PROVIDER', 'docker_model_runner')
+    monkeypatch.setenv('MN_LLM_API_BASE', 'http://127.0.0.1:19000/v1')
+    monkeypatch.setenv('MN_LLM_MAX_TOKENS', '128')
     config = {'text_memory': {'enabled': True, 'max_context_bytes': 49152},
               'video_source': {'camera_id': 'camera', 'uri': 'rtsp://camera.example/test'},
-              'llm': {'configs': {'primary': {'model': 'text-model', 'backend': 'llama.cpp'}}}}
+              'llm': {'configs': {'primary': {'model': 'catalog-default', 'backend': 'llama.cpp'}}}}
     memory = CameraMemory(config, tmp_path, 'camera', hashlib.sha256(b'rtsp://camera.example/test').hexdigest())
     detail = 'Complete account with | and 中🙂. ' * 100
     memory.remember({'frame_seq': 1, 'camera_id': 'camera', 'batch_id': 'one',
@@ -80,6 +84,9 @@ def test_video_question_reads_complete_markdown_without_vision(monkeypatch, tmp_
     assert detail.replace('|', '\\u007c') in requests[0][1]['history']['evidence'][0]['content']
     assert 'Never sum repeated frame counts' in requests[0][0]
     assert requests[0][2]['config'].model == 'text-model'
+    assert requests[0][2]['config'].provider == 'docker_model_runner'
+    assert requests[0][2]['config'].api_base == 'http://127.0.0.1:19000/v1'
+    assert requests[0][2]['config'].max_tokens == 128
     assert 'image_input' not in requests[0][2]['config'].required_capabilities
     with pytest.raises(ValueError, match='unavailable observation'):
         requests[0][2]['validator']({'summary': 'Invented', 'citations': ['m99']})

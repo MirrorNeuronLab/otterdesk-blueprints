@@ -244,7 +244,6 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     requirements_path = "requirements.txt"
     upload_paths = [
         {"source": "runtime", "target": "runtime"},
-        {"source": "agents", "target": "agents"},
         {"source": "steps", "target": "steps"},
         {"source": "config", "target": "config"},
         {"source": "prompts", "target": "prompts"},
@@ -255,6 +254,9 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
         {"source": "knowledge", "target": "knowledge"},
         {"source": "domain", "target": "domain"},
     ]
+    # Native block hooks replaced these legacy modules. Residual bytecode is
+    # excluded from the package and must not create an upload dependency.
+    assert not list((BLUEPRINT_DIR / "payloads" / "agents").rglob("*.py"))
     assert len(nodes) == 21
     assert len(step_sources) == 10
     assert len(step_sinks) == 10
@@ -1061,6 +1063,8 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
     )
 
     assert {path.name for path in outputs.iterdir()} == {
+        ".locks",
+        ".mn-published-files.json",
         "action_ledger.json",
         "artifact_quality.json",
         "audit_findings",
@@ -1084,6 +1088,16 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
         "run_summary.md",
         "watch_state.json",
     }
+    import hashlib
+    inventory = json.loads((outputs / ".mn-published-files.json").read_bytes())
+    assert inventory["schema_version"] == "mn.published_outputs/v1"
+    assert inventory["output_files"]
+    assert "final_artifact.json" in {item["path"] for item in inventory["output_files"]}
+    for item in inventory["output_files"]:
+        assert not item["path"].startswith(".")
+        body = (outputs / item["path"]).read_bytes()
+        assert item["size_bytes"] == len(body)
+        assert item["sha256"] == hashlib.sha256(body).hexdigest()
     events = [
         json.loads(line)
         for line in (tmp_path / run_id / "events.jsonl")
