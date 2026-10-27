@@ -229,7 +229,7 @@
         "VIDEO_SOURCE_URI",
         "CCTV_MEDIA_ACCELERATOR"
       ],
-      "description": "The live retail RTSP stream by default, or another approved stream; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
+      "description": "An approved RTSP/RTMP stream supplied during setup; CUDA-enabled FFmpeg is the only analysis media-preparation path.",
       "media_accelerator": "nvidia_cuda",
       "mode": "stream",
       "profile": "external",

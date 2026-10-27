@@ -249,6 +249,9 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         assert "streams/live.mjpg" in page
         assert "streams/operator-events" in page
         assert "Latest analyzed snapshot" in page
+        assert 'id="analysis-status" role="status"' in page
+        assert 'id="pipeline-warning" role="alert" hidden' in page
+        assert '<time id="analyzed-at" hidden>' in page
         assert "Operator event stream" not in page
         assert "Latest finding" not in page
         assert "Confidence" not in page
@@ -592,6 +595,15 @@ def test_observation_details_belong_to_each_event_not_the_latest_frame():
     assert events[1]["details"][0] == {"label": "Confidence", "value": "62%"}
 
 
+def test_mcp_sidecar_uses_physical_workflow_run_not_submission_label(monkeypatch, tmp_path):
+    monkeypatch.delenv("MN_RUN_DIR", raising=False)
+    monkeypatch.setenv("MN_RUNS_ROOT", str(tmp_path))
+    monkeypatch.setenv("MN_RUN_ID", "submission-label")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "physical-run")
+    assert cctv_operator_mcp.configured_run_dir() == tmp_path / "physical-run"
+    assert cctv_operator_mcp.configured_run_id() == "physical-run"
+
+
 def test_mcp_service_uses_one_runtime_allocated_port(monkeypatch, tmp_path):
     execution = json.loads((ROOT / "cctv_operator/execution.json").read_text())
     node = next(node for node in execution["agents"]["extra_nodes"] if node["node_id"] == "cctv_operator_mcp")
@@ -602,7 +614,8 @@ def test_mcp_service_uses_one_runtime_allocated_port(monkeypatch, tmp_path):
         "url": "http://127.0.0.1:49100", "run_id": "run-1", "token": "private-token",
     })
     monkeypatch.setattr(cctv_operator_mcp, "configured_run_dir", lambda: tmp_path)
-    monkeypatch.setenv("MN_RUN_ID", "run-1")
+    monkeypatch.setenv("MN_RUN_ID", "submission-label")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "run-1")
     seen = []
     monkeypatch.setattr(cctv_operator_mcp, "serve_mcp_proxy", lambda endpoint, **kw: seen.append(kw["port"]))
     monkeypatch.setattr(cctv_operator_mcp.signal, "signal", lambda *a: None)

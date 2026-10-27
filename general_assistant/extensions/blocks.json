@@ -6,20 +6,7 @@
       "hooks": {
         "operation": "domain.intake:prepare"
       },
-      "inputs": {
-        "task": {
-          "$ref": "run_input",
-          "path": [
-            "task"
-          ]
-        },
-        "input_folder": {
-          "$ref": "run_input",
-          "path": [
-            "input_folder"
-          ]
-        }
-      },
+      "inputs": {},
       "outputs": {
         "result": {
           "$ref": "flow_output",

@@ -7,11 +7,12 @@ in this conversation, verifies approved rules one by one, and
 writes report.md with pass/fail/unknown, exact evidence and confidence 0–1.
 It does not execute or edit repository code or tests.
 
-**Rule documents** defaults to **Project docs**. Generated benchmark/test reports
-under benchmark-results, benchmark_results, test-results, test_results and
-playwright-report are excluded from rule extraction and listed in
-extraction-plan.json, rules.json and the report. They remain captured evidence.
-Choose **All captured docs** to extract rules from those reports too.
+**Rule documents** defaults to **Current requirements**. Changelog history,
+evaluation reports, tutorial instructions and bare code examples are recorded
+separately from obligations. Review their exclusions alongside the rules. A
+requirement for an example remains scoped to that example. **Project docs** keeps
+the broader document selection; **All captured docs** also includes generated
+reports. Captured material remains available for audit, with its source role.
 The extraction packet budget defaults to 512 (`review.max_extraction_packets`,
 1–2048); it never truncates the selected documents to fit.
 
@@ -45,7 +46,8 @@ a generated GEN-... heading to override that rule. `review.rules_mode=replace`
 verifies only your custom list; copy and edit the exported rules.md for this.
 Save knowledge changes before starting a new run. An active run keeps its capture.
 
-Pass requires implementation evidence; Fail requires a counterexample in source.
+Pass requires scoped implementation evidence and independent review; Fail requires
+a concrete contradictory source path and independent review.
 Unknown means evidence is insufficient or an investigation could not finish.
 Documentation, test definitions and missing search hits are not execution proof.
 Confidence is an uncalibrated AI assessment, capped at 0.85 for static judgments.
@@ -63,3 +65,11 @@ Standard MCP tools inspect manual, capability, current state and results. Readin
 or asking a question never starts work. Explicit run controls start, pause, resume
 or stop the bound Job using runtime-issued execution IDs. Core owns operations
 and cancellation. Inspect operation completion before assuming a run finished.
+
+The verifier uses offline ranked keyword search and syntax navigation, then reads
+exact source spans. No extra model service or repository execution is required.
+By default, each rule has six investigation calls plus a judgment and independent
+critique (eight model calls total). Unknown results include a reason and next step;
+the report distinguishes excluded requirements from verified coverage. A new
+blueprint/prompt/analysis policy requires a fresh run and approval, preserving old
+reports. This update does not require changes to Core, SDK or the desktop app.

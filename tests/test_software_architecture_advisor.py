@@ -72,8 +72,8 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     assert 'output_folder' not in config
     assert not config['inputs']['payload'].get('repository_url')
     assert config['inputs']['payload']['input_folder'] == ''
-    assert execution['job_name']=='software_architecture_advisor'
-    assert config['outputs']['folder_path']==f"~/Downloads/{execution['job_name']}"
+    assert execution['job_name']=='architecture_advisor'
+    assert config['outputs']['folder_path']=='~/Downloads/architecture_advisor'
     assert config['outputs']['write_run_store'] is True
     assert config['outputs']['job_files'] == ['data', 'web', 'reports', 'web_ui.json']
 
@@ -88,7 +88,7 @@ def test_default_output_uses_sdk_host_copy_contract(tmp_path, monkeypatch):
     prepared=prepare_job_submission(manifest, {}, shared_storage_root=tmp_path/'shared',
                                     runtime_shared_storage_root='/remote/shared')
     copies=json.loads(prepared.manifest_json)['metadata']['mn_storage']['output_copy']
-    assert any(item['target_path']==str(tmp_path/'Downloads/software_architecture_advisor')
+    assert any(item['target_path']==str(tmp_path/'Downloads/architecture_advisor')
                for item in copies)
     assert all({'data', 'web', 'reports', 'web_ui.json'} <= set(item['job_files']) for item in copies)
 

@@ -69,6 +69,10 @@ function emptyRules() {
   const modelFailed = extractionGaps.some((gap) => gap.reason === "model_unavailable");
   return `<section class="card" role="status"><h3>${modelFailed ? "Rule extraction failed" : "No rules to verify"}</h3><p>${modelFailed ? "The model could not extract rules. No rules were verified. Start a new run after the model is ready." : "No software rules were identified. Review the source scope and custom rules before starting a new run."}</p>${extractionGaps.length ? `<p>${extractionGaps.length} source section${extractionGaps.length === 1 ? " remains" : "s remain"} unresolved.</p>` : ""}${button("Review source coverage", "view", "scope", true)}</section>`;
 }
+function diagnostics() {
+  const reasons = R.diagnostics?.unknown_reasons || {};
+  return `<details><summary>Investigation details</summary><p>${Number(R.diagnostics?.model_calls || 0)} model calls · ${Number(R.diagnostics?.empty_searches || 0)} empty searches</p>${Object.entries(reasons).map(([reason, count]) => `<p>${esc(reason.replaceAll("_", " "))}: ${Number(count)}</p>`).join("")}</details>`;
+}
 function overview() {
   if (!R.rules.length)
     return `<h2>Overview</h2>${emptyRules()}`;
@@ -79,7 +83,7 @@ function overview() {
   );
   return `<h2>Overview</h2><div class="verification-summary">${["fail", "unknown", "pass"].map((status) => `<button class="count-link" data-action="filter" data-id="${status}"><strong>${counts[status]}</strong><span>${label(status)}</span></button>`).join("")}</div>
     <section class="card"><p class="qualification">${pending ? "Next review" : "Review complete within this scope"}</p><h3>${counts.fail ? "Inspect rules the implementation does not support" : counts.unknown ? "Resolve rules with insufficient evidence" : "Review the source-backed results"}</h3><p>${pending ? `${pending} rule${pending === 1 ? " needs" : "s need"} attention. Read the source and reasoning before deciding what to change.` : "Pass reflects the inspected source; runtime behavior remains unverified."}</p>${first ? button("Review first result", "rule", first.id, true) : button("View rule results", "view", "results", true)}</section>
-    <p class="qualification">${R.rules.length} approved rules · Static review · Confidence is an uncalibrated AI assessment.</p><button class="text-action" data-action="view" data-id="scope">Coverage and limitations →</button>`;
+    ${diagnostics()}<p class="qualification">${R.rules.length} approved rules · Static review · Confidence is an uncalibrated AI assessment.</p><button class="text-action" data-action="view" data-id="scope">Coverage and limitations →</button>`;
 }
 function resultRows() {
   if (!R.rules.length) return `<h2>Rule results</h2>${emptyRules()}`;
@@ -103,7 +107,7 @@ function ruleBook() {
 function scope() {
   const omitted = R.coverage.omitted || [];
   const gaps = extractionGaps.length ? `<section class="card"><h3>Unresolved source sections</h3><p>Requirements in these sections were not fully extracted. No conformance claim covers them.</p>${extractionGaps.map(gap => `<p>${button(`${gap.path}:${gap.start_line}–${gap.end_line}`, "source", gap.path)} · ${esc(gap.reason)}</p>`).join("")}</section>` : "";
-  return `<h2>Scope & limits</h2>${gaps}<p>${Object.keys(sources).length} captured UTF-8 files. ${omitted.length} entries excluded; an excluded folder represents its whole subtree.</p><p>Repository code and tests were not executed. Pass means the inspected implementation supports the rule within this scope. Missing matches do not establish absence.</p><p>Confidence is an uncalibrated AI assessment, capped at 0.85 for static judgments. Unknown requires more evidence or human review.</p><details><summary>Excluded entries</summary><pre>${esc(JSON.stringify(omitted, null, 2))}</pre></details><details><summary>Extraction coverage</summary><pre>${esc(JSON.stringify(R.coverage.documents, null, 2))}</pre></details><details><summary>Captured files</summary>${Object.keys(
+  return `<h2>Scope & limits</h2>${gaps}<p>${Object.keys(sources).length} captured UTF-8 files. ${omitted.length} entries excluded; an excluded folder represents its whole subtree.</p><p>Repository code and tests were not executed. Pass means the inspected implementation supports the rule within this scope. Missing matches do not establish absence.</p><p>Confidence is an uncalibrated AI assessment, capped at 0.85 for static judgments. Unknown requires more evidence or human review.</p><details><summary>Extraction exclusions</summary><pre>${esc(JSON.stringify(R.coverage.documentation_selection || {}, null, 2))}</pre><pre>${esc(JSON.stringify(R.coverage.excluded_candidates || [], null, 2))}</pre></details><details><summary>Excluded entries</summary><pre>${esc(JSON.stringify(omitted, null, 2))}</pre></details><details><summary>Extraction coverage</summary><pre>${esc(JSON.stringify(R.coverage.documents, null, 2))}</pre></details><details><summary>Captured files</summary>${Object.keys(
     sources,
   )
     .map((path) => `<p>${button(path, "source", path)}</p>`)
@@ -129,7 +133,7 @@ function inspectRule(id, trigger) {
   if (!rule || !result) return;
   ui.openInspector(
     rule.id,
-    `<p class="rule-statement">${esc(rule.statement)}</p><p><strong>${label(result.status)}</strong> · Confidence ${Number(result.confidence).toFixed(2)}</p><p>${esc(result.explanation)}</p><h3>Implementation evidence</h3>${result.evidence.map((ref) => `<section class="evidence-record"><p>${esc(ref.path)}:${ref.start_line}–${ref.end_line}</p><blockquote>${esc(ref.quote)}</blockquote>${button("Read captured source", "source", ref.path)}<details><summary>Exact source identity</summary><p>SHA-256 ${esc(ref.sha256)}</p></details></section>`).join("") || "<p>No admissible implementation evidence. More evidence is needed.</p>"}<details><summary>Rule origin</summary><p>${esc(rule.origin)}</p><p>${esc(rule.source.path)}:${rule.source.start_line}–${rule.source.end_line}</p><blockquote>${esc(rule.source.quote || "")}</blockquote></details><p class="qualification">Static review · Tests not executed · This result is not runtime proof.</p>`,
+    `<p class="rule-statement">${esc(rule.statement)}</p><p><strong>${label(result.status)}</strong> · Confidence ${Number(result.confidence).toFixed(2)}</p><p>${esc(result.explanation)}</p>${result.reason_code ? `<p class="qualification">${esc(result.reason_code.replaceAll("_", " "))}</p><p>${esc(result.next_step)}</p>` : ""}<h3>Inspected evidence</h3>${result.evidence.map((ref) => `<section class="evidence-record"><p>${esc(ref.path)}:${ref.start_line}–${ref.end_line}</p><blockquote>${esc(ref.quote)}</blockquote>${button("Read captured source", "source", ref.path)}<details><summary>Exact source identity</summary><p>SHA-256 ${esc(ref.sha256)}</p></details></section>`).join("") || "<p>No admissible implementation evidence. More evidence is needed.</p>"}<details><summary>Rule origin</summary><p>${esc(rule.origin)}</p><p>${esc(rule.source.path)}:${rule.source.start_line}–${rule.source.end_line}</p><blockquote>${esc(rule.source.quote || "")}</blockquote></details><p class="qualification">Static review · Tests not executed · This result is not runtime proof.</p>`,
     trigger,
   );
 }

@@ -62,7 +62,13 @@ def publish(block, inputs):
                               f"SHA-256 `{evidence['sha256']}`: {cell(evidence['quote'])}")
         lines.append(f"| {cell(rule['id'] + ': ' + rule['statement'])} | {result['status'].capitalize()} | "
                      f"{'; '.join(references) or 'No admissible implementation evidence.'} "
-                     f"{cell(result['explanation'])} | {result['confidence']:.2f} |")
+                     f"{cell(result['explanation'])} {cell(result.get('next_step', ''))} | {result['confidence']:.2f} |")
+    diagnostics = verification.get('diagnostics', {})
+    lines += ['', '## Investigation coverage', '',
+              f"Model calls: {diagnostics.get('model_calls', 0)}. "
+              'Unknowns retain inspected evidence and a next step; exclusions are not successful assessments.']
+    for reason, count in sorted(diagnostics.get('unknown_reasons', {}).items()):
+        lines.append(f'- {cell(reason)}: {count}.')
     lines += ['', '## Rule origins', '']
     for rule in rules['rules']:
         origin = rule['source']
@@ -78,8 +84,15 @@ def publish(block, inputs):
     if selection:
         lines += ['', f"Rule document scope: {cell(selection['scope'])}. "
                   f"Selected {len(selection['selected_documents'])} documents; "
-                  f"excluded {len(excluded_documents)} generated reports from rule extraction."]
+                  f"excluded {len(excluded_documents)} documents from rule extraction."]
         lines += [f"- {cell(item['path'])}: {cell(item['reason'])}." for item in excluded_documents]
+    excluded_sections = selection.get('excluded_sections', [])
+    excluded_candidates = rules.get('excluded_candidates', [])
+    if excluded_sections or excluded_candidates:
+        lines += ['', f'Excluded {len(excluded_sections)} non-normative sections and {len(excluded_candidates)} candidates. '
+                  'These are outside the assessed ruleset, not passing results.']
+        lines += [f"- {cell(item['path'])}:{item['start_line']}–{item['end_line']}: {cell(item['reason'])}."
+                  for item in excluded_sections]
     if gaps:
         lines += ['', '## Unresolved extraction coverage', '',
                   'This report covers the approved candidate rules only. Requirements in the following '
@@ -91,10 +104,12 @@ def publish(block, inputs):
              'rules': rules['rules'], 'results': verification['results'], 'summary': counts,
              'source_execution': False, 'report': 'report.md', 'rules_markdown': 'rules.md',
              'rules_review': approval,
+             'diagnostics': diagnostics, 'verification_policy': verification.get('verification_policy'),
              'assessment_status': 'needs_review' if not rules['rules'] or gaps or counts.get('unknown') else 'complete',
              'coverage': {'documents': rules['extraction_coverage'], 'omitted': capture['omitted'],
                           'extraction_status': rules.get('extraction_status', 'complete'), 'extraction_gaps': gaps,
-                          'documentation_selection': selection}}
+                          'documentation_selection': selection, 'excluded_candidates': excluded_candidates,
+                          'review_flags': rules.get('review_flags', [])}}
     # Captured evidence is committed individually; large repositories do not
     # consume the publication bundle's limit of 128 top-level report artifacts.
     for path, content in capture["sources"].items():

@@ -101,21 +101,34 @@ def test_nim_reasoning_is_excluded_from_public_interpretation(vision):
     assert "Private internal reasoning" not in json.dumps(result)
 
 
-def test_nim_reasoning_tags_are_case_insensitive_and_unclosed_answers_reject(vision):
+def test_nim_reasoning_tags_are_case_insensitive(vision):
     _harness, _block, module, _encoded, _temporal = vision
     account = json.dumps(ACCOUNT)
     raw = {"choices": [{"finish_reason": "stop", "message": {"content":
         '<THINK>Private internal reasoning</THINK><ANSWER>' + account + '</ANSWER>'}}]}
     result = module.interpret(raw, {"nim": True, "ollama": False})
     assert result["scene_understanding"] == ACCOUNT["scene_understanding"]
-    raw["choices"][0]["message"]["content"] = "<answer>" + account
-    with pytest.raises(ValueError, match="incomplete"):
-        module.interpret(raw, {"nim": True, "ollama": False})
+
+
+@pytest.mark.parametrize("wrapper", ["{account}", "```json\n{account}\n```"])
+def test_nim_normal_stop_accepts_a_complete_answer_without_its_presentation_closing_tag(vision, wrapper):
+    _harness, _block, module, _encoded, _temporal = vision
+    content = "<think>Private internal reasoning</think><answer>" + wrapper.format(account=json.dumps(ACCOUNT))
+    raw = {"choices": [{"finish_reason": "stop", "message": {"content": content}}]}
+    result = module.interpret(raw, {"nim": True, "ollama": False})
+    assert result["scene_understanding"] == ACCOUNT["scene_understanding"]
+    assert "Private internal reasoning" not in json.dumps(result)
 
 
 @pytest.mark.parametrize("content,finish,reason", [
     ("<think>unfinished", "stop", "incomplete"),
     (json.dumps(ACCOUNT), "length", "incomplete"),
+    ("<answer>" + json.dumps(ACCOUNT), None, "incomplete"),
+    ("<answer>" + json.dumps(ACCOUNT)[:-1], "stop", "no valid"),
+    ("<answer>```json\n" + json.dumps(ACCOUNT), "stop", "no valid"),
+    ("<answer>" + json.dumps(ACCOUNT) + " trailing prose", "stop", "no valid"),
+    ("<answer><answer>" + json.dumps(ACCOUNT), "stop", "incomplete"),
+    (json.dumps(ACCOUNT), "content_filter", "incomplete"),
     ("not JSON", "stop", "no valid"),
     ('{"summary":"No complete account"}', "stop", "missing scene"),
 ])

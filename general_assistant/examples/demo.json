@@ -1,0 +1,10 @@
+{
+  "inputs": {
+    "payload": {
+      "input_folder": "@/examples/sample_inputs"
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Documents/general-assistant-demo"
+  }
+}

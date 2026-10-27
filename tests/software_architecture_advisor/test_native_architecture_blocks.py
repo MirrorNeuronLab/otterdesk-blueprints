@@ -146,7 +146,7 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
     assert len(store.read_path("data/coverage.json")["aspects"]) == 150
     public = published_output_items(store.run_dir)
     names = {item['path'] for item in public}
-    assert {'reports/report.md', 'data/report.json', 'review_index.json', 'web/index.html', 'web_ui.json'} <= names
+    assert {'reports/report.md', 'data/report.json', 'data/chat-summary.json', 'review_index.json', 'web/index.html', 'web_ui.json'} <= names
     assert all(name in {'review_index.json', 'web_ui.json'} or name.startswith(('data/', 'web/', 'reports/')) for name in names)
     handle = store.read_path('web_ui.json')
     assert handle['kind'] == 'output' and handle['adapter'] == 'static_html'
@@ -157,6 +157,13 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
         encoded = store.path(item['path']).read_bytes()
         assert item['size_bytes'] == len(encoded)
         assert item['sha256'] == hashlib.sha256(encoded).hexdigest()
+        assert (store.run_dir.parents[3] / 'delivery' / item['path']).read_bytes() == encoded
+    assert not (store.run_dir.parents[3] / 'delivery/catalog').exists()
+    assert not (store.run_dir.parents[3] / 'delivery/evidence').exists()
+    summary = store.read_path('data/chat-summary.json')
+    assert summary['schema_version'] == 'otterdesk.report-summary.v1'
+    assert summary['status'] == 'Static analysis only'
+    assert '<meta name="otterdesk-chat-summary" content="data/chat-summary.json">' in store.path('web/index.html').read_text()
     before = list(imports)
     (source / "app.py").write_text("changed after capture")
     assert (

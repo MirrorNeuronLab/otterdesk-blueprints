@@ -35,9 +35,13 @@
         "label": "Rule documents",
         "type": "select",
         "required": false,
-        "default": "project_docs",
-        "description": "Project docs excludes generated benchmark and test reports. Source capture remains available for evidence.",
+        "default": "current_requirements",
+        "description": "Current requirements separates historical reports, tutorials and code examples from obligations. Exclusions remain available for review.",
         "choices": [
+          {
+            "label": "Current requirements",
+            "value": "current_requirements"
+          },
           {
             "label": "Project docs",
             "value": "project_docs"

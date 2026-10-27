@@ -12,16 +12,17 @@ def settings(block):
                           ('max_extraction_attempts', 3),
                           ('human_review_timeout_seconds', 3600)]:
         value = values.get(name)
-        if type(value) is not int or not 1 <= value <= maximum:
-            raise ValueError(f'{name} must be an integer in 1..{maximum}.')
+        minimum = 3 if name == 'max_turns_per_rule' else 1
+        if type(value) is not int or not minimum <= value <= maximum:
+            raise ValueError(f'{name} must be an integer in {minimum}..{maximum}.')
     for name in ('extraction_timeout_seconds', 'verification_timeout_seconds'):
         value = values.get(name)
         if value is not None and (type(value) is not int or not 1 <= value <= 3600):
             raise ValueError(f'{name} must be null or an integer in 1..3600.')
     if values.get('rules_mode') not in {'augment', 'replace'}:
         raise ValueError('rules_mode must be augment or replace.')
-    if values.get('documentation_scope') not in {'project_docs', 'all_captured_docs'}:
-        raise ValueError('documentation_scope must be project_docs or all_captured_docs.')
+    if values.get('documentation_scope') not in {'current_requirements', 'project_docs', 'all_captured_docs'}:
+        raise ValueError('documentation_scope must be current_requirements, project_docs or all_captured_docs.')
     return values
 
 

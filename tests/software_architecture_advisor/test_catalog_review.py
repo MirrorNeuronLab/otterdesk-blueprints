@@ -294,7 +294,8 @@ def test_hundreds_of_real_sdk_tasks_dynamic_and_complete_report(run):
     exported = Path(ctx["output_folder"])
     assert (exported / "reports/report.md").is_file()
     assert (exported / "review_index.json").is_file()
-    assert list((exported / "catalog/results").glob("*.json"))
+    assert list((root / "catalog/results").glob("*.json"))
+    assert not (exported / "catalog").exists()
     assert not list(exported.rglob("*.sqlite*"))
     prepared = list((exported / "context_sources" / "outputs").rglob("*.conversion.json"))
     assert len(prepared) == 24

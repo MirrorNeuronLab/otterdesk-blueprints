@@ -103,6 +103,7 @@ class Model:
     def __init__(self, responses):
         self.responses = iter(responses)
         self.calls = []
+        self.last_finish = None
 
     def completion_json(self, system, user, **kwargs):
         self.calls.append(json.loads(user))
@@ -112,13 +113,20 @@ class Model:
         return value
 
     def generate_json(self, *, system_prompt, user_prompt, response_schema, schema_name, **kwargs):
-        value = self.completion_json(system_prompt, user_prompt)
+        if system_prompt.startswith('Independently assess'):
+            self.calls.append(json.loads(user_prompt))
+            value = deepcopy(self.last_finish)
+        else:
+            value = self.completion_json(system_prompt, user_prompt)
+        if isinstance(value, dict) and value.get('action') == 'finish':
+            self.last_finish = deepcopy(value)
         return {'decision': value} if 'decision' in response_schema.get('properties', {}) else value
 
 
 def extracted():
     statements = ['The software must reject an empty name.', 'The software must not save plaintext passwords.']
     return {'complete': True, 'rules': [{'statement': value,
+        'subject': 'software', 'scope': 'product', 'modality': 'must', 'conditions': [], 'requirement_kind': 'behavior',
         'source_ids': [f'L{n}-{sha256((value + chr(10)).encode()).hexdigest()[:12]}']}
         for n, value in enumerate(statements, 1)]}
 
@@ -132,6 +140,9 @@ def judgment(status='pass', score=.95, path='store.py', quote='if not name:'):
     handle = 'SRC-' + sha256(json.dumps([path, source_hash, 1, 4]).encode()).hexdigest()[:20]
     return {'action': 'finish', 'status': status, 'confidence': score,
             'explanation': 'The inspected implementation directly establishes this scoped observation.',
+            'assessment': {'support': {'pass':'supported', 'fail':'contradicted', 'unknown':'unresolved'}[status],
+                'scope_matches': True, 'conditions_checked': True, 'requirement_kind': 'behavior',
+                'enforcement_evidence_ids': [] if status == 'unknown' else [handle], 'missing_evidence': '', 'reason_code': 'insufficient_evidence'},
             'evidence_ids': [handle],
             'evidence': [{'path': path, 'start_line': 1, 'end_line': 4, 'quote': quote}]}
 
@@ -167,9 +178,9 @@ def test_complete_pipeline_rules_report_and_idempotency(modules, context, author
                  'source/store.py', 'reviews/original-rules.json', 'web/index.html', 'web_ui.json']:
         assert (output / name).read_bytes() == (context.store.run_dir / name).read_bytes()
     assert {p.name: p.read_bytes() for p in source.iterdir()} == before
-    assert len(reviewer.calls) == 5
+    assert len(reviewer.calls) == 7
     first, second = [rule['id'] for rule in final['rules']]
-    assert [request['rule']['id'] for request in reviewer.calls] == [first] * 3 + [second] * 2
+    assert [request['rule']['id'] for request in reviewer.calls] == [first] * 4 + [second] * 3
     modules['intake'].capture(context, context.resources['inputs'])
     modules['rules'].extract(context, phase_inputs(context), llm=Model([]))
     modules['verification'].verify(context, phase_inputs(context), llm=Model([]))
@@ -222,8 +233,8 @@ def test_verification_uses_object_root_schema_through_real_sdk(modules, context,
     modules['intake'].capture(context, context.resources['inputs'])
     modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
     authority.approve(context)
-    responses = iter([{'action': 'search', 'query': 'name'}, reading(), judgment(),
-                      reading(), judgment('fail', .8)])
+    responses = iter([{'action': 'search', 'query': 'name'}, reading(), judgment(), judgment(),
+                      reading(), judgment('fail', .8), judgment('fail', .8)])
     calls = []
 
     def strict_route(messages, config, **kwargs):
@@ -231,7 +242,7 @@ def test_verification_uses_object_root_schema_through_real_sdk(modules, context,
         if schema.get('type') != 'object' or 'anyOf' in schema:
             raise RuntimeError('The response schema root must be an object.')
         assert schema['required'] == ['decision'] and schema['additionalProperties'] is False
-        for branch in schema['properties']['decision']['anyOf']:
+        for branch in schema['properties']['decision'].get('anyOf', [schema['properties']['decision']]):
             assert branch['properties']['action']['type'] == 'string'
         action = next(responses)
         action.pop('evidence', None)  # Only trusted code may supply source text.
@@ -246,7 +257,7 @@ def test_verification_uses_object_root_schema_through_real_sdk(modules, context,
     modules['verification'].verify(context, phase_inputs(context), llm=llm)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert [r['status'] for r in results] == ['pass', 'fail']
-    assert len(calls) == 5 and all(r['evidence'][0]['quote'] == IMPLEMENTATION for r in results)
+    assert len(calls) == 7 and all(r['evidence'][0]['quote'] == IMPLEMENTATION for r in results)
 
 
 def test_initial_source_folder_is_required_and_has_no_suggested_path():
@@ -425,7 +436,7 @@ def test_generated_reports_are_explicitly_excluded_from_rule_sources(modules, co
     modules['reporting'].publish(context, phase_inputs(context))
     final = modules['artifacts'].read(context, 'final_artifact.json')
     assert final['coverage']['documentation_selection']['excluded_documents'] == plan['excluded_documents']
-    assert 'excluded 172 generated reports' in (context.store.run_dir / 'report.md').read_text()
+    assert 'excluded 172 documents' in (context.store.run_dir / 'report.md').read_text()
 
 
 def test_all_docs_support_more_than_150_packets_without_losing_lines(modules, context):
@@ -803,7 +814,7 @@ def test_failed_rule_investigation_does_not_block_next_rule(modules, context, au
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert [r['status'] for r in results] == ['unknown', 'fail']
-    assert len(model.calls) == 5 and 'private outage' not in json.dumps(results)
+    assert len(model.calls) == 6 and 'private outage' not in json.dumps(results)
 
 
 @pytest.mark.parametrize('recovers', [False, True])
@@ -819,9 +830,9 @@ def test_each_approved_rule_is_investigated_after_prior_model_failures(modules, 
     model = Model([LLMError('Provider unavailable')] * 9 + final)
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
-    assert len(model.calls) == 9 + len(final) and len(results) == 4
+    assert len(model.calls) == 9 + len(final) + int(recovers) and len(results) == 4
     assert [request['rule']['id'] for request in model.calls] == [
-        f'R-{number}' for number in range(4) for _ in range(len(final) if number == 3 else 3)]
+        f'R-{number}' for number in range(4) for _ in range(len(final) + int(recovers) if number == 3 else 3)]
     assert all(result['status'] == 'unknown' and result['confidence'] == 0 for result in results[:3])
     assert results[-1]['status'] == ('pass' if recovers else 'unknown')
     for result in results:
@@ -837,15 +848,17 @@ def test_saved_unattempted_outage_rows_are_investigated_on_resume(modules, conte
     modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
     authority.approve(context)
     rules = modules['artifacts'].read(context, 'rules.json')
+    policy = {**modules['verification'].policy_identity(modules['artifacts'].read(context, 'static-analysis.json')),
+              'rules_digest': modules['rule_review'].require_approved_rules(context, rules)['rules_digest']}
     for rule in rules['rules']:
         result = {**modules['verification'].unknown(rule, 'Model unavailable; rule was not assessed.'),
                   'reason_code': 'model_unavailable'}
         modules['artifacts'].save(context, f"verification/{rule['id']}.json",
-                                 {'snapshot_id':rules['snapshot_id'], 'rule':rule, 'result':result})
+                                 {'snapshot_id':rules['snapshot_id'], 'rule':rule, 'result':result, 'policy':policy})
     model = Model([reading(), judgment(), reading(), judgment()])
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
-    assert len(model.calls) == 4 and all(result['status'] == 'pass' for result in results)
+    assert len(model.calls) == 6 and all(result['status'] == 'pass' for result in results)
     modules['verification'].verify(context, phase_inputs(context), llm=Model([]))
 
 
@@ -858,7 +871,7 @@ def test_investigation_corrects_invalid_evidence_selection(modules, context, aut
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert [r['status'] for r in results] == ['pass', 'fail']
-    assert 'recovery' in model.calls[1]['observations'][0]
+    assert any('recovery' in item for item in model.calls[1]['observations'])
     assert results[0]['evidence'][0]['quote'] == IMPLEMENTATION
 
 
@@ -868,24 +881,29 @@ def test_context_compaction_keeps_full_audit_and_trusted_evidence(modules, conte
     index = TextSearchIndex({'store.py':source})
     span = index.read('store.py', 5, 6)
     handle = 'SRC-' + sha256(json.dumps(['store.py', sha256(source.encode()).hexdigest(), 5, 6]).encode()).hexdigest()[:20]
-    model = Model([reading(start=1, end=2), reading(start=3, end=4), reading(start=5, end=6),
-                   {**judgment(), 'evidence_ids':[handle]}])
+    finished = {**judgment(), 'evidence_ids':[handle]}
+    finished['assessment']['enforcement_evidence_ids'] = [handle]
+    model = Model([reading(start=1, end=2), reading(start=3, end=4), reading(start=5, end=6), finished])
+    from mn_static_code_analysis_skill import analyze_sources
     result = modules['verification'].verify_rule(context, {'id':'R', 'statement':'A scoped rule'}, index,
-        {'coverage':{}, 'limitations':[]}, model, files=[{'path':'store.py', 'kind':'implementation'}])
+        analyze_sources(index.copy_sources()), model)
     assert result['status'] == 'pass' and result['evidence'][0]['quote'] == span['text']
-    assert len(result['investigation']) == 3
-    assert len(model.calls[-1]['observations']) == 1
+    assert len(result['investigation']) == 5
+    assert len(model.calls[-2]['observations']) < len(result['investigation'])
+    assert len(model.calls[-1]['evidence_reads']) == 1
 
 
 def test_large_inventory_is_previewed_without_narrowing_search_scope(modules, context):
     from mn_code_search_skill import TextSearchIndex
-    inventory = [{'path':f'packages/{n}/' + 'x' * 200 + '.py', 'kind':'implementation'} for n in range(2000)]
+    sources = {f'benchmark-results/{n}.json': '{"setting":true}' for n in range(1999)}
+    sources['store.py'] = IMPLEMENTATION
+    from mn_static_code_analysis_skill import analyze_sources
     model = Model([{**judgment('unknown', 0), 'evidence_ids':[]}])
-    modules['verification'].verify_rule(context, {'id':'R'}, TextSearchIndex({'store.py':IMPLEMENTATION}),
-        {'coverage':{}, 'limitations':[]}, model, files=inventory)
+    modules['verification'].verify_rule(context, {'id':'R', 'statement':'Reject an empty name'}, TextSearchIndex(sources),
+        analyze_sources(sources), model)
     request = model.calls[0]
-    assert request['file_inventory']['truncated'] and request['file_inventory']['total'] == 2000
-    assert request['file_inventory']['search_covers_all_captured_files'] is True
+    assert request['project_map']['roles'] == {'generated_artifact':1999, 'production_source':1}
+    assert request['seed_reads'][0]['path'] == 'store.py'
     assert len(json.dumps(request).encode()) < 30_000
 
 
@@ -972,7 +990,7 @@ def test_document_policy_validation(modules, context, key, value):
 
 
 @pytest.mark.parametrize('responses', [
-    [judgment()],  # unread citation
+    [{**judgment(), 'evidence_ids':['unread']}],
     [reading(), judgment(quote='fabricated')],
     [reading(), judgment(score=math.nan)],
     [reading(), judgment(score=True)],
@@ -986,9 +1004,11 @@ def test_unsafe_or_invalid_verification_is_unknown(modules, context, responses, 
     modules['intake'].capture(context, context.resources['inputs'])
     modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
     authority.approve(context)
-    context.config['review']['max_turns_per_rule'] = len(responses)
+    context.config['review']['max_turns_per_rule'] = len(responses) + 2
     # Both rules get independent responses; no exception leaks private diagnostics.
-    modules['verification'].verify(context, phase_inputs(context), llm=Model(responses + responses))
+    unavailable = judgment('unknown', 0)
+    unavailable['evidence_ids'] = []
+    modules['verification'].verify(context, phase_inputs(context), llm=Model(responses + [unavailable] + responses + [unavailable]))
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert all(r['status'] == 'unknown' and r['confidence'] == 0 for r in results)
     assert 'private-provider-message' not in json.dumps(results)
@@ -1001,6 +1021,7 @@ def test_documentation_and_tests_alone_cannot_pass(modules):
         span = index.read(path, 1, 1)
         result = judgment(path=path, quote=quote)
         result['evidence'][0].update(start_line=1, end_line=1)
+        result['assessment']['enforcement_evidence_ids'] = [modules['verification'].evidence_handle(span)]
         admitted = modules['verification'].admit(result, {'id': 'R'}, index, [span])
         assert admitted['status'] == 'unknown' and admitted['confidence'] == .49
 
@@ -1009,11 +1030,13 @@ def test_budget_exhaustion_and_no_evidence_are_unknown(modules, context, authori
     modules['intake'].capture(context, context.resources['inputs'])
     modules['rules'].extract(context, phase_inputs(context), llm=Model([extracted()]))
     authority.approve(context)
-    context.config['review']['max_turns_per_rule'] = 1
-    modules['verification'].verify(context, phase_inputs(context), llm=Model([{'action': 'search', 'query': 'missing'}] * 2))
+    context.config['review']['max_turns_per_rule'] = 3
+    unavailable = judgment('unknown', 0)
+    unavailable['evidence_ids'] = []
+    modules['verification'].verify(context, phase_inputs(context), llm=Model([{'action': 'search', 'query': 'missing'}, unavailable] * 2))
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert len(results) == 2 and all(r['status'] == 'unknown' for r in results)
-    assert all('limit' in r['explanation'] for r in results)
+    assert all(r['status'] == 'unknown' and r['reason_code'] == 'insufficient_evidence' for r in results)
 
 
 def test_capture_exclusions_and_source_budgets(modules, tmp_path):
@@ -1058,7 +1081,7 @@ def test_rule_limit_preserves_every_row_and_marks_unassessed_rules_unknown(modul
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert len(results) == 2 and [r['status'] for r in results] == ['pass', 'unknown']
-    assert len(model.calls) == 2 and results[1]['confidence'] == 0
+    assert len(model.calls) == 3 and results[1]['confidence'] == 0
 
 
 def test_catalog_compiles_and_boundary_contracts():
@@ -1122,7 +1145,7 @@ def test_deadline_keeps_every_rule_without_extra_model_calls(modules, context, m
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert len(results) == 2
-    assert all(r['status'] == 'unknown' and 'time limit' in r['explanation'] for r in results)
+    assert all(r['status'] == 'unknown' and r['reason_code'] == 'budget_exhausted' for r in results)
     assert not model.calls
 
 
@@ -1151,7 +1174,7 @@ def test_verification_continues_past_old_total_deadline(modules, context, monkey
     modules['verification'].verify(context, phase_inputs(context), llm=model)
     results = modules['artifacts'].read(context, 'verification.json')['results']
     assert [result['status'] for result in results] == ['pass', 'pass']
-    assert len(model.calls) == 4
+    assert len(model.calls) == 6
 
 
 def test_activity_compilation_has_no_hidden_phase_block_or_runner_deadlines():
@@ -1402,7 +1425,9 @@ def test_editing_a_rule_requires_a_fresh_review_and_changes_the_verification_inp
     assert changed['origin'] == 'supervisor' and changed['source'] == original['rules'][0]['source']
     assert edit['markdown'] in (context.store.run_dir / 'rules.md').read_text()
     assert receipt['request_ids'] == [second['request_id']]
-    reviewer = Model([{'action': 'finish', 'status': 'unknown', 'explanation': 'Insufficient source coverage.', 'evidence_ids': [], 'confidence': 0}] * 2)
+    missing = judgment('unknown', 0)
+    missing['evidence_ids'] = []
+    reviewer = Model([missing] * 2)
     modules['verification'].verify(context, phase_inputs(context), llm=reviewer)
     assert reviewer.calls[0]['rule']['statement'] == edit['markdown']
     assert modules['artifacts'].read(context, 'reviews/original-rules.json') == original
@@ -1485,6 +1510,8 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
     from mn_sdk.integrations.block_worker import run
     from mn_sdk.step_runtime import StepContext
     from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    context.config['inputs']['payload']['input_folder'] = context.resources['inputs']['input_folder']
 
     package = read_blueprint(PACKAGE)
     compiled = compile_blueprint(package).manifest

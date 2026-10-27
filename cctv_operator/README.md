@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.2.0 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.2.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -172,6 +172,10 @@ selected sequence via MP4/video_url at 4 FPS, real selected timestamps, optional
 complete history and a 4096-token answer allowance. Its request deadline remains
 300 seconds. Truncated, malformed or unsupported results are errors, not clear
 scenes. Private reasoning never enters reports or history.
+The final JSON object is the answer boundary: a normally stopped Cosmos reply may
+omit its closing answer tag or wrap the object in a JSON fence. The parser accepts
+only the complete object; unfinished reasoning, truncated output and trailing prose
+remain errors. It never recovers a partial object or repeats inference to repair it.
 
 ## Notices, risk and history
 
@@ -215,10 +219,14 @@ before running this blueprint revision.
 ## Outputs and operations
 
 The read-only job-scoped Web UI shows live MJPEG and the latest analyzed snapshot.
+It also shows analysis health, warnings and the snapshot's analysis time. A visible
+preview does not imply that person detection or scene analysis is healthy.
 It makes no browser steering requests and never exposes camera URLs/credentials.
 The generic SDK proxies the OS-selected worker listener through the Job UI route.
 An authenticated loopback MCP relay has its own owner-only private endpoint
 artifact; it is never a public browser endpoint. No fixed host MCP port is used.
+The sidecar uses Core's physical workflow run identity to locate and verify that
+endpoint, including after resume; a submission label is not the current run.
 
 Authoritative run outputs are on SDK shared run storage. The default
 `~/Downloads/cctv-operator` is an additional host copy. Keep the run package for:
@@ -279,6 +287,23 @@ had 968 passes, 36 skips and one unrelated VC environment-contract failure.
 See [SPEC.md](SPEC.md) for the contract and [BENCHMARKS.md](BENCHMARKS.md) for
 measurement boundaries. Source bundles use canonical blueprint/v1 documents;
 workflow topology, execution/model recipes, contracts and defaults remain separate.
+
+### End-user verification on 2026-10-27
+
+OtterDesk saved an approved LAN stream through Configure and displayed its live
+warehouse preview from Spark. RF-DETR and caption capture both ran. The MCP
+sidecar remained connected after correcting its lookup and identity check to use
+the physical workflow run instead of the submission label. A real, normally
+stopped Cosmos response exposed the missing closing-answer-tag case; complete
+fenced JSON is now accepted with strict parsing and existing evidence validation.
+The visual prompt now declares site findings and forecast frame references in one
+output contract. The preview displays analysis failures and snapshot analysis time.
+
+The CCTV offline suite passed 261 checks; 77 focused checks passed after the final
+prompt edit. Live verification of that prompt stopped before a model response when
+Core reported `coordinator_report_failed` / `message_id_conflict` for an already
+acknowledged message. Runtime was not changed. Report/history/notice acceptance
+for this revision remains open; preview and detector success alone do not close it.
 
 ## Block composition (5.1.0)
 

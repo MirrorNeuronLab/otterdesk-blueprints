@@ -7,7 +7,6 @@ from mn_sdk_common.publication import ArtifactWrite
 import json
 from pathlib import Path
 from mn_sdk.step_runtime import artifact_reference
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
 from .state import bound_structure, catalog_reference, freeze_files, save_state, read_state
 from mn_sdk_common.committed_artifacts import COMMITTED_JSON_VERSION
 from .catalog_store import CatalogStore
@@ -155,18 +154,6 @@ def write_review(block, report, files, results, *, output_folder=None, review_fi
         "static_analysis": {name:path for name,path in static_paths},
     }
     store.write("review_index.json", index)
-    if output_folder and Path(output_folder).resolve() != root.resolve():
-        # Export the published report and its JSON audit only, never the writable
-        # budget ledger or sandbox workspaces. The index is published last.
-        names = ["reports/report.md", "data/report.json", *["data/" + key + ".json" for key in files],
-                 *[path for _, path in links], *[row["path"] for row in package_links],
-                 "reports/work_packages/README.md", "reports/improvement_prompts.md"]
-        names += [str(path.relative_to(root)) for path in sorted((root / "catalog").rglob("*.json"))]
-        names += [str(path.relative_to(root)) for directory in ('data','web','reports')
-                  for path in sorted((root/directory).rglob('*')) if path.is_file()]
-        names += [path for _,path in static_paths]
-        for name in dict.fromkeys([*names, "web_ui.json", "review_index.json"]):
-            copy_path_to_host(root / name, Path(output_folder) / name)
     publish_outputs(block, output_folder=output_folder, section_paths=[path for _, path in links])
     refs = [
         artifact_reference(key, path)
@@ -223,9 +210,9 @@ def publish(block, inputs):
         for name, reference in frozen.items()
         if name in {'review_index.json', 'web_ui.json'} or name.startswith(('data/', 'web/', 'reports/'))
     ], name='architecture_review')
-    # Existing exports preserve cumulative Job history. Register this run's
-    # frozen public files without replacing those product-owned host copies.
-    deliver_files(block, public, output_directory=block.store.run_dir)
+    # The SDK delivers verified public files to both the run store and the
+    # configured output folder. Private catalogs and source stay in the run.
+    deliver_files(block, public)
     audit = []
     immutable = [*captured['files'], *[name for name in evidence['files'] if not name.startswith('web/')],
         *[name for name in names if name.startswith('catalog/')], 'snapshot.json']

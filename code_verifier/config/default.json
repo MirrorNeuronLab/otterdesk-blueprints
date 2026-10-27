@@ -9,7 +9,7 @@
   },
   "review": {
     "rules_mode": "augment",
-    "documentation_scope": "project_docs",
+    "documentation_scope": "current_requirements",
     "max_extraction_packets": 512,
     "max_extraction_attempts": 3,
     "max_rules": 2000,

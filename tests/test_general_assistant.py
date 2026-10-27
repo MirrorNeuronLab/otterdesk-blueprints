@@ -46,7 +46,7 @@ def context(tmp_path, *, job="job-one", run="run-one", step="prepare_task", conf
         (folder / "notes.md").write_text("# Supporting notes\nSynthetic task material.")
         config["inputs"]["payload"]["input_folder"] = str(folder)
     return BlockContext(store=CommittedJsonStore(tmp_path / run), invocation_id=run + ":" + step,
-        revision="general_assistant@2.1.0", config=config,
+        revision="general_assistant@2.1.1", config=config,
         job_id=job, run_id=run, step_id=step, job_data_dir=str(tmp_path / job))
 
 
@@ -80,8 +80,23 @@ def test_catalog_default_model_memory_and_openshell_boundary():
             value = value[key]
         assert field["default"] == value
     assert config["pass_env"] == ["MN_GRPC_AUTH_TOKEN", "MN_LLM_API_KEY"]
+    # Staged configuration is authoritative; compiled run-input defaults can
+    # contain the launcher's host paths and shadow saved instructions.
+    assert package.extension("mn.blocks")["steps"]["prepare_task"]["inputs"] == {}
     assert_modular_payload("general_assistant")
     assert_registry_handlers_import("general_assistant")
+
+
+def test_bundled_demo_uses_sample_files_with_the_general_instructions():
+    package = read_blueprint(BLUEPRINT)
+    defaults = resolve_config(package).data
+    demo = json.loads((BLUEPRINT / "examples/demo.json").read_text())
+    config = resolve_config(package, overrides=demo).data
+    assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
+    assert config["inputs"]["payload"]["task"] == defaults["inputs"]["payload"]["task"]
+    assert config["outputs"]["folder_path"] == "~/Documents/general-assistant-demo"
+    assert (BLUEPRINT / "examples/sample_inputs/Main.java").is_file()
+    assert (BLUEPRINT / "examples/sample_inputs/README.md").is_file()
 
 
 @pytest.mark.parametrize("vendor", ["apple", "nvidia", None])
@@ -144,7 +159,8 @@ def test_saved_instructions_apply_unless_a_run_overrides_them(domain, tmp_path, 
     assert not any(event["type"] == "human_input_requested" for event in conversation_events)
 
 
-def test_compiled_workers_use_default_instructions_and_publish_summary(domain, monkeypatch, tmp_path, conversation_events):
+@pytest.mark.parametrize("instructions", [None, "Read the Markdown notes and write summary.md with source references."])
+def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, monkeypatch, tmp_path, conversation_events, instructions):
     pytest.importorskip("harness2")
     from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run
@@ -153,7 +169,10 @@ def test_compiled_workers_use_default_instructions_and_publish_summary(domain, m
     source = tmp_path / "input"
     source.mkdir()
     (source / "notes.md").write_text("# Synthetic Markdown material")
-    config = resolve_config(package, overrides={"inputs": {"payload": {"input_folder": str(source)}}})
+    payload = {"input_folder": str(source)}
+    if instructions is not None:
+        payload["task"] = instructions
+    config = resolve_config(package, overrides={"inputs": {"payload": payload}})
     compiled = compile_blueprint(package, config).manifest
     descriptor = tmp_path / "worker-manifest.json"
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, config)))
@@ -345,6 +364,39 @@ def test_real_harness2_failure_preserves_memory(domain, monkeypatch, tmp_path):
     assert domain.reporting.publish(publish, {"previous": solved})["status"] == "failed"
     assert domain.memory.load(publish, domain.configuration.settings(publish))["generation"] == 0
     assert publish.store.read_path("result.json")["improvement"]["memory_retained"] is False
+
+
+def test_base_rollout_failure_is_in_the_harness_audit(domain, monkeypatch, tmp_path):
+    pytest.importorskip("harness2")
+    engine = importlib.import_module("domain.engine")
+    monkeypatch.setattr(domain.solver, "require_openshell", lambda: None)
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("Synthetic conversation connection failure")
+    monkeypatch.setattr(engine.Conversation, "notice", unavailable)
+    block = context(tmp_path)
+    admitted = domain.intake.prepare(block, {"task": "Summarize the input folder"})
+    solved = domain.solver.solve(context(tmp_path, step="solve_task"), {"previous": admitted})
+    result = block.store.read(solved["outcome"])["data"]
+    audit = block.store.read(result["improvement"])
+    assert result["status"] == "failed"
+    assert audit["sessions"] == 0
+    assert audit["rollout_failures"][0]["error"] == (
+        "RuntimeError: Synthetic conversation connection failure")
+
+
+def test_a_chat_response_without_written_results_is_not_a_deliverable(domain, monkeypatch, tmp_path):
+    pytest.importorskip("harness2")
+    engine = importlib.import_module("domain.engine")
+    monkeypatch.setattr(domain.solver, "require_openshell", lambda: None)
+    monkeypatch.setattr(engine, "run_opencode", lambda *args, **kwargs: SimpleNamespace(
+        text="I finished the task.", events=[], usage=[]))
+    block = context(tmp_path)
+    admitted = domain.intake.prepare(block, {"task": "Write a summary of the input folder"})
+    solved = domain.solver.solve(context(tmp_path, step="solve_task"), {"previous": admitted})
+    result = block.store.read(solved["outcome"])["data"]
+    assert result["status"] == "failed"
+    assert result["deliverables"] == {}
+    assert block.store.read(result["memory"])["generation"] == 0
 
 
 def test_session_allowance_and_host_execution_guard(domain, monkeypatch, tmp_path):

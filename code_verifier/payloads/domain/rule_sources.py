@@ -23,7 +23,7 @@ def bind_sources(index, packet, response):
     if response.get('complete') is not True or not isinstance(response.get('rules'), list):
         raise ExtractionContractError('Return the complete rules list and complete=true; do not omit rules.')
     handles = {line['id']: line['line'] for line in source_lines(packet)}
-    rules, invalid = [], []
+    rules, invalid, excluded = [], [], []
     for number, item in enumerate(response['rules']):
         if not isinstance(item, dict):
             raise ExtractionContractError('Every extracted rule must be an object.')
@@ -34,11 +34,19 @@ def bind_sources(index, packet, response):
             continue
         numbers = [handles[value] for value in selected]
         span = index.read(packet['path'], min(numbers), max(numbers))
+        contexts = packet.get('line_context', {})
+        if contexts and not any(contexts.get(str(n), {}).get('eligible', False) and
+                                source_lines(packet)[n - packet['start_line']]['text'].strip() for n in numbers):
+            excluded.append({'statement': str(item.get('statement', ''))[:4000],
+                             'source': {k: v for k, v in span.items() if k != 'text'},
+                             'quote': span['text'], 'reason': 'non_normative_example_or_instruction'})
+            continue
         rules.append({'statement': item.get('statement'), 'start_line': span['start_line'],
-                      'end_line': span['end_line'], 'quote': span['text']})
+                      'end_line': span['end_line'], 'quote': span['text'],
+                      **{k: item[k] for k in ('subject', 'scope', 'modality', 'conditions', 'requirement_kind') if k in item}})
     if invalid:
         raise SourceSelectionError(invalid)
-    return {'complete': True, 'rules': rules}
+    return {'complete': True, 'rules': rules, **({'excluded_candidates': excluded} if excluded else {})}
 
 
 def apply_source_repairs(original, indices, response):

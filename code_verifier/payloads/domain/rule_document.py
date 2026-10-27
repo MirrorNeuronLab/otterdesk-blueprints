@@ -29,10 +29,28 @@ def document(rules):
     if len(rules['rules']) > limit:
         instructions.append(f'## Verification budget\n\nOnly the first {limit} rules are eligible for '
                             'model investigation. Additional rules remain in the report as Unknown.')
+    selection = rules.get('documentation_selection', {})
+    excluded = [*selection.get('excluded_documents', []), *selection.get('excluded_sections', [])]
+    if excluded:
+        instructions.append('## Extraction scope\n\nHistorical material, tutorials and example code are recorded '
+                            'separately from current obligations. Approval accepts these exclusions:\n\n' +
+                            '\n'.join(f"- `{item['path']}`" +
+                                (f":{item['start_line']}–{item['end_line']}" if 'start_line' in item else '') +
+                                f" — {item['reason']}" for item in excluded))
+    for candidate in rules.get('excluded_candidates', []):
+        source = candidate['source']
+        instructions.append(f"## Excluded candidate\n\n{candidate['statement']}\n\n"
+                            f"Source: `{source['path']}:{source['start_line']}–{source['end_line']}`. "
+                            f"Reason: {candidate['reason']}.")
+    for flag in rules.get('review_flags', []):
+        instructions.append('## Check related rules\n\nThese rules may overlap or conflict; neither is silently preferred: '
+                            + ', '.join(flag['rule_ids']) + '.')
     items = []
     for rule in rules['rules']:
         source = rule['source']
         context = f"Source: `{source['path']}:{source['start_line']}–{source['end_line']}`."
+        if rule.get('scope'):
+            context += f" Subject: {rule['subject']}. Scope: {rule['scope']}. Kind: {rule['requirement_kind']}."
         if rule.get('review_edit'):
             context += ' Edited by the supervisor; the source reference records the original rule origin.'
         items.append({'id': rule['id'], 'title': rule.get('title') or short_title(rule['statement']),
@@ -46,6 +64,9 @@ def document(rules):
         notices.append(f'Investigation is limited to {limit} rules; remaining rules will be Unknown.')
     if not rules['rules']:
         notices.append('No rules identified. Approval establishes no conformance result.')
+    if excluded or rules.get('excluded_candidates'):
+        notices.append(f"{len(excluded)} source documents/sections and {len(rules.get('excluded_candidates', []))} "
+                       'candidates excluded from current obligations; review the extraction scope.')
     if notices:
         result['notice'] = ' '.join(notices)
     return result
@@ -80,6 +101,9 @@ def apply_edit(rules, notes, request):
     if (match['statement'] == edit['markdown']
             and (match.get('title') or short_title(match['statement'])) == edit['title']):
         raise ValueError('The rule has not changed.')
+    if match['statement'] != edit['markdown']:
+        for key in ('subject', 'scope', 'conditions', 'modality', 'requirement_kind'):
+            match.pop(key, None)  # Extracted qualifiers cannot silently govern a supervisor rewrite.
     match.update(statement=edit['markdown'], title=edit['title'], origin='supervisor',
                  review_edit={'request_id': request['request_id'], 'previous_rules_digest': request['rules_digest']})
     return result

@@ -220,7 +220,17 @@ interruption; use a new run for an explicitly chosen retry.
 
 ## Results
 
-The configured output folder defaults to `~/Downloads/software_architecture_advisor`.
+The configured output folder defaults to `~/Downloads/architecture_advisor`.
+Version 7.0.6 uses the existing SDK publication/delivery block to save verified
+reports, JSON, web assets and retained snapshots there after a run. Custom output
+destinations remain supported. Captured source, private catalog audits and SQLite
+budgets stay in the authoritative run store.
+
+Chat shows a compact assessment, up to three observations and coverage limits
+from `data/chat-summary.json`, projected from the same saved workspace and syntax
+facts used by the web report. It makes no additional model call. **View full
+report** opens the complete interactive page in OtterDesk's shared report modal.
+
 `data/`, `reports/`, `web/` and `web_ui.json` are Job-level entries: each run adds an immutable snapshot
 and refreshes the latest dashboard. They are delivered by the SDK at the folder
 root, rather than inside `run_<timestamp>/`.

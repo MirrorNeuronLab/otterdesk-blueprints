@@ -1,4 +1,4 @@
-# CCTV Operator 5.2.0 specification
+# CCTV Operator 5.2.1 specification
 
 ## Purpose and scope
 
@@ -89,6 +89,13 @@ reasoning/4096token answer allowance/300s request deadline remain. Nemotron text
 chat remains separate. Preparation and lifecycle are platform-owned. Malformed,
 truncated, unsupported or capacity-failed inference is explicit, never clear-scene
 success. Camera source/memory/model failures do not certify absence.
+Normally stopped Cosmos responses may omit the closing answer tag or contain one
+JSON fence. Accept only a complete JSON object after excluding completed private
+reasoning. Reject unfinished reasoning, truncation, malformed JSON and trailing
+content; do not salvage a partial object or dispatch another inference for parsing.
+The visual prompt declares one complete output contract, including site_findings
+and selected-frame references on every forecast. Missing references remain an
+analysis error; the parser must not invent them from a different finding.
 
 Evidence batches and selected image hashes precede inference. Reports retain
 sample interval, source/demo qualification, frame refs, active instruction,

@@ -67,8 +67,17 @@ def native(tmp_path, monkeypatch):
     return h, vision, report, seed, invoke, calls, account
 
 
-def test_native_vision_to_report_replays_one_model_request_and_no_early_publication(native):
+@pytest.mark.parametrize("normal_stop_wrapper", [False, True])
+def test_native_vision_to_report_replays_one_model_request_and_no_early_publication(native, monkeypatch, normal_stop_wrapper):
     h, _vision, _report, seed, invoke, calls, _account = native
+    if normal_stop_wrapper:
+        model = block_model_request.runtime_model_json_request
+        def wrapped(*args, **options):
+            result = model(*args, **options)
+            message = result["choices"][0]["message"]
+            message["content"] = "<think>Private reasoning</think><answer>```json\n" + message["content"] + "\n```"
+            return result
+        monkeypatch.setattr(block_model_request, "runtime_model_json_request", wrapped)
     payload = seed()
     first = invoke(VISION, payload, "vision-1")
     state = h.store.read(first["next"])["data"]

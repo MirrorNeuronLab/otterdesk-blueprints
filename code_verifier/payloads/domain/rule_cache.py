@@ -3,12 +3,14 @@ from hashlib import sha256
 import json
 
 from mn_sdk.blueprint_support import write_json
+from .document_policy import policy_identity
 
 
 def identity(packet):
     # This version binds requirement semantics and evidence admission, not the
     # model's wire format. Old literal-quote candidates require the same checks.
-    return {'policy': 'atomic-software-rules-v1', **{key: packet[key] for key in
+    context = {key: packet.get(key) for key in ('line_context', 'preceding_context', 'preceding_context_complete')}
+    return {'policy': policy_identity(), 'context_sha256': sha256(json.dumps(context, sort_keys=True).encode()).hexdigest(), **{key: packet[key] for key in
             ('snapshot_id', 'path', 'sha256', 'start_line', 'end_line')}}
 
 

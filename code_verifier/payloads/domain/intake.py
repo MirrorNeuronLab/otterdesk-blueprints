@@ -9,6 +9,7 @@ from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 from .artifacts import read
 from .configuration import BLUEPRINT_ID, settings
+from .source_policy import source_role
 
 EXCLUDED = {'.git', '.svn', 'node_modules', 'vendor', 'dist', 'build', '.venv',
             'venv', '__pycache__', '.next', 'coverage', '.idea', '.vscode'}
@@ -24,9 +25,9 @@ def capture_folder(root, *, max_files=2000, max_bytes=10_000_000):
     for directory, folders, files in os.walk(root, followlinks=False):
         for name in sorted(folders):
             path = Path(directory) / name
-            if name.casefold() in EXCLUDED or name.startswith('.') or path.is_symlink():
+            if name.casefold() in EXCLUDED or (name.startswith('.') and path.relative_to(root).as_posix() != '.github') or path.is_symlink():
                 omitted.append({'path': path.relative_to(root).as_posix(), 'reason': 'excluded_directory_or_symlink'})
-        folders[:] = sorted(n for n in folders if not n.startswith('.') and n.casefold() not in EXCLUDED
+        folders[:] = sorted(n for n in folders if (not n.startswith('.') or (Path(directory) / n).relative_to(root).as_posix() == '.github') and n.casefold() not in EXCLUDED
                             and not (Path(directory) / n).is_symlink())
         scanned += len(files) + len(folders)
         if scanned > 30_000:
@@ -34,6 +35,10 @@ def capture_folder(root, *, max_files=2000, max_bytes=10_000_000):
         for name in sorted(files):
             path = Path(directory) / name
             relative = path.relative_to(root).as_posix()
+            if relative.startswith('.github/') and not (Path(relative).parent.as_posix() == '.github/workflows'
+                                                        and path.suffix.casefold() in {'.yml', '.yaml'}):
+                omitted.append({'path': relative, 'reason': 'outside_ci_capture_allowlist'})
+                continue
             if (path.is_symlink() or name.startswith('.') or path.suffix.lower() not in TEXT_EXTENSIONS
                     or name.casefold().startswith(('credentials', 'secrets', 'id_rsa', 'id_ed25519'))
                     or not path.is_file()):
@@ -61,14 +66,7 @@ def capture_folder(root, *, max_files=2000, max_bytes=10_000_000):
 
 
 def role(path):
-    parts = Path(path).parts
-    name = Path(path).name.casefold()
-    if path.startswith('knowledge/') or Path(path).suffix.lower() in {'.md', '.rst', '.txt'}:
-        return 'documentation'
-    if any(p.casefold() in {'test', 'tests', '__tests__'} for p in parts) or any(
-            token in name for token in ('test_', '.test.', '.spec.', '_test.')):
-        return 'test_source'
-    return 'implementation'
+    return source_role(path)
 
 
 def capture(block, inputs):
@@ -117,7 +115,7 @@ def capture_sources(block, inputs):
             raise ValueError('Custom rules must be Markdown files.')
     sources.update({'knowledge/rules/' + p: v for p, v in custom.items()})
     index = TextSearchIndex(sources)
-    docs = [p for p in sources if role(p) == 'documentation' and not p.startswith('knowledge/')]
+    docs = [p for p in sources if Path(p).suffix.casefold() in {'.md', '.rst', '.txt'} and not p.startswith('knowledge/')]
     value = {'schema_version': 'mn.software_rules.capture.v1', 'sources': sources,
              'snapshot_id': index.snapshot_id, 'documents': docs,
              'custom_documents': ['knowledge/rules/' + p for p in custom], 'omitted': omitted,

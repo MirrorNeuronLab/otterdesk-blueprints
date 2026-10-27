@@ -18,6 +18,7 @@ from .rule_sources import (ExtractionContractError, SourceSelectionError,
                            source_lines, bind_sources, apply_source_repairs)
 from . import rule_cache
 from .rule_document import short_title
+from . import document_policy
 
 HEADING = re.compile(r'^## ([A-Za-z][A-Za-z0-9_-]{0,63})(?:[ \t]+—[ \t]+([^\r\n]+))?[ \t]*$', re.MULTILINE)
 GENERATED_REPORT_DIRECTORIES = frozenset({'benchmark-results', 'benchmark_results',
@@ -35,9 +36,9 @@ class ExtractionNotAttempted(LLMError):
 def select_documents(capture, scope):
     selected, excluded = [], []
     for path in capture['documents']:
-        generated = any(part.casefold() in GENERATED_REPORT_DIRECTORIES for part in Path(path).parts[:-1])
-        if scope == 'project_docs' and generated:
-            excluded.append({'path': path, 'reason': 'generated_report_directory'})
+        reason = document_policy.document_reason(path, scope)
+        if reason:
+            excluded.append({'path': path, 'reason': reason})
         else:
             selected.append(path)
     return {'scope': scope, 'selected_documents': selected, 'excluded_documents': excluded}
@@ -71,19 +72,20 @@ def markdown(rules):
     return '\n\n'.join(f"## {r['id']} — {r.get('title') or short_title(r['statement'])}\n\n{r['statement']}" for r in rules) + '\n'
 
 
-def document_packets(index, path, value):
+def document_packets(index, path, value, *, current=True):
     # Complete physical lines, never a silent prefix of a specification.
     lines = value.splitlines(keepends=True)
+    contexts = document_policy.line_contexts(value, current=current)
     start, size = 1, 0
     for number, line in enumerate(lines, 1):
         if len(line.encode()) > 12_000:
             raise ValueError(f'{path}: documentation line exceeds 12 KB.')
         if size and (size + len(line.encode()) > 4000 or number - start >= 50):
-            yield index.read(path, start, number - 1)
+            yield document_policy.annotate(index.read(path, start, number - 1), contexts, value)
             start, size = number, 0
         size += len(line.encode())
     if lines:
-        yield index.read(path, start, len(lines))
+        yield document_policy.annotate(index.read(path, start, len(lines)), contexts, value)
 
 
 def exact_rule_source(index, packet, item):
@@ -129,8 +131,17 @@ def packet_rules(index, packet, result):
                 or span['end_line'] > packet['end_line']):
             raise ExtractionContractError('Every rule needs a statement of at most 4 KB and an exact bounded source reference.')
         ident = 'GEN-' + sha256((packet['path'] + '\0' + statement.strip()).encode()).hexdigest()[:12]
+        metadata = {key: item[key] for key in ('subject', 'scope', 'modality', 'conditions', 'requirement_kind') if key in item}
+        if metadata:
+            if (any(not isinstance(metadata.get(k), str) or not 1 <= len(metadata[k]) <= 500
+                    for k in ('subject', 'scope', 'modality', 'requirement_kind'))
+                    or metadata['modality'] not in {'must', 'should', 'may', 'descriptive'}
+                    or metadata['requirement_kind'] not in {'behavior', 'configuration', 'source_structure'}
+                    or not isinstance(metadata.get('conditions'), list) or len(metadata['conditions']) > 8
+                    or any(not isinstance(c, str) or len(c) > 500 for c in metadata['conditions'])):
+                raise ExtractionContractError('Preserve bounded subject, scope, modality, conditions and requirement_kind.')
         admitted[ident] = {'id': ident, 'statement': statement.strip(), 'origin': 'extracted',
-                           'source': {k: v for k, v in span.items() if k != 'text'}, 'quote': quote}
+                           'source': {k: v for k, v in span.items() if k != 'text'}, 'quote': quote, **metadata}
     return admitted
 
 
@@ -177,6 +188,8 @@ def extract_packet(block, llm, index, packet, name, policy, deadline, budget):
     cache = f'extraction/{name}.json'
     if block.store.path(cache).is_file():
         result = read(block, cache)
+        if result.get('packet_identity') != rule_cache.identity(packet):
+            raise ValueError('Saved extraction uses a different policy. Start a fresh run.')
         packet_rules(index, packet, result)
         return result
     def validate(result):
@@ -235,6 +248,8 @@ def extract_packet(block, llm, index, packet, name, policy, deadline, budget):
                 except ExtractionContractError as error:
                     feedback = str(error)
                 else:
+                    result['extraction_policy'] = document_policy.policy_identity()
+                    result['packet_identity'] = rule_cache.identity(packet)
                     save(block, cache, result)
                     try:
                         rule_cache.store(block, packet, result, validate)
@@ -259,7 +274,13 @@ def extract_packet(block, llm, index, packet, name, policy, deadline, budget):
             middle = (packet['start_line'] + packet['end_line']) // 2
             parts = [index.read(packet['path'], packet['start_line'], middle),
                      index.read(packet['path'], middle + 1, packet['end_line'])]
-            children, gaps = [], []
+            # Recompute each child's actual preceding paragraph, including the
+            # left child's source when preparing the right child.
+            full_text = index.copy_sources()[packet['path']]
+            contexts = document_policy.line_contexts(full_text,
+                current=policy['documentation_scope'] == 'current_requirements')
+            parts = [document_policy.annotate(part, contexts, full_text) for part in parts]
+            children, gaps, excluded = [], [], []
             # Smaller complete-line packets partition the same captured evidence.
             # Never accept a partial parent response or repair/truncate its text.
             for suffix, part in zip(('left', 'right'), parts):
@@ -272,8 +293,13 @@ def extract_packet(block, llm, index, packet, name, policy, deadline, budget):
                     save(block, f'extraction/unresolved/{Path(name).name}-{suffix}.json', gap)
                     continue
                 children.extend(child['rules'])
+                excluded.extend(child.get('excluded_candidates', []))
                 gaps.extend(child.get('extraction_gaps', []))
             result = {'complete': True, 'rules': children}
+            result['extraction_policy'] = document_policy.policy_identity()
+            result['packet_identity'] = rule_cache.identity(packet)
+            if excluded:
+                result['excluded_candidates'] = excluded
             if gaps:
                 result['extraction_gaps'] = gaps
             packet_rules(index, packet, result)
@@ -299,6 +325,8 @@ def extract(block, inputs, *, llm=None):
     deadline = phase_deadline(policy, 'extraction_timeout_seconds')
     if block.store.path('rules.json').is_file():
         result = read(block, 'rules.json')
+        if result.get('extraction_policy') != document_policy.policy_identity():
+            raise ValueError('Saved rules use a different extraction policy. Start a fresh run for review.')
         stop_failed_extraction(block, result)
         return {'rules': len(result['rules']), 'capture': capture_ref}
     sources = capture['sources']
@@ -311,13 +339,16 @@ def extract(block, inputs, *, llm=None):
     mode = policy['rules_mode']
     if mode not in {'augment', 'replace'}:
         raise ValueError('rules_mode must be augment or replace.')
-    rules, receipts, gaps = {}, [], []
+    rules, receipts, gaps, excluded_candidates = {}, [], [], []
     selection = {'scope': 'custom_rules_only', 'selected_documents': [], 'excluded_documents': []}
     if mode == 'augment':
         selection = select_documents(capture, policy['documentation_scope'])
         packets = []
+        selection['excluded_sections'] = []
         for path in selection['selected_documents']:
-            for packet in document_packets(index, path, sources[path]):
+            contexts = document_policy.line_contexts(sources[path], current=policy['documentation_scope'] == 'current_requirements')
+            selection['excluded_sections'].extend(document_policy.excluded_sections(index, path, contexts))
+            for packet in document_packets(index, path, sources[path], current=policy['documentation_scope'] == 'current_requirements'):
                 packets.append(packet)
                 if len(packets) > policy['max_extraction_packets']:
                     raise ValueError(f"Selected documentation exceeds review.max_extraction_packets="
@@ -353,11 +384,15 @@ def extract(block, inputs, *, llm=None):
                 continue
             unavailable = 0
             gaps.extend(result.get('extraction_gaps', []))
+            excluded_candidates.extend(result.get('excluded_candidates', []))
             rules.update(admitted)
             receipts.append({'path': packet['path'], 'start_line': packet['start_line'], 'end_line': packet['end_line']})
     rules.update(custom)  # A copied generated ID is an explicit supervisor override.
+    effective, flags = document_policy.consolidate(list(rules.values()))
     result = {'schema_version': 'mn.software_rules.rules.v1', 'snapshot_id': index.snapshot_id,
-              'mode': mode, 'rules': list(rules.values()), 'extraction_coverage': receipts}
+              'mode': mode, 'rules': effective, 'extraction_coverage': receipts,
+              'extraction_policy': document_policy.policy_identity(), 'review_flags': flags,
+              'excluded_candidates': excluded_candidates}
     result['documentation_selection'] = selection
     result['extraction_gaps'] = gaps
     result['extraction_status'] = ('failed' if gaps and not rules else 'needs_review' if gaps

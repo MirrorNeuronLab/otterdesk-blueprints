@@ -1,14 +1,14 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
   "mode": "compiled",
-  "job_name": "software_architecture_advisor",
+  "job_name": "architecture_advisor",
   "agents": {
     "registry": {
       "architecture_packet_reviewer": {
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Architecture Packet Reviewer",
         "with": {
-          "revision": "software_architecture_advisor@7.0.5",
+          "revision": "software_architecture_advisor@7.0.6",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {

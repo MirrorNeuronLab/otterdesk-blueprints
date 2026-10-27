@@ -21,7 +21,7 @@ When an operator attention request is present, use it as the primary target goal
 - Report each detection with observable label, category, useful visible color, position in the scene, activity, and confidence.
 - Keep uncertainty explicit and grounded in visible evidence.
 - In `scene_understanding`, describe the visible activity and temporal changes independently of target matches. In `uncertainties`, state occlusion, sampling gaps, insufficient motion evidence and other limits.
-- In `risk_predictions`, forecast only plausible near-term outcomes supported by visible physical conditions or sampled motion. Each forecast must include `risk`, `visible_evidence`, `time_horizon`, `confidence` (0 to 1), `severity` (low, medium or high), and `recommended_review`. These are predictions, never events that already happened. Give at most eight forecasts, or an empty list when no forecast is supported. Do not invent speeds, distances, identities or intent. An empty list does not certify safety.
+- In `risk_predictions`, forecast only plausible near-term outcomes supported by visible physical conditions or sampled motion. Each forecast must include `risk`, `visible_evidence`, `time_horizon`, `confidence` (0 to 1), `severity` (low, medium or high), `recommended_review`, and `evidence_frames` (unique 1-based indices of the selected frames showing its basis). These are predictions, never events that already happened. Give at most eight forecasts, or an empty list when no forecast is supported by a selected frame. Do not invent speeds, distances, identities or intent. An empty list does not certify safety.
 - Prefer a short qualitative horizon such as "if the observed movement continues in the next few seconds" when exact timing cannot be established. Recommend human review, not autonomous physical action.
 - Separate a clearly observed match, a possible match, and no visible match. For a possible match, name the visual ambiguity in `summary` or `detection_report` so the operator can decide whether to focus or continue watching.
 - If the goal asks whether something newly appeared, compare frames in this batch only when they show a reliable before-and-after view. Otherwise describe the current frame and say that first appearance cannot be established.
@@ -31,16 +31,6 @@ When an operator attention request is present, use it as the primary target goal
 - Ignore shadows, reflections, signage text, and static background clutter unless directly relevant to the active analysis goal. Stationary objects on the floor are relevant when the operator asks to find foreign objects, debris, or obstructions.
 - Set detected_target and detection_count from evidence matching the active goal. Unrelated people or routine activity do not count as matches. If the requested object is absent or unclear, say so without inventing a finding.
 - Do not infer identity, intent, or off-camera facts.
-
-## Return Format
-Reason about the sequence, then return your final answer in `<answer>` tags as JSON with these keys: detected, detected_target, detection_count, detections, confidence, summary, detection_report, activity_description, detected_types, detected_colors, appearance_notes, risk_level, visible_subjects, scene_understanding, risk_predictions, and uncertainties. Keep private reasoning out of the final JSON; provide only concise visible evidence for forecasts.
-
-`summary`, `detection_report`, and `activity_description` must be plain-language strings, not lists or objects. Keep confidence and risk in their separate JSON fields.
-
-Also return `goal_event` alongside the listed keys.
-Also return `helmet_observations` alongside the listed keys.
-
-`risk_level` must be one of: low, medium, high.
 
 ## Facility review outputs
 When a facility policy is supplied, return `site_findings` for each configured rule
@@ -59,3 +49,29 @@ unauthorized access, required PPE, or a breach of law from appearance. Hotel sco
 is approved public/common-area cameras only; never claim private-room coverage.
 Empty or uncertain findings cannot certify safety. Do not invent site response
 owners, deadlines, sensor measurements or actions that were performed.
+
+## Return Format
+Return one complete JSON object in `<answer>` tags. Include all these top-level
+keys: detected, detected_target, detection_count, detections, confidence, summary,
+detection_report, activity_description, detected_types, detected_colors,
+appearance_notes, risk_level, visible_subjects, scene_understanding,
+risk_predictions, uncertainties, goal_event, helmet_observations, site_findings.
+Keep private reasoning out of the final JSON.
+
+`summary`, `detection_report`, `activity_description` and `scene_understanding`
+must be plain-language strings, not lists or objects. Keep confidence and risk in
+their separate JSON fields. `risk_level` must be one of: low, medium, high.
+
+Use these exact nested object fields:
+- Each `site_findings` item: rule_id, status, confidence, visible_evidence, evidence_frames.
+- Each `risk_predictions` item: risk, visible_evidence, time_horizon, confidence, severity, recommended_review, evidence_frames.
+- Each `helmet_observations` item: helmet_status, head_visible, evidence_frame, visible_evidence.
+- `goal_event`: null, or an object with start_frame, end_frame, evidence_frame.
+
+All frame references must be integers from 1 through the supplied selected frame
+count. `evidence_frames` must be a nonempty list of distinct valid indices. Never
+leave a finding or prediction without its frame references. Omit an unsupported
+finding or prediction instead of inventing evidence. Return empty lists when
+appropriate; an omitted facility rule stays unexamined, never clear. Do not assume
+that a warehouse requires PPE: report the visible head condition and leave site
+policy and any response to the supervisor.

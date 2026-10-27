@@ -167,7 +167,7 @@ def test_replaying_an_older_run_cannot_replace_the_latest_code_map(tmp_path):
         context,workspace=fixture(tmp_path,run=run)
         (Path(context['run_dir'])/'reports/code-map.md').write_text('[Map](../web/code-map.html)')
         for filename in ('static-code.json','function-evolution.json'):
-            (Path(context['run_dir'])/'data'/filename).write_text(marker)
+            (Path(context['run_dir'])/'data'/filename).write_text(json.dumps({'marker': marker, 'cycles': []}))
         return context,workspace
     first,one=prepare('first-map','first-map-data');publish(block_context(first),{}, {},workspace=one, review_file=(first).get('payload', {}).get('review_file'))
     retained=Path(first['job_data_dir'])/'architecture_results'
@@ -177,8 +177,8 @@ def test_replaying_an_older_run_cannot_replace_the_latest_code_map(tmp_path):
     publish(block_context(first),{}, {},workspace=one, review_file=(first).get('payload', {}).get('review_file'))
     root=Path(first['job_data_dir'])/'architecture_results'
     assert '../data/snapshots/'+two['id'] in (root/'web/code-map.html').read_text()
-    assert (root/'data/snapshots'/one['id']/'static-code.json').read_text()=='first-map-data'
-    assert (root/'data/snapshots'/two['id']/'static-code.json').read_text()=='second-map-data'
+    assert json.loads((root/'data/snapshots'/one['id']/'static-code.json').read_text())['marker']=='first-map-data'
+    assert json.loads((root/'data/snapshots'/two['id']/'static-code.json').read_text())['marker']=='second-map-data'
     assert '../../../web/maps/'+one['id']+'.html' in (root/'reports/snapshots'/one['id']/'code-map.md').read_text()
     assert not list((root/'web').rglob('*.json'))
     for name in ('vendor/vercel-brand.css', 'vendor/Geist-Variable.woff2',

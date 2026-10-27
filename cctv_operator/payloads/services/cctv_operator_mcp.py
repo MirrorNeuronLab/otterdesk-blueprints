@@ -28,12 +28,18 @@ REGISTRATION_TIMEOUT_SECONDS = 60.0
 _PRIVATE_UPSTREAM_HOSTS = {"host.docker.internal", "127.0.0.1", "localhost", "::1"}
 
 
+def configured_run_id() -> str:
+    # Core assigns the physical workflow identity after submission. The label
+    # frozen in MN_RUN_ID can describe a different run, including on resume.
+    return str(os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID") or "").strip()
+
+
 def configured_run_dir() -> Path:
     value = str(os.environ.get("MN_RUN_DIR") or "").strip()
     if value:
         return Path(value).expanduser()
     root = str(os.environ.get("MN_RUNS_ROOT") or "").strip()
-    run_id = str(os.environ.get("MN_RUN_ID") or os.environ.get("MN_JOB_ID") or "run")
+    run_id = configured_run_id() or str(os.environ.get("MN_JOB_ID") or "run")
     return Path(root).expanduser() / run_id if root else Path.cwd() / "runs" / run_id
 
 
@@ -306,7 +312,7 @@ def serve_mcp_proxy(endpoint: Mapping[str, Any], **kwargs: Any) -> None:
 
 def main() -> int:
     endpoint = await_endpoint(configured_run_dir() / CCTV_MCP_ENDPOINT_ARTIFACT)
-    expected_run_id = str(os.environ.get("MN_RUN_ID") or "").strip()
+    expected_run_id = configured_run_id()
     if not expected_run_id or endpoint.get("run_id") != expected_run_id or not endpoint.get("token"):
         raise RuntimeError("CCTV control endpoint is not bound to this run")
     allocated_port = str(os.environ.get("MN_PORT_CCTV_OPERATOR_MCP") or "").strip()

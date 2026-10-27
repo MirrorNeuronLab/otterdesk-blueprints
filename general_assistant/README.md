@@ -35,6 +35,23 @@ mn blueprint run ./general_assistant \
 ```
 
 `examples/sample_inputs/` contains synthetic Java and Markdown material.
+To try it with the default summary instructions, run on the PC that will execute
+the OpenShell worker:
+
+```bash
+mn job create ./general_assistant --job-id general-assistant-demo \
+  --config ./general_assistant/examples/demo.json
+mn job start general-assistant-demo --queue
+```
+
+The expected generated file is `run_<timestamp>/deliverables/summary.md`, alongside
+`answer.md`, `result.json` and `harness-audit.json`. Setup and launch overrides are
+read from the runtime-resolved configuration, including the staged input folder;
+compiled defaults must not replace them with paths from the launching PC.
+The demo config changes only the two folders and keeps the general summary
+instructions. For a connected PC, add its node ID from `mn node list` to
+`mn job create` with `--node`.
+
 Staging excludes `.git`, environments, dependency caches, `.aws`, `.ssh` and
 `.env` files. Input symlinks and quota overflow fail explicitly. Select a
 narrowly scoped folder; its included contents can be read by the configured model.
@@ -111,6 +128,10 @@ created directly as a deliverable, rather than by editing input and exporting a
 diff. The default task writes `deliverables/summary.md`. The audit records actual
 sessions, available usage receipts, adopted harness and lesson counts. Private
 memory, raw sessions and caches are excluded.
+Failed rollouts include their bounded adapter error in the audit's
+`rollout_failures`, including failures before the first model session.
+A rollout must write a nonempty `output/answer.md` through its tools. A final
+chat message alone does not count as a written result.
 
 Default quotas are 512 files / 32 MiB for input and output, and 1,024 files / 8 MiB
 for private memory. Symlinks, conflicting output names and quota overflow fail.

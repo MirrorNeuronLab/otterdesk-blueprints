@@ -11,10 +11,10 @@ still apply. Human review retains its bounded approval expiry and advertises a
 waiting state rather than stalled computation. Completion remains a durable
 runtime receipt.
 
-Deploy the matching Core/SDK/common/blocks update on execution owners and
-reprepare the saved Job before starting a new run. Existing failed-run definitions
-and retry checkpoints retain their original limits; source changes do not alter
-an already accepted run.
+Version 3.1.0 changes only this blueprint and its offline code-search/static-analysis
+skills. Use the updated skills and prepare a fresh Job/run with the existing runtime.
+Existing reports and accepted-run checkpoints retain their original policy; a new
+policy cannot resume an old investigation or reuse its approval.
 
 Turn `SPEC.md`, `spec.md` and other Markdown/text documentation into a list of
 software expectations. This co-worker saves editable `rules.md`, asks you to
@@ -45,7 +45,8 @@ the blueprint preserves the SDK-prepared model/provider/endpoint binding.
 An operator-registered remote default uses the runtime's LLM proxy with the same
 model and credentials. It does not require a local copy of that chat model.
 There is no fake-model success path. The new literal-search API requires the
-code-search skill release `>=1.3.61.dev5,<2`, or current sibling source with
+code-search skill release with `TextSearchIndex.rank`/`SyntaxIndex.from_analysis`
+and static-analysis `source_hashes`, or current sibling source with
 `MN_USE_LOCAL_SKILLS=1` in local mode. Publishing that skill release precedes
 binary catalog distribution. The workflow uses existing runtime components;
 normal checkout staging requires the SDK's `excluded_directories` option.
@@ -157,9 +158,9 @@ report guarantees correctness, safety or complete requirement coverage.
 
 ## Scope and limits
 
-Uses `mirrorneuron-static-code-analysis-skill` for syntax coverage and
-`mirrorneuron-code-search-skill`'s explicit offline `TextSearchIndex` for literal
-navigation and exact source spans. The SDK handles model calls. No grepai service,
+Uses `mirrorneuron-static-code-analysis-skill` for source-backed syntax facts and
+`mirrorneuron-code-search-skill` for offline ranked/literal retrieval, symbol lookup,
+bounded traces and exact source spans. The SDK handles model calls. No grepai service,
 embedding model or sandbox coding tool is needed for workflow verification.
 Job conversation uses the standard knowledge/RAG response service independently.
 The workflow's required review uses the existing SDK human-interaction producer,
@@ -167,7 +168,7 @@ Core decision receipts and OtterDesk conversation interaction stream. MirrorNeur
 must support `mn.interaction.v1`; an unavailable service never bypasses approval.
 
 Capture accepts UTF-8 source, Markdown, text, reStructuredText and common config
-formats. PDF/Word/image documents need conversion before selection. Hidden files,
+formats. PDF/Word/image documents need conversion before selection. Hidden files except allowlisted `.github/workflows/*.yml` and `*.yaml`,
 secret-like names, symlinks, dependencies and build folders are excluded. The
 complete exclusions are recorded. Do not assume filename exclusions detect all
 secrets: choose only source authorized for the configured model route. Private
@@ -176,7 +177,7 @@ external model provider receives bounded evidence excerpts.
 
 Capture is bounded to 2,000 files / 10 MB; files above 500 KB are reported as
 omitted. Custom knowledge is at most 100 Markdown files / 500 KB. Excess total
-capacity fails visibly. `review.documentation_scope=project_docs` excludes
+capacity fails visibly. `review.documentation_scope=current_requirements` excludes
 documents below `benchmark-results`, `benchmark_results`, `test-results`,
 `test_results` and `playwright-report` directories from rule extraction. Their
 captured text remains available as evidence. Excluded documents are listed in
@@ -214,7 +215,7 @@ run always needs new human approval. Invalid cache entries are recomputed;
 cache write failure cannot stop the run. The cache holds at most 2,048 entries
 of at most 1 MB each. Complete run artifacts remain the audit authority.
 
-Verification selects evidence IDs from source reads, with trusted code copying
+Verification selects evidence IDs from seeded or explicit source reads, with trusted code copying
 the cited text. Invalid actions, references and model replies receive recovery
 feedback within the turn budget; the model can adjust queries and source ranges.
 Working observations are compacted to 24 KB while the full investigation history
@@ -226,7 +227,7 @@ configured rule and verification time limits.
 Saved outage placeholders without an investigation are assessed when work resumes.
 
 Defaults allow model investigation of 2,000 rules (`review.max_rules`, 1–2000),
-eight turns per rule, and one hour each for extraction and verification. Every
+eight model calls per rule, with no default phase-wide elapsed deadline. Every
 candidate remains in the rule list and report; rules beyond the investigation
 limit or deadline receive Unknown with a reason. Extraction allows 8,192 output
 tokens per request, verification 3,500; requests have 90-second timeouts and
@@ -270,7 +271,7 @@ does not prevent publishing those authoritative outputs.
 All five phases bind directly to their domain implementations through SDK
 `domain_operation` blocks in `extensions/blocks.json`. Each implementation
 consumes `BlockContext`; no legacy phase or context adapters remain. Capture
-receives the staged input folder explicitly and commits its snapshot and source
+resolves the staged input folder from declared local-input configuration and commits its snapshot and source
 files. Downstream phases consume the committed capture reference. Mutable rule
 and review checkpoints stay editable; Core decisions alone grant approval.
 
@@ -281,3 +282,73 @@ admission, exact approval checks and the specialized evidence panel on the share
 web report shell. Output selection follows the declared artifact contract and
 uses SDK copying into `MN_JOB_OUTPUT_DIR`; Core owns host delivery. Cancellation
 is checked between document attempts, rule turns and review iterations.
+
+## Scoped static verification (3.1.0)
+
+`review.documentation_scope=current_requirements` is the default. Historical
+changelogs and evaluation reports are recorded separately. Section headings,
+fence state and preceding context survive packet boundaries. Tutorial instructions
+and bare code/configuration examples cannot become product obligations; governing
+prose can establish a requirement scoped to the specific example/tool. Extracted
+rules retain subject, scope, modality, conditions and kind. Only exact scoped
+duplicates merge, retaining all origins; potential conflicts stay visible.
+The existing human review includes exclusions, excluded candidates and scope flags.
+A supervisor rewrite clears stale extracted qualifiers and requires fresh approval.
+
+Retrieval uses offline BM25 keyword/path ranking with identifier splitting and
+existing Tree-sitter definitions, imports and caller/callee candidates. One index
+is reused for the capture. `source_hashes` verifies every analyzed file, including
+unsupported/parser-gap files. The model receives a compact role-based project map,
+ranked implementation candidates and bounded exact source reads rather than an
+alphabetical list dominated by benchmark output. Source, configuration, tests,
+examples, generated artifacts and documentation have distinct authority.
+
+The default eight model calls reserve two calls for a structured judgment and an
+independent critique. `review.max_turns_per_rule` accepts 3–12 total calls. Early
+judgments may use fewer calls. The critic sees the approved rule and selected
+source, not the draft verdict. Conclusive judgments need matched scope, checked
+conditions, direct enforcement/contradiction evidence and agreement. A configuration
+value alone cannot prove behavioral enforcement. Generated output cannot prove
+product behavior. Syntax navigation is not compiler binding or runtime proof.
+Repeated queries receive specific recovery guidance. Full audit history survives
+working-context compaction; selected source spans and stable read handles remain
+available. Reports retain useful evidence and next steps when a verdict is unknown.
+
+`diagnostics` records model calls, seeded/source reads, searches, empty searches,
+repeated queries and unknown reasons. Reasons distinguish budget exhaustion,
+provider/response failures, parser/capture gaps, ambiguity, insufficient evidence,
+runtime-only properties and reviewer disagreement. Extraction exclusions remain
+separate from assessed-rule counts. No unknown-rate target encourages guessing.
+The public report retains pass/fail/unknown, exact source references and static
+confidence caps. Source execution, network tools, arbitrary commands, automatic
+fixes, model-route changes and approval bypass remain unavailable.
+
+Extraction and verification checkpoints bind prompt/implementation policy, source
+identity and approved rules. Old-policy runs require a fresh run and human review;
+historical delivered reports are never overwritten. Runtime, SDK and desktop
+contracts and the five workflow phases remain unchanged.
+
+For an authorized delivered run, `python code_verifier/benchmarks/compare_capture.py
+/path/to/run --output-dir /tmp/code-verifier-comparison` audits all prior conclusive
+results and 26 unknowns stratified by origin. It writes confidential comparison
+JSON/Markdown outside that run, comparing source roles and ranked source reads.
+It makes no model calls and does not label new pass/fail judgments or claim measured
+LLM accuracy. Run the focused blueprint/quality tests and affected skill suites
+before an opt-in live run; the revised rules still require the normal approval.
+
+The offline navigation/hash APIs are published in both skills at `>=1.4.1.dev0,<2`.
+Publish static-analysis first, then code-search, before raising these blueprint
+minimums. Version 3.1.0 uses these published skill versions with the existing
+runtime and unchanged SDK dependency declarations.
+
+Capture has no separate source-folder port: it resolves the required folder from
+the SDK-owned staged `inputs.payload.input_folder` configuration. A default empty
+workflow run-input port must not shadow that staged selection. Empty configuration
+still fails visibly; no host-path or alternate-source fallback is introduced.
+
+In a development installation with local skill overrides enabled, validate the
+published pair with `MN_USE_LOCAL_SKILLS=0 mn blueprint run ./code_verifier ...`.
+This is a per-command selection of the existing published-skill path, not a
+persistent runtime setting. An older locally staged skill can shadow the released
+wheel; refreshing the Job alone does not update that local source checkout.
+The 3.1.0 live replay was launched in published-skill mode on the existing owner.

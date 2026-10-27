@@ -15,6 +15,9 @@ def dashboard_html() -> str:
     main { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px; }
     figure { margin: 0; min-width: 0; overflow: hidden; border: 1px solid #283238; border-radius: 10px; }
     figcaption { padding: 10px 12px; }
+    .health { grid-column: 1 / -1; margin: 0; padding: 2px 0; color: #a2afb7; line-height: 1.5; overflow-wrap: anywhere; }
+    .warning { color: #f5c87b; }
+    time { display: block; margin-top: 4px; font-size: 12px; color: #a2afb7; }
     .media { position: relative; aspect-ratio: 16 / 9; background: #050809; }
     img { display: block; width: 100%; height: 100%; object-fit: contain; }
     .empty { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 16px; color: #a2afb7; text-align: center; background: #050809; }
@@ -24,6 +27,8 @@ def dashboard_html() -> str:
 </head>
 <body>
   <main aria-label="CCTV media">
+    <p class="health" id="analysis-status" role="status">Waiting for the first analysis.</p>
+    <p class="health warning" id="pipeline-warning" role="alert" hidden></p>
     <figure>
       <figcaption>Live video</figcaption>
       <div class="media">
@@ -32,7 +37,7 @@ def dashboard_html() -> str:
       </div>
     </figure>
     <figure>
-      <figcaption>Latest analyzed snapshot</figcaption>
+      <figcaption>Latest analyzed snapshot<time id="analyzed-at" hidden></time></figcaption>
       <div class="media">
         <img id="evidence" alt="Latest analyzed CCTV snapshot" hidden>
         <p class="empty" id="evidence-empty" role="status">Waiting for an analyzed snapshot.</p>
@@ -44,6 +49,9 @@ def dashboard_html() -> str:
     const evidence = document.querySelector('#evidence');
     const previewEmpty = document.querySelector('#preview-empty');
     const evidenceEmpty = document.querySelector('#evidence-empty');
+    const analysisStatus = document.querySelector('#analysis-status');
+    const pipelineWarning = document.querySelector('#pipeline-warning');
+    const analyzedAt = document.querySelector('#analyzed-at');
     let evidenceRevision = '';
     let previewState = 'connecting';
     let previewRetry;
@@ -53,6 +61,9 @@ def dashboard_html() -> str:
     }
     function applyState(state) {
       const metrics = state && state.metrics ? state.metrics : {};
+      analysisStatus.textContent = String(metrics.status || 'Waiting for the first analysis.');
+      pipelineWarning.textContent = String(state.warning || '');
+      pipelineWarning.hidden = !pipelineWarning.textContent;
       previewState = String(metrics.preview || 'connecting');
       if (previewState === 'disabled') {
         clearTimeout(previewRetry);
@@ -73,7 +84,13 @@ def dashboard_html() -> str:
       clearTimeout(previewRetry);
       if (previewState !== 'disabled') previewRetry = setTimeout(() => { preview.src = 'streams/live.mjpg?retry=' + Date.now(); }, 1500);
     });
-    evidence.addEventListener('load', () => { evidence.hidden = false; evidenceEmpty.hidden = true; });
+    evidence.addEventListener('load', () => {
+      evidence.hidden = false;
+      evidenceEmpty.hidden = true;
+      analyzedAt.textContent = 'Analyzed at ' + evidenceRevision;
+      analyzedAt.dateTime = evidenceRevision;
+      analyzedAt.hidden = false;
+    });
     evidence.addEventListener('error', () => {
       clearTimeout(evidenceRetry);
       evidenceRetry = setTimeout(loadEvidence, 1500);

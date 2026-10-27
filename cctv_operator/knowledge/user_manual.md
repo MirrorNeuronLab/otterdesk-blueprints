@@ -1,6 +1,6 @@
 # CCTV Operator user manual
 
-Version3.1: choose site.profile=factory or hotel. An omitted/blank monitoring goal uses the selected profile. Independent person triggers and periodic scene audits cover sampled activity and static hazards; forecasts remain hypotheses. Review the facility queue, evidence and unexamined rules in the report/status. One approved common-area camera per Job. Named rectangles are not privacy masks. No identity, medical, compliance or autonomous-response conclusions.
+Version 5.2.1: choose site.profile=factory or hotel. An omitted/blank monitoring goal uses the selected profile. Independent person triggers and periodic scene audits cover sampled activity and static hazards; forecasts remain hypotheses. Review the facility queue, evidence and unexamined rules in the report/status. One approved common-area camera per Job. Named rectangles are not privacy masks. No identity, medical, compliance or autonomous-response conclusions.
 
 
 Tell it what to watch for on your camera feed. Get alerts with images and times you can review, and ask questions about previously reviewed footage.
@@ -11,7 +11,7 @@ Tell it what to watch for on your camera feed. Get alerts with images and times 
 - attention_instruction: Operator instruction for a detail to watch in the current stream.
 - output_folder: Default local output folder for generated artifacts and reports.
 - slack_destination: Optional approved Slack destination for alert delivery.
-- video_source: Live retail RTSP stream by default, or another approved external RTSP/RTMP URI. No local video file is needed for the default stream.
+- video_source: Supply an approved RTSP/RTMP URL reachable from the NVIDIA computer. There is no default stream. Enter credentials only through the secure setup field. No local video file is needed for an external stream.
 - visual_targets: Configured subjects, objects, or activities to detect.
 - demo_file: Local warehouse demo MP4 staged from the submitting computer, used only in bundled_demo profile.
 - monitoring_goal: Visible event condition that triggers a chat report with capture time and a frame.

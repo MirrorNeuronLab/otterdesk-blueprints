@@ -2,7 +2,7 @@
 
 ## Product contract
 
-Version 2.1.0 has three setup fields: input folder, output folder and instructions.
+Version 2.1.1 has three setup fields: input folder, output folder and instructions.
 Input defaults to `~/Downloads`; instructions default to summarizing its contents
 into `summary.md` in output. Output defaults to `~/Documents/general-assistant`
 so generated files remain outside the read-only input folder. Input is required,
@@ -33,6 +33,9 @@ SDK/Core own input staging, nested artifact-reference transport and output-folde
 delivery. The owner passes immutable input and private memory snapshots, then
 receives committed artifacts and an updated opaque memory snapshot. Owner
 storage is never mounted writable in OpenShell.
+Admission consumes runtime-resolved configuration through the shared declared-input
+helper. It does not bind compiled run-input defaults over staged paths or saved
+instructions. Launch overrides use the same configured input fields as setup.
 
 ## Input and output boundary
 
@@ -87,6 +90,10 @@ Sequential k=1 is the default; deployment config permits parallel mode and k=1â€
 All roles share 24 sessions / 7,200 seconds, with 600 seconds and 8 MiB captured
 CLI output per session. Clarifications consume this allowance. There is no worker
 retry after interrupted uncommitted execution; reconciliation is required.
+The audit retains bounded per-rollout adapter errors, including failures before
+model dispatch that upstream Harness2 summarizes only as `base-failed`.
+A successful rollout must actually write a nonempty output/answer.md; the
+controller does not synthesize that file from a final chat response.
 
 Harness2 may adapt prompts, skills, scripts and memory, never model weights or
 outer policy. Plugins and delegated subagents remain disabled. Refinement is not
@@ -115,6 +122,9 @@ model, authentication and desktop conversation acceptance are deployment checks.
 Deploy matching OpenCode scope support before distributing the 2.x package.
 The 2.1.0 defaults apply to newly configured co-workers; existing saved settings
 are not rewritten. Per-run tasks and Core clarification replies remain compatible.
+Version 2.1.1 corrects admission bindings, requires written results and adds
+rollout failure diagnostics and a bundled demo configuration.
+Existing prepared definitions must be refreshed to use the corrected blueprint.
 Internal gateway/Core addresses and recursion budgets remain deployment defaults,
 not customer setup fields. Default egress is model, controller RPC and declared
 GitHub reads. Input, task and private context may be visible to the configured

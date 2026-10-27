@@ -12,17 +12,22 @@ from .catalog_store import CatalogStore
 from .code_map import render as render_map
 from mn_web_report_skill import write_assets
 from mn_sdk_web_ui import static_run_report_handle
+from .chat_summary import build as build_chat_summary
 
 
 def render(workspace, index, *, historical=False):
     if workspace.get('static_analysis'):
         publication = workspace['id']
-        return render_map(data_root=('../../' if historical else '../')+'data/snapshots/'+publication,
+        page = render_map(data_root=('../../' if historical else '../')+'data/snapshots/'+publication,
             assets='../assets' if historical else 'assets',
             home='../snapshots/'+publication+'.html' if historical else 'index.html',
             reports=('../../' if historical else '../')+'reports/snapshots/'+publication,
             register='../reviews/'+publication+'.html' if historical else 'review-register.html')
-    return render_register(workspace, index, historical=historical)
+    else:
+        page = render_register(workspace, index, historical=historical)
+    if not historical:
+        page = page.replace('</head>', '<meta name="otterdesk-chat-summary" content="data/chat-summary.json"></head>', 1)
+    return page
 
 
 def render_register(workspace, index, *, historical=False):
@@ -85,9 +90,11 @@ def publish(block, report, registers, *, workspace=None, review_file=None):
                 atomic(web / 'maps' / (saved['id']+'.html'), page)
             atomic(web / 'reviews' / (saved['id']+'.html'), render_register(saved, index, historical=True).encode())
         latest = json.loads((store / 'data/workspace.json').read_text())
+        static_path = store / 'data/snapshots' / latest['id'] / 'static-code.json'
+        static = json.loads(static_path.read_text()) if static_path.is_file() else None
+        atomic(store / 'data/chat-summary.json', json_bytes(build_chat_summary(latest, static)))
         if latest.get('static_analysis'):
-            atomic(web / 'code-map.html', render_map(data_root='../data/snapshots/'+latest['id'],
-                reports='../reports/snapshots/'+latest['id']).encode())
+            atomic(web / 'code-map.html', render(latest, index).encode('utf-8'))
         atomic(web / 'index.html', render(latest, index).encode('utf-8'))
         atomic(web / 'review-register.html', render_register(latest, index).encode('utf-8'))
         shutil.copytree(store / 'data', root / 'data', dirs_exist_ok=True)

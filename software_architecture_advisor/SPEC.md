@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.5 specification
+# Architecture Advisor 7.0.6 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -167,7 +167,7 @@ reports state the terminal reason, task status and source omissions.
 The final publication phase produces real source-linked JSON, Markdown and an
 offline interactive dashboard from the same validated records. `outputs.job_files`
 declares `data`, `reports`, `web` and `web_ui.json`; SDK host delivery places them at the configured Job
-folder root (`~/Downloads/software_architecture_advisor`) and leaves ordinary
+folder root (`~/Downloads/architecture_advisor`) and leaves ordinary
 audit outputs in their standard run folders. The blueprint does not derive host
 paths or perform a separate data/web host copy.
 
@@ -184,6 +184,16 @@ The UI extension enables `static_html` output in the conversation workspace.
 Publication registers and delivers `web_ui.json` with the report page, including
 its verified byte count and digest. The existing runtime proxy serves the page;
 the blueprint starts no service and changes no runtime behavior.
+
+Version 7.0.6 also publishes `data/chat-summary.json` with the bounded
+`otterdesk.report-summary.v1` contract. The page head declares this artifact with
+`<meta name="otterdesk-chat-summary" content="data/chat-summary.json">`.
+The summary projects the same retained workspace and syntax facts as the full
+report, preserving finding status and coverage limitations with no model call.
+OtterDesk renders it as compact Chat text and opens the interactive webpage
+through a shared report modal. The output destination defaults to
+`~/Downloads/architecture_advisor`; SDK publication/delivery owns the copy.
+Private catalog audits, captured source and budgets stay in the run store.
 
 Version 3.8.2 also selects the complete published `report.md` and the section
 Markdown produced by that publication as conversation sources. The declared
@@ -258,8 +268,9 @@ Required delivery registers receipt-verified run downloads before publication
 can complete; failures remain retryable without repeating captured research.
 The SDK owns batching, byte verification, atomic delivery and the output index.
 Captured source, confidential `catalog/` audit and SQLite budgets are not public
-downloads. Explicit run-only delivery preserves existing product-owned host
-exports and cumulative Job history. SDK >=1.4.1.dev15 supplies that destination
+downloads. SDK delivery uses the configured output destination as well as the
+run store; there is no separate blueprint-owned host-copy loop. Retained
+snapshots stay cumulative. SDK >=1.4.1.dev15 supplies that destination
 contract; OpenCode skill >=1.4.1.dev2 supports endpoint-free fake model bindings.
 
 Publish report Markdown/JSON; selected section files (23 in full-catalog mode); coverage for 150 aspects and

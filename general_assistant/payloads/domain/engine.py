@@ -95,6 +95,7 @@ class TaskAdapter:
     """Expose one arbitrary user task through Harness2's documented adapter seam."""
     def __init__(self, block, request, root, sessions):
         self.block, self.request, self.root, self.sessions = block, request, root, sessions
+        self.failures = []
         self.substrate = OpencodeSubstrate()
         channel = ChannelSpec("opencode", "mn/default", timeout=request["settings"]["session_timeout_seconds"])
         self.spec = BenchSpec(
@@ -147,6 +148,14 @@ class TaskAdapter:
             raise ValueError("The sealed launcher supports prompts, memory, skills and scripts; plugins cannot change it")
 
     def execute(self, task_id, harness_dir, run_id, *, timeout=None):
+        try:
+            return self._execute(task_id, harness_dir, run_id, timeout=timeout)
+        except Exception as error:
+            # Harness2's base-failed summary omits the adapter exception.
+            self.failures.append({"run_id": run_id, "error": f"{type(error).__name__}: {error}"[:2000]})
+            raise
+
+    def _execute(self, task_id, harness_dir, run_id, *, timeout=None):
         # Every probe starts from the same captured source, never another probe's edits.
         directory = self.root / "executions" / fingerprint(run_id)
         directory.mkdir(parents=True, exist_ok=True)
@@ -195,9 +204,6 @@ class TaskAdapter:
                 timeout=max(1, min(600, self.sessions.deadline - time.monotonic())))
             prompt = ("Continue the same task using the existing output files. The input folder is read-only.\n"
                       + json.dumps({"question": question["question"], "human_reply": reply}) + "\n" + prompt)
-        answer = output / "answer.md"
-        if not answer.exists() and response.text.strip():
-            answer.write_text(response.text, encoding="utf-8")
         # Agent-controlled file references are inspected without following links.
         for path in workspace.rglob("*"):
             if path.is_symlink():
@@ -264,7 +270,8 @@ def run(block, request, root):
                 files[path.relative_to(root / "memory").as_posix()] = path.read_text(encoding="utf-8")
         snapshot.update(files=files, generation=snapshot["generation"] + 1, last_request=request["request_id"])
         validate(snapshot, limits, block.job_id)
-    audit = {"status": result.status, "errors": result.errors, "mode": limits["mode"],
+    audit = {"status": result.status, "errors": result.errors, "rollout_failures": adapter.failures,
+             "mode": limits["mode"],
              "recursion_steps": limits["recursion_steps"], "sessions": sessions.count,
              "model_usage": sessions.usage, "model": "default", "weights_updated": False,
              "library_entries_before": before, "library_entries_after": len(library.entries()),

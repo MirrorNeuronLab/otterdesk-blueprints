@@ -1,6 +1,7 @@
 """CCTV model policy; the SDK owns transport, durable responses and effect fences."""
 
 import base64
+import json
 import re
 
 from mn_live_video_analysis_skill import model_user_content
@@ -77,16 +78,37 @@ def interpret(raw, prepared):
         text = str((message or {}).get("content") or "")
         if prepared["nim"]:
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
-            if re.search(r"<answer>", text, re.IGNORECASE):
-                answer = re.search(r"<answer>(.*?)</answer>", text, re.DOTALL | re.IGNORECASE)
-                if answer is None:
-                    raise ValueError("Cosmos returned incomplete video understanding")
-                text = answer[1]
-            if re.search(r"<think>", text, re.IGNORECASE) or choice.get("finish_reason") == "length":
+            finish = choice.get("finish_reason")
+            if re.search(r"<think>", text, re.IGNORECASE) or finish not in {None, "stop"}:
                 raise ValueError("Cosmos returned incomplete video understanding")
-    result, error = parse_model_json(text)
-    if result is None:
-        raise ValueError("Model returned no valid structured detection: " + error)
+            text = text.strip()
+            opening = re.match(r"<answer>\s*", text, re.IGNORECASE)
+            if opening:
+                text = text[opening.end():]
+                closing = re.search(r"\s*</answer>\s*$", text, re.IGNORECASE)
+                if closing:
+                    text = text[:closing.start()]
+                elif finish != "stop":
+                    raise ValueError("Cosmos returned incomplete video understanding")
+            if re.search(r"</?answer>", text, re.IGNORECASE):
+                raise ValueError("Cosmos returned incomplete video understanding")
+            # Cosmos may stop after its final fenced JSON without emitting the
+            # answer closing tag. JSON completeness, not that presentation tag,
+            # establishes the boundary; never salvage a partial object.
+            fence = re.fullmatch(r"```(?:json)?\s*([\s\S]*?)\s*```", text.strip(), re.IGNORECASE)
+            if fence:
+                text = fence[1]
+    if prepared["nim"]:
+        try:
+            result = json.loads(text)
+        except (ValueError, TypeError) as error:
+            raise ValueError("Model returned no valid structured detection") from error
+        if not isinstance(result, dict):
+            raise ValueError("Model returned no valid structured detection")
+    else:
+        result, error = parse_model_json(text)
+        if result is None:
+            raise ValueError("Model returned no valid structured detection: " + error)
     if prepared["nim"] and (not isinstance(result.get("scene_understanding"), str) or not result["scene_understanding"].strip()
         or not isinstance(result.get("risk_predictions"), list) or not isinstance(result.get("uncertainties"), list)):
         raise ValueError("Cosmos final answer is missing scene understanding, risk predictions or uncertainties")

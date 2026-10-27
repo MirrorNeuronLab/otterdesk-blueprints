@@ -45,6 +45,16 @@
   "outputs": {
     "artifacts": [
       {
+        "artifact_id": "chat_summary",
+        "path": "data/chat-summary.json",
+        "mime_type": "application/json",
+        "type": "chat_summary",
+        "producer": "workflow",
+        "schema_version": "otterdesk.report-summary.v1",
+        "privacy": "confidential",
+        "required": true
+      },
+      {
         "artifact_id": "snapshot",
         "path": "snapshot.json",
         "mime_type": "application/json",
