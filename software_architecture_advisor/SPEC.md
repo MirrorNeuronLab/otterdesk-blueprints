@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.3 specification
+# Architecture Advisor 7.0.4 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -29,6 +29,13 @@ The default model, review goal and focused review policy remain preconfigured.
 Advanced command-line configuration may supply a public HTTPS GitHub repository
 root URL instead. Exactly one source must be selected. Changing the source
 requires a new run.
+
+Local folder staging excludes virtual environments, installed dependencies,
+build outputs and tool caches before resolving files and symlinks. The blueprint
+declares those exclusions through the existing SDK local-input contract. Keep
+`.git` staged for provenance and history analysis, and keep rejecting source
+links that escape the selected folder. Capture exclusions still govern analysis;
+they are separate from this earlier transport boundary.
 
 Capture includes code files only. Documents (including Markdown), JSON/YAML/TOML
 data and sample datasets do not enter frozen sources, retrieval, source packets

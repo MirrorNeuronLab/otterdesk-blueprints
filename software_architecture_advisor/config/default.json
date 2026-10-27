@@ -138,6 +138,22 @@
         "config_path": "inputs.payload.input_folder",
         "payload_path": "mn_local_inputs/repository",
         "runtime_path": "mn_local_inputs/repository",
+        "excluded_directories": [
+          ".venv",
+          "venv",
+          "node_modules",
+          "__pycache__",
+          "target",
+          "dist",
+          "build",
+          "_build",
+          "deps",
+          ".tox",
+          ".nox",
+          ".pytest_cache",
+          ".mypy_cache",
+          ".ruff_cache"
+        ],
         "allowed_extensions": [
           "*"
         ]

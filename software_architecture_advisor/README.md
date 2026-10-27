@@ -79,8 +79,17 @@ mn blueprint run ./software_architecture_advisor \
 There is no default source. Advanced command-line runs may instead supply
 `inputs.payload.repository_url=https://github.com/mit-pdos/xv6-riscv` and leave
 the folder empty. Supply exactly one source. The platform
-stages local input; reviewed source is never imported or executed. Capture
-includes code only: Markdown, other documents, JSON/YAML/TOML data, and sample
+stages local input; reviewed source is never imported or executed.
+
+Local staging excludes virtual environments, installed dependencies, build outputs
+and tool caches through `local_inputs.folders[].excluded_directories` before
+resolving their files or symlinks. This prevents a repository's `.venv/bin/python`
+from failing preparation because it points outside the selected source folder.
+Git metadata remains staged for revision and function-history analysis. Source
+links outside the selected folder still fail staging. Version 7.0.4 applies these
+exclusions without a runtime change; retry setup to reprepare an existing Job.
+
+Capture includes code only: Markdown, other documents, JSON/YAML/TOML data, and sample
 data files are ignored. Documentation, examples, samples, fixtures, dependencies
 and build directories are excluded by `ingest.exclude`; this includes Elixir
 `deps` and `_build`. `mix.exs`, `config/*.exs` and ordinary test code are included.
