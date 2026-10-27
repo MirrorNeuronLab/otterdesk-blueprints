@@ -744,3 +744,33 @@ test data, not a new model analysis. Screenshots:
 `/private/tmp/architecture-advisor-validation/shared-litigation-evidence.png` and
 `/private/tmp/architecture-advisor-validation/shared-code-verifier-overview.png`.
 
+## Prompt admission and Otterdesk rehire — 2026-10-26
+
+Version 7.0.5 keeps the 60,000-byte prompt allowance. Broad aspect questions
+admit structural search roots as candidates, retaining each root's entire local
+support and connected graph/prior evidence or omitting the whole component.
+Explicit source-task obligations and immutable request replay remain unchanged.
+The new regressions reproduce the earlier fatal budget error for both analysis
+and challenge tasks before the fix, then verify bounded whole-support admission,
+visible omissions and unchanged retrieval packets after it.
+
+The failed live task's retained original-source packet assembles into 57,049
+bytes with 24 complete source spans: three source groups admitted and one omitted
+whole. Focused source/contract checks passed 59 tests (two skipped), and the
+compiled native capture-to-publication/admission checks passed 20 tests; these
+sets overlap.
+
+Through the normal Otterdesk GUI, the earlier advisor was archived and a fresh
+advisor hired. Capture, dependency analysis and planning completed, including
+admission of the previously failing AR-02-01 task. The run published its static
+JSON, Markdown and interactive report, which was visible in Chat. Both live
+OpenCode reviews returned provider errors: Spark's gateway returned HTTP 500
+during model preparation, and its native service reported `node_reserved`.
+The report correctly retains partial model coverage; this is not a successful
+model-based architecture assessment. Runtime and SDK code, model configuration and
+gateway routing were not changed.
+
+Full catalog gate: 1,494 passed, 36 skipped, and 11 localhost-listener failures
+under the sandbox. All 11 passed when rerun with local socket access. Git
+whitespace checks passed.
+

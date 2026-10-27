@@ -29,6 +29,10 @@ def admit_support(base, evidence, prior, budget):
     groups = []
     unresolved = {}
     bound_sources = set()
+    # Aspect questions do not request every function whose name occurs in the
+    # question. Structural search roots are candidates for these broad reviews;
+    # each root's complete dependency closure still enters or leaves together.
+    aspect_review = base.get('task', {}).get('kind') in {'aspect_analysis', 'aspect_challenge'}
     for group in base.get('source_query', {}).get('support_groups', []):
         key = 'source-support:' + group['id']
         aliases = group['source_evidence_ids']
@@ -36,7 +40,8 @@ def admit_support(base, evidence, prior, budget):
         if not group['complete'] or not aliases or not set(aliases) <= evidence.keys():
             unresolved[key] = 'unresolved_source_support'
             continue
-        groups.append(EvidenceGroup(key, tuple(aliases), required=group.get('required', False)))
+        groups.append(EvidenceGroup(key, tuple(aliases),
+            required=group.get('required', False) and not aspect_review))
     for q, query in enumerate(graph.get('queries', [])):
         for r, row in enumerate(query.get('rows', [])):
             key = f'graph:{q}:{r}'
@@ -89,7 +94,10 @@ def admit_support(base, evidence, prior, budget):
             'capacity_limited': len(selected) < len(groups)}
         if 'source_query' in request:
             for group in request['source_query'].get('support_groups', []):
-                group['admitted'] = 'source-support:' + group['id'] in selected
+                key = 'source-support:' + group['id']
+                group['admitted'] = key in selected
+                if aspect_review:
+                    group['required'] = False
             if any(not g['admitted'] for g in request['source_query'].get('support_groups', [])):
                 request['source_query']['incomplete'] = True
                 request['source_query']['status'] = 'incomplete'

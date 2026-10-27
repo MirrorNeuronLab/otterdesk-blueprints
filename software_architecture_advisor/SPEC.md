@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.4 specification
+# Architecture Advisor 7.0.5 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -404,6 +404,14 @@ source identities must have identical bodies or fail. Frozen requests preserve
 detailed group receipts; model-visible status distinguishes complete, incomplete
 and insufficient-capacity support. UTF-8 byte accounting does not replace verified
 serving-token admission and does not establish answer correctness.
+
+Broad aspect analysis/challenge tasks admit structural source-search roots as
+optional candidates. Generic question wording must not turn all matched symbols
+into mandatory prompt obligations. Whole local dependency closures and linked
+graph/prior support remain atomic, with explicit capacity omissions. Source-bound
+tasks retain declared required support. This policy does not increase the prompt
+allowance, truncate source or change the runtime. Existing frozen requests remain
+immutable; new runs use the corrected admission policy.
 
 ## Persistent file identity and selective memory
 

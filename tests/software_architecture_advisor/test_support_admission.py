@@ -67,3 +67,53 @@ def test_missing_support_is_explicit_and_conflicting_identity_fails(architecture
     assert result['support_admission']['omissions'] == {'graph:0:0':'unresolved_source_support'}
     with pytest.raises(ValueError, match='Conflicting source evidence'):
         prompt([a,{**a,'excerpt':'changed'}])
+
+
+@pytest.mark.parametrize('kind', ['aspect_analysis', 'aspect_challenge'])
+def test_aspect_search_roots_are_candidates_with_indivisible_support(kind):
+    from domain.catalog_contract import load_catalog
+    from domain.review_prompts import build_prompt
+
+    root = span('caller.py', 'def call():\n    return helper()\n')
+    helper = span('helper.py', 'def helper():\n    return True\n')
+    oversized = span('large.py', '# 中🙂' * 8000)
+    groups = [
+        {'id': 'call', 'root': 'call', 'complete': True, 'required': True,
+         'source_evidence_ids': [root['id'], helper['id']]},
+        {'id': 'main', 'root': 'main', 'complete': True, 'required': True,
+         'source_evidence_ids': [oversized['id']]},
+    ]
+    retrieval = {
+        'source_query': {'status': 'ready', 'incomplete': False, 'support_groups': groups},
+        'architecture_graph': {'queries': [{'rows': [
+            {'source_evidence_ids': [root['id'], helper['id']]}], 'rows_omitted': 0}]},
+    }
+    original = copy.deepcopy(retrieval)
+    arguments = ({'task_id': kind, 'kind': kind, 'aspect_id': 'AR-02-01'},
+        load_catalog(), {'sources': {}, 'snapshot_id': 'frozen'}, {}, {}, 60000, {})
+    result = build_prompt(*arguments, retrieval=retrieval,
+                          graph_evidence=[root, helper, oversized])
+    value = json.loads(result['prompt'])
+
+    assert len(result['prompt'].encode()) <= 60000
+    assert value['evidence'] == [root, helper]
+    assert value['architecture_graph']['queries'][0]['rows'] == retrieval['architecture_graph']['queries'][0]['rows']
+    assert value['source_query']['incomplete']
+    assert [g['admitted'] for g in value['source_query']['support_groups']] == [True, False]
+    assert not any(g['required'] for g in value['source_query']['support_groups'])
+    assert result['support_admission']['omissions'] == {
+        'source-support:main': 'optional_support_over_capacity'}
+    assert retrieval == original
+    assert build_prompt(*arguments, retrieval=retrieval,
+                        graph_evidence=[root, helper, oversized]) == result
+
+
+def test_explicit_source_task_still_requires_its_declared_support():
+    from domain.review_support import admit_support
+
+    evidence = span('large.py', 'x' * 9000)
+    base = {'task': {'kind': 'source_scan'}, 'omissions': {},
+        'source_query': {'support_groups': [{'id': 'explicit', 'complete': True,
+            'required': True, 'source_evidence_ids': [evidence['id']]}]}}
+    with pytest.raises(ValueError, match='Prompt budget cannot fit'):
+        admit_support(base, {evidence['id']: evidence}, [], 8192)

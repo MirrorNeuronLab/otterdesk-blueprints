@@ -479,6 +479,14 @@ retains a `support_admission` receipt with group IDs, members and omission reaso
 Only identical span identities at the same source SHA-256 can reuse evidence;
 conflicting citation bodies fail. This is a byte-budget assembly fix, not a
 serving-token or answer-quality claim. Existing frozen requests replay unchanged.
+
+Version 7.0.5 treats structural source-search matches as candidates for broad
+aspect analysis and challenge questions. A generic word such as `call` or `main`
+does not make every matching function mandatory. Each candidate and its complete
+local support still enter or leave the prompt together; omitted candidates and
+their graph rows are disclosed. Explicit source tasks retain their required
+support. The configured 60,000-byte prompt allowance and runtime are unchanged.
+
 # Query-derived source support
 
 The Python 0.1.3 source adapter retains complete local static helpers, constants,
