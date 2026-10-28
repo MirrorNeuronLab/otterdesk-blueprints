@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.2.2 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -212,6 +212,13 @@ runtime gateway's smaller per-response and hardware limits. Its request deadline
 scenes. Private reasoning never enters reports or history.
 Routine monitoring requests compact JSON directly, without a reasoning-template switch,
 using the [Cosmos3 NIM direct-answer request contract](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
+Cosmos video input uses complete temporal frame pairs. An odd selected window
+repeats its final frame only in the encoded transport; the prompt identifies
+that duplicate and restricts evidence references to the original selected frames.
+Capture timestamps, selected counts, hashes and reports retain the original
+evidence. This prevents the timestamp/video-length failure seen with five-frame
+windows. Reprepare the saved Job from this blueprint revision before a new run;
+existing failed runs and frozen inference requests remain unchanged.
 The prompt requests ten evidence-bearing fields and at most two forecasts,
 targeting about 900 output tokens. Person activity receives two to six concrete
 sentences (up to 1800 characters), describing visible posture, movement, hand

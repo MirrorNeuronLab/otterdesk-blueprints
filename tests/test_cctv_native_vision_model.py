@@ -4,6 +4,8 @@ import base64
 import importlib
 import json
 from pathlib import Path
+import shutil
+import subprocess
 
 import pytest
 from mn_blueprint_blocks.testing import BlockHarness
@@ -77,6 +79,47 @@ def test_dmr_request_disables_thinking_and_keeps_image_capability(vision):
     assert prepared["request"]["options"]["structured_output"] is True
     image = payload["messages"][0]["content"][1]["image_url"]["url"]
     assert harness.store.read_bytes(image["$artifact"]) == b"frame"
+
+
+@pytest.mark.parametrize("count", [1, 3, 5, 7, 8])
+def test_nim_completes_temporal_pairs_without_changing_selected_evidence(vision, monkeypatch, count):
+    _harness, block, module, encoded, temporal = vision
+    monkeypatch.setattr(module, "model_user_content", temporal)
+    frames = [f"selected-{index}".encode() for index in range(count)]
+    original = list(frames)
+    prompt = "Selected frame capture times are authoritative."
+    module.prepare(block, frames, prompt)
+    model_frames = encoded[0][1]
+    assert len(model_frames) % 2 == 0
+    assert model_frames[:count] == original
+    assert model_frames[count:] == ([original[-1]] if count % 2 else [])
+    assert frames == original and encoded[0][0].startswith(prompt)
+    if count % 2:
+        assert f"repeats selected frame {count}" in encoded[0][0]
+        assert f"original selected frame IDs 1 through {count}" in encoded[0][0]
+    else:
+        assert encoded[0][0] == prompt
+
+
+@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires local FFmpeg tools")
+def test_nim_five_frame_window_encodes_six_decodable_video_frames(vision, tmp_path):
+    harness, block, module, _encoded, _temporal = vision
+    generated = subprocess.run([shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", "testsrc=size=32x32:rate=4", "-frames:v", "5",
+        "-threads", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"],
+        capture_output=True, check=True, timeout=10)
+    frames = [b"\xff\xd8" + part for part in generated.stdout.split(b"\xff\xd8")[1:]]
+    assert len(frames) == 5
+    prepared = module.prepare(block, frames, "Inspect five selected frames captured at known times.")
+    media = prepared["request"]["payload"]["messages"][1]["content"][1]["video_url"]["url"]
+    video = tmp_path / "selected.mp4"
+    video.write_bytes(harness.store.read_bytes(media["$artifact"]))
+    probe = subprocess.run([shutil.which("ffprobe"), "-v", "error", "-count_frames",
+        "-select_streams", "v:0", "-show_entries", "stream=nb_read_frames,r_frame_rate",
+        "-of", "json", str(video)], capture_output=True, check=True, timeout=10)
+    stream = json.loads(probe.stdout)["streams"][0]
+    assert stream["nb_read_frames"] == "6" and stream["r_frame_rate"] == "4/1"
+    assert len(frames) == 5
 
 
 def test_explicit_ollama_uses_sdk_transport_and_never_uses_private_thinking(vision):

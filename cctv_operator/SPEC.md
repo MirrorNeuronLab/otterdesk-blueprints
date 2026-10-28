@@ -1,4 +1,4 @@
-# CCTV Operator 5.2.2 specification
+# CCTV Operator 5.3.1 specification
 
 ## Purpose and scope
 
@@ -102,6 +102,10 @@ placement, NVIDIA/CUDA 49152MB admission and single-node execution. The required
 camera/UI auxiliary entrypoint uses the SDK monitored-service block; model-registry
 and shared-skill contracts remain unchanged. Cosmos3 Nano
 Reasoner1.7 NIM receives selected MP4 frames at4FPS and true capture timestamps;
+the transport completes odd windows by repeating the final selected frame so
+Cosmos receives whole temporal pairs. The prompt declares the duplicate and
+permits only original selected-frame evidence IDs. Original frame counts, hashes,
+capture timestamps, memory and report provenance remain authoritative.
 compact direct JSON/up to4096 output tokens/300s request deadline apply;
 smaller gateway/request/hardware/context caps still win. Do not use an unsupported chat
 template reasoning switch. Nemotron text

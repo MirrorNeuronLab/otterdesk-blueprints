@@ -42,7 +42,14 @@ def prepare(block, frames, prompt):
             "options": {"temperature": temperature, "num_predict": int(setting("OLLAMA_NUM_PREDICT", default="300"))}}
         path = "/api/generate"
     else:
-        content = model_user_content(prompt, frames, media_format="video_url" if nim else "image_url")
+        media_frames = frames
+        if nim and len(frames) % 2:
+            # Cosmos groups video frames in pairs. Keep the final selected
+            # frame instead of letting preprocessing truncate an odd window.
+            media_frames = [*frames, frames[-1]]
+            prompt += (f"\nThe final transport frame repeats selected frame {len(frames)} for temporal pairing. "
+                f"It is not another captured observation. Cite only original selected frame IDs 1 through {len(frames)}.")
+        content = model_user_content(prompt, media_frames, media_format="video_url" if nim else "image_url")
         # Freeze binary media separately so the effect intent stays small and
         # portable; model API data URIs are assembled by the SDK at dispatch.
         for index, item in enumerate(content):
