@@ -260,8 +260,7 @@ so delayed-analysis health remains distinct from the last completed account.
 
 Version 5.3.3 adds completed analysis to the panel. Its deterministic Chromium E2E
 covers successive SSE results, reconnection, delayed processing, text escaping and
-wide/narrow resizing. The CCTV suite passed 279 checks; its process-group cleanup
-test hit an OS permission error and passed alone on rerun. Catalog-wide collection
+wide/narrow resizing. All 280 CCTV regressions pass together. Catalog-wide collection
 still references removed microduck, and a catalog-category test references removed
 financial_advisor. Initial MCP reads through mini also failed with ExceptionGroup
 while owner-node reads succeeded. Desktop active-run chat policy is separate from
