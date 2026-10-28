@@ -1,4 +1,0 @@
-web_app/node_modules
-web_app/dist
-**/__pycache__
-**/*.pyc
