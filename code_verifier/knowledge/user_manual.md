@@ -1,5 +1,17 @@
 # Code verifier manual
 
+## Getting started and reviewing work
+
+I check the rules you approve against captured source code and explain which are supported, contradicted or still unknown.
+
+Choose a local folder containing source and specifications or Markdown documentation. Choose whether to extract documentation rules plus custom rules, or verify only your custom rules. Current requirements is the normal document scope. Add persistent custom rules through this co-worker's Job knowledge rules/ folder, not saved explanation preferences.
+
+First expect an editable rule list in Review rules. Inspect the complete list and coverage gaps; saving an edit is separate from approving the saved revision. After approval, expect report.md with Pass, Fail or Unknown, source evidence and explanations. The co-worker never executes or edits repository code or tests.
+
+Read coverage and unknowns before focusing on a Pass count. For an important rule, compare its exact approved wording with the cited implementation and independent critique. Pass means scoped static support, Fail needs concrete contradictory source evidence, and Unknown means insufficient evidence or unfinished investigation. Confidence is an uncalibrated assessment. Missing search hits or a test definition do not prove behavior; choose one real verification task for an engineer.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Choose a local repository checkout or source/docs folder in the first setup
 question. No source folder is selected by default. Start a run. The
 co-worker reads documentation, creates rules.md, asks you to approve the rules

@@ -1,5 +1,17 @@
 # Procurement Manager user manual
 
+## Getting started and reviewing work
+
+I compare purchase options, costs and risks so you can review a recommendation with its evidence and unresolved terms.
+
+Describe what you want to purchase and the outcome it must achieve. Add must-have requirements, budget and delivery or use location where relevant. Quotes and supporting documents are optional inputs. Separate non-negotiable requirements from preferences; cost assumptions belong in the existing configuration controls.
+
+Expect a purchasing review packet with option comparisons, known acquisition and lifecycle costs, risks, missing terms and a recommendation when evidence permits. It does not contact suppliers, accept quotes, buy, book, pay or issue orders.
+
+Check the recommendation against the same requirements and cost horizon for every option. Distinguish known costs from estimates or omitted terms; inspect quote dates, availability and assumptions. In the fictional sample, Cedar's lower known cost is a sample comparison, not a real supplier recommendation; a no-response status is not a rejection or a market price. Choose the next human review or missing quote to obtain outside this co-worker.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Compare purchase options and see what they may cost over time. Get a side-by-side review of supplier quotes, suitability, risks, and missing information to help you decide what to buy. Prepares recommendations for your review without contacting suppliers or placing orders.
 
 ## Inputs

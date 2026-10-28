@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "starter_questions": [
-    "What do you need to investigate my question?",
-    "What does the saved brief support, and what is still uncertain?",
-    "Which hypothesis should I review first, and why?"
+    "Can I start with the synthetic robotics research case?",
+    "What question and source material do you need?",
+    "Which hypothesis is supported, and what would disprove it?"
   ],
   "init_config_review": {
     "required": false,
@@ -16,6 +16,57 @@
         "required": false,
         "default": [],
         "description": "Manage explicit preferences and working rules in Chat > Memory. Applies to future runs."
+      }
+    ]
+  },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll investigate a research question, challenge competing hypotheses and prepare an evidence brief with proposed tests for your review. The bundled robotics simulation case uses synthetic measurements; real work needs your research question and approved sources configured first. The packet explains what remains uncertain; experiments are proposed, not executed.",
+    "sample": {
+      "available": true,
+      "title": "Robotics research sample",
+      "description": "Explore a robotics simulation question using synthetic notes and baseline measurements. The normal research workflow proposes tests without executing them.",
+      "expected_output": "An evidence brief, ranked hypotheses, counterarguments, evidence gaps and proposed tests for packet review.",
+      "values": {
+        "inputs.payload.input_folder": "@/examples/sample_inputs",
+        "outputs.folder_path": "~/Downloads/research-assistant",
+        "inputs.payload.research_goal": "Evaluate a shared robotics simulation infrastructure for a review-only pilot across manipulation, navigation, and multi-robot coordination teams."
+      }
+    },
+    "real": {
+      "introduction": "Tell me the research question and choose its approved evidence folder. I’ll prepare competing explanations, source support and proposed tests; keep the scope and constraints explicit.",
+      "values": {
+        "inputs.payload.input_folder": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Input folder",
+        "description": "Local papers, notes, datasets, and evidence approved for this run.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "@/examples/sample_inputs"
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Folder for the research packet and supporting ledgers.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "default": "~/Downloads/research-assistant"
+      },
+      {
+        "path": "inputs.payload.research_goal",
+        "label": "Research goal",
+        "description": "The outcome, mechanism, or problem to investigate.",
+        "type": "domain_value",
+        "required": true,
+        "role": "input",
+        "default": "Evaluate a shared robotics simulation infrastructure for a review-only pilot across manipulation, navigation, and multi-robot coordination teams."
       }
     ]
   }

@@ -4,8 +4,9 @@
     "Move forward a short step.",
     "Find the ball and stop beside it.",
     "Let's free play with the ball until I say stop.",
-    "Run the showcase routine.",
-    "What can you do, and what are your safety limits?"
+    "What do I need to open before you can move?",
+    "What happened in the last command?",
+    "Stop"
   ],
   "init_config_review": {
     "required": false,
@@ -46,5 +47,46 @@
     "title": "Microduck Controller",
     "node_id": "run_microduck_service__block_run_microduck_service_specialist",
     "service_name": "microduck-controller-web-ui"
+  },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll operate the simulated Microduck and explain what the browser observes after each command. No robot or data upload is needed; open the simulator view and let its control tab become ready. Ask for status first, then request a short move or Stop; command acceptance and observed completion are separate.",
+    "sample": {
+      "available": true,
+      "title": "Microduck simulation",
+      "description": "Open the included browser simulator and become its ready control tab. No physical robot or personal dataset is needed, and motion still requires your request.",
+      "expected_output": "A live simulator, current status and observed receipts for commands you explicitly request; the service stays active until stopped.",
+      "values": {
+        "inputs.payload.input_folder": "@/examples/sample_inputs",
+        "outputs.folder_path": "~/Downloads/microduck-controller"
+      }
+    },
+    "real": {
+      "introduction": "The supported experience is the bundled browser simulation. Its instruction folder and output location are optional settings; open the simulator control tab and check readiness before requesting motion.",
+      "values": {
+        "inputs.payload.input_folder": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Input folder",
+        "description": "Bundled service-only demo instructions.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "@/examples/sample_inputs"
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Run-scoped service artifacts are materialized here.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "default": "~/Downloads/microduck-controller"
+      }
+    ]
   }
 }

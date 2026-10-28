@@ -1,5 +1,17 @@
 # ROS AMR Controller user manual
 
+## Getting started and reviewing work
+
+I guide a simulated warehouse robot between approved zones and explain its observed navigation status so you stay in control.
+
+Use the existing Warehouse simulation setup on a compatible NVIDIA Docker Compose node. The supported world supplies Zones A, B and C. No real-robot connection, custom coordinates or document upload is needed. Ask for current robot status before requesting a move; live preflight and existing restrictions remain authoritative.
+
+Expect a live dashboard, bounded navigation controls, status and stop, with correlated progress and arrival or failure evidence. The simulation runs as a service until stopped; completion of a single navigation request does not finish the service.
+
+Compare the requested target zone with the operation's observed result and active restrictions. Accepted means admitted, not arrived. Missing live state leaves position or completion unconfirmed. For Stop, confirm cancellation from the actual receipt; do not guess. A saved route or old receipt is historical, so the next motion requires fresh state again.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Practice operating a warehouse robot in a simulation using everyday chat. Send it to designated areas, watch its progress through live video, and stop movement when you need to.
 
 ## Inputs

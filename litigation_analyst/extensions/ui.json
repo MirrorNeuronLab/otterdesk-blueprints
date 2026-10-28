@@ -6,7 +6,7 @@
   },
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Try the public EMC-2 sample, or choose your own legal-document folder.",
+    "introduction": "I'll organize documents into draft findings, timelines and counterevidence for legal review. Try the public synthetic EMC-2 sample, downloaded from GitHub, or choose an authorized legal-document folder. The first pass gives a bounded investigation with citations and gaps, not a legal determination.",
     "sample": {
       "available": true,
       "title": "EMC-2 investigation sample",
@@ -18,7 +18,7 @@
       }
     },
     "real": {
-      "introduction": "Choose the legal-document folder to investigate.",
+      "introduction": "Choose the legal-document folder you are authorized to review. I'll prepare a source-linked investigation draft with competing explanations and gaps for counsel to inspect.",
       "values": {
         "inputs.payload.input_folder": "",
         "review.profile": "first_pass"
@@ -84,9 +84,9 @@
     ]
   },
   "starter_questions": [
-    "Where is my interactive investigation?",
-    "Which evidence challenges the current findings?",
-    "What temporal paths are supported, uncertain or rejected?"
+    "Can I try the public synthetic EMC-2 case?",
+    "Which documents and review scope do you need?",
+    "What supports this finding, and what contradicts it?"
   ],
   "web_ui": {
     "enabled": true,

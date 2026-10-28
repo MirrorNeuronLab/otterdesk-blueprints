@@ -170,17 +170,18 @@
   "starter_questions": [
     "Has the monitoring goal happened?",
     "Summarize the video.",
-    "Change the monitoring goal."
+    "What source and monitoring goal do you need?",
+    "Explain this observation’s evidence and uncertainty."
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll review sampled camera footage and share confirmed goal matches with times and evidence frames. Enter one approved camera address in the secure Video stream URL field. Startup checks the connection and prepares video models; follow the progress panel for the current stage.",
+    "introduction": "I'll review sampled footage for your monitoring goal and share observations with times and evidence frames. Enter one approved camera address in the secure Video stream URL field and choose a facility profile; no stream is included. Follow the progress panel for connection and analysis readiness; a live preview alone is not an analyzed result.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "sample": {
       "available": false
     },
     "real": {
-      "introduction": "Use an approved RTSP or RTMP stream reachable from the NVIDIA computer. If this Mac hosts the stream, use its LAN address rather than localhost. Keep the full address and any credentials in the secure field. A live preview shows the camera connection; findings become available after scene analysis finishes.",
+      "introduction": "Enter your approved stream in the secure Video stream URL field, then use the facility goal or describe a visible condition to watch for. I'll report supported observations with times and frames for your review.",
       "values": {
         "video_source.profile": "external"
       }

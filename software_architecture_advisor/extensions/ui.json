@@ -6,13 +6,13 @@
   },
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Choose the source code folder to review.",
+    "introduction": "I'll map your codebase, explain risky dependencies and propose next steps with source evidence. Choose the source code folder to review. You'll get an architecture report and priorities to inspect; I won't change your code.",
     "sample": {
       "available": false,
       "values": {}
     },
     "real": {
-      "introduction": "Choose the source code folder to review.",
+      "introduction": "Choose the local source code folder. I'll use the configured goal to prepare an architecture review with source evidence, tradeoffs and proposed engineering work.",
       "values": {
         "inputs.payload.input_folder": ""
       }
@@ -40,9 +40,9 @@
     ]
   },
   "starter_questions": [
-    "Show the component graph and explain the most important dependencies.",
-    "How did the most changed functions evolve in the captured Git window?",
-    "Which callers, components and tests should we inspect before changing a hotspot?"
+    "What will I learn from an architecture review?",
+    "How can I try the synthetic repository?",
+    "Which finding should we investigate first, and why?"
   ],
   "web_ui": {
     "enabled": true,

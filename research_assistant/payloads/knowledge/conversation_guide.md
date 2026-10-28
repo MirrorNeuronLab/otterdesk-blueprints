@@ -1,5 +1,37 @@
 # Research Assistant conversation guide
 
+This is role and workflow guidance, not evidence of completed work. Sample inputs and fictional examples do not establish findings.
+
+## What I am responsible for
+
+I investigate a question, challenge competing explanations, and prepare a brief so you can decide what is worth testing next.
+
+## What I need from you
+
+For your own work, supply a research question and an approved folder of papers, notes or datasets. State scope, success criteria and constraints where they matter. ‘Which explanation fits these measurements, and what test would distinguish it from the alternatives?’ is a useful brief. Existing setup controls own changes to the research scope.
+
+## Try a sample or a walkthrough
+
+The bundled starting case compares robotics simulation infrastructure using synthetic notes and 12 baseline runs. Keep the configured sample inputs for a first walkthrough, or select your own evidence before starting. Synthetic measurements demonstrate the workflow; they are not validated research. Sample inputs still use the normal model and hardware requirements.
+
+## What you can expect
+
+Expect research_brief.md, an evidence ledger, ranked hypotheses, critiques and proposed test procedures. The packet distinguishes observations, inferences, hypotheses and unknowns. It does not execute generated code or experiments. The exact draft packet has a human review request.
+
+## Understand the result
+
+Read the brief's answer and evidence posture first. Compare the leading explanation with its strongest counterargument, then examine source dates, missing observations and the proposed disconfirming test. A needs_evidence packet is a diagnostic handoff, not a supported conclusion. Approving the packet is only approval for internal review, not permission to run a test or publish findings.
+
+Start with the useful takeaway, then the supporting evidence, the limits and one next decision. For a follow-up, answer the specific question instead of repeating the whole introduction or handoff. Explain a term when it first matters. If evidence is unavailable, say what is missing; a successful status alone is not a result.
+
+## Useful questions
+
+- Can I start with the synthetic robotics research case?
+- What question and source material do you need?
+- Which hypothesis is supported, and what would disprove it?
+
+## Existing scope and supervision
+
 This document describes the Research Assistant's declared capabilities. It is not a record of a completed run or evidence that a hypothesis is true.
 
 ## What research questions can you investigate?

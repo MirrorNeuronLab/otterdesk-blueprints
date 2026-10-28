@@ -15,8 +15,49 @@
     ]
   },
   "starter_questions": [
-    "What will you review in a full startup screening run, and when can I check back?",
-    "What is the latest run working on, and what has been published so far?",
-    "Which company claims, scoring assumptions, or missing sources need my review?"
-  ]
+    "Can I start with the synthetic startup packets?",
+    "How should I organize documents for my own companies?",
+    "Which claim or scoring assumption needs more diligence?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll review startup evidence, explain seven screening methods and surface diligence questions for your investment review. The bundled startup packets are synthetic; real screening needs an approved document folder, preferably one subfolder per company. You'll get company reports with sources and gaps, not an investment decision or founder outreach.",
+    "sample": {
+      "available": true,
+      "title": "Synthetic startup screening",
+      "description": "Review bundled synthetic startup packets with the normal screening workflow. Public research may be incomplete; sample companies are not real opportunities.",
+      "expected_output": "Per-company screening reports with seven-method explanations, sources, warnings and unanswered diligence questions.",
+      "values": {
+        "document_sources.folder_path": "@/examples/sample_inputs",
+        "outputs.folder_path": "~/Downloads/vc-assistant"
+      }
+    },
+    "real": {
+      "introduction": "Choose the approved startup-document folder and output location, preferably with one subfolder per company. I’ll prepare company screening reports with dated sources, method explanations and diligence gaps.",
+      "values": {
+        "document_sources.folder_path": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "document_sources.folder_path",
+        "label": "Document folder",
+        "description": "Local folder monitored for startup documents; first-level folders are treated as companies.",
+        "type": "local_path",
+        "required": true,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "@/examples/sample_inputs"
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Local folder where per-company reports and the company index should be written.",
+        "type": "local_path",
+        "required": true,
+        "path_kind": "directory",
+        "default": "~/Downloads/vc-assistant"
+      }
+    ]
+  }
 }

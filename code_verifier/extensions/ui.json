@@ -75,19 +75,19 @@
     }
   },
   "starter_questions": [
-    "How do I add or edit my Markdown rules?",
-    "What does a pass mean, and what remains unknown?",
-    "Show the evidence and confidence for a rule."
+    "How can I try the synthetic code sample?",
+    "What must I review before approving the rules?",
+    "Which results are unknown, and what should we verify next?"
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Choose the source code folder to review.",
+    "introduction": "I'll check your software's documented rules against source code and explain Pass, Fail or Unknown with evidence. Choose the source code folder. You'll review and approve the exact rule list before I verify it; I won't execute or edit the code.",
     "sample": {
       "available": false,
       "values": {}
     },
     "real": {
-      "introduction": "Choose the source code folder to review.",
+      "introduction": "Choose a local folder containing source and requirements. I'll prepare the rules for your approval, then report the evidence and any unknowns for each approved rule.",
       "values": {
         "inputs.payload.input_folder": ""
       }

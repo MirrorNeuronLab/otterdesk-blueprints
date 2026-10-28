@@ -154,8 +154,59 @@
     "source_of_truth": "workflow.steps"
   },
   "starter_questions": [
-    "What discovery work is this job configured to perform?",
-    "What candidates or evidence emerged from the latest cycle?",
-    "Which scientific risks or review gates remain?"
-  ]
+    "What does the BACE1 sample demonstrate?",
+    "Should I provide protein targets or a disease name?",
+    "Why did this candidate rank first, and what remains unvalidated?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll evaluate five distinct molecule candidates and explain their computational ranking for scientific review. Review the research profile and protein targets, or keep BACE1 and the synthetic seed inputs for a walkthrough. The sample uses the normal scientific pipeline; results do not establish experimental efficacy or safety.",
+    "sample": {
+      "available": true,
+      "title": "Computational discovery sample",
+      "description": "Use synthetic seed inputs for one computational cycle; the bundled default target is BACE1. Normal scientific preparation and hardware are still required.",
+      "expected_output": "Five distinct candidates with computational evaluations, ranking evidence and scientific limitations, not experimentally validated treatments.",
+      "values": {
+        "inputs.payload.disease_or_target_profile": "Alzheimer disease BACE1 modulation",
+        "inputs.payload.input_folder": "@/examples/sample_inputs",
+        "outputs.folder_path": "~/Downloads/drug-discovery-research-assistant"
+      }
+    },
+    "real": {
+      "introduction": "Review the therapeutic profile, explicit protein targets and approved research folder. I’ll evaluate one five-candidate cycle and explain the computational ranking and missing validation.",
+      "values": {
+        "inputs.payload.input_folder": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.disease_or_target_profile",
+        "label": "Disease or target profile",
+        "description": "Disease, target, pathway, or phenotype that frames the discovery run.",
+        "type": "domain_value",
+        "required": true,
+        "role": "input",
+        "default": "Alzheimer disease BACE1 modulation"
+      },
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Input folder",
+        "description": "Default local input folder for sample files or user-provided files.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "@/examples/sample_inputs"
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Default local output folder for generated artifacts and reports.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "default": "~/Downloads/drug-discovery-research-assistant"
+      }
+    ]
+  }
 }

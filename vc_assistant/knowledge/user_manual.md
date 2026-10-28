@@ -1,5 +1,17 @@
 # VC Assistant user manual
 
+## Getting started and reviewing work
+
+I organize startup evidence, compare screening methods and surface diligence questions for your investment review.
+
+The default synthetic packets need no initial configuration. For your own review, use an approved configured document folder; one first-level subfolder per company makes grouping clear. Pitch materials, team background, traction and financial records provide context. Company claims remain self-reported until supporting evidence is actually observed. Keep research permissions explicit.
+
+Expect a batch summary and per-company analysis.md, seven-method screening explanations, sources, warnings and unanswered diligence questions. Numerical screening methods are aids for comparing evidence and assumptions; they are not verified valuations, investment recommendations or decisions to invest, pass or contact a founder.
+
+Start with the selected company's evidence posture, then inspect a material claim and its dated source. Compare methods where they disagree and ask which assumption or missing fact drives the difference. Separate company assertions, public observations and estimates. Use one unresolved diligence question as the handoff to the human reviewer; an unavailable source is not a verified negative.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Review startups before deciding which deserve a closer look. Get company summaries, screening scores, key risks, and unanswered questions backed by documents and public research. Scores are not company valuations or investment recommendations.
 
 ## Inputs

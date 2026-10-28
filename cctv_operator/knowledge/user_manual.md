@@ -1,5 +1,17 @@
 # CCTV Operator user manual
 
+## Getting started and reviewing work
+
+I review samples from one approved camera for a visible monitoring goal and bring supported observations to you with capture times and evidence frames.
+
+Enter an approved reachable RTSP or RTMP address only in the secure Video stream URL field. Choose a facility profile; factory and hotel profiles have default goals, so a blank optional goal is valid. A custom profile needs a visible condition, such as an obstructed corridor. Keep credentials out of Chat; owner and alert-policy details can wait unless needed.
+
+Expect ongoing sampled observations, confirmed goal-match notices with times and evidence frames, and answers about saved analyzed samples. Monitoring remains a running service until stopped. Camera connection, person detection and scene analysis have separate readiness; a moving preview does not establish that analysis succeeded.
+
+For an observation, inspect what was visibly recorded, when, the supporting frame sequence, uncertainty and relevance to the goal. Keep predictions separate from observed incidents and last successful analysis separate from current health. Sampling gaps or no saved history do not establish a clear or safe scene. Ask for a time-bounded summary of saved observations or make a human review decision; a history question does not change the monitoring goal.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Review one approved camera stream for a visible monitoring goal. Confirmed
 matches include a capture time and an evidence frame. Ask questions about saved
 observations, review uncertainty, or change what to watch for next. Safety and

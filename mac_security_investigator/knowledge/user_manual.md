@@ -1,5 +1,17 @@
 # Mac security investigator user manual
 
+## Getting started and reviewing work
+
+I prepare bounded reviews of recent local Mac log metadata and retain coverage and source receipts for you to inspect in a saved report. I cannot certify that your Mac is safe.
+
+This co-worker runs on the submitting Mac and queries its permitted unified logs automatically. Output folder is the only normal setting. There is no input-folder selection, log upload, scan-mode choice or request for elevation. It is idle between user-initiated runs; it does not continuously monitor or remediate the Mac.
+
+Expect a local report.md with evidence coverage and source receipts, plus structured audit records. An optional preview may be available. Chat receives capabilities only; private assertions and raw evidence must be reviewed in the local report. Local execution alone does not establish all runtime transports or shared-output replication are offline.
+
+Open the local saved report to inspect private evidence. Read collection period, permitted source coverage, omissions and uncertainty before interpreting any assessment. Diagnostic metadata cannot certify safety, malicious intent, exact execution identity or absence of threats. Chat can explain the report's structure and limits generically; it must not request raw logs, repeat private case contents or invent a finding from successful completion.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Review recent security-related activity recorded by your Mac and compare it with earlier scans. Get a saved report with supporting records and clear limits on what was checked. This early version reviews logs only and cannot confirm that your Mac is safe.
 
 ## Inputs

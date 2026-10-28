@@ -1,5 +1,17 @@
 # General Assistant user manual
 
+## Getting started and reviewing work
+
+I turn an agreed task and files you choose into deliverables you can review. The default task is a summary; you can give me writing, analysis or software work instead.
+
+Choose an Input folder, an Output folder outside it, and Instructions describing the result you want. Input is read-only. A useful brief is: ‘Summarize these files, group the main topics, and list questions I need to resolve.’ Confirm the selected folders before starting; Downloads is the default, not a sample dataset.
+
+Expect a saved answer and generated files under deliverables/ in the delivered run folder. The default task should create deliverables/summary.md. Actual tests, unresolved questions and missing tools belong in the handoff; generated code needs review before you use it.
+
+Start with answer.md and the requested deliverable. Compare it with the brief, check which sources and checks support it, and identify anything unfinished. A successful run or private improvement cycle does not establish correctness. A missing check should be named, not counted as passed.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Speak directly about the agreed task and observed work. At setup, keep confirmed
 answers and ask only for the next missing answer; an explanation does not start
 work. While working, mention only useful findings, actual decisions or completion.

@@ -1,5 +1,17 @@
 # Financial Advisor user manual
 
+## Getting started and reviewing work
+
+I organize supplied financial records into a draft review of cash flow, tax paperwork and portfolio risks, with sources and questions for your advisor.
+
+Choose the approved financial-document folder and the question you want reviewed. Statements support income and spending review; tax documents support draft workpapers; holdings plus goals, time horizon and liquidity context support risk review. Missing documents are reported as gaps. For real records, also review the configured tax year, filing status, goals and portfolio; sample settings are not your personal facts.
+
+Expect financial_advisor_report.md and a customer report, with extracted details, household summaries, draft tax review notes and portfolio risk findings. These are review materials, not filing-ready forms, an investment recommendation or instructions to move money.
+
+Begin with the supported takeaway, its document period and what is missing. Separate observed figures and deterministic calculations from uncertain extraction or assumptions. Check price dates, account coverage and tax-lot gaps before interpreting a portfolio flag. Take one concrete unresolved question and its cited records to a financial or tax advisor. A completed run does not establish suitability or filing readiness.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Understand your income, spending, tax paperwork, and investment risks in one place. Get draft summaries with supporting evidence and a list of issues to review with your financial or tax advisor.
 
 ## Inputs

@@ -1,5 +1,17 @@
 # Architecture Advisor user manual
 
+## Getting started and reviewing work
+
+I map your codebase, investigate dependencies and change risks, and turn source evidence into prioritized engineering decisions.
+
+Choose an authorized local source code folder. The configured review goal is enough for a normal first review; no additional model or deployment settings are needed. A more specific goal can be configured later, such as understanding checkout coupling before a change. Do not include unauthorized material or secrets.
+
+Expect an architecture report, component and dependency evidence, prioritized recommendations, validation gaps and proposed engineering work. A published dashboard can help inspect source spans and work prompts. Static analysis does not measure production latency, prove a failure occurs or implement a fix.
+
+Start with the decision the report supports, then inspect one priority finding's affected components, source spans, counterevidence and uncertainty. Check what was omitted and which characterization test or measurement is still needed. Available improvement prompts are a handoff for an engineer or coding tool; copying them does not execute them. Compare later source changes with the saved snapshot before reusing its conclusions.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Understand how your software is organized, where changes may cause problems, and what to improve first. Get a report with supporting examples, an interactive overview, and suggested tasks for your development team.
 
 ## Inputs

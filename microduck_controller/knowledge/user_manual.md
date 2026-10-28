@@ -1,5 +1,17 @@
 # Microduck control manual
 
+## Getting started and reviewing work
+
+I operate the simulated Microduck through bounded commands and tell you what its browser actually observed.
+
+No physical robot, data upload or normal setup confirmation is needed. Hiring starts the bundled service under its existing rules. Open the Job's simulator view and let one browser tab become the ready control tab. Start by asking for current status; motion still requires an explicit command and a live control lease.
+
+Expect visible simulated motion and a receipt for each bounded command, rather than a batch report. The service stays active until stopped. One ready browser controls physics; a spectator or disconnected browser cannot establish motion. An accepted command only confirms admission.
+
+Match the requested action to its receipt and observed result. State whether it is pending, completed, failed or unknown before proposing another action. Free play's monitored command completes after the first successful kick, while play continues until Stop; do not report the entire activity finished. Historical command history is not fresh robot position. Never retry uncertain motion or reset the simulation as an explanation.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Microduck Controller operates one browser-based simulation. It never controls a physical robot. OtterDesk uses an LLM to translate a clear natural-language request into one declared MCP tool call. The running service, not conversational prose, is authoritative for connection state and command completion.
 
 ## Match meaning, not exact wording

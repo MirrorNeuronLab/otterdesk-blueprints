@@ -1,10 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "starter_questions": [
-    "Which Mac logs does this co-worker inspect?",
-    "Does this co-worker read OS files?",
-    "What can diagnostic logs establish?",
-    "Which parts of the timeline remain unknown?"
+    "What will you check, and what do I need to provide?",
+    "Can you explain the report format without collecting logs?",
+    "How should I review coverage and uncertainty in the local report?"
   ],
   "init_config_review": {
     "required": false,
@@ -17,6 +16,34 @@
         "required": false,
         "default": [],
         "description": "Managed in Memory. Changes Chat wording only; domain work and approvals keep their existing controls."
+      }
+    ]
+  },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll prepare a bounded review of recent local Mac log metadata, with coverage and source receipts in a saved report. No input upload is needed; collection scope is automatic and the output folder is the only normal setting. Review private findings in the local report; Chat can explain the method and limits, and I cannot certify that your Mac is safe.",
+    "sample": {
+      "available": false,
+      "title": "Mac security investigator sample",
+      "description": "",
+      "expected_output": "",
+      "values": {
+        "outputs.folder_path": "~/Downloads/mac-security-investigator"
+      }
+    },
+    "real": {
+      "introduction": "Keep the default report destination or choose another output folder. Logs are collected automatically on this Mac during a requested run; no source upload or elevated access is needed.",
+      "values": {}
+    },
+    "fields": [
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Folder for investigation reports. Recent Mac security logs are queried automatically.",
+        "type": "local_path",
+        "required": false,
+        "path_kind": "directory",
+        "default": "~/Downloads/mac-security-investigator"
       }
     ]
   }

@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "starter_questions": [
-    "What documents should I add before you review my finances?",
-    "What does the latest review say, and which findings need checking?",
-    "What is the most useful next question for my advisor or tax preparer?"
+    "Can I try the synthetic household packet first?",
+    "Which records do you need for my review?",
+    "What needs my advisor’s attention, and what evidence is missing?"
   ],
   "init_config_review": {
     "required": false,
@@ -16,6 +16,47 @@
         "required": false,
         "default": [],
         "description": "Manage explicit preferences and working rules in Chat > Memory. Applies to future runs."
+      }
+    ]
+  },
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll organize financial records into a draft review of cash flow, tax paperwork and portfolio risks, with sources and questions for your advisor. The bundled household packet is synthetic; your own review needs approved records and customer settings configured together. You'll get review materials with gaps, not a tax filing or financial transaction.",
+    "sample": {
+      "available": true,
+      "title": "Synthetic household review",
+      "description": "Review sample cash-flow records, tax paperwork and fixture-priced holdings. These are demonstration records, not your finances.",
+      "expected_output": "A draft financial review with limited statement coverage, tax-capture gaps, stale-price qualifications and questions for an advisor.",
+      "values": {
+        "document_sources.folder_path": "@/examples/sample_inputs",
+        "outputs.folder_path": "~/Downloads/financial-advisor"
+      }
+    },
+    "real": {
+      "introduction": "Choose the approved financial-document folder and output location. I’ll prepare a draft review with source periods, gaps and advisor questions; review customer goals and portfolio settings before interpreting it.",
+      "values": {
+        "document_sources.folder_path": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "document_sources.folder_path",
+        "label": "Document folder",
+        "description": "Local folder monitored for personal finance, bank statement, tax, and portfolio documents.",
+        "type": "local_path",
+        "required": true,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "@/examples/sample_inputs"
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Local folder where JSON and Markdown advisor reports should be written.",
+        "type": "local_path",
+        "required": true,
+        "path_kind": "directory",
+        "default": "~/Downloads/financial-advisor"
       }
     ]
   }

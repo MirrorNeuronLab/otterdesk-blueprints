@@ -1,5 +1,17 @@
 # CT reader user manual
 
+## Getting started and reviewing work
+
+I produce experimental CT research text and help explain what the saved report says and leaves uncertain. This co-worker is not for real diagnosis, treatment, triage or clinical decisions.
+
+Upload one de-identified 3D CT volume in .nii or .nii.gz format with +, then select chest or abdomen to match the scan. The optional Research question can focus the experimental output. Completing the last required answer starts inference without a separate Start button. File limits, Hounsfield-unit requirements and compatible NVIDIA hardware still apply.
+
+Expect the saved experimental report directly in Chat, including research limits and source/model provenance. The local preview shows the original volume, while the model uses a separate anatomy-aware crop. A preview is not a finding, localization or evidence of complete coverage.
+
+Read the report's own wording first, including negation and uncertainty. Explain a requested phrase in plain language without adding a new scan interpretation. Keep general education separate from the model's statement. Missing anatomy, the crop, potential errors and uncalibrated output limit what can be concluded. Follow-up explanation of the saved report needs no re-upload or inference; a changed scan or research question requires an explicit new run.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Explore chest or abdominal CT scans for research and learning. Upload a scan in Chat, view its images, and read an experimental report. Research and education only; not for real diagnosis, treatment, or clinical decisions.
 
 ## Inputs

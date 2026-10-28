@@ -1,5 +1,17 @@
 # Drug Discovery Research Assistant user manual
 
+## Getting started and reviewing work
+
+I run one bounded computational cycle, evaluate five distinct molecule candidates and explain which scientific questions remain after ranking.
+
+Review the therapeutic research profile and approved evidence folder. Explicit UniProt Protein targets take precedence; when that list is empty, Disease name is used for Open Targets discovery. The research profile describes therapeutic intent for screening, not the disease-search query. Supply only approved research material through existing controls.
+
+Expect one five-candidate cycle and a ranked scientific report with candidate identities, computational evaluations and stage coverage. Optional structure previews and the Drug discovery results page help inspect published output when available. The report sorts by simulation stability, then DrugCLIP score; a rank is not experimental validation.
+
+Identify the cycle and target, then inspect the leading candidate's SMILES, ranking basis and measured computational values. Compare a runner-up and any missing stage evidence before discussing the ranking. Explain each score in its reported context; docking and alignment scores do not establish affinity, selectivity, efficacy or toxicity in an organism. The useful handoff is a question for scientific validation, not permission for wet-lab, clinical or external publication work.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Explore possible starting points for drug research. Get five proposed molecules, a comparison of their computer-based screening results, and supporting evidence to help plan further study. Results are research ideas, not proven treatments.
 
 ## Inputs

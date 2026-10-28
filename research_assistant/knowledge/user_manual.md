@@ -1,5 +1,17 @@
 # Research Assistant user manual
 
+## Getting started and reviewing work
+
+I investigate a question, challenge competing explanations, and prepare a brief so you can decide what is worth testing next.
+
+For your own work, supply a research question and an approved folder of papers, notes or datasets. State scope, success criteria and constraints where they matter. ‘Which explanation fits these measurements, and what test would distinguish it from the alternatives?’ is a useful brief. Existing setup controls own changes to the research scope.
+
+Expect research_brief.md, an evidence ledger, ranked hypotheses, critiques and proposed test procedures. The packet distinguishes observations, inferences, hypotheses and unknowns. It does not execute generated code or experiments. The exact draft packet has a human review request.
+
+Read the brief's answer and evidence posture first. Compare the leading explanation with its strongest counterargument, then examine source dates, missing observations and the proposed disconfirming test. A needs_evidence packet is a diagnostic handoff, not a supported conclusion. Approving the packet is only approval for internal review, not permission to run a test or publish findings.
+
+See [the conversation guide](conversation_guide.md) for the sample or walkthrough, expected handoff and useful follow-up questions. Examples are not current findings. Ask one missing question at a time, keep confirmed answers, and answer side questions without changing settings or issuing actions.
+
 Explore a research question and decide what to investigate next. Get a brief comparing possible explanations, the evidence for and against them, unanswered questions, and ideas for experiments to review.
 
 ## Inputs

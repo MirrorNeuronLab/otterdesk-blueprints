@@ -44,8 +44,39 @@
     ]
   },
   "starter_questions": [
-    "What will you summarize in my input folder?",
-    "Can you convert Java code in my input folder to Rust?",
-    "How will you ask me for a decision?"
-  ]
+    "What do you need from me to create a useful summary?",
+    "How can I try the bundled sample files?",
+    "What did you deliver, and which checks remain?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "I'll turn the files you choose into a summary, or another deliverable you describe. Try the synthetic sample, or choose your own read-only input folder, separate output folder and instructions. Review the selected folders before starting; Downloads contains your files.",
+    "sample": {
+      "available": true,
+      "title": "File summary sample",
+      "description": "Summarize synthetic Java and Markdown files without supplying your own documents. Normal model preparation still applies.",
+      "expected_output": "With the default summary instructions, a saved answer and deliverables/summary.md, with actual checks and anything unfinished.",
+      "values": {
+        "inputs.payload.input_folder": "@/examples/sample_inputs"
+      }
+    },
+    "real": {
+      "introduction": "Choose the read-only input folder, a separate output folder and instructions describing the result you want. I’ll deliver new work in output and explain the checks and anything unfinished.",
+      "values": {
+        "inputs.payload.input_folder": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Input folder",
+        "description": "Read-only task material, including Markdown files and source code. Generated work belongs only in the output folder.",
+        "type": "local_path",
+        "required": true,
+        "path_kind": "directory",
+        "role": "input",
+        "default": "~/Downloads"
+      }
+    ]
+  }
 }

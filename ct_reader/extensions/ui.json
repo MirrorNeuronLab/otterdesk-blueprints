@@ -2,12 +2,12 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Please upload a de-identified CT file (.nii or .nii.gz) with the + button below, then choose chest or abdomen. Work starts when those inputs are ready. This co-worker is for research and education only, not for real diagnosis or treatment.",
+    "introduction": "I'll produce an experimental CT research report and explain its wording and limits; this is not for real diagnosis, treatment or triage. Upload a de-identified .nii or .nii.gz file with +, then choose chest or abdomen; no scan is bundled. Work starts when those inputs are ready and the saved report appears in Chat.",
     "sample": {
       "available": false
     },
     "real": {
-      "introduction": "Upload a CT volume, then choose the anatomy present in the scan.",
+      "introduction": "Upload a de-identified CT volume and choose the anatomy present. The final required answer starts a research run; I'll explain the saved experimental report and its limitations in Chat.",
       "values": {}
     },
     "fields": [
@@ -55,8 +55,8 @@
     ]
   },
   "starter_questions": [
-    "How do I upload a CT scan?",
-    "What are this model\u2019s limitations?",
-    "Explain the research report and its uncertainty."
+    "What CT file and anatomy choice do you need?",
+    "Can you walk me through the report format before I upload?",
+    "Explain this saved report’s wording and coverage limits."
   ]
 }
