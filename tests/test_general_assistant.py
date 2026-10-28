@@ -67,8 +67,10 @@ def test_catalog_default_model_memory_and_openshell_boundary():
     assert config["artifact_handoff"]["version"] == "mn.artifact_handoff/v1"
     assert not config.get("sync_shared_storage")
     fields = package.extension("mn.ui")["init_config_review"]["fields"]
-    assert [field["path"] for field in fields] == [
+    assert [field["path"] for field in fields if field["required"]] == [
         "inputs.payload.input_folder", "outputs.folder_path", "inputs.payload.task"]
+    assert fields[-1]["path"] == "inputs.payload.supervisor_instructions"
+    assert not fields[-1]["required"]
     defaults = resolve_config(package).data
     assert defaults["inputs"]["payload"]["input_folder"] == "~/Downloads"
     assert defaults["inputs"]["payload"]["task"] == (
@@ -159,8 +161,9 @@ def test_saved_instructions_apply_unless_a_run_overrides_them(domain, tmp_path, 
     assert not any(event["type"] == "human_input_requested" for event in conversation_events)
 
 
+@pytest.mark.parametrize("source_context", [True, False])
 @pytest.mark.parametrize("instructions", [None, "Read the Markdown notes and write summary.md with source references."])
-def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, monkeypatch, tmp_path, conversation_events, instructions):
+def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, monkeypatch, tmp_path, conversation_events, instructions, source_context):
     pytest.importorskip("harness2")
     from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run
@@ -169,10 +172,10 @@ def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, mon
     source = tmp_path / "input"
     source.mkdir()
     (source / "notes.md").write_text("# Synthetic Markdown material")
-    payload = {"input_folder": str(source)}
+    payload = {"input_folder": str(source), "supervisor_instructions": [{"id": "review-checks", "kind": "work_rule", "text": "State each observed check and its limitations."}]}
     if instructions is not None:
         payload["task"] = instructions
-    config = resolve_config(package, overrides={"inputs": {"payload": payload}})
+    config = resolve_config(package, overrides={"inputs": {"payload": payload}, "source_context": {"enabled": source_context}})
     compiled = compile_blueprint(package, config).manifest
     descriptor = tmp_path / "worker-manifest.json"
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, config)))
@@ -195,7 +198,8 @@ def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, mon
     assert set(request["attachments"]) == {"notes.md"}
     assert not any(event["type"] == "human_input_requested" for event in conversation_events)
     engine = importlib.import_module("domain.engine")
-    monkeypatch.setattr(engine, "run_opencode", SimulatedModel())
+    model = SimulatedModel()
+    monkeypatch.setattr(engine, "run_opencode", model)
     monkeypatch.setattr(domain.solver, "require_openshell", lambda: None)
     for step_id in ["solve_task", "publish_task"]:
         node = next(node for node in compiled["agents"]["nodes"]
@@ -207,6 +211,7 @@ def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, mon
         result = run(step, **parameters)
     published = store.read(result.outputs["result"])
     assert published["status"] == "completed"
+    assert model.task_prompts and all("State each observed check and its limitations." in prompt for prompt in model.task_prompts)
     assert store.read_path("result.json")["deliverables"]
     assert store.read_bytes(published["artifacts"]["deliverables"]["summary.md"]) == b"# Summary\nSynthetic Markdown material.\n"
     from mn_sdk.integrations.block_publication_files import deliver_files
@@ -214,6 +219,11 @@ def test_compiled_workers_use_saved_instructions_and_publish_summary(domain, mon
     step_block.environment = {"MN_JOB_OUTPUT_DIR": str(tmp_path / "delivered")}
     deliver_files(step_block, published["published_files"])
     assert (tmp_path / "delivered/deliverables/summary.md").is_file()
+    sources = list((tmp_path / "delivered/context_sources/outputs").rglob("answer.md"))
+    assert len(sources) == int(source_context)
+    if source_context:
+        assert sources[0].read_text().startswith("Run reference: run-one\nTask status: completed")
+        assert "State each observed check" not in sources[0].read_text()
     assert (source / "notes.md").read_text() == "# Synthetic Markdown material"
     assert any(event["payload"].get("message", "").startswith("Your results are ready")
                for event in conversation_events)
@@ -265,6 +275,7 @@ class SimulatedModel:
         self.calls = 0
         self.fail = fail
         self.models = []
+        self.task_prompts = []
 
     def __call__(self, request, **kwargs):
         self.calls += 1
@@ -284,6 +295,7 @@ class SimulatedModel:
                     "evidence: The probe's calculation was present in its tool output.\n"
                     "confidence: limited to the observed task\n</experience>")
         else:
+            self.task_prompts.append((folder / "TASK.md").read_text())
             (folder / "output/answer.md").write_text("# Result\nThe checked answer is 42.\n")
             (folder / "output/data.txt").write_text("42\n")
             if "summary.md" in (folder / "TASK.md").read_text():
@@ -466,3 +478,31 @@ def test_missing_or_foreign_human_reply_cannot_resume_task(domain, monkeypatch, 
     block = context(tmp_path, config=config)
     with pytest.raises(RuntimeError, match="reply in Chat"):
         domain.intake.prepare(block, {})
+
+
+def test_supervisor_rules_are_frozen_for_the_run_and_forgotten_for_the_next(domain, tmp_path):
+    rule = {"id": "check-first", "kind": "work_rule", "text": "Explain failed checks before conclusions."}
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    config["inputs"]["payload"]["supervisor_instructions"] = [rule]
+    block = context(tmp_path, config=config)
+    admitted = domain.intake.prepare(block, {})
+    frozen = block.store.read(admitted["request"])["data"]
+    assert frozen["supervisor_instructions"] == [rule]
+    assert frozen["supervisor_instruction_revision"]
+    config["inputs"]["payload"]["supervisor_instructions"] = []
+    assert domain.intake.prepare(block, {}) == admitted
+    assert block.store.read(admitted["request"])["data"]["supervisor_instructions"] == [rule]
+    next_block = context(tmp_path, config=config, run="run-two")
+    next_request = next_block.store.read(domain.intake.prepare(next_block, {})["request"])["data"]
+    assert next_request["supervisor_instructions"] == []
+    assert next_request["supervisor_instruction_revision"] != frozen["supervisor_instruction_revision"]
+
+
+@pytest.mark.parametrize("rules", [
+    "not an array", [{"id": "bad", "kind": "action", "text": "Start work"}],
+    [{"id": "long", "kind": "communication", "text": "a" * 1001}],
+    [{"id": "same", "kind": "communication", "text": "Short answers"}] * 2,
+])
+def test_invalid_saved_rules_fail_before_model_work(domain, tmp_path, rules):
+    with pytest.raises((ValueError, __import__("jsonschema").ValidationError)):
+        domain.intake.prepare(context(tmp_path), {"supervisor_instructions": rules})

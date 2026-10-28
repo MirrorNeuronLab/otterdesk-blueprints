@@ -77,6 +77,9 @@ def snapshot_memory_context(block, state, context, *, role):
         if sources:
             packet, receipt = retrieve_memory_context(memory,
                 f'{role} {block.step_id} source-qualified runtime evidence',
+                # Filters select rows; source scope also bounds canonical-file
+                # verification to this snapshot instead of every prior review.
+                sources=[source['source_id'] for source in sources],
                 stages=actor_query_stages(role, snapshot_id, settings['max_results'], sources),
                 max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'],
                 hydrate_runtime_records=True)

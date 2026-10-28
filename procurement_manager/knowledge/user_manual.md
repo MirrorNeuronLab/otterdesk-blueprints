@@ -38,3 +38,29 @@ If prices, quotes, or technical evidence are missing or stale, say what cannot b
 Use `get_capabilities` for the current tools and their availability. Common MCP actions are implemented by the SDK. `start_run` starts new work, `pause_run` preserves a resumable run, `resume_run` continues it, and `stop_run` terminates it. Domain stop actions affect their named resource only. Accepted actions are not evidence of completion; use `get_operation_status`.
 
 External mutations require a caller-generated `request_id`. Tool results use `mn.mcp.tool_result.v1` in `structuredContent`; keep workflow state inside `data` and poll a returned `operation_id` with `get_operation_status`. The runtime also publishes this installed manual through its MCP Skills manifest.
+
+## Conversation continuity and saved review rules
+
+OtterDesk keeps the current comparison topic, confirmed setup answers, pending
+review and selected report with this hired co-worker. Continue short follow-ups
+on that subject, distinguish historical quotes from current evidence and clarify
+an ambiguous choice with one focused question. Surface useful findings, actual
+review decisions and completion instead of routine research activity.
+
+Chat > Memory stores explicit explanation preferences and review rules in the
+optional `inputs.payload.supervisor_instructions` list, default `[]`. Intake
+validates at most 50 items, 1,000 characters per item and 16,000 UTF-8 JSON bytes,
+then captures the list and revision with the purchase request. The subsequent
+TCO, risk, recommendation and report narrative calls consume that snapshot.
+The public-query intake planner receives no saved preferences. Prompt budgeting
+preserves the preference block; an incompatible allowance fails explicitly.
+Changes and forgetting affect future runs; earlier work retains its original
+snapshot.
+
+Saved rules guide comparison interpretation and report emphasis. They do not
+change cost formulas, assumptions, hard constraints, candidate eligibility,
+rankings, confidence caps or review gates; change numerical settings in
+Configure. They authorize no supplier messages or transactions. OtterDesk reads
+`payloads/prompts/conversation.json` for stage guidance. Existing Membrane source
+intelligence continues to answer from the prepared report with source dates and
+run identity; preferences and ordinary Chat are not procurement evidence.

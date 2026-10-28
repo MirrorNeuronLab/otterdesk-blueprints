@@ -57,7 +57,14 @@ def prepare(block, frames, prompt):
             "max_tokens": int(setting("MN_VLM_MAX_TOKENS", "MN_LLM_MAX_TOKENS", "OLLAMA_NUM_PREDICT", default="4096" if nim else "900")),
             "temperature": temperature}
         if nim:
-            payload.update(chat_template_kwargs={"enable_thinking": True}, media_io_kwargs={"video": {"fps": 4.0}})
+            # Cosmos3 uses prompt-driven reasoning, not the Qwen template
+            # switch. Routine monitoring requests the documented direct answer
+            # mode to reserve its bounded output for the structured result.
+            payload["messages"].insert(0, {"role": "system", "content":
+                "Inspect the selected CCTV frames. Return only the requested compact JSON object. "
+                "Describe visible people's actions and changes across the selected frames in detail. "
+                "Do not output reasoning, Markdown or XML tags. Keep the summary and evidence concise, with explicit uncertainty."})
+            payload.update(media_io_kwargs={"video": {"fps": 4.0}})
             options.update(model_spec=declared["model_spec"], required_capabilities=["image_input"])
         else:
             payload["response_format"] = {"type": "json_object"}
@@ -79,6 +86,8 @@ def interpret(raw, prepared):
         if prepared["nim"]:
             text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
             finish = choice.get("finish_reason")
+            if finish == "length":
+                raise ValueError("Cosmos returned incomplete video understanding: output limit reached")
             if re.search(r"<think>", text, re.IGNORECASE) or finish not in {None, "stop"}:
                 raise ValueError("Cosmos returned incomplete video understanding")
             text = text.strip()

@@ -128,3 +128,27 @@ Document intake, OCR record normalization, lazy client configuration, and model 
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Conversation continuity and saved review instructions
+
+OtterDesk keeps the current review topic, confirmed setup answers and pending
+question with this hired co-worker. Keep short follow-ups on that topic and ask
+one focused question when a reference is ambiguous. Surface useful findings,
+actual decisions and completion; routine extraction activity stays in status.
+When discussing a saved review, lead with the supported finding, its period and
+source freshness, the uncertainty and the next useful question for an advisor.
+
+Chat > Memory stores only explicit supervisor preferences and working rules.
+The optional `inputs.payload.supervisor_instructions` list defaults to `[]`.
+Intake validates at most 50 items, 1,000 characters per item and 16,000 UTF-8 JSON
+bytes, captures its revision with the financial evidence packet, and passes the
+snapshot to financial review prompts. Rules can guide review emphasis and
+explanation; they cannot change amounts, calculations, screening formulas,
+source facts or required review blockers. Changes and forgetting affect future
+runs; historical records keep their original snapshot.
+
+OtterDesk reads `payloads/prompts/conversation.json` for stage guidance. Existing
+Membrane source intelligence remains the authority for prepared financial report
+questions. Raw financial inputs, audit JSON, ordinary conversation and saved
+preferences are not additional financial evidence. Filing, trading, payments,
+transfers, account opening and external sharing remain outside this role.

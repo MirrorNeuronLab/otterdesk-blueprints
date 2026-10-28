@@ -49,6 +49,7 @@ def solve(block, inputs):
                   "status": "completed" if outcome["success"] else "failed",
                   "job_id": block.job_id, "run_id": block.run_id,
                   "request_id": request["request_id"], "answer": answer_ref.to_dict(),
+                  "supervisor_instruction_revision": request.get("supervisor_instruction_revision"),
                   "deliverables": deliverables, "improvement": audit_ref.to_dict(),
                   "memory": memory_ref.to_dict(), "expected_generation": request["memory"]["generation"]}
         return result

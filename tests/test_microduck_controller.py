@@ -784,7 +784,7 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     node_ids = {node["node_id"] for node in expanded["agents"]["nodes"]}
 
     agent = source["response_service"]["agent"]
-    assert read_blueprint(blueprint).manifest["version"] == "5.1.1"
+    assert read_blueprint(blueprint).manifest["version"] == "5.2.0"
     assert config["inputs"]["payload"]["input_folder"] == "@/examples/sample_inputs"
     assert source["llm"]["configs"]["primary"]["structured_output_options"] == {
         "temperature": 0
@@ -897,7 +897,8 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
     for node in expanded["agents"]["nodes"]:
         if node.get("config", {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker":
             uploads = node["config"]["upload_paths"]
-            assert {"source": "prompts", "target": "prompts"} not in uploads
+            assert {"source": "prompts", "target": "prompts"} in uploads
+            assert sorted(path.name for path in (PAYLOADS / "prompts").iterdir()) == ["conversation.json"]
     assert "resources" not in service_worker["config"]
     registrar = next(
         node

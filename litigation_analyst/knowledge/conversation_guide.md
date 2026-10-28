@@ -30,3 +30,12 @@ Live multi-user sharing, person-identity corrections, exposure matrices,
 non-email event lanes, full transcript/workbook/media viewers, in-page model Q&A
 and financial scenarios are unavailable in this version. State these limits;
 do not fabricate sources, dates, percentages, legal definitions or working controls.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Use existing Membrane prepared sources and claim provenance. Separate event time from when evidence became known; preserve contradictory and superseded facts. Draft research only; no legal advice, filing, witness contact or privileged-source disclosure. User statements and saved preferences are not evidence. Matter handling rules and scope stay in their existing configuration and review files. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

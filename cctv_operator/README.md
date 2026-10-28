@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.2.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.2.2 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -23,6 +23,40 @@ startup health succeeds, and stopped or failed on cleanup. Reprepare existing Jo
 definitions to load this revision; a runtime reset is not required.
 
 ## Factory and hotel setup
+
+Chat introduces the monitoring task, asks for the secure **Video stream URL**,
+and explains camera checks, model preparation and the progress panel before
+startup. The field uses a short label so the saved answer reads
+`Video stream URL: Saved securely`. `extensions/ui.json` binds the setup AI to
+`payloads/prompts/setup.md`; the installed `knowledge/user_manual.md` supplies
+the bounded conversation model's product guidance. Setup drafts never establish
+readiness or authorize a monitoring action.
+
+Status replies separate camera connection, person detection and scene analysis,
+with the observed stage and a useful next action. Goal-change receipts explain
+queued, applied and analyzed states. Empty history replies explain the missing
+evidence and how to check monitoring or choose another interval. History answers
+request short Markdown paragraphs and timed bullets while retaining citations.
+The desktop owns its transient Preparing indicator; this blueprint supplies the
+surrounding guidance and domain replies without changing runtime or UI code.
+
+Conversation validation on 2026-10-27: 62 focused guidance, status, history,
+MCP and manifest checks pass. The real `--fake-llm --fake-skill` GUI scenario
+reached startup and loaded the workspace; its overall gate failed on a runtime
+`prepare_job_update` / `MN_INVALID_ARGUMENT` receipt and a desktop pause-state
+conflict. The test-owned Job was cleaned up. Real Nemotron probes confirmed
+useful startup guidance, selection of the readiness read tool, clarification for an unspecified goal,
+and a cited synthetic history answer retaining both capture times and sampling
+limits. Setup tool-call delivery remains inconsistent in direct model probes,
+and the Job planner can still claim to have checked history without selecting
+the read tool. Blueprint wording does not enforce that runtime boundary; those
+remain acceptance limitations. No runtime source, model settings or desktop
+source was changed.
+
+The catalog run had 1,541 passes and 39 skips. Its three initial failures passed
+on a focused rerun after adding the missing CLI source to the temporary test
+environment and finishing the source edits that overlapped the long run. The
+final 62-check conversation/MCP/manifest rerun passed. `git diff --check` passed.
 
 `site.profile` selects `factory`, `hotel` or `custom`. Factory is the default.
 Leave `inputs.payload.monitoring_goal` blank/omitted to use the selected profile's
@@ -86,6 +120,9 @@ Default caption policy:
   hazards even without a person: first after a complete two-second window, then
   after fifteen seconds without another offered window. Steering requests can
   request the next eligible audit. Audits never claim RF-DETR saw a person.
+  A newly confirmed person episode starts its short post-roll immediately even
+  after a recent audit; continuing presence follows the normal sampling cadence.
+  The active-request, minimum-admission and per-minute limits still apply.
 - One active Cosmos request and one latest pending window; five-second minimum
   admission interval and twelve admissions/minute maximum. Actual throughput is
   limited by measured model, Core and memory latency, not those ceilings.
@@ -169,9 +206,19 @@ matching package versions remain in execution.json/dependencies.json.
 Initial NIM installation needs the existing runtime's NGC credential environment;
 the blueprint does not install or reconfigure the runtime. Cosmos receives the
 selected sequence via MP4/video_url at 4 FPS, real selected timestamps, optional
-complete history and a 4096-token answer allowance. Its request deadline remains
+complete history and a request ceiling of 4096 output tokens, subject to the
+runtime gateway's smaller per-response and hardware limits. Its request deadline remains
 300 seconds. Truncated, malformed or unsupported results are errors, not clear
 scenes. Private reasoning never enters reports or history.
+Routine monitoring requests compact JSON directly, without a reasoning-template switch,
+using the [Cosmos3 NIM direct-answer request contract](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
+The prompt requests ten evidence-bearing fields and at most two forecasts,
+targeting about 900 output tokens. Person activity receives two to six concrete
+sentences (up to 1800 characters), describing visible posture, movement, hand
+actions, objects and interactions, with selected-frame references and uncertainty.
+Quiet scenes can remain brief. The summary and other evidence stay concise;
+no reasoning or larger model allowance is requested. The report adapter retains legacy
+fields; it does not ask the model to repeat the same scene in each one.
 The final JSON object is the answer boundary: a normally stopped Cosmos reply may
 omit its closing answer tag or wrap the object in a JSON fence. The parser accepts
 only the complete object; unfinished reasoning, truncated output and trailing prose
@@ -218,10 +265,22 @@ before running this blueprint revision.
 
 ## Outputs and operations
 
-The read-only job-scoped Web UI shows live MJPEG and the latest analyzed snapshot.
-It also shows analysis health, warnings and the snapshot's analysis time. A visible
+The read-only job-scoped Web UI leads with live MJPEG, followed by compact
+People, Scene analysis and Monitoring status rows in 11–12px system type.
+The latest analyzed snapshot is an expandable section below status; its short
+local analysis time discloses the complete timestamp in a tooltip. Warnings
+remain beneath status, and all rows fit narrow workspace panels. A visible
 preview does not imply that person detection or scene analysis is healthy.
+Fresh person-detection counts and the last confirmed presence time appear before
+Cosmos finishes. Scene-analysis progress is separate. These sampled detections are
+not unique-person counts or verified facility-rule notices.
 It makes no browser steering requests and never exposes camera URLs/credentials.
+Detailed activity survives in saved history, latest-status replies and confirmed
+goal notices, including their capture time and recording qualification.
+Blueprint conversation guidance keeps routine long-running progress in this
+workspace and ends a goal-change reply after its applied receipt and current
+analysis readiness. It does not wait for a future scene in that turn. Desktop
+composer and generic activity indicators remain controlled by the host app.
 The generic SDK proxies the OS-selected worker listener through the Job UI route.
 An authenticated loopback MCP relay has its own owner-only private endpoint
 artifact; it is never a public browser endpoint. No fixed host MCP port is used.
@@ -305,6 +364,17 @@ Core reported `coordinator_report_failed` / `message_id_conflict` for an already
 acknowledged message. Runtime was not changed. Report/history/notice acceptance
 for this revision remains open; preview and detector success alone do not close it.
 
+Follow-up for 5.2.2: the live person detector had confirmed six presence episodes
+while the scene result was missing. The saved Cosmos reply had finish_reason=length
+at1024 completion tokens, truncating the final JSON. Person count, last confirmed
+presence and scene-processing time are now shown independently; the live UI was
+verified displaying one detected person. Scene requests use a compact ten-field
+direct JSON account and retain strict completion/provenance checks. All264 CCTV
+offline checks passed, including compact-account notice evidence. The revised live
+run stopped on Core's same acknowledged-message conflict before its model response;
+the final compact prompt has not completed a live acceptance run. No runtime source
+or operator model settings were changed.
+
 ## Block composition (5.1.0)
 
 The camera/UI owner uses the SDK monitored-service block. Ingress now uses a
@@ -341,3 +411,12 @@ Supervision is bounded to 1,000,000 health cycles and 64 MiB of checkpoints;
 rotate the service before either bound. Camera timing is independent of the
 60-second health interval. OpenShell remains optional for compatible workers,
 using the same SDK/Core transport when selected; current Docker placement stays.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Explicit aliases, camera knowledge and restrictive control rules keep their existing bounded Job memory path and receipts. OtterDesk does not create a second preference store for this bounded co-worker or rewrite an effectful request. Ordinary chat is not learned.
+
+Use timestamped saved camera Markdown and existing Membrane observation retrieval. Recorded demo playback is historical demonstration, not a live site event. A moving preview does not prove scene analysis. Missing observations do not mean a clear or safe scene. Stream addresses and credentials belong in secure fields. Monitoring goals, camera notes and bounded domain memory retain their existing authority. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

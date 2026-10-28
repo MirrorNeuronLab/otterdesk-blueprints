@@ -90,6 +90,45 @@ def test_brief_person_presence_captures_post_roll_after_the_person_leaves(tmp_pa
     assert schedule.claim(force=True, now=120)["batch"] is None
 
 
+def test_new_person_after_a_scene_audit_gets_a_window_without_bypassing_admission(tmp_path):
+    config = {"sampling": {"pre_roll_seconds": .5, "post_roll_seconds": .5,
+                          "baseline_interval_seconds": 20, "scene_audit_seconds": 15},
+              "backpressure": {"llm": {"min_interval_seconds": 5}}}
+    schedule = CaptionSchedule(tmp_path, "run", config, Benchmarks(tmp_path))
+    schedule.capture(1, 100, jpeg(), {})
+    schedule.capture(2, 101, jpeg(), {})
+    audit = schedule.claim(now=101)["batch"]
+    assert audit["trigger"] == "scene_audit"
+
+    # Confirm a brief appearance just after the audit. The baseline cadence
+    # must not discard it, even when the person leaves before post-roll ends.
+    schedule.person_sample(101.25, confirmed=True, episode=1)
+    schedule.person_sample(101.5, confirmed=False, episode=1)
+    schedule.capture(3, 102, jpeg("white"), {})
+    assert schedule.snapshot()["pending_windows"] == 1
+    assert schedule.claim(now=102)["batch"] is None  # audit still active
+    complete_caption(tmp_path, audit["batch_id"], status="ok")
+    assert schedule.claim(now=103)["batch"] is None  # minimum interval
+    person = schedule.claim(now=106)["batch"]
+    assert person["trigger"] == "person_gate"
+    evidence = json.loads((tmp_path / person["frame_batch_ref"]).read_text())
+    assert evidence["candidate_gate"]["episode"] == 1
+    assert evidence["candidate_gate"]["confirmed"] is True
+    assert evidence["selected_frames"][-1]["timestamp"] == 102
+
+    # Continuing presence follows the cadence; a newly confirmed episode
+    # opens a fresh window immediately while the active call remains bounded.
+    schedule.person_sample(106.25, confirmed=True, episode=1)
+    schedule.capture(4, 107, jpeg(), {})
+    assert schedule.snapshot()["pending_windows"] == 0
+    schedule.person_sample(107.25, confirmed=True, episode=2)
+    schedule.capture(5, 108, jpeg("white"), {})
+    assert schedule.snapshot()["pending_windows"] == 1
+    assert schedule.claim(now=108)["batch"] is None
+    complete_caption(tmp_path, person["batch_id"], status="ok")
+    assert schedule.claim(now=111)["batch"]["trigger"] == "person_gate"
+
+
 def test_person_gated_backlog_keeps_latest_window_and_never_overlaps_cosmos(tmp_path):
     metrics = Benchmarks(tmp_path)
     schedule = CaptionSchedule(tmp_path, "run", {"sampling": {"baseline_interval_seconds": 10}}, metrics)
@@ -443,3 +482,24 @@ def test_person_status_uses_fresh_detector_result_and_qualifies_recorded_playbac
     assert person_status_summary(stale) == "" and "fresh video frames" in warning
     failed, warning = pipeline_status({"person_detector": "failed", "captions": "failed"}, {}, now=110)
     assert "Person detection stopped" in warning and "Caption sampling stopped" in warning
+
+
+def test_person_presence_is_visible_while_scene_analysis_is_pending_or_delayed():
+    person = {"person_detector": "running", "last_person_frame_at": 200,
+              "visible_people": 1, "captions": "running"}
+    presence = {"purpose": "person_gate_only", "person_event": {
+        "kind": "person_presence_started", "confirmed_at": 199, "person_count": 1}}
+    captions = {"inflight": {"claimed_at": 100}, "inflight_status": "processing"}
+    pipeline, warning = pipeline_status(person, captions, now=201, last_presence=presence)
+    assert pipeline["person_events"]["summary"] == "1 person detected in the latest sampled frame."
+    assert pipeline["person_events"]["last_presence"]["observed_at"] == "1970-01-01T00:03:19Z"
+    assert "not a verified monitoring-goal event" in pipeline["person_events"]["last_presence"]["qualification"]
+    assert pipeline["captions"]["summary"] == "Scene analysis in progress (101 s)."
+    assert warning == ""
+    person.update(visible_people=0, last_person_frame_at=402)
+    pipeline, _ = pipeline_status(person, captions, now=403, last_presence=presence)
+    assert pipeline["person_events"]["summary"] == "No person detected in the latest sampled frame."
+    assert pipeline["person_events"]["last_presence"]["person_count"] == 1
+    assert pipeline["captions"]["summary"] == "Scene analysis delayed (303 s)."
+    pipeline, _ = pipeline_status(person, captions, now=410, last_presence=presence)
+    assert "waiting for fresh video frames" in pipeline["person_events"]["summary"]

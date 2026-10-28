@@ -163,6 +163,38 @@ def test_no_runtime_observations_remains_no_evidence(modules,tmp_path):
     assert rendered['runtime_memory']['status']=='no_evidence'
 
 
+@pytest.mark.parametrize('role', ['berkus_scorer', 'score_consistency_auditor',
+                                'company_report_writer', 'batch_index_writer'])
+def test_review_verifies_only_its_published_snapshot(modules, tmp_path, text_memory_transport, role):
+    _, adapter, observations, _ = modules
+    block = context(tmp_path)
+    memory = adapter.runtime_text_memory(block.config, principal='vc-actor-review',
+        scope={'job_id': block.job_id, 'run_id': block.run_id})
+    try:
+        historical, _ = observations.publish_observations(memory, [
+            {'company': 'Older company', 'kind': 'method', 'observation_id': 'older-method',
+             'method_id': 'berkus_method', 'status': 'insufficient_evidence',
+             'warnings': ['OLDER_SNAPSHOT_CANARY'], 'qualification': 'runtime_method_result'}])
+    finally:
+        memory.close()
+    state = {'evidence': {'Sample': evidence(tmp_path)}, 'score_branch': {
+        'method': 'berkus_method', 'scores': {'Sample': {
+            'status': 'insufficient_evidence', 'formula_or_weighting': 'Berkus components',
+            'warnings': ['Current result requires independent confirmation']}}}}
+    rendered = adapter.snapshot_memory_context(block, state, {}, role=role)
+    witness = block.store.read(state['memory_witnesses'][role])
+    request = witness['receipt']['request']
+    expected = {source['source_id'] for source in witness['inputs']}
+    # Filters restrict result rows; explicit sources also bound canonical-file
+    # verification. An empty scope verifies the whole accumulated run corpus.
+    assert expected and set(request['sources']) == expected
+    assert expected.isdisjoint(source['source_id'] for source in historical)
+    assert all(handle['source_id'] in expected
+        for handles in witness['receipt']['citations'].values() for handle in handles)
+    assert 'OLDER_SNAPSHOT_CANARY' not in json.dumps(rendered['runtime_memory'])
+    assert 'independent confirmation' in json.dumps(rendered['runtime_memory'])
+
+
 def test_markdown_sources_reuse_job_storage_independently_of_runtime_memory(modules,tmp_path,text_memory_transport):
     surface,_,_,_=modules
     inputs=tmp_path/'inputs';inputs.mkdir()

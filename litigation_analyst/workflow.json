@@ -79,7 +79,7 @@
           "run": {
             "handler": "mn_sdk.integrations.block_worker",
             "with": {
-              "revision": "litigation_analyst@5.0.2",
+              "revision": "litigation_analyst@5.1.0",
               "instance": {
                 "uses": "mn.blocks.domain_operation@1",
                 "hooks": {
@@ -116,7 +116,7 @@
           "run": {
             "handler": "mn_sdk.integrations.block_worker",
             "with": {
-              "revision": "litigation_analyst@5.0.2",
+              "revision": "litigation_analyst@5.1.0",
               "instance": {
                 "uses": "mn.blocks.domain_operation@1",
                 "hooks": {
@@ -153,7 +153,7 @@
           "run": {
             "handler": "mn_sdk.integrations.block_worker",
             "with": {
-              "revision": "litigation_analyst@5.0.2",
+              "revision": "litigation_analyst@5.1.0",
               "instance": {
                 "uses": "mn.blocks.domain_operation@1",
                 "hooks": {
@@ -190,7 +190,7 @@
           "run": {
             "handler": "mn_sdk.integrations.block_worker",
             "with": {
-              "revision": "litigation_analyst@5.0.2",
+              "revision": "litigation_analyst@5.1.0",
               "instance": {
                 "uses": "mn.blocks.domain_operation@1",
                 "hooks": {

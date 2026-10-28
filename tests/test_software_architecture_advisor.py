@@ -157,8 +157,11 @@ def test_desktop_setup_only_asks_for_an_unfilled_source_folder(modules):
     ui=catalog_record(read_blueprint(BLUEPRINT), 'software_architecture_advisor')
     guide=ui['setup_guide']
     assert guide['sample']['available'] is False
-    assert len(guide['fields']) == 1
-    field = guide['fields'][0]
+    fields = [field for field in guide['fields'] if field['path'] != 'inputs.payload.supervisor_instructions']
+    assert len(fields) == 1
+    memory = next(field for field in guide['fields'] if field['path'] == 'inputs.payload.supervisor_instructions')
+    assert memory['required'] is False and memory['default'] == []
+    field = fields[0]
     assert field['path'] == 'inputs.payload.input_folder'
     assert field['required'] is True and field['default'] == ''
     assert field['type'] == 'local_path' and field['path_kind'] == 'directory'

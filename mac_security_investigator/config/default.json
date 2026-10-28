@@ -1,5 +1,10 @@
 {
   "outputs": {
     "folder_path": "~/Downloads/mac-security-investigator"
+  },
+  "inputs": {
+    "payload": {
+      "supervisor_instructions": []
+    }
   }
 }

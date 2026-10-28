@@ -261,7 +261,8 @@
         "traceable evidence",
         "falsifiable experiment plan",
         "explicit uncertainty"
-      ]
+      ],
+      "supervisor_instructions": []
     }
   },
   "interfaces": {

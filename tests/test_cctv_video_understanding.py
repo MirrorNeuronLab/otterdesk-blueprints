@@ -45,7 +45,7 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
     prepared = detector.vision_model.prepare(block, [b"first", b"second"], "Inspect the chronological sequence.")
     raw = block_model_request.model_request(block, prepared["request"], key="scene")
     result = detector.vision_model.interpret(raw, prepared)
-    media = captured["payload"]["messages"][0]["content"]
+    media = next(message["content"] for message in captured["payload"]["messages"] if message["role"] == "user")
     assert media[1] == {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dGVtcG9yYWwtbXA0"}}
     assert captured["payload"]["media_io_kwargs"] == {"video": {"fps": 4.0}}
     assert captured["options"]["backend"] == "nim"
@@ -53,7 +53,8 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
     assert captured["payload"]["max_tokens"] == 4096
     assert "response_format" not in captured["payload"]
     assert "thinking_budget_tokens" not in captured["payload"]
-    assert captured["payload"]["chat_template_kwargs"]["enable_thinking"] is True
+    assert "chat_template_kwargs" not in captured["payload"]
+    assert captured["payload"]["messages"][0]["role"] == "system"
     assert "PRIVATE DRAFT" not in json.dumps(result) and result["summary"] != "wrong draft"
     assert result["risk_predictions"][0]["qualification"] == "prediction_not_observed_event"
 

@@ -109,12 +109,17 @@ class CaptionSchedule:
             self.person_gate = {"at": timestamp, "confirmed": bool(confirmed),
                                 "started_at": started, "episode": episode}
             last = self.state.get("last_offered_at")
+            new_episode = episode != self.state.get("last_person_episode")
             if confirmed and self.gate_window is None and (
-                    last is None or timestamp - last >= max(0,
+                    new_episode or last is None or timestamp - last >= max(0,
                         self.policy.baseline_interval_seconds - self.policy.post_roll_seconds)):
+                # A new confirmed appearance gets its post-roll immediately,
+                # even just after a quiet-scene audit. Claim still enforces the
+                # single active request, minimum interval and minute budget.
                 # Preserve a brief confirmed appearance until its post-roll is
                 # captured, even if the person leaves before the window ends.
                 self.gate_window = dict(self.person_gate)
+                self.state["last_person_episode"] = episode
 
     def _gate_open(self, timestamp):
         gate = self.person_gate

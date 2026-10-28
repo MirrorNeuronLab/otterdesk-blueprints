@@ -77,7 +77,8 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
         return [{"type": "text", "text": prompt}, {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dmlkZW8="}}]
     monkeypatch.setattr(module.vision_model, "model_user_content", encoder)
     def model(*args, **kwargs):
-        prompts.append(args[3]["messages"][0]["content"][0]["text"])
+        user = next(message for message in args[3]["messages"] if message["role"] == "user")
+        prompts.append(user["content"][0]["text"])
         matched = detection.get("detected_target", detection.get("detected")) is True
         value = {"scene_understanding": detection.get("summary", "Sampled scene account"), "risk_predictions": [], "uncertainties": [],
             "goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None, **detection}

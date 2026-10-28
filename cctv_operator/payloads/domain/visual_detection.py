@@ -92,7 +92,7 @@ def normalize_detection(result: dict[str, Any]) -> dict[str, Any]:
             details.append(label or detection.get("label") or "observed item")
         detection_report = f"{detection_count} detection(s): {', '.join(details)}." if details else summary
 
-    activity_description = str(result.get("activity_description", result.get("activity", ""))).strip()
+    activity_description = str(result.get("activity_description", result.get("activity", result.get("scene_understanding", "")))).strip()
     if not activity_description and detected:
         activity_description = "Activity is not clearly visible."
 

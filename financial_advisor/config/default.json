@@ -280,7 +280,8 @@
       "taxpayer_profile": {
         "residency": "US",
         "review_only": true
-      }
+      },
+      "supervisor_instructions": []
     }
   },
   "interfaces": {

@@ -394,3 +394,58 @@ print(json.dumps({{'proofs': proofs, 'first_hash_after_second': hashlib.sha256((
     assert result["proofs"][0]["report_hash"] == result["first_hash_after_second"]
     assert result["export_exists"] is True
     assert result["prepared_report_hashes"] == sorted(proof["report_hash"] for proof in result["proofs"])
+
+
+def test_saved_financial_rules_reach_review_prompts_without_changing_calculations(tmp_path, monkeypatch):
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    monkeypatch.syspath_prepend(str(ROOT / "financial_advisor/payloads"))
+    reviews = importlib.import_module("domain.review_services")
+    class Model:
+        provider = "test"
+        model = "test"
+        calls = 0
+        fallback_calls = 0
+        def generate_json(self, **request):
+            self.calls += 1
+            self.request = request
+            return request["fallback"]
+    model = Model()
+    config = {"llm": {"enabled": True, "configs": {"primary": {}}}, "execution": {"quick_test": True}}
+    block = BlockContext(store=CommittedJsonStore(tmp_path), config=config, invocation_id="review", revision="financial_advisor@4.1.0", resources={"llm": model})
+    rule = {"id": "cash-first", "kind": "work_rule", "text": "Explain cash reserve evidence before allocation scenarios."}
+    state = {"inputs": {"supervisor_instructions": [rule]}, "knowledge": {}}
+    evidence = {"total_value": 100.0, "missing_cost_basis": True}
+    reviews.actor_review(block, state, "portfolio_llm_reviewer", "Review the saved evidence", evidence)
+    prompt = json.loads(model.request["user_prompt"])
+    assert prompt["context"]["supervisor_preferences"]["instructions"] == [rule]
+    assert "cannot change deterministic" in prompt["context"]["supervisor_preferences"]["boundary"]
+    assert prompt["context"]["total_value"] == 100.0
+    assert prompt["context"]["missing_cost_basis"] is True
+    assert evidence == {"total_value": 100.0, "missing_cost_basis": True}
+
+
+def test_financial_intake_captures_saved_rules_once_and_rejects_invalid_shapes(tmp_path, monkeypatch):
+    import copy
+    import pytest
+    from jsonschema import ValidationError
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk.blueprints import read_blueprint, resolve_config
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    monkeypatch.syspath_prepend(str(ROOT / "financial_advisor/payloads"))
+    intake = importlib.import_module("domain.intake")
+    config = resolve_config(read_blueprint(ROOT / "financial_advisor")).data
+    config["inputs"]["payload"]["supervisor_instructions"] = [{"id": "cash", "kind": "work_rule", "text": "Review reserve evidence first."}]
+    block = BlockContext(store=CommittedJsonStore(tmp_path / "one"), config=config, invocation_id="capture", revision="financial_advisor@4.1.0")
+    result = intake.step_financial_folder_watcher(block, {"request": {}})
+    saved = block.store.read(result["state"])
+    assert saved["inputs"]["supervisor_instructions"][0]["text"] == "Review reserve evidence first."
+    assert saved["supervisor_instruction_revision"]
+    assert intake.step_financial_folder_watcher(block, {"request": {}})["state"] == result["state"]
+    invalid = copy.deepcopy(config)
+    invalid["inputs"]["payload"]["supervisor_instructions"] = [{"id": "bad", "kind": "permission", "text": "Trade automatically"}]
+    other = BlockContext(store=CommittedJsonStore(tmp_path / "invalid"), config=invalid, invocation_id="invalid", revision="financial_advisor@4.1.0")
+    with pytest.raises(ValidationError):
+        intake.step_financial_folder_watcher(other, {"request": {}})

@@ -175,7 +175,7 @@ def test_docker_api_accepts_only_volume_bytes_and_bounded_research_inputs(
 def test_native_block_compiles_without_local_wrappers():
     package = read_blueprint(ROOT)
     manifest = compile_blueprint(package).manifest
-    assert package.manifest["version"] == "3.0.0"
+    assert package.manifest["version"] == "3.1.0"
     assert (
         package.extension("mn.blocks")["steps"]["read_ct_volume"]["uses"]
         == "mn.blocks.native_computation@1"

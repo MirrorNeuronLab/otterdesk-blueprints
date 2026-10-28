@@ -1,9 +1,13 @@
 """Admit a task and an immutable workspace/memory snapshot for OpenShell."""
 from pathlib import Path
+import json
+
+from jsonschema import validate
 
 from mn_blueprint_blocks.contracts import fingerprint
 from mn_opencode_skill import OpenCodeGateway
 from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.integrations.block_inputs import declared_inputs, save_declared_inputs
 
 from .configuration import settings
@@ -20,6 +24,11 @@ def prepare(block, inputs):
 
     def admit():
         values = declared_inputs(block, inputs, runtime_file=__file__)
+        instructions = values.get("supervisor_instructions", [])
+        declaration = source_manifest(__file__)["contracts"]["inputs"]["supervisor_instructions"]
+        validate(instructions, {key: value for key, value in declaration.items() if key != "required"})
+        if len(json.dumps(instructions, ensure_ascii=False, separators=(",", ":")).encode()) > 16000 or len({item["id"] for item in instructions}) != len(instructions):
+            raise ValueError("Saved task instructions exceed the supported bounds")
         folder = values.get("input_folder")
         if not isinstance(folder, str) or not folder.strip():
             raise ValueError("Choose an input folder before starting work")
@@ -53,6 +62,8 @@ def prepare(block, inputs):
         OpenCodeGateway(**gateway).provider("mn/default")
         request = {
             "task": task.strip(), "settings": limits, "gateway": gateway,
+            "supervisor_instructions": instructions,
+            "supervisor_instruction_revision": fingerprint(instructions),
             "job_id": block.job_id, "run_id": block.run_id,
             "request_id": fingerprint([block.job_id, block.run_id, block.invocation_id]),
             "memory": load(block, limits), "attachments": attachments,

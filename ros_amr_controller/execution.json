@@ -269,7 +269,7 @@
             "MN_WORKFLOW_STEP_HANDLER": "mn_sdk.integrations.block_worker",
             "MN_WORKFLOW_AGENT_ID": "finalize",
             "MN_SDK_COMPONENTS_JSON": "[\"blueprint-blocks\"]",
-            "MN_WORKFLOW_STEP_WITH_JSON": "{\"instance\": {\"hooks\": {\"operation\": \"domain.finalization:record_stop\"}, \"limits\": {\"max_calls\": 1, \"timeout_seconds\": 30}, \"uses\": \"mn.blocks.domain_operation@1\"}, \"revision\": \"ros_amr_controller@3.0.1\"}"
+            "MN_WORKFLOW_STEP_WITH_JSON": "{\"instance\": {\"hooks\": {\"operation\": \"domain.finalization:record_stop\"}, \"limits\": {\"max_calls\": 1, \"timeout_seconds\": 30}, \"uses\": \"mn.blocks.domain_operation@1\"}, \"revision\": \"ros_amr_controller@3.1.0\"}"
           }
         }
       }

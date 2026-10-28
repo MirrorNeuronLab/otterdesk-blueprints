@@ -294,7 +294,8 @@
         "enabled": true,
         "max_cycles": 1,
         "poll_interval_seconds": 60
-      }
+      },
+      "supervisor_instructions": []
     }
   },
   "interfaces": {
@@ -746,7 +747,10 @@
   "output_skills": {},
   "outputs": {
     "folder_path": "~/Downloads/vc-assistant",
-    "job_files": ["watch_state.json", "context_sources"],
+    "job_files": [
+      "watch_state.json",
+      "context_sources"
+    ],
     "per_company_subfolders": true,
     "write_markdown_report": true,
     "write_run_store": true

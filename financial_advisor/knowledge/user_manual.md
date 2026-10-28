@@ -35,3 +35,27 @@ When asked what the latest review found, use only the current published review a
 Use `get_capabilities` for the current tools and their availability. Common MCP actions are implemented by the SDK. `start_run` starts new work, `pause_run` preserves a resumable run, `resume_run` continues it, and `stop_run` terminates it. Domain stop actions affect their named resource only. Accepted actions are not evidence of completion; use `get_operation_status`.
 
 External mutations require a caller-generated `request_id`. Tool results use `mn.mcp.tool_result.v1` in `structuredContent`; keep workflow state inside `data` and poll a returned `operation_id` with `get_operation_status`. The runtime also publishes this installed manual through its MCP Skills manifest.
+
+## Conversation continuity and saved review instructions
+
+OtterDesk keeps the current review topic, confirmed setup answers and pending
+question with this hired co-worker. Keep short follow-ups on that topic and ask
+one focused question when a reference is ambiguous. Surface useful findings,
+actual decisions and completion; routine extraction activity stays in status.
+When discussing a saved review, lead with the supported finding, its period and
+source freshness, the uncertainty and the next useful question for an advisor.
+
+Chat > Memory stores only explicit supervisor preferences and working rules.
+The optional `inputs.payload.supervisor_instructions` list defaults to `[]`.
+Intake validates at most 50 items, 1,000 characters per item and 16,000 UTF-8 JSON
+bytes, captures its revision with the financial evidence packet, and passes the
+snapshot to financial review prompts. Rules can guide review emphasis and
+explanation; they cannot change amounts, calculations, screening formulas,
+source facts or required review blockers. Changes and forgetting affect future
+runs; historical records keep their original snapshot.
+
+OtterDesk reads `payloads/prompts/conversation.json` for stage guidance. Existing
+Membrane source intelligence remains the authority for prepared financial report
+questions. Raw financial inputs, audit JSON, ordinary conversation and saved
+preferences are not additional financial evidence. Filing, trading, payments,
+transfers, account opening and external sharing remain outside this role.

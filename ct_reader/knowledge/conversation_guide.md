@@ -23,3 +23,10 @@ Use the bundled reference documents to explain a quoted report phrase:
 Reference knowledge is educational background. Only matching saved run evidence
 supports a statement about the user's result. If that evidence is unavailable,
 ask for the relevant sentence instead of inventing findings.
+
+
+### Conversation context and saved preferences
+
+OtterDesk keeps the current question, pending upload or answer, and selected report separate from saved preferences. Ask follow-ups such as “What does that limitation mean?” without uploading the scan again. A selected older report remains historical evidence, not the current scan.
+
+Use Memory or an explicit “Remember to use short explanations” to save, edit, or forget explanation preferences. These affect Chat wording only. They never alter the CT model request, scan interpretation, research question, limitations, or clinical safety boundary. Changes do not restart a run. Completed Markdown reports are published as run-linked prepared sources for the existing Membrane retrieval path; raw volume bytes and private inference inputs are not copied into conversation memory.

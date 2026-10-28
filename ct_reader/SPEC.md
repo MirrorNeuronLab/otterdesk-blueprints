@@ -69,3 +69,12 @@ and model revision in `config.response_schema`. The SDK checks that contract
 without changing live request bodies. Explicit fake mode uses a structural
 example stating that no scan findings were evaluated. Final JSON and Markdown
 are registered as verified runtime downloads through the SDK publication adapter.
+
+
+### Conversation context and saved preferences
+
+OtterDesk keeps the current question, pending upload or answer, and selected report separate from saved preferences. Ask follow-ups such as “What does that limitation mean?” without uploading the scan again. A selected older report remains historical evidence, not the current scan.
+
+Use Memory or an explicit “Remember to use short explanations” to save, edit, or forget explanation preferences. These affect Chat wording only. They never alter the CT model request, scan interpretation, research question, limitations, or clinical safety boundary. Changes do not restart a run. Completed Markdown reports are published as run-linked prepared sources for the existing Membrane retrieval path; raw volume bytes and private inference inputs are not copied into conversation memory.
+
+Prepared report sources use the existing Membrane CPU service and declared SDK context extra. `source_context.enabled` defaults to true; set it to false to disable prepared-source publication and preparation. Runtime TextMemory recall remains disabled. This does not publish private inputs or change the native task/inference model.

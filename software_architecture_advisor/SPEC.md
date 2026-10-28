@@ -1,4 +1,4 @@
-# Architecture Advisor 7.0.6 specification
+# Architecture Advisor 7.1.0 specification
 
 Local runtime models require at least one GPU with 49,152 MB of GPU memory.
 When the selected review model is a registered remote API provider (including
@@ -715,3 +715,12 @@ explicit static-only requests, tampered-source rejection and interrupted require
 publication. SDK >=1.4.1.dev15 and blocks >=1.3.61.dev38 with matching native-context/OpenShell
 support are required. Offline tests do not qualify the RGX binary, live gateway,
 provider, policy provisioning or multi-node execution.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Use prepared source and report context through existing Membrane retrieval. Distinguish captured code from later repository changes. Review only. Chat cannot change source, run repository code, approve a patch or widen source/model access. Change durable review scope through Configure or the existing review file. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

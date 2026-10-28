@@ -172,7 +172,8 @@
       ],
       "purchase_type": "computer",
       "route": "",
-      "travel_dates": ""
+      "travel_dates": "",
+      "supervisor_instructions": []
     }
   },
   "interfaces": {

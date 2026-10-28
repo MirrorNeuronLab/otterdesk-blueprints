@@ -18,7 +18,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Startup Folder Watcher",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -35,7 +35,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Company Packet Grouper",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -52,7 +52,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Document Evidence Extractor",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -69,7 +69,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Claim Normalizer",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -86,7 +86,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Research Planner",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -106,7 +106,7 @@
           "public_research": true
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -126,7 +126,7 @@
           "public_research": true
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -146,7 +146,7 @@
           "public_research": true
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -166,7 +166,7 @@
           "public_research": true
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -186,7 +186,7 @@
           "public_research": true
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -203,7 +203,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Research Reconciler",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -223,7 +223,7 @@
           "method": "berkus_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -243,7 +243,7 @@
           "method": "scorecard_bill_payne_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -263,7 +263,7 @@
           "method": "risk_factor_summation_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -283,7 +283,7 @@
           "method": "venture_capital_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -303,7 +303,7 @@
           "method": "first_chicago_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -323,7 +323,7 @@
           "method": "comparables_market_multiple_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -343,7 +343,7 @@
           "method": "cost_to_duplicate_method"
         },
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -360,7 +360,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Score Consistency Auditor",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -377,7 +377,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Company Report Writer",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -394,7 +394,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Batch Index Writer",
         "with": {
-          "revision": "vc_assistant@5.0.0",
+          "revision": "vc_assistant@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {

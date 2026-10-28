@@ -1,7 +1,8 @@
 {
   "inputs": {
     "payload": {
-      "input_folder": ""
+      "input_folder": "",
+      "supervisor_instructions": []
     }
   },
   "outputs": {
@@ -34,9 +35,23 @@
         "payload_path": "runtime/mn_local_inputs/software_sources",
         "runtime_path": "mn_local_inputs/software_sources",
         "excluded_directories": [
-          ".git", ".svn", ".venv", "venv", "node_modules", "vendor",
-          "dist", "build", "__pycache__", ".next", "coverage", ".idea",
-          ".vscode", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox"
+          ".git",
+          ".svn",
+          ".venv",
+          "venv",
+          "node_modules",
+          "vendor",
+          "dist",
+          "build",
+          "__pycache__",
+          ".next",
+          "coverage",
+          ".idea",
+          ".vscode",
+          ".pytest_cache",
+          ".mypy_cache",
+          ".ruff_cache",
+          ".tox"
         ],
         "allowed_extensions": [
           ".c",

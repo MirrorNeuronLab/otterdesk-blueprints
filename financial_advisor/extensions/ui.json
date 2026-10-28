@@ -4,5 +4,19 @@
     "What documents should I add before you review my finances?",
     "What does the latest review say, and which findings need checking?",
     "What is the most useful next question for my advisor or tax preparer?"
-  ]
+  ],
+  "init_config_review": {
+    "required": false,
+    "fields": [
+      {
+        "path": "inputs.payload.supervisor_instructions",
+        "label": "Saved instructions",
+        "type": "textarea",
+        "value_type": "array",
+        "required": false,
+        "default": [],
+        "description": "Manage explicit preferences and working rules in Chat > Memory. Applies to future runs."
+      }
+    ]
+  }
 }

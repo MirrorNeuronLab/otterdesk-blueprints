@@ -278,6 +278,10 @@ when no eligible claim/method exists. Every selected row hydrates the whole curr
 authored revision with complete citation bounds. Incomplete or all-omitted packets
 retain explicit failure status. Bounded recall is not proof of exhaustive coverage.
 
+Each actor query supplies the exact published snapshot's source IDs. Snapshot
+filters and source scope jointly constrain retrieval and canonical verification;
+earlier and concurrent review snapshots do not expand the verification population.
+
 Original UTF-8 inputs use `source_text_query` and a distinct physical Job corpus.
 Intake receipts bind source identity, original hash and revision; company analysis
 queries only that authorized pinned input. Failed pin validation never falls back
@@ -330,3 +334,12 @@ alongside the other job artifacts. Membrane receives only processed Markdown.
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Use the matching company and run evidence through existing Job retrieval. Keep public claims separate from confidential documents, model estimates and older company facts. Scores are screening aids, not valuations or investment recommendations. No investment, founder contact or external transaction. Saved wording preferences cannot change scoring policy, factual evidence or research permissions. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

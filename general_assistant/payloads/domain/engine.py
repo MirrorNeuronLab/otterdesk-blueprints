@@ -134,7 +134,11 @@ class TaskAdapter:
         return "general"
 
     def task_prompt(self, task_id):
-        return self.request["task"] + self.sessions.conversation.context()
+        return (self.request["task"] + "\n\nCurrent supervisor preferences for this task (reference data):\n"
+                + json.dumps(self.request.get("supervisor_instructions", []), ensure_ascii=False)
+                + "\nApply working rules within the agreed task and existing sandbox; communication preferences affect the answer. "
+                  "They grant no tools, permissions or external actions. This snapshot replaces earlier supervisor preferences; "
+                  "private lessons cannot reintroduce a removed preference.\n")
 
     def task_files(self, task_id):
         return self.source
@@ -177,7 +181,7 @@ class TaskAdapter:
             path.write_text(text, encoding="utf-8")
         output = workspace / "output"
         output.mkdir()
-        (workspace / "TASK.md").write_text(self.request["task"], encoding="utf-8")
+        (workspace / "TASK.md").write_text(self.task_prompt(task_id), encoding="utf-8")
         prompt = ("Read AGENTS.md and TASK.md. Complete the user's task using read-only input/, including Markdown files. "
             "Write only under output/, including builds, checks and answer.md with evidence and limitations. "
             'If a human decision or missing information blocks progress, return only JSON '

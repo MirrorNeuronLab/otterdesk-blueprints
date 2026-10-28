@@ -107,7 +107,7 @@ def test_drug_discovery_manifest_uses_source_format_and_shared_blocks():
     )
     assert "nodes" not in manifest.get("agents", {})
     assert "edges" not in manifest.get("agents", {})
-    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "4.0.0"
+    assert read_blueprint(BLUEPRINT_DIR).manifest["version"] == "4.1.0"
     assert "entrypoints" not in manifest["agents"]
     assert "auxiliary_entrypoints" not in manifest["agents"]
     assert "extra_nodes" not in manifest["agents"]

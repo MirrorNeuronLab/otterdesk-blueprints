@@ -86,7 +86,7 @@
       },
       {
         "path": "video_source.uri",
-        "label": "What is your video stream URL?",
+        "label": "Video stream URL",
         "type": "password",
         "secret": true,
         "role": "input",
@@ -97,7 +97,7 @@
           "rtmp:",
           "rtmps:"
         ],
-        "description": "Enter an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address. The URL is stored securely."
+        "description": "Enter your approved RTSP or RTMP address in this secure field. The NVIDIA computer must be able to reach it. For a stream hosted on this Mac, use its LAN address. After you save, startup checks the connection and prepares video analysis."
       },
       {
         "path": "video_source.demo_file",
@@ -174,12 +174,13 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Connect an approved camera stream to start monitoring.",
+    "introduction": "I'll review sampled camera footage and share confirmed goal matches with times and evidence frames. Enter one approved camera address in the secure Video stream URL field. Startup checks the connection and prepares video models; follow the progress panel for the current stage.",
+    "prompt_file": "@/payloads/prompts/setup.md",
     "sample": {
       "available": false
     },
     "real": {
-      "introduction": "What is your video stream URL? The NVIDIA video worker must be able to reach it. If the stream runs on this Mac, bind the server to its network interface and use the Mac's LAN address, not 127.0.0.1 or localhost.",
+      "introduction": "Use an approved RTSP or RTMP stream reachable from the NVIDIA computer. If this Mac hosts the stream, use its LAN address rather than localhost. Keep the full address and any credentials in the secure field. A live preview shows the camera connection; findings become available after scene analysis finishes.",
       "values": {
         "video_source.profile": "external"
       }
@@ -229,7 +230,7 @@
       },
       {
         "path": "video_source.uri",
-        "label": "What is your video stream URL?",
+        "label": "Video stream URL",
         "type": "password",
         "secret": true,
         "role": "input",
@@ -240,7 +241,7 @@
           "rtmp:",
           "rtmps:"
         ],
-        "description": "Enter an approved RTSP or RTMP URL reachable from the NVIDIA node. For a stream hosted on this Mac, use its LAN address. The URL is stored securely."
+        "description": "Enter your approved RTSP or RTMP address in this secure field. The NVIDIA computer must be able to reach it. For a stream hosted on this Mac, use its LAN address. After you save, startup checks the connection and prepares video analysis."
       },
       {
         "default": "",

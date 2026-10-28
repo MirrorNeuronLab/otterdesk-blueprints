@@ -461,9 +461,10 @@ class CCTVWebUIService:
         projection = _load_domain_function("pipeline_status", "pipeline_status")
         safe_state["pipeline"], warning = projection(
             read_json_object(self.run_dir / "person_detector_state.json"),
-            read_json_object(self.run_dir / "caption_schedule.json"))
+            read_json_object(self.run_dir / "caption_schedule.json"),
+            last_presence=_event_payload(_latest_event(events, "cctv_operator_person_event")))
         if warning:
-            safe_state["warning"] = warning
+            safe_state["warning"] = " ".join(dict.fromkeys(filter(None, [safe_state.get("warning"), warning])))
         if self._activity_store is not None:
             self.sync_mcp_activity(safe_state)
         return safe_state
@@ -754,7 +755,7 @@ def create_operator_mcp_server(
         metrics = state["metrics"]
         finding = metrics["latest finding"]
         observed_at = metrics["last analyzed"]
-        summary = f"{finding} Last analyzed: {observed_at}."
+        summary = _load_domain_function("conversation_status", "operator_status_summary")(state)
         return {
             "schema_version": "mn.cctv.operator_status.v1",
             "ready": True,  # Control availability does not depend on a first detection.
@@ -907,14 +908,12 @@ def create_operator_mcp_server(
                 },
                 idempotency_key=resolved_command_id,
             )
+        command_summary = _load_domain_function("conversation_status", "monitoring_command_summary")
+        summary = command_summary("accepted")
         store.publish_status(
             "accepted",
             stage="set_monitoring_instruction",
-            summary=(
-                "Monitoring instruction clear was accepted."
-                if clear_enabled
-                else f"Monitoring instruction was accepted: {resolved_instruction}"
-            ),
+            summary=summary,
             metadata={
                 "instruction": resolved_instruction,
                 "clear": clear_enabled,
@@ -929,6 +928,7 @@ def create_operator_mcp_server(
             "command_id": resolved_command_id,
             "state": str(accepted.get("status") or "accepted"),
             "input_id": "steer_monitoring",
+            "summary": summary,
         }
 
     @domain_tool(server, name="get_operation_status", structured_output=True)
@@ -946,6 +946,16 @@ def create_operator_mcp_server(
         analyzed_revision = int(latest_detection.get("instruction_revision") or 0)
         applied_revision = int(monitoring.get("instruction_revision") or 0)
         analysis_ready = state == "completed" and analyzed_revision >= applied_revision and applied_revision > 0
+        record_payload = (record or {}).get("payload") or {}
+        metadata = record_payload.get("metadata") or {}
+        is_monitoring = ((record or {}).get("stage") == "set_monitoring_instruction"
+                         or monitoring.get("command_id") == resolved_command_id)
+        summary = (record or {}).get("summary", "")
+        if is_monitoring and state in {"accepted", "running", "completed"}:
+            summary = _load_domain_function("conversation_status", "monitoring_command_summary")(
+                state, clear=metadata.get("clear") is True or not monitoring.get("instruction"),
+                instruction=monitoring.get("instruction") or "", analysis_ready=analysis_ready,
+                finding=latest_detection.get("summary"))
         return {
             "schema_version": "mn.cctv.command_receipt.v1",
             "command_id": resolved_command_id,
@@ -956,6 +966,7 @@ def create_operator_mcp_server(
             ),
             "analysis_ready": analysis_ready,
             "latest_finding": latest_detection.get("summary") if analysis_ready else None,
+            "summary": summary,
             "record": record,
         }
 

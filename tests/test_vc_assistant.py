@@ -916,10 +916,12 @@ def test_vc_assistant_requires_no_initial_config():
         read_blueprint(BLUEPRINT_DIR)
     ).data
 
-    assert manifest["metadata"]["init_config_review"] == {
-        "required": False,
-        "fields": [],
-    }
+    review = manifest["metadata"]["init_config_review"]
+    assert review["required"] is False
+    assert len(review["fields"]) == 1
+    assert review["fields"][0]["path"] == "inputs.payload.supervisor_instructions"
+    assert review["fields"][0]["required"] is False
+    assert review["fields"][0]["default"] == []
     assert config["inputs"]["payload"]["document_folder"] == "@/examples/sample_inputs"
     assert config["outputs"]["folder_path"] == "~/Downloads/vc-assistant"
 

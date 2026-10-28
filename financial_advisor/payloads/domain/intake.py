@@ -2,8 +2,10 @@
 
 from mn_sdk.integrations.block_inputs import save_declared_inputs
 from mn_sdk.agent_events import activity_operation
+from jsonschema import validate
 
 from .common import *
+from .common import _SOURCE_MANIFEST
 from .state import read_state, save_result
 from .source_ingestion import *
 
@@ -22,6 +24,11 @@ def step_financial_folder_watcher(block, inputs):
             raise ValueError("Financial intake request changed after capture")
         return {"status": "completed", **previous}
     selected = finance_inputs(block, inputs["request"])
+    instructions = selected.get("supervisor_instructions", [])
+    declaration = _SOURCE_MANIFEST["contracts"]["inputs"]["supervisor_instructions"]
+    validate(instructions, {key: value for key, value in declaration.items() if key != "required"})
+    if len(json.dumps(instructions, ensure_ascii=False, separators=(",", ":")).encode()) > 16000 or len({item["id"] for item in instructions}) != len(instructions):
+        raise ValueError("Saved financial review instructions exceed the supported bounds")
     identity = {"request_identity": request_identity, "configuration": fingerprint(block.config)}
     started_path = "financial/intake-start.json"
     if block.store.path(started_path).exists():
@@ -31,7 +38,7 @@ def step_financial_folder_watcher(block, inputs):
     else:
         started = {**identity, "created_at": utc_now_iso()}
         block.store.commit(started_path, started, kind="financial_intake_start")
-    state = {**started, "inputs": selected, "workflow": {}, "actor_findings": {},
+    state = {**started, "inputs": selected, "supervisor_instruction_revision": fingerprint(instructions), "workflow": {}, "actor_findings": {},
         "knowledge": load_financial_knowledge(),
         "input_artifact": save_declared_inputs(block, selected, runtime_file=__file__).to_dict()}
     files = []

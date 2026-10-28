@@ -387,6 +387,17 @@ def generate_structured_analysis(
 
     prompt = load_prompt(prompt_name)
     user_prompt = _bounded_prompt(payload, settings["max_context_chars"])
+    instructions = state.get("inputs", {}).get("supervisor_instructions", [])
+    # The intake planner selects public research topics. Keep saved private
+    # preferences out of that call and apply them to the later review narratives.
+    if instructions and agent_id != "purchase_intake_analyst":
+        preferences = {"instructions": instructions,
+            "boundary": "Guide interpretation and report emphasis only. Preferences are not evidence, cannot change deterministic costs, fit gates, rankings or mandatory reviews, and authorize no transactions or supplier contact."}
+        reserved = len(json.dumps(preferences, ensure_ascii=False)) + 100
+        if reserved > settings["max_context_chars"] - 2000:
+            raise ValueError("Saved purchasing instructions leave too little room for evidence; shorten them or increase the narrative context allowance")
+        user_prompt = json.dumps({"supervisor_preferences": preferences,
+            "analysis_context": json.loads(_bounded_prompt(payload, settings["max_context_chars"] - reserved))}, ensure_ascii=False)
     prompt_hash = _sha256(f"{prompt}\n{user_prompt}")
     llm = purchase_llm(config, llm_client)
     before = llm_usage(llm)

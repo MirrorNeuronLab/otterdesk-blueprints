@@ -252,6 +252,12 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         assert 'id="analysis-status" role="status"' in page
         assert 'id="pipeline-warning" role="alert" hidden' in page
         assert '<time id="analyzed-at" hidden>' in page
+        assert 'id="person-status" role="status"' in page
+        assert 'id="person-history" hidden' in page
+        assert 'id="caption-status"' in page
+        assert page.index('aria-label="Live video"') < page.index('aria-labelledby="status-heading"')
+        assert page.index('id="analysis-status"') < page.index('<summary>Latest analyzed snapshot')
+        assert '<details open' not in page
         assert "Operator event stream" not in page
         assert "Latest finding" not in page
         assert "Confidence" not in page
@@ -289,6 +295,27 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         server.stop()
         thread.join(timeout=2)
     assert preview.stopped is True
+
+
+def test_live_ui_exposes_person_detection_before_any_scene_report(tmp_path):
+    now = time.time()
+    (tmp_path / "person_detector_state.json").write_text(json.dumps({
+        "person_detector": "running", "captions": "running",
+        "last_person_frame_at": now, "visible_people": 1}))
+    (tmp_path / "caption_schedule.json").write_text(json.dumps({
+        "inflight": {"claimed_at": now - 20}, "inflight_status": "processing"}))
+    (tmp_path / "events.jsonl").write_text(json.dumps({
+        "type": "cctv_operator_person_event", "payload": {
+            "purpose": "person_gate_only", "person_event": {
+                "kind": "person_presence_started", "confirmed_at": now - 1, "person_count": 1}}}) + "\n")
+    service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path,
+        config={}, preview_stream=StubPreview())
+    state = service.ui_state()
+    assert state["pipeline"]["person_events"]["summary"] == "1 person detected in the latest sampled frame."
+    assert state["pipeline"]["person_events"]["last_presence"]["person_count"] == 1
+    assert state["pipeline"]["captions"]["summary"].startswith("Scene analysis in progress")
+    assert state["metrics"]["frames analyzed"] == 0
+    assert state["metrics"]["alerts to review"] == 0
 
 
 def test_cctv_ui_mjpeg_relay_uses_cuda_decode_and_scale_without_cpu_fallback():
@@ -444,6 +471,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     status = server.tools["get_operator_status"]()
     assert status["status"] == service.ui_state()["metrics"]["status"]
     assert status["finding"] == "A person is visible near the center of the frame."
+    assert status["observed_at"] == "2026-09-08T22:23:39Z"
     assert status["ready"] is True
     assert status["details"] == [{"label": "Confidence", "value": "92%"}, {"label": "Risk", "value": "low"}]
     assert status["finding"] in status["summary"]
@@ -454,7 +482,8 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         "person_detector": "running", "last_person_frame_at": time.time(), "visible_people": 0,
         "captions": "running"}))
     current_person_answer = server.tools["get_operator_status"]("Do you see any person?")
-    assert current_person_answer["summary"] == status["summary"]
+    assert status["finding"] in current_person_answer["summary"]
+    assert "No person detected in the latest sampled frame" in current_person_answer["summary"]
     assert current_person_answer["pipeline"]["person_events"]["visible_people"] == 0
 
     activity = server.tools["get_operator_activity"](0)
@@ -479,6 +508,9 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
         True,
     )
     assert receipt["state"] == "accepted"
+    assert "queued" in receipt["summary"]
+    pending_status = server.tools["get_operation_status"]("11111111-1111-4111-8111-111111111111")
+    assert "not been confirmed as applied" in pending_status["summary"]
     assert receipt["command_id"] == "11111111-1111-4111-8111-111111111111"
     (tmp_path / "monitoring_state.json").write_text(
         json.dumps(
@@ -496,6 +528,8 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     assert command_status["state"] == "completed"
     assert command_status["instruction_revision"] == 2
     assert command_status["analysis_ready"] is False
+    assert "The monitoring goal is now: Find foreign objects on the floor." in command_status["summary"]
+    assert "not available yet" in command_status["summary"]
     with (tmp_path / "events.jsonl").open("a", encoding="utf-8") as handle:
         handle.write(json.dumps({"type": "cctv_operator_detection", "payload": {
             "instruction_revision": 2, "summary": "A foreign object is visible on the floor."
@@ -505,6 +539,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     )
     assert updated_status["analysis_ready"] is True
     assert updated_status["latest_finding"] == "A foreign object is visible on the floor."
+    assert updated_status["latest_finding"] in updated_status["summary"]
     assert activity["updates"][-1]["payload"] == {
         "schema_version": "mn.mcp.job_activity.v1",
         "event_id": activity["updates"][-1]["record_id"],
@@ -593,6 +628,37 @@ def test_observation_details_belong_to_each_event_not_the_latest_frame():
     events = state["events"]
     assert events[0]["details"][0] == {"label": "Confidence", "value": "94%"}
     assert events[1]["details"][0] == {"label": "Confidence", "value": "62%"}
+
+
+def test_confirmed_notice_keeps_the_detailed_activity_account_in_chat(tmp_path):
+    from cctv_operator.payloads.domain.detection_policy import configured_target_notice
+    from cctv_operator.payloads.domain.dashboard import operator_state
+
+    account = " ".join([
+        "In frame 1, the person in blue stands on the left, holding a box with both hands.",
+        "In frames 2 and 3, they turn toward the open aisle and carry the box away from the shelf.",
+        "The person in gray remains beside the cart, facing the aisle, with one hand on its handle.",
+        "Their hand is obscured in frame 4, so releasing or moving the cart cannot be established.",
+        "In frames 5 and 6, the person in blue sets the box on the table and steps back.",
+        "No selected frame shows the box contents or supports a conclusion about either person's intent.",
+    ])
+    assert 500 < len(account) < 1800
+    notice = configured_target_notice({"scene_understanding": account, "summary": "Two people handle a box and cart.",
+        "camera_id": "camera-1", "frame_seq": 1, "observed_at": "2026-10-27T20:00:00Z", "source_profile": "bundled_demo"}, {})
+    state = operator_state(run_id="run-1", config={}, report={"alerts": [notice["payload"]]},
+        latest_frame={}, monitoring={}, supplemental_events=[], preview_status="live", preview_warning="")
+    published = []
+    class Store:
+        def publish_result(self, record_id, activity, **kwargs):
+            published.append(activity)
+    service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview())
+    service.attach_activity_store(Store())
+    service.sync_mcp_activity(state)
+    assert len(published) == 1
+    assert account in published[0]["message"]
+    assert "2026-10-27T20:00:00Z" in published[0]["message"]
+    assert "Recorded demo playback" in published[0]["message"]
+    assert published[0]["requires_review"] is True
 
 
 def test_mcp_sidecar_uses_physical_workflow_run_not_submission_label(monkeypatch, tmp_path):

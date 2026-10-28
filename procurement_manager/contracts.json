@@ -145,6 +145,39 @@
       "example": "USD",
       "required": false,
       "privacy": "confidential"
+    },
+    "supervisor_instructions": {
+      "type": "array",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Explicit supervisor preferences and working rules. Captured for the next run; never a permission grant or an evidence source.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "kind": {
+            "enum": [
+              "communication",
+              "work_rule"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
     }
   },
   "outputs": {

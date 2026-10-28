@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "general_assistant",
   "name": "General Assistant",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "description": "Summarize files in your Downloads folder into summary.md, or configure another task and input folder. Save results only to the output folder and ask for clarification in Chat. Harness2 refines its approach using private Job memory and the runtime default model. Requires 32 GB RAM.",
   "workflow": "workflow.json",
   "execution": "execution.json",

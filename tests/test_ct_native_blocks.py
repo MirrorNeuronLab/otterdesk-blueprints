@@ -21,10 +21,10 @@ ROOT = Path(__file__).resolve().parents[1] / "ct_reader"
 
 
 @pytest.fixture
-def worker(tmp_path, monkeypatch):
+def worker(tmp_path, monkeypatch, request):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
     package = read_blueprint(ROOT)
-    config = resolve_config(package)
+    config = resolve_config(package, overrides={"source_context": {"enabled": getattr(request, "param", True)}})
     compiled = compile_blueprint(package, config).manifest
     descriptor = tmp_path / "worker-manifest.json"
     descriptor.write_text(
@@ -244,3 +244,21 @@ def test_ct_completed_replay_verifies_published_report_bytes(worker):
     with pytest.raises(RuntimeError):
         worker.execute()
     assert len(worker.calls) == 1
+
+
+def test_saved_explanation_preferences_do_not_change_native_ct_request(worker):
+    preferences = [{"id": "explain", "kind": "communication", "text": "Use short explanations."}]
+    result = worker.store.read(worker.execute({**worker.inputs, "supervisor_instructions": preferences}).outputs["result"])
+    assert "supervisor_instructions" not in worker.calls[0][0][3]
+    assert worker.store.read_path("inputs.json")["supervisor_instructions"] == preferences
+    source = worker.store.path("context_sources/outputs/" + hashlib.sha256(b"ct-run").hexdigest() + "/report.md").read_text()
+    assert source.startswith("Run reference: ct-run") and "Synthetic model output" in source
+    assert "Use short explanations" not in source
+    assert worker.store.read(result["report"])["supervisor_instruction_revision"]
+
+
+@pytest.mark.parametrize("worker", [False], indirect=True)
+def test_disabling_prepared_sources_preserves_the_native_ct_report(worker):
+    result = worker.store.read(worker.execute().outputs["result"])
+    assert len(result["artifacts"]) == 2 and worker.store.path("report.md").is_file()
+    assert not list(worker.store.path("context_sources").rglob("*.md"))

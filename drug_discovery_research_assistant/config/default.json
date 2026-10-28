@@ -151,7 +151,8 @@
           "protein_id": "P56817"
         }
       ],
-      "disease": "Alzheimer disease"
+      "disease": "Alzheimer disease",
+      "supervisor_instructions": []
     }
   },
   "interfaces": {

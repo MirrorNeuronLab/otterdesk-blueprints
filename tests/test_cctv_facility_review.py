@@ -171,6 +171,29 @@ def test_factory_worker_preserves_cited_review_queue_in_memory_and_output(monkey
     assert "Shift lead" in retained.read_text() and "not_observed" in prompts[0]
 
 
+def test_compact_person_account_preserves_activity_and_frame_bound_notice(monkeypatch, tmp_path, capsys):
+    from test_cctv_operator_conversation import _load_detector, _run_detector
+    detector = _load_detector()
+    scene = "A person stands beside the shelves with a clearly visible uncovered head."
+    account = {"detected_target": True, "detections": [], "confidence": .9,
+        "summary": "One person has a visibly uncovered head.", "scene_understanding": scene,
+        "risk_predictions": [], "uncertainties": ["PPE requirements are not established by video."],
+        "goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1},
+        "helmet_observations": [{"helmet_status": "not_worn", "head_visible": True,
+            "evidence_frame": 1, "visible_evidence": "The uncovered head is clearly visible."}],
+        "site_findings": [{**finding("uncovered_head"), "visible_evidence": "The uncovered head is clearly visible."}]}
+    output, _ = _run_detector(detector, monkeypatch, tmp_path, capsys,
+        payload={"tick_seq": 1}, config={"site": {"profile": "factory"}}, detection=account)
+    state = output["next_state"]
+    assert state["last_error"] is None
+    assert state["last_observation"]["activity_description"] == scene
+    assert state["last_observation"]["detection_count"] == 1
+    notice = next(event["payload"] for event in output["events"] if event["type"] == "human_notice")
+    assert notice["goal_event"]["evidence_frame"] == 1
+    assert notice["image"]["run_id"] == "test-run"
+    assert notice["observed_at"] == "1970-01-01T00:00:01Z"
+
+
 @pytest.mark.parametrize("profile", ["factory", "hotel"])
 def test_group_at_startup_notifies_with_one_frame_and_no_hazard(profile, monkeypatch, tmp_path, capsys):
     from test_cctv_operator_conversation import ROOT, _load_detector, _run_detector

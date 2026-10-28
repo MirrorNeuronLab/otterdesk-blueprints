@@ -1,4 +1,4 @@
-# CCTV Operator 5.2.1 specification
+# CCTV Operator 5.2.2 specification
 
 ## Purpose and scope
 
@@ -44,6 +44,18 @@ deadlines, action completion, speed, distance or external sensor measurements.
 
 ## Capture and admission
 
+Conversation setup must identify the mission, one secure next input, expected
+startup checks and where to inspect progress. Use the label Video stream URL,
+with the question/help in descriptive text. Never echo its value. The declared
+setup prompt must resolve from the bundle; the installed manual must describe
+readiness and recovery in readable prose rather than serialized artifact lists.
+Domain status and operation summaries distinguish no analysis, current camera
+health, queued goal changes, applied goals and analyzed goals. Each missing or
+failed result gives a practical next action without invented progress, findings,
+ETAs or automatic follow-up promises. History summaries use short Markdown and
+retain capture times, citations and qualifications. Generic desktop preparation
+indicators, delivery and response protocol remain platform-owned.
+
 There is no default stream URL or live sample. Each new hire requires the
 supervisor to supply an approved stream URL through the secure setup field;
 launch remains blocked until it is saved. Existing saved source configurations
@@ -70,6 +82,11 @@ audits are explicit policy and carry scheduled_scene_review/scene_audit metadata
 they do not fabricate person confirmation. No model call is triggered from a
 failed frame or an unconfigured audit gate.
 
+A newly confirmed person episode schedules its post-roll even if a scene audit
+or previous episode just offered a window. Continuing presence retains the normal
+baseline cadence. Claiming still enforces the existing single active request,
+minimum interval and per-minute budget; no concurrent Cosmos request is added.
+
 One active caption and one latest pending window; >=5s between admissions and
 <=12/minute. Configured ceilings are not achieved throughput promises. Unclaimed
 frames older than10s expire with a durable counter; requested commands await fresh
@@ -85,7 +102,9 @@ placement, NVIDIA/CUDA 49152MB admission and single-node execution. The required
 camera/UI auxiliary entrypoint uses the SDK monitored-service block; model-registry
 and shared-skill contracts remain unchanged. Cosmos3 Nano
 Reasoner1.7 NIM receives selected MP4 frames at4FPS and true capture timestamps;
-reasoning/4096token answer allowance/300s request deadline remain. Nemotron text
+compact direct JSON/up to4096 output tokens/300s request deadline apply;
+smaller gateway/request/hardware/context caps still win. Do not use an unsupported chat
+template reasoning switch. Nemotron text
 chat remains separate. Preparation and lifecycle are platform-owned. Malformed,
 truncated, unsupported or capacity-failed inference is explicit, never clear-scene
 success. Camera source/memory/model failures do not certify absence.
@@ -96,6 +115,14 @@ content; do not salvage a partial object or dispatch another inference for parsi
 The visual prompt declares one complete output contract, including site_findings
 and selected-frame references on every forecast. Missing references remain an
 analysis error; the parser must not invent them from a different finding.
+Ask for the compact ten-field account and at most two forecasts, targeting900
+output tokens. Person activity uses two to six concrete sentences (<=1800 chars)
+with visible posture, movement, hand actions, objects/interactions and changes
+across cited selected frames. Unclear actions remain uncertain; quiet scenes may
+be brief. Keep the summary and other evidence short. No model budget is increased.
+Normalization supplies the existing report's legacy
+fields. Never drop frame provenance or uncertainty to meet the target, and never
+accept a truncated reply as a completed observation.
 
 Evidence batches and selected image hashes precede inference. Reports retain
 sample interval, source/demo qualification, frame refs, active instruction,
@@ -115,7 +142,18 @@ Default host copy: ~/Downloads/cctv-operator; SDK shared run storage is authorit
 
 Retain read-only MJPEG/snapshot Web UI, dynamic Job proxy handle, private authenticated
 MCP relay and Core live steering. Credentials remain server-side/redacted; no
-browser action endpoint. Bundled demo is an explicitly staged approved MP4, looped
+browser action endpoint. Show fresh detector counts, last confirmed sampled person
+presence and caption processing time independently of completed scene reports.
+Place live video first, compact 11–12px status rows below, then an expandable
+latest analyzed snapshot. Short local times retain full timestamps in tooltips.
+Long values must wrap within narrow panels. Preserve detailed scene accounts in
+latest-status replies and confirmed goal notices rather than the short metric
+preview. Blueprint guidance ends goal-change replies after applied receipts and
+current analysis readiness; it never holds a turn open for future scene analysis.
+Routine progress stays in the workspace. Desktop input and generic activity
+indicators remain host-owned and are not overridden by blueprint state.
+Never relabel a person-gate event as a verified facility-rule notice or total unique
+person count. Bundled demo is an explicitly staged approved MP4, looped
 by a service-owned MediaMTX/publisher; worker playback times are not original event
 times. External RTSP/RTSPS/RTMP/RTMPS never falls back to a demo or CPU decoder.
 Local source files must exist on the submitter; missing files fail explicitly.
@@ -238,3 +276,12 @@ This is an offline-tested source migration, not a live deployment qualification.
 Supervision remains bounded to 1,000,000 health cycles / 64 MiB of checkpoints;
 rotate the service before either bound. Camera timing remains independent of
 the 60-second health interval.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Explicit aliases, camera knowledge and restrictive control rules keep their existing bounded Job memory path and receipts. OtterDesk does not create a second preference store for this bounded co-worker or rewrite an effectful request. Ordinary chat is not learned.
+
+Use timestamped saved camera Markdown and existing Membrane observation retrieval. Recorded demo playback is historical demonstration, not a live site event. A moving preview does not prove scene analysis. Missing observations do not mean a clear or safe scene. Stream addresses and credentials belong in secure fields. Monitoring goals, camera notes and bounded domain memory retain their existing authority. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

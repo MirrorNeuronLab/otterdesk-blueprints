@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+from jsonschema import validate
+from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.integrations.block_inputs import save_declared_inputs
 from mn_sdk.agent_events import report_activity
 from mn_sdk.integrations.block_inputs import configured_input_path
@@ -53,6 +57,11 @@ def collect_context(
     block.check()
     llm_client = llm_client or block.resources.get("llm")
     inputs = purchase_inputs(block, inputs["request"])
+    instructions = inputs.get("supervisor_instructions", [])
+    declaration = source_manifest(__file__)["contracts"]["inputs"]["supervisor_instructions"]
+    validate(instructions, {key: value for key, value in declaration.items() if key != "required"})
+    if len(json.dumps(instructions, ensure_ascii=False, separators=(",", ":")).encode()) > 16000 or len({item["id"] for item in instructions}) != len(instructions):
+        raise ValueError("Saved purchasing review instructions exceed the supported bounds")
     layout = bundle_layout()
     folder = configured_input_path(block.config, inputs, "input_folder", runtime_file=__file__, environment=block.environment)
     documents, warnings = load_input_documents(folder, block.config)
@@ -61,6 +70,7 @@ def collect_context(
     state = {
         "input_artifact": save_declared_inputs(block, inputs, runtime_file=__file__).to_dict(),
         "inputs": inputs,
+        "supervisor_instruction_revision": fingerprint(instructions),
         "request": request,
         "research_links": request["research_links"],
         "documents": documents,
@@ -74,7 +84,7 @@ def collect_context(
         agent_id="purchase_intake_analyst",
         prompt_name="purchase-intake-task.md",
         payload={
-            "inputs": inputs,
+            "inputs": {key: value for key, value in inputs.items() if key != "supervisor_instructions"},
             "local_evidence": [
                 {
                     "source_ref": item.get("source_ref"),

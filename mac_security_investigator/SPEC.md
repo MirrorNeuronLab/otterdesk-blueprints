@@ -126,3 +126,12 @@ This requires `mirrorneuron-web-report-skill >=1.3.61.dev4,<2` in addition to th
 declared SDK/block packages. Worker execution remains HostLocal on the submitting
 Mac. The empty runtime/agents/steps directories are SDK upload-layout placeholders,
 not Python entrypoints or compatibility adapters.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Private assertions and temporal provenance stay in the existing local Membrane and sealed ledger. Do not copy their content into Chat or preference memory. Chat receives capabilities only. Never infer private findings, ask for raw logs, certify a Mac is safe, inspect OS files, request elevation or remediate. Open the local saved report to review private evidence. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

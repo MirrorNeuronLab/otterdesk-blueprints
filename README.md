@@ -106,7 +106,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |
 | [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
 | [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
-| [`cctv_operator`](cctv_operator/README.md) | Physical AI | A steerable NVIDIA CCTV co-worker with a demo stream, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
+| [`cctv_operator`](cctv_operator/README.md) | Physical AI | A steerable NVIDIA CCTV co-worker with secure approved-stream setup, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
 | [`microduck_controller`](microduck_controller/README.md) | Physical AI | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`litigation_analyst`](litigation_analyst/README.md) | Business | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
 | [`financial_advisor`](financial_advisor/README.md) | Business | Reviews financial documents and prepares a grounded advisory packet. |
@@ -445,3 +445,5 @@ contract. Focused suites exercise worker replay, verified publication barriers,
 human approvals, child-round tasks, partial service startup and cleanup. Offline
 sample fixtures execute compiled worker bindings; they do not replace Core's
 scheduler or establish live model, CUDA, camera or robot qualification.
+
+Stage-aware OtterDesk conversation guidance and each blueprint's saved-instruction boundary are documented in [conversation experience](docs/conversation-experience.md). These assets extend the app and packages using the existing runtime contracts.

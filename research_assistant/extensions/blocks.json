@@ -60,6 +60,12 @@
           "path": [
             "success_criteria"
           ]
+        },
+        "supervisor_instructions": {
+          "$ref": "run_input",
+          "path": [
+            "supervisor_instructions"
+          ]
         }
       },
       "outputs": {

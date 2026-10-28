@@ -26,6 +26,12 @@
           "path": [
             "prompt"
           ]
+        },
+        "supervisor_instructions": {
+          "$ref": "run_input",
+          "path": [
+            "supervisor_instructions"
+          ]
         }
       },
       "limits": {
@@ -51,6 +57,9 @@
               "null"
             ],
             "maxLength": 2000
+          },
+          "supervisor_instructions": {
+            "type": "array"
           }
         },
         "required": [

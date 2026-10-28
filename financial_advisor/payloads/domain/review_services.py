@@ -134,6 +134,10 @@ def actor_review(
 ) -> dict[str, Any]:
     block.check()
     config = block.config
+    context = {**context, "supervisor_preferences": {
+        "instructions": state["inputs"].get("supervisor_instructions", []),
+        "boundary": "Use for review emphasis and explanation only. Preferences are not evidence, cannot change deterministic financial amounts or formulas, cannot remove review blockers and authorize no filing, trading, transfers or external sharing."
+    }}
     profile = step_model_profile(config, step_id)
     state.setdefault("model_profiles_used", {})[step_id] = {key: profile[key] for key in ("llm_config", "model", "runtime_model")}
     active_knowledge = state["knowledge"]

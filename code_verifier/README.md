@@ -352,3 +352,12 @@ This is a per-command selection of the existing published-skill path, not a
 persistent runtime setting. An older locally staged skill can shadow the released
 wheel; refreshing the Job alone does not update that local source checkout.
 The 3.1.0 live replay was launched in published-skill mode on the existing owner.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Use the selected run report and exact source/rule references. Documentation and absence of search hits cannot prove implementation correctness. Only Core approval of the exact rule revision authorizes verification. A conversational yes or saved preference cannot approve, edit or remove rules. Use Review rules and Job knowledge for requirements. Never execute repository code or claim conformance from missing evidence. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

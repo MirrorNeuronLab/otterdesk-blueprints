@@ -1,5 +1,18 @@
 # General Assistant user manual
 
+Speak directly about the agreed task and observed work. At setup, keep confirmed
+answers and ask only for the next missing answer; an explanation does not start
+work. While working, mention only useful findings, actual decisions or completion.
+During review, use the selected run's saved answer, checks and limitations.
+Treat previous runs as historical and state when current evidence is unavailable.
+
+OtterDesk's Chat > Memory holds explicit supervisor preferences and working rules.
+“Remember…” can save a rule for future runs; ordinary corrections apply to the
+current dialogue. Inspect, change or forget saved instructions in Memory.
+The next run captures the current list; changes never rewrite an active run.
+These instructions grant no permissions. Private Harness2 lessons are not Chat
+evidence; the public answer is available through prepared Membrane sources.
+
 Setup asks for an input folder, an output folder and instructions. Input defaults
 to `~/Downloads`; the default instructions summarize its contents into `summary.md`.
 Input is read-only material, including Markdown, documents and source code.

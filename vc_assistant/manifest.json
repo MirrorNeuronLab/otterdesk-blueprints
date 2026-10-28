@@ -2,7 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "vc_assistant",
   "name": "VC Assistant",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "description": "Review startups before deciding which deserve a closer look. Get company summaries, screening scores, key risks, and unanswered questions backed by documents and public research. Scores are not company valuations or investment recommendations.",
   "workflow": "workflow.json",
   "execution": "execution.json",

@@ -88,13 +88,17 @@ def test_catalog_compiles_four_bounded_host_specialists():
     assert all(n["config"]["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_worker" for n in workers)
 
 
-def test_output_folder_is_the_only_setup_and_configuration_field():
+def test_output_folder_is_the_only_investigation_setting_with_optional_chat_preferences():
     from mn_sdk.blueprints.definition import catalog_record
     package = read_blueprint(ROOT)
-    assert set(package.document("contracts")["inputs"]) == {"output_folder"}
-    assert package.document("config") == {"outputs": {"folder_path": "~/Downloads/mac-security-investigator"}}
+    inputs = package.document("contracts")["inputs"]
+    assert set(inputs) == {"output_folder", "supervisor_instructions"}
+    assert inputs["supervisor_instructions"]["required"] is False
+    assert inputs["supervisor_instructions"]["items"]["properties"]["kind"]["enum"] == ["communication"]
+    assert package.document("config") == {"outputs": {"folder_path": "~/Downloads/mac-security-investigator"},
+        "inputs": {"payload": {"supervisor_instructions": []}}}
     guide = catalog_record(package, "mac_security_investigator")["setup_guide"]
-    assert [(f["path"], f["label"]) for f in guide["fields"]] == [("outputs.folder_path", "Output folder")]
+    assert [(f["path"], f["label"]) for f in guide["fields"] if f["path"] != "inputs.payload.supervisor_instructions"] == [("outputs.folder_path", "Output folder")]
     assert not guide["sample"]["available"]
 
 

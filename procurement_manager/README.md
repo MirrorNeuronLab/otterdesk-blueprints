@@ -210,3 +210,29 @@ Version 1.2.1 uses the all-in-one `mirrorneuron-docs-to-markdown-skill` for docu
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Conversation continuity and saved review rules
+
+OtterDesk keeps the current comparison topic, confirmed setup answers, pending
+review and selected report with this hired co-worker. Continue short follow-ups
+on that subject, distinguish historical quotes from current evidence and clarify
+an ambiguous choice with one focused question. Surface useful findings, actual
+review decisions and completion instead of routine research activity.
+
+Chat > Memory stores explicit explanation preferences and review rules in the
+optional `inputs.payload.supervisor_instructions` list, default `[]`. Intake
+validates at most 50 items, 1,000 characters per item and 16,000 UTF-8 JSON bytes,
+then captures the list and revision with the purchase request. The subsequent
+TCO, risk, recommendation and report narrative calls consume that snapshot.
+The public-query intake planner receives no saved preferences. Prompt budgeting
+preserves the preference block; an incompatible allowance fails explicitly.
+Changes and forgetting affect future runs; earlier work retains its original
+snapshot.
+
+Saved rules guide comparison interpretation and report emphasis. They do not
+change cost formulas, assumptions, hard constraints, candidate eligibility,
+rankings, confidence caps or review gates; change numerical settings in
+Configure. They authorize no supplier messages or transactions. OtterDesk reads
+`payloads/prompts/conversation.json` for stage guidance. Existing Membrane source
+intelligence continues to answer from the prepared report with source dates and
+run identity; preferences and ordinary Chat are not procurement evidence.

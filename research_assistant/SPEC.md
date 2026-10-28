@@ -136,3 +136,24 @@ Version 1.2.1 uses the all-in-one `mirrorneuron-docs-to-markdown-skill` for docu
 ## Standard MCP supervision
 
 This package requires `mn.mcp.supervision.v1`. The SDK implements the shared manual, capabilities, context, results, activity, lifecycle, and operation tools. `knowledge/user_manual.md` is bundled with the prepared Job. Domain tools and their native JSON input/output schemas are declared once in `extensions/mcp.json`; response agents derive their bindings from it. All tool results use `mn.mcp.tool_result.v1`. Mutations require a request ID, and asynchronous work is observed through `get_operation_status`. Upgrade the installed SDK/API/desktop together and update idle Job definitions before using this contract.
+
+## Conversation continuity and saved instructions
+
+OtterDesk keeps the current topic, confirmed setup answers and pending question
+with this hired co-worker. Short follow-ups refer to that dialogue; corrections
+stay in the current conversation unless you explicitly ask me to remember them.
+Ask one focused question when a short reply is ambiguous. During work, surface
+useful findings, actual decisions and completion instead of routine step noise.
+
+Chat > Memory lets you inspect, edit and forget explicit explanation preferences
+and working rules. The next run captures the current list in
+`inputs.payload.supervisor_instructions` and its content revision. Evidence revision, test-concept, synthesis and reviewer prompts receive it only
+after public tool planning has ended; search planning and public queries do not. A changed or forgotten rule does not rewrite an active or historical run.
+Preferences are not evidence and cannot authorize experiments, external actions
+or weaker review gates.
+
+For saved findings, use the selected run's prepared research brief through the
+existing Membrane source intelligence. Keep source dates, evidence gaps and
+historical status explicit. The app-owned
+`payloads/prompts/conversation.json` supplies stage guidance to OtterDesk's native
+conversation model; existing runtime memory and response contracts are unchanged.

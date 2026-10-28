@@ -1,6 +1,9 @@
 """CT request policy; the stock native block owns dispatch and recovery."""
 
 from pathlib import Path
+import json
+from jsonschema import validate
+from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 MAX_CT_BYTES = 64 * 1024 * 1024
@@ -8,6 +11,11 @@ MAX_CT_BYTES = 64 * 1024 * 1024
 
 def prepare(block, inputs):
     inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)
+    preferences = inputs.get("supervisor_instructions", [])
+    declaration = source_manifest(__file__)["contracts"]["inputs"]["supervisor_instructions"]
+    validate(preferences, {key: value for key, value in declaration.items() if key != "required"})
+    if len(json.dumps(preferences, ensure_ascii=False, separators=(",", ":")).encode()) > 16000 or len({item["id"] for item in preferences}) != len(preferences):
+        raise ValueError("Saved explanation preferences exceed the supported bounds")
     source = Path(inputs.get("ct_file") or "")
     region = inputs.get("region")
     prompt = inputs.get("prompt") or f'write a structured {"abdominal" if region == "abdomen" else "chest"} CT report'

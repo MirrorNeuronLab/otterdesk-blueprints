@@ -44,9 +44,11 @@ def test_nim_request_preserves_temporal_media_and_runtime_owned_route(vision, mo
     payload = request["payload"]
     assert "response_format" not in payload
     assert payload["max_tokens"] == 4096
-    assert payload["chat_template_kwargs"] == {"enable_thinking": True}
+    assert "chat_template_kwargs" not in payload
+    assert payload["messages"][0]["role"] == "system"
+    assert "compact JSON" in payload["messages"][0]["content"]
     assert payload["media_io_kwargs"] == {"video": {"fps": 4.0}}
-    media = payload["messages"][0]["content"][1]["video_url"]["url"]
+    media = payload["messages"][1]["content"][1]["video_url"]["url"]
     assert media["encoding"] == "data_uri" and media["mime_type"] == "video/mp4"
     assert harness.store.read_bytes(media["$artifact"]) == b"temporal fixture"
     calls = []
@@ -57,7 +59,7 @@ def test_nim_request_preserves_temporal_media_and_runtime_owned_route(vision, mo
     raw = block_model_request.model_request(block, request, key="scene")
     assert block_model_request.model_request(harness.context(environment=block.environment), request, key="scene") == raw
     assert len(calls) == 1 and calls[0][1]["num_retries"] == 0
-    assert calls[0][0][3]["messages"][0]["content"][1]["video_url"]["url"].startswith("data:video/mp4;base64,")
+    assert calls[0][0][3]["messages"][1]["content"][1]["video_url"]["url"].startswith("data:video/mp4;base64,")
     assert module.interpret(raw, prepared)["scene_understanding"] == ACCOUNT["scene_understanding"]
 
 

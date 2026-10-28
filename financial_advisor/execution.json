@@ -6,7 +6,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Financial Folder Watcher",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -23,7 +23,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Financial Document Reader",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -40,7 +40,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Bank Statement Extractor",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -57,7 +57,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Cash Flow Normalizer",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -74,7 +74,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Cash Flow LLM Analyst",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -91,7 +91,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Tax Document Router",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -108,7 +108,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Tax Form OCR Capturer",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -125,7 +125,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Tax Workpaper Preparer",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -142,7 +142,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Tax LLM Reviewer",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -159,7 +159,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Portfolio Context Loader",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -176,7 +176,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Portfolio Market Data Loader",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -193,7 +193,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Portfolio Risk Engine",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -210,7 +210,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Portfolio LLM Reviewer",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -227,7 +227,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Public Finance Researcher",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -244,7 +244,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Advisor Evidence Reconciler",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -261,7 +261,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Advisor Review Auditor",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -278,7 +278,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Financial Advice Reporter",
         "with": {
-          "revision": "financial_advisor@4.0.1",
+          "revision": "financial_advisor@4.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {

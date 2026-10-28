@@ -9,7 +9,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Source Provenance And Market Research Analyst",
         "with": {
-          "revision": "procurement_manager@5.0.0",
+          "revision": "procurement_manager@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -26,7 +26,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Heavy Asset Lifecycle Economics Analyst",
         "with": {
-          "revision": "procurement_manager@5.0.0",
+          "revision": "procurement_manager@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {
@@ -43,7 +43,7 @@
         "handler": "mn_sdk.integrations.block_worker",
         "role": "Technical Supplier And Operational Risk Reviewer",
         "with": {
-          "revision": "procurement_manager@5.0.0",
+          "revision": "procurement_manager@5.1.0",
           "instance": {
             "uses": "mn.blocks.domain_operation@1",
             "hooks": {

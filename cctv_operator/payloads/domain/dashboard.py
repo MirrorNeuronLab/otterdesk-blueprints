@@ -44,11 +44,12 @@ def _event(
     *,
     timestamp: Any = "",
     observation: Mapping[str, Any] | None = None,
+    summary_limit: int = 500,
 ) -> dict[str, Any]:
     return {
         "type": event_type,
         "timestamp": _display_time(timestamp) if timestamp else "",
-        "summary": " ".join(str(summary or "").split())[:500],
+        "summary": " ".join(str(summary or "").split())[:summary_limit],
         **({"details": observation_details(observation)} if observation else {}),
     }
 
@@ -166,6 +167,7 @@ def operator_state(
 
     last_seen = (
         latest.get("observed_at")
+        or latest_detection.get("observed_at")
         or latest_frame.get("analyzed_at")
         or latest_frame.get("updated_at")
         or latest_frame.get("created_at")
@@ -243,6 +245,7 @@ def operator_state(
                 ),
                 timestamp=alert.get("observed_at"),
                 observation=alert,
+                summary_limit=2600,
             ), "image": alert.get("image"), "notice_id": alert.get("notice_id")}
         )
     for detection in detections[-20:]:

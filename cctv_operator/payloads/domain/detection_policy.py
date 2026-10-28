@@ -195,9 +195,9 @@ def configured_target_notice(
     frame_seq = detection.get("frame_seq")
     matches = list(decision.get("matched_targets") or [])
     target_text = ", ".join(matches) or "configured target"
-    finding = str(detection.get("detection_report") or detection.get("summary") or "A configured target was observed.")
-    understanding = str(detection.get("scene_understanding") or "")
-    detail = (finding + (" " + understanding if understanding and understanding != finding else ""))[:700]
+    finding = str(detection.get("detection_report") or detection.get("summary") or "A configured target was observed.")[:500]
+    understanding = str(detection.get("scene_understanding") or "")[:1800]
+    detail = finding + (" " + understanding if understanding and understanding != finding else "")
     qualification = " Recorded demo playback." if detection.get("source_profile") == "bundled_demo" else ""
     return {
         "type": "human_notice",
@@ -211,7 +211,7 @@ def configured_target_notice(
                 else "attention"
             ),
             "title": "Monitoring goal detected",
-            "message": f"{detail} Observed at {detection.get('observed_at')} (capture time).{qualification}"[:900],
+            "message": f"{detail} Observed at {detection.get('observed_at')} (capture time).{qualification}"[:2600],
             "detail": detail,
             "camera_id": camera_id,
             "frame_seq": frame_seq,

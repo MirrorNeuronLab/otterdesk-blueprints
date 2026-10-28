@@ -125,7 +125,9 @@ def test_requested_review_is_async_bounded_idempotent_and_publishes_final_summar
     command = '11111111-1111-4111-8111-111111111111'
     result = questions.submit(command, 'When did the group appear?')
     assert result['state'] == 'accepted' and entered.wait(2)
-    assert questions.submit(command, 'When did the group appear?')['state'] == 'accepted'
+    assert 'Reading saved video observations' in result['summary']
+    assert 'does not change the monitoring goal' in result['summary']
+    assert questions.submit(command, 'When did the group appear?') == result
     assert questions.submit('22222222-2222-4222-8222-222222222222', 'Another question')['ok'] is False
     finish.set()
     # Taking capacity waits on actual completion rather than a fixed sleep.
@@ -134,6 +136,7 @@ def test_requested_review_is_async_bounded_idempotent_and_publishes_final_summar
     final = questions.status(command)
     assert final['state'] == 'completed' and final['summary'].startswith('The group appeared')
     assert final['summary'].endswith('Sampled evidence only.') and len(final['summary']) > 2000
+    assert questions.submit(command, 'When did the group appear?')['summary'] == final['summary']
     assert questions.status(command)['evidence']['citations'] == []
 
 

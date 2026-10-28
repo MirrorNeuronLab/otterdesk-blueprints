@@ -145,3 +145,31 @@ def test_compiled_input_boundary_retains_contract_fields_and_excludes_unknown_da
     assert store.read_path('inputs.json') == captured
     assert all('SECRET-UNDECLARED-INPUT' not in prompt for prompt in model.prompts)
     assert result['final_artifact']['recommended_action'] == 'wait'
+
+
+def test_saved_rules_are_captured_and_reach_bounded_review_but_not_public_query_planning(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / 'payloads'))
+    intake = importlib.import_module('domain.intake')
+    analysis = importlib.import_module('domain.llm_analysis')
+    rule = {'id': 'cash-due', 'kind': 'work_rule', 'text': 'PRIVATE-REVIEW-EMPHASIS: explain cash due before scenario sensitivity.'}
+    config = resolve_config(read_blueprint(ROOT), {'execution': {'quick_test': False},
+        'knowledge_rag': {'enabled': False}, 'internet_research': {'enabled': False},
+        'inputs': {'payload': {'supervisor_instructions': [rule]}}}).data
+    model = Narrative()
+    block = BlockContext(store=CommittedJsonStore(tmp_path), invocation_id='rules', revision='procurement_manager@5.1.0',
+        config=config, run_id='rules-run', job_id='rules-job', resources={'llm': model})
+    framed = intake.collect_context(block, {'request': {'input_folder': str(ROOT / 'examples/procurement_case')}})
+    state = block.store.read(framed['state'])
+    assert state['inputs']['supervisor_instructions'] == [rule]
+    assert state['supervisor_instruction_revision']
+    assert all('PRIVATE-REVIEW-EMPHASIS' not in prompt for prompt in model.prompts)
+    analysis.generate_structured_analysis(state=state, config={**config, 'llm_analysis': {'max_context_chars': 6000}},
+        agent_id='purchase_total_cost_analyst', prompt_name='purchase-tco-analysis-task.md',
+        payload={'evidence': 'Large quote context. ' * 4000, 'financial_npv_tco': 100},
+        fallback={'summary': 'Review required'}, validator=lambda value, fallback, _settings: (fallback, []), llm_client=model)
+    prompt = model.prompts[-1]
+    packet = json.loads(prompt)
+    assert len(prompt) <= 6000
+    assert packet['supervisor_preferences']['instructions'] == [rule]
+    assert 'cannot change deterministic costs' in packet['supervisor_preferences']['boundary']
+    assert packet['analysis_context']['context_truncated'] is True

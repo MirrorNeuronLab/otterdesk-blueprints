@@ -1,6 +1,8 @@
 """Publish verified task artifacts and adopt only completed Harness2 memory."""
+import hashlib
 from mn_sdk.agent_events import report_activity
 from mn_sdk.artifact_handoff import relative_path
+from mn_sdk.context_engine import context_memory_section_enabled
 from mn_sdk.integrations.block_publication_files import publish_files
 from mn_sdk_common.publication import ArtifactWrite
 
@@ -30,7 +32,8 @@ def publish(block, inputs):
         receipt = adopt(block, snapshot, expected_generation=result["expected_generation"],
                         request_id=result["request_id"], limits=settings(block))
     public = {key: result[key] for key in ["schema_version", "status", "job_id", "run_id", "request_id"]}
-    public.update(answer="answer.md", deliverables=[ref["path"] for ref in result["deliverables"].values()],
+    public.update(answer="answer.md", supervisor_instruction_revision=result.get("supervisor_instruction_revision"),
+                  deliverables=[ref["path"] for ref in result["deliverables"].values()],
                   improvement={"audit": "harness-audit.json", "memory_retained": receipt is not None,
                                "generation": receipt["generation"] if receipt else result["expected_generation"],
                                "model_weights_updated": False})
@@ -42,10 +45,18 @@ def publish(block, inputs):
     }
     selected = [references["result"], references["answer"], references["audit"],
                 *references["deliverables"].values()]
-    publication = publish_files(block, [
+    writes = [
         ArtifactWrite(str(index), ref["path"], block.store.read_bytes(ref), kind=ref["kind"])
         for index, ref in enumerate(selected)
-    ], name="task-results")
+    ]
+    # Only the public answer is a prepared conversation subject. Its actual
+    # outcome stays explicit so failed/partial work cannot look completed.
+    # Private harness prompts, lessons, traces and input files remain excluded.
+    source_path = "context_sources/outputs/" + hashlib.sha256(block.run_id.encode()).hexdigest() + "/answer.md"
+    if context_memory_section_enabled(block.config.get("source_context") or {}):
+        header = "Run reference: " + block.run_id + "\nTask status: " + result["status"] + "\n\n"
+        writes.append(ArtifactWrite("conversation-answer", source_path, header.encode() + answer, kind="markdown"))
+    publication = publish_files(block, writes, name="task-results")
     # Runtime output staging and host-folder delivery remain SDK/Core responsibilities.
     report_activity("Task result published; private Harness2 memory retained" if receipt else
                     "Harness2 could not complete this task; previous memory preserved", kind="result",

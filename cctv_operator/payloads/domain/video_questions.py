@@ -26,10 +26,10 @@ def answer_video(config, run_dir, run_id, question, *, after="", before="", summ
               "omitted_observations": (packet or {}).get("omitted_count", 0)}
     if not packet or not packet.get("evidence"):
         message = {
-            "disabled": "Video history in context memory is disabled.",
-            "no_evidence": "No analyzed Markdown observations are available in this interval. This does not mean zero people appeared.",
-            "insufficient_capacity": "Saved observations exceed the history context capacity. Narrow the time interval or increase context memory capacity.",
-        }.get(status, "Saved video history is incomplete or unavailable.")
+            "disabled": "Video history is disabled, so I can't answer from saved observations. Enable context memory in this co-worker's settings before collecting history.",
+            "no_evidence": "I don't have analyzed video observations for this interval. This does not mean zero people appeared. Check monitoring status, or choose a time with saved observations.",
+            "insufficient_capacity": "The saved observations exceed the history context capacity. Choose a shorter time interval and ask again.",
+        }.get(status, "I couldn't read the saved video history. Check monitoring status and context memory, then try again.")
         return {"summary": message + "\n\n" + qualification, "citations": [], **common}
     # Native hydration has already re-read every selected complete Markdown
     # account at its cited revision. Never send raw frames, gate scores or report
@@ -50,7 +50,11 @@ def answer_video(config, run_dir, run_id, question, *, after="", before="", summ
         "For summaries, arrange observations chronologically. For counts, distinguish visible people in a sampled observation "
         "from unique people or cumulative appearances. Never sum repeated frame counts or infer identities; say when a total "
         "cannot be determined. Missing or omitted records and skipped caption windows do not prove absence. "
-        "Return JSON with summary (at most 4000 characters) and citations (supporting citation aliases). " + qualification)
+        "Inside the summary string, use concise Markdown: lead with the answer, then use a blank line and short "
+        "bullets for distinct timed observations. End with only the relevant uncertainty or next useful action. "
+        "Do not put JSON dumps, repeated question labels, tool names or a bare Preparing message inside that string. "
+        "The full response must be one JSON object with summary (a Markdown string, at most 4000 characters) "
+        "and citations (an array of supporting citation aliases). No prose or Markdown fences outside the JSON object. " + qualification)
     llm = config.get("llm") or {}
     primary = (llm.get("configs") or {}).get("primary") or llm
     selected = resolve_config()
@@ -89,17 +93,22 @@ class VideoQuestions:
             raise ValueError("video after must precede before")
         prior = self.store.get_record("status", command_id, include_staged=True)
         if prior:
-            return {"command_id": command_id, "state": prior["payload"]["status"]}
+            metadata = prior["payload"].get("metadata") or {}
+            return {"command_id": command_id, "state": prior["payload"]["status"],
+                    "summary": metadata.get("summary") or prior.get("summary", "")}
         if not self.capacity.acquire(blocking=False):
             return {"ok": False, "state": "failed", "reason": "An earlier video question is still being reviewed."}
+        summary = ("Reading saved video observations for your summary." if summarize else
+                   "Reading saved video observations to answer your question.")
+        summary += " This reads saved analysis and does not change the monitoring goal."
         try:
-            self.store.publish_status("accepted", stage="video_review", summary="Reading saved video history.",
+            self.store.publish_status("accepted", stage="video_review", summary=summary,
                 publication_state="final", record_id=command_id, idempotency_key=f"video:{command_id}:accepted")
             threading.Thread(target=self._run, args=(command_id, question, after, before, summarize), daemon=True).start()
         except Exception:
             self.capacity.release()
             raise
-        return {"command_id": command_id, "state": "accepted"}
+        return {"command_id": command_id, "state": "accepted", "summary": summary}
 
     def _run(self, command_id, question, after, before, summarize):
         try:

@@ -567,6 +567,15 @@ def _prepare_deep_research(
     return recommendation, deep_state, phase_trace
 
 
+def _supervisor_review_context(inputs):
+    """Private preferences enter review only after public tool planning ends."""
+    instructions = inputs.get("supervisor_instructions", [])
+    return {"supervisor_preferences": {
+        "instructions": instructions,
+        "boundary": "Guide evidence revision, test concepts and explanation within the agreed research scope. Preferences are not source facts and cannot authorize experiments, external actions or weaker review gates."
+    }} if instructions else {}
+
+
 def _finalize_deep_research(
     llm: Any,
     inputs: dict[str, Any],
@@ -593,6 +602,7 @@ def _finalize_deep_research(
             "and do not return experiment objects."
         ),
         context={
+            **_supervisor_review_context(inputs),
             "research_request": _compact_research_request(inputs),
             "source_refs": deep_state["source_refs"],
             "source_analysis": deep_state["source_analysis"],
@@ -643,6 +653,7 @@ def _finalize_deep_research(
                 "stop conditions so the complete object fits under 800 tokens."
             ),
             context={
+                **_supervisor_review_context(inputs),
                 "research_question": inputs.get("research_question"),
                 "constraints": inputs.get("constraints"),
                 "source_refs": deep_state["source_refs"],
@@ -684,6 +695,7 @@ def _finalize_deep_research(
             "hypothesis and at most five unresolved gaps."
         ),
         context={
+            **_supervisor_review_context(inputs),
             "research_question": inputs.get("research_question"),
             "source_refs": deep_state["source_refs"],
             "source_analysis": deep_state["source_analysis"],
@@ -747,6 +759,7 @@ def _finalize_deep_research(
             "Use at most three short items in each array and keep the summary under 120 words."
         ),
         context={
+            **_supervisor_review_context(inputs),
             "research_goal": inputs.get("research_goal"),
             "research_question": inputs.get("research_question"),
             "recommended_action": action,
@@ -862,6 +875,7 @@ def _actor_review_context(
     sources: list[dict[str, Any]],
 ) -> dict[str, Any]:
     return {
+        **_supervisor_review_context(inputs),
         "research_request": {
             key: inputs.get(key)
             for key in ("research_goal", "research_domain", "research_question", "scope", "success_criteria", "constraints")

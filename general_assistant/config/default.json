@@ -2,7 +2,8 @@
   "inputs": {
     "payload": {
       "input_folder": "~/Downloads",
-      "task": "Summarize the contents of the input folder and save the summary as summary.md in the output folder."
+      "task": "Summarize the contents of the input folder and save the summary as summary.md in the output folder.",
+      "supervisor_instructions": []
     }
   },
   "outputs": {
@@ -36,5 +37,8 @@
         ]
       }
     ]
+  },
+  "source_context": {
+    "enabled": true
   }
 }

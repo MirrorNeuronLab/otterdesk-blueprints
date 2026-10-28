@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import importlib
 
 from blueprint_modernization_support import (
     ROOT,
@@ -801,3 +802,54 @@ print(json.dumps({{
         "run_artifact_exists": True,
         "brief_exists": True,
     }
+
+
+def test_saved_research_rules_reach_model_constraints_and_forgetting_keeps_history(tmp_path, monkeypatch):
+    import importlib
+    from mn_blueprint_blocks.context import BlockContext
+    from mn_sdk_common.committed_artifacts import CommittedJsonStore
+
+    monkeypatch.syspath_prepend(str(ROOT / "research_assistant/payloads"))
+    intake = importlib.import_module("domain.intake")
+    autonomous = importlib.import_module("domain.autonomous")
+    compact = autonomous._compact_research_request
+    config = resolve_config(read_blueprint(ROOT / "research_assistant")).data
+    rule = {"id": "disconfirm", "kind": "work_rule", "text": "Lead with evidence that would disconfirm the leading hypothesis."}
+    config["inputs"]["payload"]["supervisor_instructions"] = [rule]
+    def frame(run):
+        block = BlockContext(store=CommittedJsonStore(tmp_path / run), config=config,
+            invocation_id=run + ":frame", revision="research_assistant@4.1.0", job_id="research-job", run_id=run, step_id="frame_research_problem")
+        output = intake.frame_goal(block, {})
+        return block.store.read(output["state"])
+    first = frame("run-one")
+    assert first["inputs"]["supervisor_instructions"] == [rule]
+    assert "supervisor_instructions" not in compact(first["inputs"])
+    assert "supervisor_preferences" not in compact(first["inputs"])["constraints"]
+    preferences = autonomous._supervisor_review_context(first["inputs"])["supervisor_preferences"]
+    assert preferences["instructions"] == [rule]
+    assert "cannot authorize experiments" in preferences["boundary"]
+    assert first["inputs"]["constraints"]["no_live_system_changes"] is True
+    config["inputs"]["payload"]["supervisor_instructions"] = []
+    second = frame("run-two")
+    assert autonomous._supervisor_review_context(second["inputs"]) == {}
+    assert second["supervisor_instruction_revision"] != first["supervisor_instruction_revision"]
+    assert first["inputs"]["supervisor_instructions"] == [rule]
+
+
+def test_private_saved_rules_enter_research_only_after_public_tool_planning(tmp_path, monkeypatch):
+    monkeypatch.syspath_prepend(str(ROOT / "research_assistant/payloads"))
+    module = importlib.import_module("domain.autonomous")
+    calls = []
+    def phase(_llm, **request):
+        calls.append((request["phase"], request["context"]))
+        return request["fallback"]
+    monkeypatch.setattr(module, "_phase_generate_json", phase)
+    inputs = {"research_goal": "Compare reproducibility", "research_question": "What evidence is missing?", "constraints": {"require_human_review": True},
+        "supervisor_instructions": [{"id": "private-rule", "kind": "work_rule", "text": "PRIVATE-REVIEW-EMPHASIS"}]}
+    module.run_autonomous_research(None, inputs, {"source_refs": [], "evidence_gaps": ["No sources"]}, {},
+        {"recommended_action": "gather_more_evidence", "confidence": "low", "rationale": "Sources missing"},
+        {"agentic_research": {"allowed_tools": []}, "execution": {"quick_test": True}}, [], [], workspace=tmp_path)
+    post_tool = next(index for index, (name, _) in enumerate(calls) if name == "evidence_and_probe_revision")
+    assert all("PRIVATE-REVIEW-EMPHASIS" not in json.dumps(context) for _, context in calls[:post_tool])
+    assert all(context["supervisor_preferences"]["instructions"] == inputs["supervisor_instructions"] for _, context in calls[post_tool:])
+    assert "supervisor_preferences" in module._actor_review_context(inputs, {}, {}, {}, [])

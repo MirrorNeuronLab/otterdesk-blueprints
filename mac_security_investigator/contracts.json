@@ -8,6 +8,38 @@
       "required": false,
       "example": "~/Downloads/mac-security-investigator",
       "description": "Folder for investigation reports. Recent Mac security logs are queried automatically."
+    },
+    "supervisor_instructions": {
+      "type": "array",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Explicit explanation preferences for Chat, not clinical rules or native model instructions.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "kind": {
+            "enum": [
+              "communication"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
     }
   },
   "outputs": {

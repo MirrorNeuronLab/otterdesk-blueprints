@@ -99,6 +99,15 @@
         "path": "outputs.folder_path",
         "path_kind": "directory",
         "type": "local_path"
+      },
+      {
+        "path": "inputs.payload.supervisor_instructions",
+        "label": "Saved explanation preferences",
+        "type": "textarea",
+        "value_type": "array",
+        "required": false,
+        "default": [],
+        "description": "Managed in Memory. Changes Chat wording only; domain work and approvals keep their existing controls."
       }
     ],
     "instruction": "When running in OtterDesk, show these overwriteable fields during init config and ask the user to change them or keep the defaults before launch.",

@@ -58,6 +58,19 @@ narrowly scoped folder; its included contents can be read by the configured mode
 
 ## Conversation and supervision
 
+OtterDesk keeps the current topic, pending question and corrections with this
+co-worker's conversation. Ask “Remember to explain checks before conclusions”
+to save an explicit preference, or manage it in Chat > Memory. Working rules
+are captured at the next run's intake; the current run keeps its original
+snapshot. Forgetting a rule affects future work and preserves historical runs.
+Ordinary replies are not saved as supervisor instructions. These preferences
+do not change the read-only input boundary or grant external actions.
+
+The bundled `payloads/prompts/conversation.json` guides OtterDesk's native
+conversation model at setup, work, decision and review stages. The saved public
+answer is published as prepared Markdown for the existing Job responder's
+Membrane source intelligence. Private Harness2 memory remains separate.
+
 Task entry, Harness2 work/refinement notices, clarification questions and the
 result-ready notice use the standard Core human-interaction authority. OtterDesk
 presents them in the co-worker conversation through its existing interaction
@@ -156,3 +169,5 @@ Tests use the real pinned Harness2 engine with deterministic model sessions and
 mocked Core interactions. The shared OpenCode tests separately exercise real
 Linux write and TCP scopes with fake executables. Live model/OpenShell/Chat
 acceptance remains an opt-in deployment check.
+
+Prepared report sources use the existing Membrane CPU service and declared SDK context extra. `source_context.enabled` defaults to true; set it to false to disable prepared-source publication and preparation. Runtime TextMemory recall remains disabled. This does not publish private inputs or change the native task/inference model.

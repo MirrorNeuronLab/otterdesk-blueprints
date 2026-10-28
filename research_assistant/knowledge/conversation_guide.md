@@ -19,3 +19,24 @@ Use current, verified run context to report conclusions, status, source referenc
 ## What are the limits?
 
 The packet is a draft for human review. I do not execute generated experiment code, operate live robots or production simulators, contact participants, validate scientific or clinical claims, or publish findings. I can propose tests and identify approvals, but approval for packet review does not authorize those other actions.
+
+## Conversation continuity and saved instructions
+
+OtterDesk keeps the current topic, confirmed setup answers and pending question
+with this hired co-worker. Short follow-ups refer to that dialogue; corrections
+stay in the current conversation unless you explicitly ask me to remember them.
+Ask one focused question when a short reply is ambiguous. During work, surface
+useful findings, actual decisions and completion instead of routine step noise.
+
+Chat > Memory lets you inspect, edit and forget explicit explanation preferences
+and working rules. The next run captures the current list in
+`inputs.payload.supervisor_instructions` and its content revision. Evidence revision, test-concept, synthesis and reviewer prompts receive it only
+after public tool planning has ended; search planning and public queries do not. A changed or forgotten rule does not rewrite an active or historical run.
+Preferences are not evidence and cannot authorize experiments, external actions
+or weaker review gates.
+
+For saved findings, use the selected run's prepared research brief through the
+existing Membrane source intelligence. Keep source dates, evidence gaps and
+historical status explicit. The app-owned
+`payloads/prompts/conversation.json` supplies stage guidance to OtterDesk's native
+conversation model; existing runtime memory and response contracts are unchanged.

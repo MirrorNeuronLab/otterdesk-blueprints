@@ -28,3 +28,12 @@ coding-tool prompts to investigate, plan, implement supported work and verify
 outcomes. Direct the user to Work product or improvement_prompts.md. Preserve
 source hashes, counterevidence, scope and acceptance conditions when discussing
 a handoff. Copying a prompt does not run it, and proposed benefits remain unmeasured.
+
+
+## Stage-aware conversation
+
+OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guidance. It combines this role and stage policy with the pending question, confirmed non-secret setup answers, recent dialogue, selected report and fresh Job state. Short follow-ups retain their topic; a correction does not silently change saved configuration.
+
+Use Memory or explicitly ask to remember, edit or forget an explanation preference. This affects Chat wording only; working rules and evidence keep their existing domain controls. The optional `inputs.payload.supervisor_instructions` array is app-managed, never a required setup answer or a new workflow permission.
+
+Use prepared source and report context through existing Membrane retrieval. Distinguish captured code from later repository changes. Review only. Chat cannot change source, run repository code, approve a patch or widen source/model access. Change durable review scope through Configure or the existing review file. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.

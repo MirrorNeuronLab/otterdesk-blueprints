@@ -122,6 +122,39 @@
       "privacy": "confidential",
       "required": false,
       "type": "domain_value"
+    },
+    "supervisor_instructions": {
+      "type": "array",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Explicit supervisor preferences and working rules. Captured for the next run; never a permission grant or an evidence source.",
+      "maxItems": 50,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "kind": {
+            "enum": [
+              "communication",
+              "work_rule"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        }
+      }
     }
   },
   "outputs": {
@@ -237,7 +270,9 @@
         "path": "workflow_state/evidence_coverage.json",
         "producer": "research_evidence_reviewer",
         "schema_version": "mn.blueprint.research_preflight.v1",
-        "source_refs": ["inputs.json"],
+        "source_refs": [
+          "inputs.json"
+        ],
         "type": "research_preflight"
       },
       {
@@ -246,7 +281,9 @@
         "path": "workflow_state/experiment_readiness.json",
         "producer": "research_experiment_planner",
         "schema_version": "mn.blueprint.research_preflight.v1",
-        "source_refs": ["inputs.json"],
+        "source_refs": [
+          "inputs.json"
+        ],
         "type": "research_preflight"
       },
       {

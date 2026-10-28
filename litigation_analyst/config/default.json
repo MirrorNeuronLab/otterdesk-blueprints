@@ -4,7 +4,8 @@
     "payload": {
       "goal": "Investigate financially relevant events and competing explanations in the supplied materials. Cite the evidence and state limitations.",
       "review_file": "",
-      "matter_file": ""
+      "matter_file": "",
+      "supervisor_instructions": []
     }
   },
   "investigation": {

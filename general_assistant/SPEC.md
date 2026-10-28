@@ -59,6 +59,20 @@ The outer OpenShell policy continues to authorize binaries, hosts and HTTP route
 
 ## Conversation contract
 
+Version 2.2.0 adds optional `inputs.payload.supervisor_instructions`, default
+`[]`, managed through OtterDesk Memory. Each item has an ID, kind
+(`communication` or `work_rule`) and text. Intake validates at most 50 items,
+1,000 characters per item and 16,000 UTF-8 JSON bytes, then freezes the list and
+its content revision alongside the task. Every solver prompt consumes this
+snapshot within existing task, sandbox and approval boundaries. Removed rules
+are not restored from older private lessons. Historical runs retain their
+original revision. No runtime or Membrane schema changes are required.
+
+OtterDesk reads `payloads/prompts/conversation.json` as app-owned stage guidance.
+The runtime response service uses the existing manual and prepared public
+`answer.md` under `context_sources/outputs/<run-hash>/`; private Harness2 state
+is never a source for Chat and worker TextMemory remains disabled.
+
 Core remains the authority for human notices, questions and response receipts.
 Missing task instructions use a blocking missing-information request. Solver
 work/refinement and result-ready notifications use nonblocking notices. OtterDesk's existing
@@ -130,3 +144,5 @@ not customer setup fields. Default egress is model, controller RPC and declared
 GitHub reads. Input, task and private context may be visible to the configured
 model provider. The co-worker cannot change original input, send messages, buy,
 deploy, train weights or guarantee professional or software correctness.
+
+Prepared report sources use the existing Membrane CPU service and declared SDK context extra. `source_context.enabled` defaults to true; set it to false to disable prepared-source publication and preparation. Runtime TextMemory recall remains disabled. This does not publish private inputs or change the native task/inference model.
