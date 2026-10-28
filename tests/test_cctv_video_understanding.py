@@ -51,7 +51,7 @@ def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkey
     assert captured["options"]["backend"] == "nim"
     assert captured["options"]["required_capabilities"] == ["image_input"]
     assert captured["payload"]["max_tokens"] == 4096
-    assert "response_format" not in captured["payload"]
+    assert captured["payload"]["response_format"]["type"] == "json_schema"
     assert "thinking_budget_tokens" not in captured["payload"]
     assert "chat_template_kwargs" not in captured["payload"]
     assert captured["payload"]["messages"][0]["role"] == "system"

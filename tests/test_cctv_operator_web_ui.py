@@ -252,6 +252,10 @@ def test_cctv_ui_server_serves_mjpeg_sse_and_no_browser_action(tmp_path: Path):
         assert 'id="analysis-status" role="status"' in page
         assert 'id="pipeline-warning" role="alert" hidden' in page
         assert '<time id="analyzed-at" hidden>' in page
+        assert 'id="scene-analysis" aria-labelledby="scene-heading" hidden' in page
+        assert 'id="scene-understanding"' in page
+        assert 'id="risk-predictions"' in page
+        assert 'id="uncertainties"' in page
         assert 'id="person-status" role="status"' in page
         assert 'id="person-history" hidden' in page
         assert 'id="caption-status"' in page

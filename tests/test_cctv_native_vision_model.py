@@ -8,6 +8,7 @@ import shutil
 import subprocess
 
 import pytest
+from jsonschema import Draft202012Validator, ValidationError
 from mn_blueprint_blocks.testing import BlockHarness
 from mn_sdk.blueprints import blueprint_definition, read_blueprint
 from mn_sdk.integrations import block_model_request
@@ -44,7 +45,8 @@ def test_nim_request_preserves_temporal_media_and_runtime_owned_route(vision, mo
     assert request["options"]["backend"] == "nim" and request["options"]["api_base"] == "auto"
     assert request["options"]["model_spec"]["docker"]["image"] == "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7"
     payload = request["payload"]
-    assert "response_format" not in payload
+    assert payload["response_format"]["type"] == "json_schema"
+    assert payload["response_format"]["json_schema"]["strict"] is True
     assert payload["max_tokens"] == 4096
     assert "chat_template_kwargs" not in payload
     assert payload["messages"][0]["role"] == "system"
@@ -61,6 +63,7 @@ def test_nim_request_preserves_temporal_media_and_runtime_owned_route(vision, mo
     raw = block_model_request.model_request(block, request, key="scene")
     assert block_model_request.model_request(harness.context(environment=block.environment), request, key="scene") == raw
     assert len(calls) == 1 and calls[0][1]["num_retries"] == 0
+    assert calls[0][0][3]["response_format"] == payload["response_format"]
     assert calls[0][0][3]["messages"][1]["content"][1]["video_url"]["url"].startswith("data:video/mp4;base64,")
     assert module.interpret(raw, prepared)["scene_understanding"] == ACCOUNT["scene_understanding"]
 
@@ -175,10 +178,78 @@ def test_nim_normal_stop_accepts_a_complete_answer_without_its_presentation_clos
     ("<answer><answer>" + json.dumps(ACCOUNT), "stop", "incomplete"),
     (json.dumps(ACCOUNT), "content_filter", "incomplete"),
     ("not JSON", "stop", "no valid"),
-    ('{"summary":"No complete account"}', "stop", "missing scene"),
+    ('{"summary":"No complete account"}', "stop", "scene_understanding must be a nonempty string"),
 ])
 def test_known_invalid_model_response_is_not_a_clear_scene(vision, content, finish, reason):
     _harness, _block, module, _encoded, _temporal = vision
     raw = {"choices": [{"finish_reason": finish, "message": {"content": content}}]}
     with pytest.raises(ValueError, match=reason):
         module.interpret(raw, {"nim": True, "ollama": False})
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("scene_understanding", "", "scene_understanding must be a nonempty string"),
+    ("scene_understanding", [], "scene_understanding must be a nonempty string"),
+    ("risk_predictions", {}, "risk_predictions must be a list"),
+    ("uncertainties", "The person's hands are occluded.", "uncertainties must be a list of strings"),
+    ("uncertainties", [42], "uncertainties must be a list of strings"),
+])
+def test_nim_names_the_invalid_field_without_discarding_it_as_a_missing_scene(vision, field, value, reason):
+    _harness, _block, module, _encoded, _temporal = vision
+    raw = {"choices": [{"finish_reason": "stop", "message": {
+        "content": json.dumps({**ACCOUNT, field: value})}}]}
+    with pytest.raises(ValueError, match=reason):
+        module.interpret(raw, {"nim": True, "ollama": False})
+
+
+def test_nim_generation_contract_covers_the_live_type_errors_and_original_frame_scope(vision, monkeypatch):
+    _harness, block, module, _encoded, temporal = vision
+    monkeypatch.setattr(module, "model_user_content", temporal)
+    block.config["site"] = {"profile": "factory", "rule_ids": ["group_presence"]}
+    prepared = module.prepare(block, [b"one", b"two", b"three"], "Review the selected evidence")
+    schema = prepared["request"]["payload"]["response_format"]["json_schema"]["schema"]
+    Draft202012Validator.check_schema(schema)
+    validate = Draft202012Validator(schema).validate
+    prediction = {"risk": "Possible contact with the cart", "visible_evidence": "A person approaches a cart in frames 1 and 3.",
+        "time_horizon": "If the movement continues", "confidence": .6, "severity": "low",
+        "recommended_review": "Review the original footage.", "evidence_frames": [1, 3]}
+    account = {**ACCOUNT, "detections": [], "goal_event": None, "helmet_observations": [],
+        "site_findings": [], "risk_predictions": [prediction], "uncertainties": ["Hands are occluded."]}
+    validate(account)
+    assert module.interpret({"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(account)}}]},
+        prepared)["uncertainties"] == account["uncertainties"]
+    for invalid in (
+        {**account, "uncertainties": "Hands are occluded."},
+        {**account, "detections": [{"label": "Person", "category": "person", "color": "white",
+            "position": "Repeated scene account. " * 100, "activity": "Standing", "confidence": .9}]},
+        {**account, "risk_predictions": [{**prediction, "severity": "Low"}]},
+        {**account, "risk_predictions": [{**prediction, "evidence_frames": [4]}]},
+        {**account, "site_findings": [{"rule_id": "blocked_route", "status": "observed", "confidence": .9,
+            "visible_evidence": "A cart is visible.", "evidence_frames": [1]}]},
+        {key: value for key, value in account.items() if key != "scene_understanding"},
+    ):
+        with pytest.raises(ValidationError):
+            validate(invalid)
+    # XGrammar cannot enforce uniqueItems; the existing evidence validator must
+    # still reject duplicates after generation instead of inventing provenance.
+    assert "uniqueItems" not in json.dumps(schema)
+    def bounded_strings(value):
+        if isinstance(value, dict):
+            if value.get("type") == "string":
+                assert 0 < value["maxLength"] <= 1800
+            for child in value.values():
+                bounded_strings(child)
+        elif isinstance(value, list):
+            for child in value:
+                bounded_strings(child)
+    bounded_strings(schema)
+    duplicated = {**account, "risk_predictions": [{**prediction, "evidence_frames": [1, 1]}]}
+    validate(duplicated)
+    result = module.normalize_detection(duplicated)
+    site = importlib.import_module("domain.site_monitoring")
+    batch = {"selected_frames": [{"timestamp": 100 + i, "path": f"{i}.jpg"} for i in range(3)]}
+    with pytest.raises(ValueError, match="valid selected evidence_frames"):
+        site.enrich(result, batch, block.config, "", "")
+    block.config["site"] = {"profile": "custom"}
+    custom = module.prepare(block, [b"one", b"two"], "Review")
+    assert custom["request"]["payload"]["response_format"]["json_schema"]["schema"]["properties"]["site_findings"]["maxItems"] == 0

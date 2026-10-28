@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.1 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.3 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -212,6 +212,16 @@ runtime gateway's smaller per-response and hardware limits. Its request deadline
 scenes. Private reasoning never enters reports or history.
 Routine monitoring requests compact JSON directly, without a reasoning-template switch,
 using the [Cosmos3 NIM direct-answer request contract](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
+Requests include a strict JSON Schema for the ten-field observation, with
+array-valued uncertainties, lowercase risk severity and frame references bounded
+to the selected evidence. All free-text fields are bounded, including detection
+position/activity, so repeated detail cannot consume the entire answer budget.
+The deployed NIM must support JSON-schema response_format;
+an unsupported request fails explicitly. Semantic evidence validation remains in
+place. This fixes the normally stopped response that supplied a scene account but
+encoded uncertainties as a string and severity as `Low`, which previously surfaced
+as a misleading missing-scene error. Reprepare an idle saved Job before starting
+this revision; frozen requests in existing runs retain their original contract.
 Cosmos video input uses complete temporal frame pairs. An odd selected window
 repeats its final frame only in the encoded transport; the prompt identifies
 that duplicate and restricts evidence references to the original selected frames.
@@ -230,6 +240,32 @@ The final JSON object is the answer boundary: a normally stopped Cosmos reply ma
 omit its closing answer tag or wrap the object in a JSON fence. The parser accepts
 only the complete object; unfinished reasoning, truncated output and trailing prose
 remain errors. It never recovers a partial object or repeats inference to repair it.
+
+### Response-contract verification on 2026-10-28
+
+All 280 CCTV checks pass for 5.3.2. A real approved-stream run on Spark produced
+a normally stopped Cosmos scene account, typed uncertainty/forecast lists, a
+published report and analyzed snapshot, and persisted camera Markdown. The
+owner-node Job MCP history tool retrieved that account with a citation. The
+cold request took 150.5 seconds, including model preparation. Generation keeps
+the existing token/deadline limits and excludes XGrammar's unsupported uniqueItems;
+the domain validator still checks evidence uniqueness.
+
+That initial run exposed a separate continuous-dispatch failure: Core admitted a
+second batch without dispatching it. Core commit e323bfa fixes classification of
+the compiler's `flow.dynamic: {"enabled": false}` service form. On that revision,
+the approved-stream run published 11 successive scene accounts and evidence
+snapshots. The first model request took 171.6 seconds; subsequent requests varied,
+so delayed-analysis health remains distinct from the last completed account.
+
+Version 5.3.3 adds completed analysis to the panel. Its deterministic Chromium E2E
+covers successive SSE results, reconnection, delayed processing, text escaping and
+wide/narrow resizing. The CCTV suite passed 279 checks; its process-group cleanup
+test hit an OS permission error and passed alone on rerun. Catalog-wide collection
+still references removed microduck, and a catalog-category test references removed
+financial_advisor. Initial MCP reads through mini also failed with ExceptionGroup
+while owner-node reads succeeded. Desktop active-run chat policy is separate from
+the completed scene account displayed in the panel.
 
 ## Notices, risk and history
 
@@ -274,7 +310,11 @@ before running this blueprint revision.
 
 The read-only job-scoped Web UI leads with live MJPEG, followed by compact
 People, Scene analysis and Monitoring status rows in 11–12px system type.
-The latest analyzed snapshot is an expandable section below status; its short
+Completed scene understanding, risk forecasts and uncertainties appear below
+status while monitoring continues, followed by the expandable analyzed snapshot.
+An empty forecast or uncertainty list means the model returned none for that
+sample; it does not establish safety or certainty. The completed account stays
+visible while the next sample is processing. The snapshot's short
 local analysis time discloses the complete timestamp in a tooltip. Warnings
 remain beneath status, and all rows fit narrow workspace panels. A visible
 preview does not imply that person detection or scene analysis is healthy.

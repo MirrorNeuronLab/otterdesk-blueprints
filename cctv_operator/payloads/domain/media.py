@@ -1,4 +1,4 @@
-"""Read-only CCTV media surface; observations belong in the conversation."""
+"""Read-only CCTV media and completed scene analysis."""
 
 
 def dashboard_html() -> str:
@@ -16,6 +16,11 @@ def dashboard_html() -> str:
     figure, section, details { margin: 0; min-width: 0; overflow: hidden; border: 1px solid #283238; border-radius: 8px; }
     figcaption, summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 12px; padding: 8px 10px; font-size: 11px; font-weight: 500; color: #a2afb7; }
     h1 { margin: 0; padding: 8px 10px; border-bottom: 1px solid #283238; font-size: 12px; font-weight: 600; }
+    h2 { margin: 10px 0 4px; font-size: 11px; font-weight: 600; color: #a2afb7; }
+    .analysis { padding: 0 10px 10px; overflow-wrap: anywhere; }
+    .analysis p { margin: 4px 0; white-space: pre-wrap; }
+    .analysis ul { margin: 4px 0; padding-left: 18px; }
+    .analysis li + li { margin-top: 6px; }
     dl { margin: 0; padding: 2px 10px; }
     .status-row { display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 12px; padding: 7px 0; }
     .status-row + .status-row { border-top: 1px solid #202a30; }
@@ -57,6 +62,20 @@ def dashboard_html() -> str:
       </dl>
       <p class="warning" id="pipeline-warning" role="alert" hidden></p>
     </section>
+    <section id="scene-analysis" aria-labelledby="scene-heading" hidden>
+      <h1 id="scene-heading">Latest scene analysis</h1>
+      <div class="analysis">
+        <p><time id="scene-at"></time></p>
+        <p id="scene-understanding"></p>
+        <h2>Risk forecasts</h2>
+        <ul id="risk-predictions" hidden></ul>
+        <p id="no-risk-predictions">No risk forecasts returned for this sample.</p>
+        <h2>Uncertainties</h2>
+        <ul id="uncertainties" hidden></ul>
+        <p id="no-uncertainties">No uncertainties reported by the model.</p>
+        <p class="history" id="scene-qualification"></p>
+      </div>
+    </section>
     <details>
       <summary>Latest analyzed snapshot<time id="analyzed-at" hidden></time></summary>
       <div class="media">
@@ -76,6 +95,9 @@ def dashboard_html() -> str:
     const personStatus = document.querySelector('#person-status');
     const personHistory = document.querySelector('#person-history');
     const captionStatus = document.querySelector('#caption-status');
+    const sceneAnalysis = document.querySelector('#scene-analysis');
+    const sceneAt = document.querySelector('#scene-at');
+    let sceneRevision = '';
     let evidenceRevision = '';
     let previewState = 'connecting';
     let previewRetry;
@@ -86,6 +108,16 @@ def dashboard_html() -> str:
     }
     function loadEvidence() {
       if (evidenceRevision) evidence.src = 'artifacts/latest_analyzed_frame.jpg?v=' + encodeURIComponent(evidenceRevision);
+    }
+    function analysisList(id, values) {
+      const list = document.querySelector('#' + id);
+      list.replaceChildren(...values.map(value => {
+        const item = document.createElement('li');
+        item.textContent = value;
+        return item;
+      }));
+      list.hidden = !values.length;
+      document.querySelector('#no-' + id).hidden = !!values.length;
     }
     function applyState(state) {
       const metrics = state && state.metrics ? state.metrics : {};
@@ -112,6 +144,25 @@ def dashboard_html() -> str:
         previewEmpty.hidden = false;
       }
       const revision = String(metrics['last analyzed'] || '');
+      const understanding = state.understanding || {};
+      if (revision && revision !== 'waiting' && revision !== sceneRevision &&
+          typeof understanding.scene_understanding === 'string' && understanding.scene_understanding.trim()) {
+        sceneRevision = revision;
+        document.querySelector('#scene-understanding').textContent = understanding.scene_understanding.slice(0, 1800);
+        sceneAt.textContent = displayTime(revision);
+        sceneAt.dateTime = revision;
+        sceneAt.title = 'Sample captured at ' + revision;
+        const risks = Array.isArray(understanding.risk_predictions) ? understanding.risk_predictions : [];
+        analysisList('risk-predictions', risks.filter(risk => risk && typeof risk === 'object').slice(0, 2).map(risk =>
+          [risk.risk, risk.visible_evidence, risk.time_horizon,
+            risk.recommended_review].filter(value => typeof value === 'string' && value.trim()).join(' · ').slice(0, 1000)));
+        const uncertainties = Array.isArray(understanding.uncertainties) ? understanding.uncertainties : [];
+        analysisList('uncertainties', uncertainties.filter(value => typeof value === 'string').slice(0, 8).map(value => value.slice(0, 200)));
+        document.querySelector('#scene-qualification').textContent =
+          (understanding.source_profile === 'bundled_demo' ? 'Recorded demo playback. ' : '') +
+          'Sampled observations; review the evidence before acting. Risk forecasts are not confirmed incidents.';
+        sceneAnalysis.hidden = false;
+      }
       if (revision && revision !== 'waiting' && revision !== evidenceRevision) {
         evidenceRevision = revision;
         clearTimeout(evidenceRetry);

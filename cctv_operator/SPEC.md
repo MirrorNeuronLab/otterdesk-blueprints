@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.1 specification
+# CCTV Operator 5.3.3 specification
 
 ## Purpose and scope
 
@@ -119,6 +119,16 @@ content; do not salvage a partial object or dispatch another inference for parsi
 The visual prompt declares one complete output contract, including site_findings
 and selected-frame references on every forecast. Missing references remain an
 analysis error; the parser must not invent them from a different finding.
+Cosmos requests also supply a strict JSON Schema through response_format. It
+requires the ten typed fields, list-valued uncertainties, lowercase severity,
+configured facility-rule IDs and original selected-frame bounds. This constrains
+generation; downstream semantic/provenance checks still determine acceptance.
+The generation schema excludes XGrammar's unsupported uniqueItems keyword;
+the existing domain validator continues to reject duplicate evidence indices.
+Every generated free-text field has a character bound, including the existing
+80/80/60/160/160 detection label/category/color/position/activity limits. Repetitive
+detection detail must not consume the answer budget before the scene account.
+Invalid final answers identify the failed field without logging response content.
 Ask for the compact ten-field account and at most two forecasts, targeting900
 output tokens. Person activity uses two to six concrete sentences (<=1800 chars)
 with visible posture, movement, hand actions, objects/interactions and changes
@@ -149,7 +159,12 @@ MCP relay and Core live steering. Credentials remain server-side/redacted; no
 browser action endpoint. Show fresh detector counts, last confirmed sampled person
 presence and caption processing time independently of completed scene reports.
 Place live video first, compact 11–12px status rows below, then an expandable
-latest analyzed snapshot. Short local times retain full timestamps in tooltips.
+latest analyzed snapshot. Completed scene understanding, risk forecasts and model
+uncertainties appear above that snapshot while monitoring continues; empty model
+lists are reported as such, never as proof that the scene is safe or certain.
+The completed account remains visible during the next inference. Render model
+text as text, retain capture time and qualify recorded demo playback.
+Short local times retain full timestamps in tooltips.
 Long values must wrap within narrow panels. Preserve detailed scene accounts in
 latest-status replies and confirmed goal notices rather than the short metric
 preview. Blueprint guidance ends goal-change replies after applied receipts and

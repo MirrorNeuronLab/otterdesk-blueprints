@@ -1,5 +1,13 @@
 # Conversation experience E2E
 
+The deterministic CCTV panel test needs only the sibling desktop's Playwright
+dependency and installed Chromium; it uses a local SSE fixture and no runtime or
+model. From the catalog root, run:
+
+```bash
+node ../otterdesk-desktop-app/node_modules/@playwright/test/cli.js test --config tests/e2e/cctv-media.config.cjs
+```
+
 This opt-in suite reads every published package from `index.json`, including
 General Assistant, and uses the installed runtime plus the sibling desktop app.
 It hires through the GUI, asks a real setup question, selects declared samples or

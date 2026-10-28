@@ -9,6 +9,7 @@ from mn_sdk.blueprint_support import source_manifest
 from mn_sdk.model_json import parse_model_json
 
 from .visual_detection import normalize_detection
+from .vision_contract import response_format
 
 
 def prepare(block, frames, prompt):
@@ -72,6 +73,7 @@ def prepare(block, frames, prompt):
                 "Describe visible people's actions and changes across the selected frames in detail. "
                 "Do not output reasoning, Markdown or XML tags. Keep the summary and evidence concise, with explicit uncertainty."})
             payload.update(media_io_kwargs={"video": {"fps": 4.0}})
+            payload["response_format"] = response_format(len(frames), block.config)
             options.update(model_spec=declared["model_spec"], required_capabilities=["image_input"])
         else:
             payload["response_format"] = {"type": "json_object"}
@@ -125,7 +127,11 @@ def interpret(raw, prepared):
         result, error = parse_model_json(text)
         if result is None:
             raise ValueError("Model returned no valid structured detection: " + error)
-    if prepared["nim"] and (not isinstance(result.get("scene_understanding"), str) or not result["scene_understanding"].strip()
-        or not isinstance(result.get("risk_predictions"), list) or not isinstance(result.get("uncertainties"), list)):
-        raise ValueError("Cosmos final answer is missing scene understanding, risk predictions or uncertainties")
+    if prepared["nim"]:
+        if not isinstance(result.get("scene_understanding"), str) or not result["scene_understanding"].strip():
+            raise ValueError("Cosmos final answer: scene_understanding must be a nonempty string")
+        if not isinstance(result.get("risk_predictions"), list):
+            raise ValueError("Cosmos final answer: risk_predictions must be a list")
+        if not isinstance(result.get("uncertainties"), list) or any(not isinstance(item, str) for item in result["uncertainties"]):
+            raise ValueError("Cosmos final answer: uncertainties must be a list of strings")
     return normalize_detection(result)

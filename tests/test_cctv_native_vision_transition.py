@@ -130,9 +130,17 @@ def test_unknown_model_outcome_keeps_caption_admission_stalled(native, monkeypat
     assert not list(h.store.run_dir.glob("blocks/*/event-state.json"))
 
 
-def test_known_invalid_response_is_qualified_and_releases_only_the_known_model_slot(native):
+@pytest.mark.parametrize("invalid", ["missing_scene", "string_uncertainties", "uppercase_severity"])
+def test_known_invalid_response_is_qualified_and_releases_only_the_known_model_slot(native, invalid):
     h, _vision, _report, seed, invoke, calls, account = native
-    account.pop("scene_understanding")
+    if invalid == "missing_scene":
+        account.pop("scene_understanding")
+    elif invalid == "string_uncertainties":
+        account["uncertainties"] = "The person's hands are occluded."
+    else:
+        account["risk_predictions"] = [{"risk": "Possible contact with a cart", "severity": "Low", "confidence": .7,
+            "visible_evidence": "A person approaches a cart.", "time_horizon": "If movement continues",
+            "recommended_review": "Review the original footage."}]
     result = invoke(VISION, seed(), "vision-invalid")
     state = h.store.read(result["next"])["data"]
     assert state["frames_seen"] == 0 and state["last_error"]

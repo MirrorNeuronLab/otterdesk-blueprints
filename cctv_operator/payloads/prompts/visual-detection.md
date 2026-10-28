@@ -59,6 +59,14 @@ Keep private reasoning out of the final JSON.
 
 `summary` and `scene_understanding` must be plain-language strings, not lists or
 objects. Put the observable activity and temporal changes in scene_understanding.
+`uncertainties` must always be a JSON array of strings, even for one limitation:
+use ["The person's hands are occluded."] rather than a bare string. Use [] when
+there are no additional limitations to report. `risk_predictions`, `detections`,
+`helmet_observations` and `site_findings` must also always be arrays. Risk severity
+must be exactly one of the lowercase strings "low", "medium" or "high".
+Each detection's label/category is at most 80 characters, color at most 60,
+and position/activity at most 160 each. Keep the detailed scene account only in
+scene_understanding. Do not repeat sentences within a field or across fields.
 Do not repeat the scene in legacy fields such as detection_report,
 activity_description, visible_subjects, detected_types or appearance_notes; the
 report adapter supplies those fields from this compact account.
