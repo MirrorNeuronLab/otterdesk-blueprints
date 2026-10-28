@@ -12,7 +12,7 @@
       "available": true,
       "title": "Simulation: GPU workstation quotes",
       "description": "Compare three fictional suppliers and their 36-month known costs entirely offline. This sample prepares a review packet; communication and ordering are not performed.",
-      "expected_output": "A simulated quote comparison showing Cedar's lower known 36-month cost, required reviews, and Delta's no-response outcome.",
+      "expected_output": "After the offline sample completes, a simulated comparison showing Cedar’s lower known cost over 36 months, the required reviews and Delta’s missing quote.",
       "values": {
         "inputs.payload.item_description": "Compare five GPU workstations from three fictional suppliers for sensitive internal datasets.",
         "inputs.payload.input_folder": "@/examples/procurement_case"
@@ -88,6 +88,7 @@
         "default": [],
         "description": "Manage explicit preferences and working rules in Chat > Memory. Applies to future runs."
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

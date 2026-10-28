@@ -165,7 +165,7 @@
       "available": true,
       "title": "Computational discovery sample",
       "description": "Use synthetic seed inputs for one computational cycle; the bundled default target is BACE1. Normal scientific preparation and hardware are still required.",
-      "expected_output": "Five distinct candidates with computational evaluations, ranking evidence and scientific limitations, not experimentally validated treatments.",
+      "expected_output": "After one cycle completes, a ranked candidate report with target identity, scoring evidence, stage coverage and the validation still needed.",
       "values": {
         "inputs.payload.disease_or_target_profile": "Alzheimer disease BACE1 modulation",
         "inputs.payload.input_folder": "@/examples/sample_inputs",
@@ -207,6 +207,7 @@
         "path_kind": "directory",
         "default": "~/Downloads/drug-discovery-research-assistant"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

@@ -50,12 +50,12 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll turn the files you choose into a summary, or another deliverable you describe. Try the synthetic sample, or choose your own read-only input folder, separate output folder and instructions. Review the selected folders before starting; Downloads contains your files.",
+    "introduction": "I'll turn your chosen files into a summary or another deliverable you describe. Try the synthetic sample, or choose your own files and instructions; I'll read the input and save new work in a separate output folder. Review the selected folders before starting.",
     "sample": {
       "available": true,
       "title": "File summary sample",
       "description": "Summarize synthetic Java and Markdown files without supplying your own documents. Normal model preparation still applies.",
-      "expected_output": "With the default summary instructions, a saved answer and deliverables/summary.md, with actual checks and anything unfinished.",
+      "expected_output": "With the default instructions, expect summary.md and a saved explanation of checks and unfinished work after the sample run completes.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs"
       }
@@ -77,6 +77,7 @@
         "role": "input",
         "default": "~/Downloads"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

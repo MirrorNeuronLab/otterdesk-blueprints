@@ -37,7 +37,8 @@
         "default": [],
         "description": "Managed in Memory. Changes Chat wording only; domain work and approvals keep their existing controls."
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   },
   "starter_questions": [
     "What will I learn from an architecture review?",

@@ -102,6 +102,7 @@
         "default": [],
         "description": "Managed in Memory. Changes Chat wording only; domain work and approvals keep their existing controls."
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

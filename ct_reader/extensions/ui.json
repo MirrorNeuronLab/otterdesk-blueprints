@@ -52,7 +52,8 @@
         "default": [],
         "description": "Manage explanation preferences in Chat > Memory. Scan inputs and research questions use setup controls."
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   },
   "starter_questions": [
     "What CT file and anatomy choice do you need?",

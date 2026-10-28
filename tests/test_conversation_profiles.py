@@ -30,6 +30,10 @@ def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
     # A stage profile alone would leave the generic welcome visible.
     assert 20 < len(entry['setup_guide']['introduction']) <= 2000
     assert entry['setup_guide']['introduction'] == package.extension('mn.ui')['setup_guide']['introduction']
+    prompt_file = entry['setup_guide']['prompt_file']
+    assert prompt_file == '@/payloads/prompts/setup.md'
+    prompt = root / prompt_file.removeprefix('@/')
+    assert prompt.is_file() and 0 < prompt.stat().st_size <= 12000
     if profile['instructionKinds']:
         declaration = package.document('contracts')['inputs']['supervisor_instructions']
         assert declaration['required'] is False and declaration['maxItems'] == 50

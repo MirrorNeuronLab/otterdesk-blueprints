@@ -447,3 +447,8 @@ sample fixtures execute compiled worker bindings; they do not replace Core's
 scheduler or establish live model, CUDA, camera or robot qualification.
 
 Stage-aware OtterDesk conversation guidance and each blueprint's saved-instruction boundary are documented in [conversation experience](docs/conversation-experience.md). These assets extend the app and packages using the existing runtime contracts.
+
+The opt-in [conversation experience E2E suite](tests/e2e/README.md) exercises every
+published blueprint through the desktop GUI with real CPU conversation replies
+and synthetic workflow inputs. Its [experience review](docs/conversation-e2e-review.md)
+distinguishes completed journeys, observed defects and missing evidence.

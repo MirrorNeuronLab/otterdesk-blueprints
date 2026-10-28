@@ -11,7 +11,7 @@
       "available": true,
       "title": "EMC-2 investigation sample",
       "description": "Download the pinned public EMC-2 repository from GitHub and analyze its synthetic documents.",
-      "expected_output": "A local interactive investigation with cited findings, counterevidence, relationship paths and a human-review audit.",
+      "expected_output": "After the sample investigation completes, a local interactive draft with cited findings, counterevidence, relationship paths and an audit for human review.",
       "values": {
         "inputs.payload.input_folder": "",
         "review.profile": "first_pass"
@@ -81,7 +81,8 @@
         "default": [],
         "description": "Managed in Memory. Changes Chat wording only; domain work and approvals keep their existing controls."
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   },
   "starter_questions": [
     "Can I try the public synthetic EMC-2 case?",

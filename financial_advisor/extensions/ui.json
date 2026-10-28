@@ -21,12 +21,12 @@
   },
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll organize financial records into a draft review of cash flow, tax paperwork and portfolio risks, with sources and questions for your advisor. The bundled household packet is synthetic; your own review needs approved records and customer settings configured together. You'll get review materials with gaps, not a tax filing or financial transaction.",
+    "introduction": "I'll review cash flow, tax paperwork and portfolio risks, with sources and questions for your advisor. Try the synthetic household sample, or choose your approved documents. You'll get a draft review; I don't file taxes or move money.",
     "sample": {
       "available": true,
       "title": "Synthetic household review",
       "description": "Review sample cash-flow records, tax paperwork and fixture-priced holdings. These are demonstration records, not your finances.",
-      "expected_output": "A draft financial review with limited statement coverage, tax-capture gaps, stale-price qualifications and questions for an advisor.",
+      "expected_output": "After the sample review completes, a draft household review with supporting records, missing or outdated data and questions for your advisor.",
       "values": {
         "document_sources.folder_path": "@/examples/sample_inputs",
         "outputs.folder_path": "~/Downloads/financial-advisor"
@@ -58,6 +58,7 @@
         "path_kind": "directory",
         "default": "~/Downloads/financial-advisor"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

@@ -16,7 +16,7 @@
       "available": true,
       "title": "Warehouse robot simulation",
       "description": "Start the included TurtleBot warehouse world with its default headless settings. A compatible NVIDIA Docker Compose node is required.",
-      "expected_output": "A live warehouse dashboard and chat controls for Zones A, B, and C, robot status, and stop.",
+      "expected_output": "Once the warehouse simulation is ready, a live dashboard and Chat controls for Zones A, B and C, current status and Stop.",
       "values": {
         "inputs.payload.scenario": "warehouse"
       }
@@ -38,7 +38,8 @@
           }
         ]
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   },
   "web_ui": {
     "enabled": true,

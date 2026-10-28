@@ -45,6 +45,7 @@
         "path_kind": "directory",
         "default": "~/Downloads/mac-security-investigator"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

@@ -55,7 +55,7 @@
       "available": true,
       "title": "Microduck simulation",
       "description": "Open the included browser simulator and become its ready control tab. No physical robot or personal dataset is needed, and motion still requires your request.",
-      "expected_output": "A live simulator, current status and observed receipts for commands you explicitly request; the service stays active until stopped.",
+      "expected_output": "Once the simulator view is ready, live status and observed receipts for commands you explicitly request. The simulation stays active until stopped.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs",
         "outputs.folder_path": "~/Downloads/microduck-controller"
@@ -87,6 +87,7 @@
         "path_kind": "directory",
         "default": "~/Downloads/microduck-controller"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

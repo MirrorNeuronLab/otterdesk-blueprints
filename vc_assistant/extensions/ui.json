@@ -26,7 +26,7 @@
       "available": true,
       "title": "Synthetic startup screening",
       "description": "Review bundled synthetic startup packets with the normal screening workflow. Public research may be incomplete; sample companies are not real opportunities.",
-      "expected_output": "Per-company screening reports with seven-method explanations, sources, warnings and unanswered diligence questions.",
+      "expected_output": "After sample screening completes, company reports with explanations of the seven methods, dated sources, warnings and open diligence questions.",
       "values": {
         "document_sources.folder_path": "@/examples/sample_inputs",
         "outputs.folder_path": "~/Downloads/vc-assistant"
@@ -58,6 +58,7 @@
         "path_kind": "directory",
         "default": "~/Downloads/vc-assistant"
       }
-    ]
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

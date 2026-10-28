@@ -898,7 +898,9 @@ def test_source_manifest_compiles_to_one_service_and_one_finalizer_with_bounded_
         if node.get("config", {}).get("runner_module") == "MirrorNeuron.Runner.DockerWorker":
             uploads = node["config"]["upload_paths"]
             assert {"source": "prompts", "target": "prompts"} in uploads
-            assert sorted(path.name for path in (PAYLOADS / "prompts").iterdir()) == ["conversation.json"]
+            assert sorted(path.name for path in (PAYLOADS / "prompts").iterdir()) == [
+                "conversation.json", "setup.md",
+            ]
     assert "resources" not in service_worker["config"]
     registrar = next(
         node
