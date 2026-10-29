@@ -274,7 +274,7 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
                    if node.get("node_id") == "cctv_operator_mcp")["config"]
     assert control["command"] == ["python3.12", "cctv_operator_mcp.py"]
     packages = control["python_environment"]["packages"]
-    assert any(Path(package).name == "mn-python-sdk" or
+    assert any(Path(package.split("[", 1)[0]).name == "mn-python-sdk" or
                package.startswith("mirrorneuron-python-sdk") for package in packages)
 
 

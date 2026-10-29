@@ -1633,9 +1633,8 @@ def test_cctv_operator_uses_dockerworker_nvidia_media_worker():
     mcp_node = nodes["cctv_operator_mcp"]
     assert mcp_node["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert mcp_node["config"]["command"] == [
-        "sh",
-        "-lc",
-        "exec python3.12 cctv_operator_mcp.py",
+        "python3.12",
+        "cctv_operator_mcp.py",
     ]
     assert mcp_node["config"]["upload_path"] == "services"
     assert "python_environment" not in mcp_node["config"]
