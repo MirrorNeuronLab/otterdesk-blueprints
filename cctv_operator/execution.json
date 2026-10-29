@@ -332,9 +332,8 @@
         "alias": "cctv_operator_mcp",
         "config": {
           "command": [
-            "sh",
-            "-lc",
-            "exec python3.12 cctv_operator_mcp.py"
+            "python3.12",
+            "cctv_operator_mcp.py"
           ],
           "environment": {},
           "from": "base",

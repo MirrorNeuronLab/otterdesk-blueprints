@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.4 specification
+# CCTV Operator 5.3.5 specification
 
 ## Purpose and scope
 
@@ -63,6 +63,11 @@ policy or a currently visible head. Missing visual evidence makes a later result
 uncertain; it does not prevent setting the prompt. Clarify only an unspecified
 subject or condition. Retrospective questions remain history reads. Confirm the
 applied instruction revision separately from its next analyzed frame.
+
+The control sidecar must launch Python directly so SDK submission preparation
+recognizes it as a Python HostLocal worker and installs the declared dependencies
+in its managed environment. Its run-input client must not depend on packages
+incidentally installed in Core's base interpreter.
 
 There is no default stream URL or live sample. Each new hire requires the
 supervisor to supply an approved stream URL through the secure setup field;

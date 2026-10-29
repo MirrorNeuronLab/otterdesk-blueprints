@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.4 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.5 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -319,6 +319,9 @@ prompt revision, separately from the next analyzed sample.
 
 Version 5.3.4 revises the blueprint tool description used by the desktop's existing
 interpreter and removes the visual prompt's blanket missing-helmet interpretation.
+Version 5.3.5 launches the Python control sidecar directly, allowing normal SDK
+preparation to install its declared run-input client dependency. A shell wrapper
+previously hid Python from preparation and left steering unable to import it.
 An already prepared Job retains its installed contract until reprepared from this
 revision. No desktop, SDK, runtime, detector or model code changes are required.
 

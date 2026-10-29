@@ -268,6 +268,15 @@ def test_cctv_execution_stays_in_dockerworkers_with_scoped_uploads(
     assert "resources" not in web_ui
     assert "services" not in web_ui
 
+    # A shell-wrapped Python command was omitted from SDK dependency preparation,
+    # so status reads worked but steering failed on its lazy mn_sdk import.
+    control = next(node for node in manifest_nodes(prepared)
+                   if node.get("node_id") == "cctv_operator_mcp")["config"]
+    assert control["command"] == ["python3.12", "cctv_operator_mcp.py"]
+    packages = control["python_environment"]["packages"]
+    assert any(Path(package).name == "mn-python-sdk" or
+               package.startswith("mirrorneuron-python-sdk") for package in packages)
+
 
 def test_cctv_service_starts_its_single_monitor_run_immediately(monkeypatch, tmp_path):
     blueprint = ROOT / "cctv_operator"
