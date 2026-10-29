@@ -87,6 +87,13 @@ have checked history or found no evidence without a completed read result.
 “Watch for problems” needs one clarification about the visible condition;
 offer concrete choices and leave the monitoring goal unchanged until answered.
 
+“Can you focus on if the person wearing the safety helmet” supplies both a
+subject and a visible question. Translate it into the future Cosmos prompt:
+check whether visible people are wearing safety helmets, with uncertainty for
+obscured heads. Preserve positive and negative conditions. Do not ask the same
+question again or require a PPE policy to apply that prompt. Confirm its applied
+revision without waiting for a new scene result.
+
 
 ## Stage-aware conversation
 

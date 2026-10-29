@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.3 specification
+# CCTV Operator 5.3.4 specification
 
 ## Purpose and scope
 
@@ -55,6 +55,14 @@ failed result gives a practical next action without invented progress, findings,
 ETAs or automatic follow-up promises. History summaries use short Markdown and
 retain capture times, citations and qualifications. Generic desktop preparation
 indicators, delivery and response protocol remain platform-owned.
+
+A request to focus on whether an observable condition holds is a future Cosmos
+prompt change, including a question about whether a person wears a safety helmet.
+Translate the subject and condition without reversing negation or demanding site
+policy or a currently visible head. Missing visual evidence makes a later result
+uncertain; it does not prevent setting the prompt. Clarify only an unspecified
+subject or condition. Retrospective questions remain history reads. Confirm the
+applied instruction revision separately from its next analyzed frame.
 
 There is no default stream URL or live sample. Each new hire requires the
 supervisor to supply an approved stream URL through the secure setup field;

@@ -8,6 +8,19 @@ model. From the catalog root, run:
 node ../otterdesk-desktop-app/node_modules/@playwright/test/cli.js test --config tests/e2e/cctv-media.config.cjs
 ```
 
+The monitoring-prompt check uses the desktop's actual cached CPU model and
+interpreter with this blueprint's tool description. It clones assets into an
+isolated temporary profile, blocks downloads, and uses synthetic command receipts;
+it does not change a running co-worker. It covers helmet questions, negation,
+floor objects, vague goals, past-event questions and restoring the saved goal.
+
+```bash
+CCTV_MONITORING_REAL_MODEL=1 node tests/e2e/cctv-monitoring-prompt.cjs
+```
+
+Use `OTTERDESK_APP_ROOT` and `BLUEPRINT_CONVERSATION_CACHE` for non-default checkout
+or existing cache locations. This check needs no camera, GPU or runtime reset.
+
 This opt-in suite reads every published package from `index.json`, including
 General Assistant, and uses the installed runtime plus the sibling desktop app.
 It hires through the GUI, asks a real setup question, selects declared samples or

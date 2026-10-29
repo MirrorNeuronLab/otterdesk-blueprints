@@ -519,7 +519,12 @@ def test_floor_focus_replaces_default_targets_in_model_request(monkeypatch, tmp_
     assert "A visible person is not wearing a helmet." in prompts[0]
 
 
-def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_path):
+@pytest.mark.parametrize("question", [
+    "can you focus on if the person wearing the safety helmet",
+    "Please focus on people who are not wearing safety helmets.",
+    "can you focus on find foreign object on the floor?",
+])
+def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_path, question):
     from mn_sdk_common.response_service import normalize_response_service
     from mn_sdk_job_response.agent_planner import AgentPlanner
     from mn_sdk_job_response.agent_memory import AgentMemory
@@ -533,11 +538,10 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
     memory = AgentMemory(declaration=declaration, store=store,
                          job_data_dir=tmp_path, rag_refresh=lambda: None)
     planner = AgentPlanner(declaration=declaration, store=store, memory=memory)
-    question = "can you focus on find foreign object on the floor?"
     prompt = json.loads(planner.user_prompt(question, {}, [], ""))
     tools = prompt["allowed_user_tools"]
-    assert question in tools["set_monitoring_instruction"]["description"]
-    assert "change the goal to watch the corridor" in tools["set_monitoring_instruction"]["description"]
+    authored = json.loads((ROOT / "cctv_operator/extensions/mcp.json").read_text())
+    assert tools["set_monitoring_instruction"]["description"] == authored["tools"]["set_monitoring_instruction"]["description"]
     assert declaration["activity"]["tool"] == "watch_job_activity"
     assert "watch_job_activity" not in tools
     assert 'Never use "latest"' in tools["get_operator_activity"]["description"]
@@ -549,3 +553,23 @@ def test_chat_planner_receives_steering_semantics_from_normalized_contract(tmp_p
     }, question)
     assert plan["arguments"]["instruction"] == question
     assert plan["arguments"]["command_id"]
+
+
+@pytest.mark.parametrize("instruction,status", [
+    ("Check whether the visible person is wearing a safety helmet.", "worn"),
+    ("Check whether the visible person is not wearing a safety helmet.", "not_worn"),
+])
+def test_conversation_goal_reaches_the_native_cosmos_prompt_without_inversion(
+    monkeypatch, tmp_path, capsys, instruction, status,
+):
+    output, prompts = _run_detector(_load_detector(), monkeypatch, tmp_path, capsys,
+        payload={"instruction": instruction, "instruction_revision": 2, "command_id": "helmet-goal"},
+        detection={"detected_target": True, "confidence": .9, "summary": "Requested helmet condition observed.",
+            "helmet_observations": [{"helmet_status": status, "head_visible": True,
+                "evidence_frame": 1, "visible_evidence": "The head and its helmet status are visible."}]})
+    observed = output["next_state"]["last_observation"]
+    assert observed["monitoring_goal"] == instruction
+    assert observed["instruction_revision"] == 2
+    assert observed["detected_target"] is True
+    assert f"Operator attention request: {instruction}" in prompts[0]
+    assert "A helmet-only goal with no clear uncovered head" not in prompts[0]

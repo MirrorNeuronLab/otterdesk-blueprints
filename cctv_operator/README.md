@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.3 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.4 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -306,6 +306,21 @@ a question does not start the monitor. Install the declared shared packages
 before running this blueprint revision.
 
 ## Outputs and operations
+
+### Change the Cosmos focus in Chat
+
+Ask for a visible subject or condition, including a question such as “can you
+focus on if the person wearing the safety helmet”. This changes the prompt for
+future Cosmos samples; it does not require a PPE policy or a visible head before
+the prompt can be applied. Positive and negative conditions remain distinct.
+Only an unspecified goal such as “watch for problems” needs clarification.
+Past-event questions leave the goal unchanged. An applied receipt confirms the
+prompt revision, separately from the next analyzed sample.
+
+Version 5.3.4 revises the blueprint tool description used by the desktop's existing
+interpreter and removes the visual prompt's blanket missing-helmet interpretation.
+An already prepared Job retains its installed contract until reprepared from this
+revision. No desktop, SDK, runtime, detector or model code changes are required.
 
 The read-only job-scoped Web UI leads with live MJPEG, followed by compact
 People, Scene analysis and Monitoring status rows in 11–12px system type.

@@ -35,6 +35,16 @@ clearly uncovered heads. Do not submit a goal change until the supervisor
 specifies a usable condition. “Watch the corridor for obstructions” is specific
 enough to use directly. Report accepted, applied and analyzed separately.
 
+“Can you focus on if the person wearing the safety helmet” is already a usable
+future monitoring request. Set a Cosmos prompt to check whether visible people
+are wearing safety helmets and report uncertainty when heads are obscured. The
+request need not use command grammar or specify PPE policy. Preserve “wearing”
+versus “not wearing”; do not silently turn a positive question into a missing-helmet
+goal. Head visibility is checked by Cosmos on the next sample, not by asking the
+supervisor before applying the prompt. A question about earlier footage remains
+a history read. This changes only the ongoing prompt, not the camera, detector,
+model, safety rules or an earlier observation.
+
 Choose a factory or hotel profile for approved common-area cameras, or provide
 an explicit visible goal for a custom profile. Factory is the default; a blank
 goal uses the selected facility rules.
