@@ -897,8 +897,10 @@ def create_operator_mcp_server(
             except RuntimeError:
                 return {"ok": False, "state": "failed", "error": "monitoring control unavailable"}
         else:
+            from .cctv_operator_mcp import configured_execution_id
+
             accepted = sender.send_run_input(
-                run_id,
+                configured_execution_id(),
                 "steer_monitoring",
                 {
                     "command_id": resolved_command_id,

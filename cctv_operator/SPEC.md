@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.5 specification
+# CCTV Operator 5.3.6 specification
 
 ## Purpose and scope
 
@@ -68,6 +68,9 @@ The control sidecar must launch Python directly so SDK submission preparation
 recognizes it as a Python HostLocal worker and installs the declared dependencies
 in its managed environment. Its run-input client must not depend on packages
 incidentally installed in Core's base interpreter.
+Live input commands address the public execution ID in MN_RUN_ID. The private
+endpoint and output directory use MN_WORKFLOW_RUN_ID. These identities must
+remain distinct after resume; a missing execution identity rejects steering.
 
 There is no default stream URL or live sample. Each new hire requires the
 supervisor to supply an approved stream URL through the secure setup field;

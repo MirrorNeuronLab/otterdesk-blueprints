@@ -126,7 +126,9 @@ def test_mcp_relay_requires_token_and_forwards_to_loopback(monkeypatch, upstream
         thread.join(timeout=2)
 
 
-def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Path):
+def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("MN_RUN_ID", "execution-1")
+    monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "physical-run-2")
     command_id = "11111111-1111-4111-8111-111111111111"
     command = {"command_id": command_id, "instruction": "Find road obstructions.",
                "clear": False, "analyze_now": True}
@@ -154,7 +156,7 @@ def test_monitoring_command_uses_authenticated_host_control_bridge(tmp_path: Pat
             )
         assert error.value.code == 403
         assert cctv_operator_mcp.send_monitoring_input(tmp_path, command) == {"status": "accepted"}
-        assert calls == [("run-1", command)]
+        assert calls == [("execution-1", command)]
     finally:
         server.shutdown()
         server.server_close()
@@ -414,7 +416,8 @@ def test_quiet_and_unrelated_activity_never_publish_chat_updates(tmp_path, obser
     assert published == []
 
 
-def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
+def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("MN_RUN_ID", "execution-1")
     (tmp_path / "cctv_report.json").write_text(
         json.dumps(
             {
@@ -444,7 +447,7 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path):
     )
     class FakeRuntime:
         def send_run_input(self, run_id, input_id, payload, *, idempotency_key):
-            assert (run_id, input_id) == ("run-1", "steer_monitoring")
+            assert (run_id, input_id) == ("execution-1", "steer_monitoring")
             assert payload == {
                 "command_id": idempotency_key,
                 "instruction": "Find foreign objects on the floor.",
@@ -672,6 +675,10 @@ def test_mcp_sidecar_uses_physical_workflow_run_not_submission_label(monkeypatch
     monkeypatch.setenv("MN_WORKFLOW_RUN_ID", "physical-run")
     assert cctv_operator_mcp.configured_run_dir() == tmp_path / "physical-run"
     assert cctv_operator_mcp.configured_run_id() == "physical-run"
+    assert cctv_operator_mcp.configured_execution_id() == "submission-label"
+    monkeypatch.delenv("MN_RUN_ID")
+    with pytest.raises(RuntimeError, match="execution identity"):
+        cctv_operator_mcp.configured_execution_id()
 
 
 def test_mcp_service_uses_one_runtime_allocated_port(monkeypatch, tmp_path):

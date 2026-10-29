@@ -29,9 +29,18 @@ _PRIVATE_UPSTREAM_HOSTS = {"host.docker.internal", "127.0.0.1", "localhost", "::
 
 
 def configured_run_id() -> str:
-    # Core assigns the physical workflow identity after submission. The label
-    # frozen in MN_RUN_ID can describe a different run, including on resume.
+    # Private endpoints and artifacts belong to the physical workflow, which
+    # can change when the public execution resumes.
     return str(os.environ.get("MN_WORKFLOW_RUN_ID") or os.environ.get("MN_RUN_ID") or "").strip()
+
+
+def configured_execution_id() -> str:
+    # SendRunInput resolves Core's public execution record, not its physical
+    # workflow/artifact identity. Never infer it from MN_WORKFLOW_RUN_ID.
+    execution_id = str(os.environ.get("MN_RUN_ID") or "").strip()
+    if not execution_id:
+        raise RuntimeError("CCTV monitoring control requires its execution identity")
+    return execution_id
 
 
 def configured_run_dir() -> Path:
@@ -171,13 +180,14 @@ def create_mcp_proxy(
     control_token = str(endpoint.get("token") or "")
 
     def send_run_input(command: dict[str, Any]) -> dict[str, Any]:
+        execution_id = configured_execution_id()
         if run_input_sender is not None:
-            return run_input_sender(str(endpoint.get("run_id") or ""), command)
+            return run_input_sender(execution_id, command)
         from mn_sdk import RuntimeConfig, RuntimeService, build_runtime_client
 
         sender = RuntimeService(build_runtime_client(RuntimeConfig.from_env()))
         return sender.send_run_input(
-            str(endpoint["run_id"]), "steer_monitoring", command,
+            execution_id, "steer_monitoring", command,
             idempotency_key=command["command_id"],
         )
 
