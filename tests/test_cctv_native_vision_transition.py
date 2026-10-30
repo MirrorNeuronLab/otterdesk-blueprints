@@ -48,11 +48,11 @@ def native(tmp_path, monkeypatch):
         return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(account)}}]}
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", client)
     options = {**SCOPE, "config": CONFIG, "environment": environment}
-    def seed(name="one", sequence=1):
+    def seed(name="one", sequence=1, instruction="", revision=0):
         selected = [{"timestamp": 100.0 + sequence, "content": b"\xff\xd8synthetic frame\xff\xd9"}]
         path, batch = write_frame_batch(h.store.run_dir, batch_id="caption-" + name, trigger="person_gate",
             source={"mode": "stream", "uri": "rtsp://camera.example/live", "name": "camera"},
-            instruction_revision=0, candidates=selected, selected=selected, schema="otterdesk.cctv_operator.frame_batch.v2",
+            instruction=instruction, instruction_revision=revision, candidates=selected, selected=selected, schema="otterdesk.cctv_operator.frame_batch.v2",
             metadata={"camera_id": "camera", "command_id": "", "candidate_gate": {"detector": "RF-DETR", "condition": "person", "confirmed": True}})
         message = {key: batch[key] for key in ("batch_id", "trigger", "instruction", "instruction_revision", "camera_id", "command_id", "candidate_count", "selected_count")}
         message.update(frame_batch_ref=path.relative_to(h.store.run_dir).as_posix(), tick_seq=sequence)
@@ -128,6 +128,26 @@ def test_unknown_model_outcome_keeps_caption_admission_stalled(native, monkeypat
     assert len(calls) == 1
     assert not (h.store.run_dir / "caption_completions").exists()
     assert not list(h.store.run_dir.glob("blocks/*/event-state.json"))
+
+
+@pytest.mark.parametrize("goal,matched", [
+    ("Detect a red cart", True), ("Watch for a wet floor", False),
+    ("Detect when the door is NOT closed", True), ("Watch for a person beside the forklift", False),
+])
+def test_native_arbitrary_goal_keeps_its_match_and_frame_provenance(native, goal, matched):
+    h, _vision, _report, seed, invoke, _calls, account = native
+    h.clock.advance(1000)
+    account.update(detected_target=matched,
+        goal_event={"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None)
+    result = invoke(VISION, seed(instruction=goal, revision=2), "goal-vision")
+    state = h.store.read(result["next"])["data"]
+    assert state["last_observation"]["detected_target"] is matched
+    report = invoke(REPORT, result["emissions"][0]["value"], "goal-report")
+    saved = json.loads(h.store.read_bytes(h.store.read(report["next"])["data"]["report"]))
+    observation = saved["observations"][0]
+    assert observation["monitoring_goal"] == goal
+    assert bool(observation["goal_event"]) is matched
+    assert bool(saved["alerts"]) is matched
 
 
 @pytest.mark.parametrize("invalid", ["missing_scene", "string_uncertainties", "uppercase_severity"])

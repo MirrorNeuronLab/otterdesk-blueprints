@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.6 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.8 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -24,13 +24,18 @@ definitions to load this revision; a runtime reset is not required.
 
 ## Factory and hotel setup
 
-Chat introduces the monitoring task, asks for the secure **Video stream URL**,
-and explains camera checks, model preparation and the progress panel before
-startup. The field uses a short label so the saved answer reads
+Chat introduces the monitoring task, confirms the **Facility profile**, then asks
+for the secure **Video stream URL**. It explains camera checks, model preparation
+and the progress panel before startup. The field uses a short label so the saved answer reads
 `Video stream URL: Saved securely`. `extensions/ui.json` binds the setup AI to
 `payloads/prompts/setup.md`; the installed `knowledge/user_manual.md` supplies
 the bounded conversation model's product guidance. Setup drafts never establish
 readiness or authorize a monitoring action.
+
+Both answers are required before launch, including confirmation of the default
+factory profile. Saving the stream URL alone cannot start a run. Review owner,
+alert policy and output location keep their defaults; an external stream does
+not require a demo file. Version 5.3.8 adds this setup gate in the blueprint.
 
 Status replies separate camera connection, person detection and scene analysis,
 with the observed stage and a useful next action. Goal-change receipts explain
@@ -345,6 +350,18 @@ not unique-person counts or verified facility-rule notices.
 It makes no browser steering requests and never exposes camera URLs/credentials.
 Detailed activity survives in saved history, latest-status replies and confirmed
 goal notices, including their capture time and recording qualification.
+
+Version 5.3.7 finalizes Chat activity records and publishes them through the
+existing SDK watch. It reports the first completed sample after each goal change,
+including a qualified no-match result, and new medium/high risk forecasts with
+model score at least 0.55 and valid selected-frame evidence. Forecast messages
+remain possible risks, separate from confirmed goal-match notices. Repeated
+forecasts with the same camera, run, goal revision, risk label and severity stay
+quiet; a severity change may report again. Capture and analysis times remain
+separate. The result retains the requested visible condition, sampled evidence
+and uncertainty for any monitoring goal. Corrections to the active focus preserve
+negation; no object-specific goal parser or matcher is added. Reprepare existing
+Jobs and start a new run to load the updated blueprint; no runtime reset is required.
 Blueprint conversation guidance keeps routine long-running progress in this
 workspace and ends a goal-change reply after its applied receipt and current
 analysis readiness. It does not wait for a future scene in that turn. Desktop

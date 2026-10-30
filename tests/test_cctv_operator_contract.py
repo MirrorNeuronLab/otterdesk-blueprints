@@ -109,12 +109,25 @@ def test_cctv_requires_a_secure_stream_answer_without_a_default_or_sample():
     guide = metadata["setup_guide"]
     assert guide["sample"]["available"] is False
     for fields in (guide["fields"], metadata["init_config_review"]["fields"]):
+        profile = next(field for field in fields if field["path"] == "site.profile")
+        assert profile["required"] is True
+        assert profile["default"] == "factory"
+        assert {choice["value"] for choice in profile["choices"]} == {"factory", "hotel", "custom"}
         field = next(field for field in fields if field["path"] == "video_source.uri")
         assert field["required"] is True
         assert field["secret"] is True
         assert field["type"] == "password"
         assert not field.get("default")
         assert not field.get("active_when_any")
+
+    # Live-camera setup must confirm the mission before it can submit a run.
+    # Defaults for secondary settings do not create extra required questions.
+    assert [field["path"] for field in guide["fields"]
+            if field.get("required") and not field.get("active_when_any")] == [
+        "site.profile", "video_source.uri",
+    ]
+    demo = next(field for field in guide["fields"] if field["path"] == "video_source.demo_file")
+    assert demo["active_when_any"] == [{"key": "video_source.profile", "equals": "bundled_demo"}]
 
 
 def test_cctv_uses_the_supplied_stream_and_redacts_its_credentials(monkeypatch):

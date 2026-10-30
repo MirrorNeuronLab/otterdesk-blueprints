@@ -68,7 +68,7 @@ def test_catalog_blueprints_declare_job_response_service():
         assert entry["response_service"]["enabled"] == manifest["response_service"]["enabled"], blueprint_id
         assert entry["mcp"]["profile"] == manifest["mcp"]["profile"] == "mn.mcp.supervision.v1", blueprint_id
         assert manifest["response_service"]["enabled"] is True, blueprint_id
-        if blueprint_id in {"microduck_controller", "ros_amr_controller", "cctv_operator"}:
+        if blueprint_id in {"ros_amr_controller", "cctv_operator"}:
             assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"
         else:
             assert manifest["response_service"] == {"enabled": True}, blueprint_id
@@ -144,10 +144,10 @@ def test_catalog_categories_use_five_supervisory_groups():
         {"name": "Other", "slug": "other"},
     ]
     expected = {
-        "Business": {"financial_advisor", "vc_assistant", "litigation_analyst", "procurement_manager", "gtm_planner", "gtm_executor"},
+        "Business": {"vc_assistant", "litigation_analyst", "procurement_manager", "gtm_planner", "gtm_executor"},
         "Research": {"research_assistant", "drug_discovery_research_assistant"},
         "Engineering": {"software_architecture_advisor", "mac_security_investigator"},
-        "Physical AI": {"cctv_operator", "microduck_controller", "ros_amr_controller"},
+        "Physical AI": {"cctv_operator", "ros_amr_controller"},
     }
     allowed = {item["name"] for item in categories}
     for entry in read_catalog(root / "index.json"):

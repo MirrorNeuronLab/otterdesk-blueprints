@@ -11,7 +11,6 @@ from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 
 @pytest.mark.parametrize("blueprint,report_name", [
-    ("financial_advisor", "financial_advisor_report.md"),
     ("software_architecture_advisor", "reports/report.md"),
 ])
 def test_finished_report_publication_retains_complete_text_and_run_history(
@@ -32,7 +31,7 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
         (root / "raw-input.md").write_text("Not a selected report.")
         context = BlockContext(store=CommittedJsonStore(root), invocation_id=f"publication-{number}",
             revision="conversation-test", run_id=f"run/../{number}")
-        options = {"output_folder": output} if blueprint == "software_architecture_advisor" else {}
+        options = {"output_folder": output}
         records = publisher.publish_outputs(context, **options)
         assert len(records) == 1
         record = records[0]
@@ -51,7 +50,6 @@ def test_finished_report_publication_retains_complete_text_and_run_history(
 
 
 @pytest.mark.parametrize("blueprint,report_name", [
-    ("financial_advisor", "financial_advisor_report.md"),
     ("software_architecture_advisor", "reports/report.md"),
 ])
 @pytest.mark.parametrize("unsafe", ["missing", "symlink"])
@@ -70,7 +68,7 @@ def test_missing_or_linked_reports_never_create_a_queryable_source(
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(output))
     context = BlockContext(store=CommittedJsonStore(root), invocation_id="publication",
         revision="conversation-test", run_id="run")
-    options = {"output_folder": output} if blueprint == "software_architecture_advisor" else {}
+    options = {"output_folder": output}
     with pytest.raises(ValueError, match="complete"):
         publisher.publish_outputs(context, **options)
     assert not output.exists()

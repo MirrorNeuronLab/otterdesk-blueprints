@@ -6,6 +6,7 @@ import time
 from typing import Any, Mapping
 
 from .detection_policy import DEFAULT_MONITORING_GOAL
+from .conversation_findings import conversation_findings
 
 
 def _mapping(value: Any) -> Mapping[str, Any]:
@@ -305,6 +306,7 @@ def operator_state(
         f"{float(confidence):.0%}" if confidence is not None else "waiting"
     )
     return {
+        "conversation_findings": conversation_findings(observations, monitoring, run_id),
         "metrics": {
             "status": status,
             "run": run_id,

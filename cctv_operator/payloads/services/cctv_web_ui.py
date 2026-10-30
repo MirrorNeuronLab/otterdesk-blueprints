@@ -399,20 +399,23 @@ class CCTVWebUIService:
             return []
         projected = dict(state or self.ui_state())
         events = projected.get("events") if isinstance(projected.get("events"), list) else []
+        findings = projected.get("conversation_findings") or []
         published = []
-        for event in reversed(events):
+        for event in [*reversed(events), *findings]:
             if not isinstance(event, Mapping):
                 continue
             title = " ".join(str(event.get("type") or "Activity observed").split())[:240]
-            if title != "Operator notice":
+            if title not in {"Operator notice", "Monitoring result", "Possible risk"}:
                 continue
-            message = " ".join(str(event.get("summary") or "").split())[:8_000]
+            message = str(event.get("summary") or "").strip()[:8_000]
             occurred_at = " ".join(str(event.get("timestamp") or "").split())[:80]
             if not message:
                 continue
-            digest = hashlib.sha256(
+            digest = event.get("event_id") or hashlib.sha256(
                 f"{self.run_id}\0{title}\0{occurred_at}\0{message}".encode()
             ).hexdigest()[:32]
+            if self._activity_store.get_record("result", digest, include_staged=False):
+                continue
             activity = {
                 "schema_version": "mn.mcp.job_activity.v1",
                 "event_id": digest,
@@ -420,7 +423,7 @@ class CCTVWebUIService:
                 "message": message,
                 "occurred_at": occurred_at,
                 "source": "cctv_operator",
-                "requires_review": title in {"Operator notice", "Target observed"},
+                "requires_review": title in {"Operator notice", "Possible risk"},
                 **({"image": event["image"]} if isinstance(event.get("image"), Mapping) else {}),
                 **({"notice_id": event["notice_id"]} if event.get("notice_id") else {}),
                 **({"details": event["details"]} if event.get("details") else {}),
@@ -431,7 +434,8 @@ class CCTVWebUIService:
                     activity,
                     stage="live_activity",
                     summary=f"{title}: {message}"[:2_000],
-                    idempotency_key=f"cctv-activity:{digest}",
+                    publication_state="final",
+                    idempotency_key=f"cctv-activity:{digest}:final",
                 )
             )
         return published
@@ -782,7 +786,7 @@ def create_operator_mcp_server(
             cursor = max(int(after_revision or 0), 0)
         except (TypeError, ValueError) as error:
             raise ValueError("after_revision must be a non-negative integer") from error
-        result = store.updates(after_revision=cursor, kinds=["result"], limit=20)
+        result = store.updates(after_revision=cursor, kinds=["result"], include_staged=False, limit=20)
         # Tool-planning history carries captions; evidence previews travel with
         # the single-event watch and never accumulate in a large tool response.
         for update in result["updates"]:
@@ -821,11 +825,11 @@ def create_operator_mcp_server(
         cursor = str(after_event_id or "")[:256]
         while True:
             service.ui_state()
-            previous = store.get_record("result", cursor) if cursor else None
+            previous = store.get_record("result", cursor, include_staged=False) if cursor else None
             if previous:
-                updates = store.updates(after_revision=previous["revision"], kinds=["result"], limit=1)["updates"]
+                updates = store.updates(after_revision=previous["revision"], kinds=["result"], include_staged=False, limit=1)["updates"]
             else:
-                latest = store.latest_record("result")
+                latest = store.latest_record("result", include_staged=False)
                 updates = [latest] if latest else []
             activity = updates[0]["payload"] if updates else None
             if activity is not None:
@@ -943,11 +947,11 @@ def create_operator_mcp_server(
         state = str((record or {}).get("payload", {}).get("status") or "unknown")
         if monitoring.get("command_id") == resolved_command_id:
             state = "completed"
-        detections = read_event_tail(run_dir / "events.jsonl", limit=100)
-        latest_detection = _event_payload(_latest_event(detections, "cctv_operator_detection"))
-        analyzed_revision = int(latest_detection.get("instruction_revision") or 0)
+        observations = read_json_object(run_dir / "cctv_report.json").get("observations") or []
+        latest_observation = observations[-1] if observations else {}
+        analyzed_revision = int(latest_observation.get("instruction_revision") or 0)
         applied_revision = int(monitoring.get("instruction_revision") or 0)
-        analysis_ready = state == "completed" and analyzed_revision >= applied_revision and applied_revision > 0
+        analysis_ready = state == "completed" and analyzed_revision == applied_revision and applied_revision > 0
         record_payload = (record or {}).get("payload") or {}
         metadata = record_payload.get("metadata") or {}
         is_monitoring = ((record or {}).get("stage") == "set_monitoring_instruction"
@@ -957,7 +961,7 @@ def create_operator_mcp_server(
             summary = _load_domain_function("conversation_status", "monitoring_command_summary")(
                 state, clear=metadata.get("clear") is True or not monitoring.get("instruction"),
                 instruction=monitoring.get("instruction") or "", analysis_ready=analysis_ready,
-                finding=latest_detection.get("summary"))
+                finding=latest_observation.get("scene_understanding") or latest_observation.get("summary"))
         return {
             "schema_version": "mn.cctv.command_receipt.v1",
             "command_id": resolved_command_id,
@@ -967,7 +971,7 @@ def create_operator_mcp_server(
                 monitoring.get("instruction_revision") if state == "completed" else None
             ),
             "analysis_ready": analysis_ready,
-            "latest_finding": latest_detection.get("summary") if analysis_ready else None,
+            "latest_finding": (latest_observation.get("scene_understanding") or latest_observation.get("summary")) if analysis_ready else None,
             "summary": summary,
             "record": record,
         }

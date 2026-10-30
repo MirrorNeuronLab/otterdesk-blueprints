@@ -74,8 +74,11 @@ approved MP4; its capture times describe playback, not a live site event.
 Camera connection, person detection and scene analysis have separate health.
 RF-DETR checks sampled frames for people; Cosmos examines selected sequences,
 including periodic scene audits. Neither a running service nor a person count
-establishes that a monitoring-goal match occurred. Quiet and unrelated activity
-stay out of automatic Chat notices.
+establishes that a monitoring-goal match occurred. Routine quiet and unrelated
+activity stay out of automatic Chat notices. After a goal change, one completed
+result reports what was checked even when no match is
+confirmed. New evidenced medium/high risk forecasts are separate possible-risk
+messages; they are not confirmed incidents or PPE-policy violations.
 
 Each newly confirmed person appearance requests a fresh Cosmos sequence after
 the short post-roll, even just after a scene audit. The one-active-request and
@@ -89,6 +92,9 @@ send repeated “Working”, “Preparing” or “Please wait” messages. For 
 goal change, finish the reply after the applied receipt and its current analysis
 readiness; do not hold Chat open by polling for a future scene or waiting on
 `watch_job_activity`. Later confirmed findings follow the existing notice policy.
+The first completed analysis for each applied goal is reported separately from
+the application receipt. Repeated unchanged forecasts stay quiet; a severity
+change can report again.
 Answer follow-ups from verified status or saved observations while monitoring
 continues. A requested history read still needs its completed result and citations.
 

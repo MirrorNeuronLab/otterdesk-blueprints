@@ -118,7 +118,7 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
         for key, value in payloads.items()
         if key.endswith("local-requirements.txt")
     )
-    if blueprint_id in {"vc_assistant", "financial_advisor", "procurement_manager", "research_assistant", "litigation_analyst"}:
+    if blueprint_id in {"vc_assistant", "procurement_manager", "research_assistant", "litigation_analyst"}:
         retired = {"mirrorneuron-document-reading-skill", "mirrorneuron-llm-ocr-skill", "mirrorneuron-pdf-extract-skill"}
         assert all(name not in requirements for name in retired)
         assert not retired & {

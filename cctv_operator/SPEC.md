@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.6 specification
+# CCTV Operator 5.3.8 specification
 
 ## Purpose and scope
 
@@ -46,9 +46,13 @@ deadlines, action completion, speed, distance or external sensor measurements.
 
 Conversation setup must identify the mission, one secure next input, expected
 startup checks and where to inspect progress. Use the label Video stream URL,
-with the question/help in descriptive text. Never echo its value. The declared
-setup prompt must resolve from the bundle; the installed manual must describe
-readiness and recovery in readable prose rather than serialized artifact lists.
+with the question/help in descriptive text. Never echo its value. Setup fields
+require facility-profile confirmation and a secure stream URL before
+launch; saving the URL alone is insufficient. Ask the profile first so its rules
+are confirmed before connecting. Secondary settings retain their defaults.
+The declared setup prompt must resolve from the bundle; the installed manual
+must describe readiness and recovery in readable prose rather than serialized
+artifact lists.
 Domain status and operation summaries distinguish no analysis, current camera
 health, queued goal changes, applied goals and analyzed goals. Each missing or
 failed result gives a practical next action without invented progress, findings,
@@ -187,6 +191,19 @@ preview. Blueprint guidance ends goal-change replies after applied receipts and
 current analysis readiness; it never holds a turn open for future scene analysis.
 Routine progress stays in the workspace. Desktop input and generic activity
 indicators remain host-owned and are not overridden by blueprint state.
+
+Completed notices are final SDK exchange records. Only final records are eligible
+for the blueprint activity watch; transport receipt never acknowledges review.
+Each applied goal revision produces one completed-result message even when its
+condition is not confirmed. Medium/high forecasts scoring at least 0.55 with
+valid original selected-frame indices can produce separate possible-risk messages.
+These retain capture/analysis times, frame references, recording qualification
+and human review language, and never become confirmed incidents. The SDK store
+deduplicates by run, camera, goal revision and risk label/severity; unchanged
+forecasts remain quiet across polling, restart and bounded history rotation.
+Apply this reporting policy to arbitrary operator-specified visible conditions.
+Preserve the condition and its negation, and keep the existing frame-bound goal
+validation; do not add object-specific goal parsers or matching shortcuts.
 Never relabel a person-gate event as a verified facility-rule notice or total unique
 person count. Bundled demo is an explicitly staged approved MP4, looped
 by a service-owned MediaMTX/publisher; worker playback times are not original event

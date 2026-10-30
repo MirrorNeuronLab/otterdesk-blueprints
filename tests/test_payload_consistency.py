@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_sdk_llm_blueprints_do_not_depend_on_the_communication_skill():
     for blueprint_id in (
         "vc_assistant",
-        "financial_advisor",
         "research_assistant",
     ):
         manifest = blueprint_definition(

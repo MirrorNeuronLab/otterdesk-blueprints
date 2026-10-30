@@ -484,6 +484,8 @@ def test_cctv_setup_requires_a_secure_source_without_a_live_sample():
     assert guide["sample"]["available"] is False
     assert guide["real"]["values"]["video_source.profile"] == "external"
     fields = {field["path"]: field for field in guide["fields"]}
+    assert fields["site.profile"]["required"] is True
+    assert fields["site.profile"]["default"] == "factory"
     stream = fields["video_source.uri"]
     assert stream["secret"] is True
     assert stream["required"] is True
@@ -492,7 +494,7 @@ def test_cctv_setup_requires_a_secure_source_without_a_live_sample():
     assert not stream.get("active_when_any")
     assert set(stream["protocols"]) == {"rtsp:", "rtsps:", "rtmp:", "rtmps:"}
     assert all(not field["required"] for key, field in fields.items()
-               if key not in {"video_source.profile", "video_source.uri", "video_source.demo_file", "inputs.payload.monitoring_goal"})
+               if key not in {"site.profile", "video_source.profile", "video_source.uri", "video_source.demo_file", "inputs.payload.monitoring_goal"})
 
 
 def test_floor_focus_replaces_default_targets_in_model_request(monkeypatch, tmp_path, capsys):

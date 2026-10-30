@@ -108,9 +108,7 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
 
     payload = ROOT / blueprint / 'payloads'
     monkeypatch.syspath_prepend(str(payload))
-    if blueprint == 'microduck_controller':
-        source = payload / 'services/duck_control_service.py'
-    elif blueprint == 'cctv_operator':
+    if blueprint == 'cctv_operator':
         source = payload / 'services/cctv_web_ui.py'
     else:
         source = payload / 'docker_compose/turtlebot-maze/mcp/robot_control_server.py'
@@ -119,11 +117,7 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     module = importlib.util.module_from_spec(spec)
     monkeypatch.setitem(sys.modules, name, module)
     spec.loader.exec_module(module)
-    if blueprint == 'microduck_controller':
-        from domain.bridge import BridgeHub
-        server = module.create_mcp_server(BridgeHub())
-        read_tool = 'get_duck_state'
-    elif blueprint == 'cctv_operator':
+    if blueprint == 'cctv_operator':
         service = SimpleNamespace(config={}, attach_activity_store=lambda store: None,
             ui_state=lambda: {'metrics': {'latest finding': 'Observed scene.', 'last analyzed': 'now', 'status': 'running'}})
         server = module.create_operator_mcp_server(service, job_id='job', run_id='run', run_dir=tmp_path)

@@ -408,6 +408,8 @@ def test_quiet_and_unrelated_activity_never_publish_chat_updates(tmp_path, obser
     service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview())
     published = []
     class Store:
+        def get_record(self, *args, **kwargs):
+            return None
         def publish_result(self, *args, **kwargs):
             published.append(args)
     service.attach_activity_store(Store())
@@ -537,10 +539,9 @@ def test_cctv_operator_owns_an_sdk_mcp_activity_exchange(tmp_path: Path, monkeyp
     assert command_status["analysis_ready"] is False
     assert "The monitoring goal is now: Find foreign objects on the floor." in command_status["summary"]
     assert "not available yet" in command_status["summary"]
-    with (tmp_path / "events.jsonl").open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps({"type": "cctv_operator_detection", "payload": {
-            "instruction_revision": 2, "summary": "A foreign object is visible on the floor."
-        }}) + "\n")
+    (tmp_path / "cctv_report.json").write_text(json.dumps({"observations": [{
+        "instruction_revision": 2, "summary": "A foreign object is visible on the floor."
+    }]}))
     updated_status = server.tools["get_operation_status"](
         "11111111-1111-4111-8111-111111111111"
     )
@@ -656,6 +657,8 @@ def test_confirmed_notice_keeps_the_detailed_activity_account_in_chat(tmp_path):
         latest_frame={}, monitoring={}, supplemental_events=[], preview_status="live", preview_warning="")
     published = []
     class Store:
+        def get_record(self, *args, **kwargs):
+            return None
         def publish_result(self, record_id, activity, **kwargs):
             published.append(activity)
     service = cctv_web_ui.CCTVWebUIService(run_id="run-1", run_dir=tmp_path, config={}, preview_stream=StubPreview())

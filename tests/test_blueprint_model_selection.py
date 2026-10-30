@@ -22,8 +22,6 @@ from mn_sdk.model_access.runtime import clear_runtime_model_cache, ensure_runtim
     ),
     [
         ("vc_assistant", "apple", 16384, None, "gemma4:e2b", "local"),
-        ("financial_advisor", "apple", 16384, None, "gemma4:e2b", "local"),
-        ("financial_advisor", "apple", 16384, 131072, "nemotron-3.5-lightning:latest", "remote"),
         ("vc_assistant", "nvidia", 8192, None, "gemma4:e2b", "local"),
         ("research_assistant", "apple", 23552, None, "gemma4:e2b", "local"),
         ("research_assistant", "apple", 24576, None, "bonsai2:ptq1_0", "local"),
@@ -188,7 +186,7 @@ def test_blueprint_model_selection_preserves_default_and_explicit_model_contract
         assert binding.selection["installed"] is installed
         assert binding.status == ("already_installed" if installed else "installed")
         assert prepared == [expected]
-        if blueprint_id in {"financial_advisor", "vc_assistant"}:
+        if blueprint_id == "vc_assistant":
             assert prepared_contexts == [8192]
     finally:
         clear_runtime_model_cache()

@@ -268,23 +268,6 @@ def _run_handler_workflow(
             },
         ),
         (
-            "financial_advisor",
-            {
-                "document_folder": str(
-                    ROOT
-                    / "financial_advisor"
-                    / "examples"
-                    / "sample_inputs"
-                )
-            },
-            {
-                "execution": {"quick_test": True},
-                "llm": {"mode": "fake", "require_live": False},
-                "knowledge_rag": {"enabled": False, "required": False},
-                "internet_research": {"enabled": False},
-            },
-        ),
-        (
             "research_assistant",
             {
                 "input_folder": str(

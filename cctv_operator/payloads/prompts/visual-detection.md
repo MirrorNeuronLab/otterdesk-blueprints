@@ -11,6 +11,14 @@ Understand the chronological video sequence from camera `{camera_id}`: describe 
 
 When an operator attention request is present, use it as the primary target goal for this frame batch, replacing the default target focus above. Preserve its positive or negative condition: checking whether someone is wearing a helmet is different from checking for an uncovered head. Inspect the requested region and condition first, while continuing to describe the scene and forecast evidenced risks. Describe evidence relevant to that goal even when none of the default targets is detected. If no attention request is present, use the configured targets. The goal does not suppress the scene account or change the evidence restrictions.
 
+Evaluate the operator's actual requested condition, including negation, from the
+current selected frames. Do not substitute a default target or turn a different
+observation into a goal match. Set `detected_target=true` only when the requested
+condition is supported, and bind `goal_event` to the supporting selected frames.
+When the condition is absent or cannot be judged, return false with a null goal
+event and describe the scene and uncertainty. Keep independent risk forecasts
+separate from the goal-match decision.
+
 ## Instructions
 - Count only real visible subjects or activity.
 - When `group_presence` is a configured facility rule, two or more real people visible together in any one selected frame is an observed finding. Check this independently of helmets, movement, obstruction, or risk: a stationary or helmeted group still qualifies. Do not count one person repeated across frames as a group. Use not_observed when a clear view shows fewer than two people; use possible when occlusion or blur prevents judging the count. Report the first matching sample even if the group is already visible at startup; no earlier empty frame is required for presence. Say "A group of people is visible" and describe their location/activity; say "appeared" only when a reliable before-and-after view establishes arrival. Cite the selected frame showing the group in `site_findings`. Set `detected_target` and `goal_event` from this finding only when group presence is part of the active goal; an explicit operator goal still takes precedence.

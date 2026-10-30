@@ -54,6 +54,7 @@
         "label": "Facility profile",
         "type": "select",
         "default": "factory",
+        "required": true,
         "description": "factory, hotel or custom. Use the matching example profile JSON and monitoring goal. Only approved cameras; one source per Job.",
         "choices": [
           {
@@ -207,7 +208,7 @@
             "value": "custom"
           }
         ],
-        "required": false
+        "required": true
       },
       {
         "path": "site.review_owner",

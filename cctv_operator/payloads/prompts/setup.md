@@ -51,7 +51,13 @@ field below. Keep the full address and any credentials out of Chat.” No change
 
 ## Preparation and readiness
 
-After the required answer is saved, normal startup checks camera access,
+Confirm the facility profile and collect the stream URL through its secure field
+before startup. A saved stream URL alone is not complete setup. Keep confirmed
+answers and ask only the next missing required input; never try starting a run
+to discover which settings are missing. Review owner, alert policy and output
+location keep their defaults unless the supervisor requests a change.
+
+After all required answers are saved, normal startup checks camera access,
 prepares video models and begins sampling. The first start may take longer.
 The Preparing label alone does not identify the current stage. A moving preview
 shows video arriving; it does not prove scene analysis has completed.

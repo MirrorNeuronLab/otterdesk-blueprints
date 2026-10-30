@@ -44,7 +44,7 @@ Set `BLUEPRINT_CONVERSATION_CACHE` if its existing model cache is elsewhere.
 ```bash
 node tests/e2e/run.cjs --list
 node tests/e2e/run.cjs
-node tests/e2e/run.cjs --grep 'financial_advisor:'
+node tests/e2e/run.cjs --grep 'vc_assistant:'
 ```
 
 `BLUEPRINT_E2E_OUTPUT` selects the evidence folder; its default is

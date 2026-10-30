@@ -31,7 +31,6 @@ if str(SUPPORT_SRC) not in sys.path:
 
 FOLDER_INPUT_FIELDS = {
     "drug_discovery_research_assistant": {"input_folder", "output_folder"},
-    "financial_advisor": {"document_folder", "input_folder", "output_folder"},
     "procurement_manager": {"input_folder", "output_folder"},
     "vc_assistant": {"document_folder", "output_folder"},
     "cctv_operator": {"input_folder", "output_folder"},
@@ -204,10 +203,6 @@ SKILL_NAME_PACKAGES = {
     "websocket_stream": "mn-python-sdk-common",
 }
 BLUEPRINT_TRANSITIVE_SKILL_PACKAGES: dict[str, set[str]] = {}
-# The Microduck service exposes an MCP server for an external conversational
-# agent. Its response-service declaration is Core-owned; the worker embeds no
-# response client, RAG, or MCP-client package.
-CORE_OWNED_RESPONSE_SERVICES = {"microduck_controller"}
 
 
 def _completion_threshold(value) -> bool:
@@ -259,10 +254,9 @@ def _expected_skill_dependency_packages(blueprint_dir: Path) -> set[str]:
     manifest = blueprint_definition(read_blueprint(blueprint_dir / "manifest.json"))
     response_service = manifest.get("response_service")
     if isinstance(response_service, dict) and response_service.get("enabled") is True:
-        if blueprint_dir.name not in CORE_OWNED_RESPONSE_SERVICES:
-            packages.add("mn-python-sdk-job-response")
-            packages.add("mn-python-sdk-rag")
-            packages.add("mn-python-sdk-mcp")
+        packages.add("mn-python-sdk-job-response")
+        packages.add("mn-python-sdk-rag")
+        packages.add("mn-python-sdk-mcp")
     registration = (
         manifest.get("metadata", {}).get("web_ui", {}).get("registration", {})
     )
@@ -754,7 +748,6 @@ def test_otterdesk_blueprints_declare_markdown_context_profiles():
 def test_otterdesk_blueprints_declare_product_experience_contracts():
     expected_modes = {
         "drug_discovery_research_assistant": "approval_required",
-        "financial_advisor": "approval_required",
         "procurement_manager": "approval_required",
         "cctv_operator": "notice_only",
         "vc_assistant": "approval_required",
@@ -1190,7 +1183,6 @@ def test_otterdesk_blueprint_descriptions_are_customer_facing_and_synchronized()
 
 EXPECTED_BATCH_SUGGESTED_SCHEDULES = {
     "drug_discovery_research_assistant": {"cron": "0 8 * * 1", "cadence": "weekly"},
-    "financial_advisor": {"cron": "0 8 * * *", "cadence": "daily"},
     "procurement_manager": {"cron": "0 8 * * 1", "cadence": "weekly"},
     "vc_assistant": {"cron": "0 7 * * *", "cadence": "daily"},
 }

@@ -121,7 +121,6 @@ def test_vc_scorers_share_a_single_predecessor_and_do_not_depend_on_each_other()
 def test_default_llm_blueprints_keep_model_routing_logical():
     for blueprint_id in (
         "vc_assistant",
-        "financial_advisor",
         "gtm_planner",
         "gtm_executor",
         "research_assistant",
