@@ -188,8 +188,8 @@
             "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
             "MN_RUNTIME_MODEL_MANAGED": "1",
             "MN_VLM_API_BASE": "auto",
-            "MN_VLM_BACKEND": "nim",
-            "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
+            "MN_VLM_BACKEND": "vllm",
+            "MN_VLM_MODEL": "cosmos3-edge:bf16",
             "MN_VLM_PROVIDER": "docker_model_runner",
             "MN_VLM_MAX_TOKENS": "4096"
           },
@@ -287,7 +287,12 @@
           "docker_worker_image": "docker_worker",
           "build_context": ".",
           "dockerfile": "docker_worker/Dockerfile",
-          "environment": {},
+          "environment": {
+            "MN_RUNTIME_MODEL_CONTROL_TARGET": "127.0.0.1:55051",
+            "MN_RUNTIME_MODEL_GATEWAY_HOST": "127.0.0.1",
+            "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
+            "MN_RUNTIME_MODEL_MANAGED": "1"
+          },
           "from": "base",
           "gpus": "all",
           "image": "mirror-neuron/cctv-operator:local",
@@ -446,7 +451,7 @@
             "alias": "visual_target_detector",
             "display_name": "Visual Target Detector",
             "id": "visual_target_detector",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Run visual detection",
             "tokens": 14000,
             "tools": 4
@@ -455,7 +460,7 @@
             "alias": "quality_controller",
             "display_name": "Quality Controller",
             "id": "quality_controller",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Review alert quality",
             "tokens": 14000,
             "tools": 4
@@ -472,7 +477,7 @@
             "alias": "adaptive_frame_sampler",
             "display_name": "Adaptive Frame Sampler",
             "id": "adaptive_frame_sampler",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Select sparse and event-triggered frame batches",
             "tokens": 14000,
             "tools": 4
@@ -499,7 +504,7 @@
             "alias": "video_source_validator",
             "display_name": "Video Source Validator",
             "id": "video_source_validator",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Validate video source",
             "tokens": 14000,
             "tools": 4
@@ -508,7 +513,7 @@
             "alias": "video_monitor",
             "display_name": "Video Monitor",
             "id": "video_monitor",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Coordinate video monitoring",
             "tokens": 14000,
             "tools": 4
@@ -525,7 +530,7 @@
             "alias": "report_writer",
             "display_name": "CCTV Report Writer",
             "id": "report_writer",
-            "model": "cosmos3-nano-reasoner:1.7",
+            "model": "cosmos3-edge:bf16",
             "role": "Write cumulative CCTV reports",
             "tokens": 14000,
             "tools": 4
@@ -567,9 +572,9 @@
         ]
       },
       "vision": {
-        "model": "cosmos3-nano-reasoner:1.7",
+        "model": "cosmos3-edge:bf16",
         "provider": "docker_model_runner",
-        "backend": "nim",
+        "backend": "vllm",
         "required": true,
         "type": "vlm",
         "required_capabilities": [
@@ -577,26 +582,25 @@
         ],
         "customize_mode": true,
         "model_spec": {
-          "id": "cosmos3-nano-reasoner:1.7",
-          "name": "Cosmos3 Nano Reasoner",
-          "description": "NVIDIA NIM vision-language reasoning model delivered by an NVIDIA GPU Docker container.",
+          "id": "cosmos3-edge:bf16",
+          "name": "Cosmos3 Edge",
+          "description": "Revision-pinned NVIDIA Cosmos3-Edge 4B BF16, served by the official Cosmos3 vLLM image.",
           "source": "docker",
           "provider": "docker_model_runner",
-          "model": "cosmos3-nano-reasoner:1.7",
-          "api_model": "nvidia/cosmos3-nano-reasoner",
+          "model": "cosmos3-edge:bf16",
+          "api_model": "nvidia/Cosmos3-Edge",
           "aliases": [
-            "cosmos3",
-            "cosmos3-nano-reasoner",
-            "nvidia/cosmos3-nano-reasoner"
+            "cosmos3-edge",
+            "nvidia/Cosmos3-Edge"
           ],
           "route_aliases": [
-            "cosmos3-nano-reasoner:1.7",
-            "cosmos3",
-            "nvidia/cosmos3-nano-reasoner"
+            "cosmos3-edge:bf16",
+            "cosmos3-edge",
+            "nvidia/Cosmos3-Edge"
           ],
-          "backend": "nim",
+          "backend": "vllm",
           "backends": [
-            "nim"
+            "vllm"
           ],
           "model_type": "multimodal",
           "input_modalities": [
@@ -606,45 +610,52 @@
           ],
           "context_size": 32768,
           "requirements": {
-            "min_vram_gb": 48,
+            "min_vram_gb": 12,
             "required_capabilities": [
               "cuda"
             ]
           },
           "docker": {
-            "image": "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7",
+            "image": "vllm/vllm-openai@sha256:db0bb920b0b54e82ea96a98659bbd21921f87d0dcfc86feffdafa2db3f08be55",
             "port": 30082,
             "container_port": 8000,
             "gpus": "all",
             "shm_size": "32g",
             "api_path": "/v1",
-            "ready_path": "/v1/health/ready",
+            "ready_path": "/health",
             "ready_timeout": 1200,
-            "cache_path": "/opt/nim/.cache",
-            "registry": {
-              "host": "nvcr.io",
-              "username": "$oauthtoken",
-              "password_env": [
-                "NGC_API_KEY",
-                "NGC_CLI_API_KEY"
-              ]
-            },
-            "secret_environment": {
-              "NGC_API_KEY": [
-                "NGC_API_KEY",
-                "NGC_CLI_API_KEY"
-              ]
-            },
+            "cache_path": "/root/.cache/huggingface",
             "environment": {
-              "NIM_MODEL_SIZE": "nano",
-              "NIM_GPU_MEMORY_UTILIZATION": "0.5",
-              "NIM_MAX_MODEL_LEN": "32768",
-              "NIM_MAX_NUM_SEQS": "1",
-              "NIM_DISABLE_CUDA_GRAPH": "1",
-              "NIM_DISABLE_MM_PREPROCESSOR_CACHE": "1",
-              "NIM_DELETE_LAST_FRAMES": "1",
-              "NIM_MODEL_PROFILE": "e55fdb44f41441032f546360d0dcf61caa8b39fa2852d31124c03953d01e1cb3"
-            }
+              "HF_HOME": "/root/.cache/huggingface",
+              "VLLM_CACHE_ROOT": "/root/.cache/huggingface/vllm"
+            },
+            "arguments": [
+              "--model",
+              "nvidia/Cosmos3-Edge",
+              "--revision",
+              "344d602b128d1bbdacb43b08d0a3626f46343e29",
+              "--tokenizer-revision",
+              "344d602b128d1bbdacb43b08d0a3626f46343e29",
+              "--served-model-name",
+              "nvidia/Cosmos3-Edge",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000",
+              "--dtype",
+              "bfloat16",
+              "--max-model-len",
+              "32768",
+              "--gpu-memory-utilization",
+              "0.25",
+              "--max-num-seqs",
+              "1",
+              "--structured-outputs-config",
+              "{\"backend\":\"xgrammar\",\"disable_any_whitespace\":true,\"enable_in_reasoning\":false}",
+              "--no-enable-log-requests",
+              "--reasoning-parser",
+              "qwen3"
+            ]
           }
         }
       },
@@ -739,7 +750,7 @@
       "gpus": "all",
       "image": "mirror-neuron/cctv-operator:local",
       "network_mode": "host",
-      "model": "cosmos3-nano-reasoner:1.7",
+      "model": "cosmos3-edge:bf16",
       "pool": "default",
       "pool_slots": 1,
       "reuse_shared_container": true,
@@ -893,8 +904,8 @@
             "MN_RUNTIME_MODEL_NATIVE_TARGET": "127.0.0.1:55052",
             "MN_RUNTIME_MODEL_MANAGED": "1",
             "MN_VLM_API_BASE": "auto",
-            "MN_VLM_BACKEND": "nim",
-            "MN_VLM_MODEL": "cosmos3-nano-reasoner:1.7",
+            "MN_VLM_BACKEND": "vllm",
+            "MN_VLM_MODEL": "cosmos3-edge:bf16",
             "MN_VLM_PROVIDER": "docker_model_runner",
             "MN_VLM_MAX_TOKENS": "4096"
           },

@@ -6,7 +6,7 @@ def operator_status_summary(state):
     pipeline = state.get("pipeline") or {}
     person = pipeline.get("person_events") or {}
     captions = pipeline.get("captions") or {}
-    timestamp = metrics.get("last analyzed")
+    timestamp = metrics.get("last captured") or metrics.get("last analyzed")
     finding = metrics.get("latest finding")
     has_analysis = bool(finding) and timestamp not in (None, "", "waiting")
     # The dashboard metric is a short preview; retain the authored activity
@@ -16,6 +16,9 @@ def operator_status_summary(state):
         finding = understanding.strip()[:1800]
     paragraphs = ([f"Latest analyzed sample at {timestamp}:\n\n{finding}"]
                   if has_analysis and finding else ["I don't have a completed scene analysis yet."])
+    completed = metrics.get("last analyzed")
+    if has_analysis and completed not in (None, "", "waiting", timestamp):
+        paragraphs.append(f"Analysis completed at {completed}.")
     if has_analysis and (state.get("understanding") or {}).get("source_profile") == "bundled_demo":
         paragraphs.append("Recorded demo playback; capture times describe playback, not a live site event.")
     preview = metrics.get("preview")

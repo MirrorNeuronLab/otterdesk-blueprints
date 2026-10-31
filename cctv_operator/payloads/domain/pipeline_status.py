@@ -21,6 +21,8 @@ def pipeline_status(person, captions, *, now=None, last_presence=None):
         warnings.append("Caption processing stalled. Review the current run and restart after resolving the worker error.")
     if person.get("captions") == "failed":
         warnings.append("Caption sampling stopped. Review worker logs and rebuild or restart.")
+    if person.get("scene_model") == "failed":
+        warnings.append("Couldn't prepare scene analysis. Review the model preparation error before trying again.")
     current = result["person_events"]
     count = current.get("visible_people")
     count = count if type(count) is int and count >= 0 else 0
@@ -46,7 +48,14 @@ def pipeline_status(person, captions, *, now=None, last_presence=None):
             }
     inflight = captions.get("inflight") or {}
     claimed_at = inflight.get("claimed_at")
-    if type(claimed_at) in (int, float) and math.isfinite(claimed_at) and 0 < claimed_at <= now:
+    if person.get("scene_model") == "preparing":
+        started = person.get("scene_model_started_at")
+        elapsed = (f" ({int(now - started)} s)" if type(started) in (int, float)
+                   and math.isfinite(started) and 0 < started <= now else "")
+        result["captions"]["summary"] = f"Preparing scene analysis{elapsed}."
+    elif person.get("scene_model") == "failed":
+        result["captions"]["summary"] = "Scene analysis preparation failed."
+    elif type(claimed_at) in (int, float) and math.isfinite(claimed_at) and 0 < claimed_at <= now:
         elapsed = int(now - claimed_at)
         result["captions"]["summary"] = f"Scene analysis {'delayed' if elapsed > 300 else 'in progress'} ({elapsed} s)."
     else:

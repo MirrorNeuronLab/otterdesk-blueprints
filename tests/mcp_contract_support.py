@@ -119,7 +119,8 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     spec.loader.exec_module(module)
     if blueprint == 'cctv_operator':
         service = SimpleNamespace(config={}, attach_activity_store=lambda store: None,
-            ui_state=lambda: {'metrics': {'latest finding': 'Observed scene.', 'last analyzed': 'now', 'status': 'running'}})
+            ui_state=lambda: {'metrics': {'latest finding': 'Observed scene.', 'last analyzed': 'now',
+                'last captured': 'now', 'status': 'running'}})
         server = module.create_operator_mcp_server(service, job_id='job', run_id='run', run_dir=tmp_path)
         read_tool = 'get_operator_status'
     else:

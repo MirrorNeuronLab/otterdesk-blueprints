@@ -8,17 +8,15 @@ import json
 
 from mn_blueprint_blocks.context import Capability
 from mn_live_video_analysis_skill import SamplingPolicy, redact_source_uri
-from mn_sdk.integrations.block_model_request import model_request, model_response_metadata
 from mn_sdk.integrations.block_publication_files import publish_files
 from mn_sdk_common.prompts import PromptLibrary
 from mn_sdk_common.publication import ArtifactWrite
 
-from . import camera_sources, vision_model
+from . import camera_sources, vision_model, scene_analysis
 from .alert_delivery import alert_text, post_slack
 from .benchmarks import Benchmarks
 from .caption_schedule import acknowledge_caption
 from .conversation_snapshot import event_snapshot
-from .cosmos_access import cosmos_slot
 from .detection_policy import (configured_alert_policy, configured_monitoring_goal,
     configured_target_notice, configured_visual_targets, evaluate_alert)
 from .frame_evidence import read_batch
@@ -73,19 +71,25 @@ def _prepare(block, work, batch, frames, view, metrics):
         attention_instruction="Operator attention request: " + goal if goal else "Operator attention request: none.", camera_id=camera)
     prompt += "\n\nFacility review policy (operator configuration, not image evidence):\n" + json.dumps(site_context(block.config), ensure_ascii=False)
     started_at = block.wall_time()
-    prepared = vision_model.prepare(block, frames, with_history(temporal_prompt(prompt, capture), history))
+    policy_prompt = PROMPTS.render("scene-decision.md", target_description=goal,
+        attention_instruction="Operator attention request: " + goal, camera_id=camera)
+    policy_prompt += "\n\nFacility review policy (operator configuration, not image evidence):\n" + json.dumps(site_context(block.config), ensure_ascii=False)
+    prepared = vision_model.prepare(block, frames, with_history(temporal_prompt(prompt, capture), history), goal=goal,
+        policy_prompt=with_history(temporal_prompt(policy_prompt, capture), history))
     return {"state": state, "events": events, "camera": camera, "source_key": key, "source_uri": uri,
         "goal": goal, "instruction": instruction, "targets": targets, "capture": capture,
         "analysis_mode": analysis_mode, "model": prepared, "recall": recall,
         "policy": configured_alert_policy(block.config, visual_targets=targets), "started_at": started_at}
 
 
-def _analyze(block, prepared, payload, batch, view, raw, metadata):
+def _analyze(block, prepared, payload, batch, view, raw, metadata, error=None):
     state, events = deepcopy(prepared["state"]), list(prepared["events"])
     camera, frame = prepared["camera"], payload["tick_seq"]
     now = metadata["completed_at"]
     observed_at = datetime.fromtimestamp(now, timezone.utc).isoformat()
     try:
+        if error:
+            raise ValueError(error)
         detection = vision_model.interpret(raw, prepared["model"])
         detection = validate_helmet_goal(enrich(detection, batch, block.config,
             prepared["goal"], prepared["instruction"]), prepared["goal"], batch)
@@ -107,6 +111,11 @@ def _analyze(block, prepared, payload, batch, view, raw, metadata):
             "selected_count": batch["selected_count"], "command_id": payload["command_id"], "model_latency_ms": latency,
             "sampling_metrics": batch.get("metrics") or {}, "latest_analyzed_frame": latest,
             "condition_screening": {"route": "deep_analysis", "mode": prepared["analysis_mode"]}, "configured_targets": prepared["targets"]}
+        if "perception_seconds" in metadata:
+            timing = {"perception_latency_ms": round(metadata["perception_seconds"] * 1000),
+                      "decision_latency_ms": round(metadata["decision_seconds"] * 1000)}
+            latest.update(timing)
+            observation.update(timing)
         episode = (batch.get("candidate_gate") or {}).get("episode")
         if episode is not None and episode != state.get("gate_episode"):
             state.update(notified_goal=None, gate_episode=episode)
@@ -157,13 +166,19 @@ def process(block, work):
         return {"state": previous}
     metrics = Benchmarks(block.store.run_dir, block.config)
     prepared = _freeze(block, "vision-request", lambda: _prepare(block, work, batch, frames, view, metrics))
-    with cosmos_slot(block.store.run_dir):
-        raw = model_request(block, prepared["model"]["request"], key="scene")
-    metadata = model_response_metadata(block, prepared["model"]["request"], key="scene")
+    raw, metadata, error = scene_analysis.analyze(block, prepared["model"], metrics,
+        frames=len(frames), revision=batch["instruction_revision"])
+    analyzed = _freeze(block, "vision-observation", lambda: _analyze(block, prepared, payload, batch, view, raw, metadata, error))
+    status = "error" if analyzed["state"]["last_error"] else "ok"
     metrics.record("caption.inference", metadata["duration_seconds"] * 1000,
-        variant=prepared["model"]["request"]["model"], sample_key=block.invocation_id + ":inference",
+        variant="frame evidence and scene decision" if "perception_requests" in prepared["model"] else prepared["model"]["request"]["model"],
+        status=status, sample_key=block.invocation_id + ":inference",
         metadata={"frames": len(frames), "instruction_revision": batch["instruction_revision"]})
-    analyzed = _freeze(block, "vision-observation", lambda: _analyze(block, prepared, payload, batch, view, raw, metadata))
+    if "decision_seconds" in metadata and not error:
+        metrics.record("caption.decision", metadata["decision_seconds"] * 1000,
+            variant=prepared["model"]["policy_request"]["model"], status=status,
+            sample_key=block.invocation_id + ":decision",
+            metadata={"frames": len(frames), "instruction_revision": batch["instruction_revision"]})
     state, events, writes = deepcopy(analyzed["state"]), list(analyzed["events"]), []
     observation = analyzed["observation"]
     if observation is not None:

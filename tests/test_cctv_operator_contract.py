@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from urllib.parse import parse_qs, urlsplit
@@ -66,19 +67,40 @@ def test_cctv_operator_uses_the_blueprint_owned_lazy_special_vlm_route():
     vision = manifest["runtime"]["models"]["vision"]
     assert primary["model"] == "nemotron-3.5-lightning:latest"
     assert primary["type"] == "llm"
-    assert vision["model"] == "cosmos3-nano-reasoner:1.7"
+    assert vision["model"] == "cosmos3-edge:bf16"
     assert vision["customize_mode"] is True
     assert vision["model_spec"]["source"] == "docker"
-    assert vision["model_spec"]["docker"]["image"] == "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7"
+    assert vision["model_spec"]["docker"]["image"] == "vllm/vllm-openai@sha256:db0bb920b0b54e82ea96a98659bbd21921f87d0dcfc86feffdafa2db3f08be55"
+    spec = vision["model_spec"]
+    assert spec["api_model"] == "nvidia/Cosmos3-Edge"
+    assert "nvidia/Cosmos3-Edge" in spec["route_aliases"]
+    environment = spec["docker"]["environment"]
+    assert spec["backend"] == "vllm"
+    arguments = spec["docker"]["arguments"]
+    assert arguments[arguments.index("--model") + 1] == "nvidia/Cosmos3-Edge"
+    assert arguments[arguments.index("--revision") + 1] == "344d602b128d1bbdacb43b08d0a3626f46343e29"
+    assert arguments[arguments.index("--tokenizer-revision") + 1] == arguments[arguments.index("--revision") + 1]
+    assert json.loads(arguments[arguments.index("--structured-outputs-config") + 1]) == {
+        "backend": "xgrammar", "disable_any_whitespace": True, "enable_in_reasoning": False}
+    assert arguments[arguments.index("--reasoning-parser") + 1] == "qwen3"
+    assert environment["VLLM_CACHE_ROOT"] == "/root/.cache/huggingface/vllm"
+    assert config["text_memory"]["max_context_bytes"] == 8192
+    assert "--no-enable-log-requests" in arguments
+    assert "registry" not in spec["docker"] and "secret_environment" not in spec["docker"]
+    assert spec["docker"]["cache_path"] == environment["HF_HOME"] == "/root/.cache/huggingface"
     assert config["llm"]["configs"]["primary"]["model"] == primary["model"]
     assert config["llm"]["configs"]["vision"]["model"] == vision["model"]
     visual_detector = next(node for node in manifest["agents"]["extra_nodes"] if node["node_id"] == "visual_detector")
     env = visual_detector["config"]["environment"]
     assert env["MN_VLM_MODEL"] == vision["model"]
-    assert env["MN_VLM_BACKEND"] == "nim"
+    assert env["MN_VLM_BACKEND"] == "vllm"
     assert env["MN_VLM_API_BASE"] == "auto"
     assert env["MN_RUNTIME_MODEL_MANAGED"] == "1"
     assert env["MN_VLM_MAX_TOKENS"] == "4096"
+    camera_service = next(node for node in manifest["agents"]["extra_nodes"] if node["node_id"] == "cctv_web_ui")
+    for name in ("MN_RUNTIME_MODEL_CONTROL_TARGET", "MN_RUNTIME_MODEL_GATEWAY_HOST",
+                 "MN_RUNTIME_MODEL_NATIVE_TARGET", "MN_RUNTIME_MODEL_MANAGED"):
+        assert camera_service["config"]["environment"][name] == env[name]
     deferred = build_deferred_runtime_model_plan(required_blueprint_models(manifest, config))
     assert deferred["errors"] == []
     assert {row["runtime_model"] for row in deferred["models"]} == {primary["model"], vision["model"]}

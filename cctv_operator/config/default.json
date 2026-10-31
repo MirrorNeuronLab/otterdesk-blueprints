@@ -385,7 +385,7 @@
       },
       "visual_target_detector": {
         "llm_config": "vision",
-        "model": "cosmos3-nano-reasoner:1.7",
+        "model": "cosmos3-edge:bf16",
         "responsibilities": [
           "Analyze person-gated windows for helmets and scene understanding; retain compliant and uncertain observations.",
           "Publish authored captions through MN memory; preserve times, evidence and uncertainty."
@@ -413,14 +413,14 @@
         "max_tokens": 4096,
         "mock_mode": "fake",
         "mode": "live",
-        "model": "cosmos3-nano-reasoner:1.7",
+        "model": "cosmos3-edge:bf16",
         "num_retries": 1,
         "provider": "docker_model_runner",
         "required_capabilities": [
           "image_input"
         ],
         "timeout_seconds": 300,
-        "backend": "nim"
+        "backend": "vllm"
       }
     },
     "default_config": "primary",
@@ -658,7 +658,7 @@
     "burst_candidate_fps": 4,
     "frame_jpeg_max_width": 896,
     "max_calls_per_minute": 12,
-    "max_model_frames": 8,
+    "max_model_frames": 2,
     "max_pending_batches": 1,
     "post_roll_seconds": 0.5,
     "pre_roll_seconds": 1.5,
@@ -771,8 +771,8 @@
   },
   "text_memory": {
     "enabled": true,
-    "max_results": 3,
-    "max_context_bytes": 49152
+    "max_results": 1,
+    "max_context_bytes": 8192
   },
   "person_detector": {
     "model": "small",

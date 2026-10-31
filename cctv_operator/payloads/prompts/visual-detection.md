@@ -21,6 +21,7 @@ separate from the goal-match decision.
 
 ## Instructions
 - Count only real visible subjects or activity.
+- Use one detection entry per visibly distinguishable person or object in this sequence. Continuing appearance across frames belongs in that entry's activity, never a second detection for the same person. This is a within-sample account, not identity tracking across samples.
 - When `group_presence` is a configured facility rule, two or more real people visible together in any one selected frame is an observed finding. Check this independently of helmets, movement, obstruction, or risk: a stationary or helmeted group still qualifies. Do not count one person repeated across frames as a group. Use not_observed when a clear view shows fewer than two people; use possible when occlusion or blur prevents judging the count. Report the first matching sample even if the group is already visible at startup; no earlier empty frame is required for presence. Say "A group of people is visible" and describe their location/activity; say "appeared" only when a reliable before-and-after view establishes arrival. Cite the selected frame showing the group in `site_findings`. Set `detected_target` and `goal_event` from this finding only when group presence is part of the active goal; an explicit operator goal still takes precedence.
 - This sequence is admitted by a confirmed RF-DETR person sample or an explicitly configured periodic scene audit. An audit does not establish person presence. The admission signal is not a finding about helmets or any other condition. Apply the active analysis goal and supplied facility policy; do not assume every profile has a helmet goal. Mere person presence does not establish an uncovered head, path obstruction or other condition. If a helmet condition is relevant, confirm an uncovered head only when clearly visible; an occluded, distant or unclear head is uncertain. A missing-helmet goal with no clear uncovered head has detected_target=false and goal_event=null; another evidenced active rule may still match a facility goal. An explicit wearing-helmet goal instead requires a visible worn helmet; do not invert it to missing-helmet detection. Periodic audits also inspect empty scenes for static hazards.
 - When people are visible, give a detailed observable activity account in `scene_understanding`, even when no monitoring target matches. Distinguish people by location and visible clothing (for example, "the person in a blue shirt on the left"). Describe each person's posture, movement direction, visible hand actions, objects handled, and interaction with nearby people or equipment where the frames support those details. Explain what changes from earlier to later selected frames and cite those frame numbers in the prose. Say when a task or movement cannot be determined; a person merely standing near equipment does not establish that they are operating it. Include observable helmet status when relevant to the active policy. Preserve compliant and uncertain activity as well as matches in Markdown history. Text, speech, reflections and shadows alone do not qualify.
@@ -30,6 +31,7 @@ separate from the goal-match decision.
 - Keep uncertainty explicit and grounded in visible evidence.
 - In `scene_understanding`, describe the visible activity and temporal changes independently of target matches. In `uncertainties`, state occlusion, sampling gaps, insufficient motion evidence and other limits.
 - In `risk_predictions`, forecast only plausible near-term outcomes supported by visible physical conditions or sampled motion. Each forecast must include `risk`, `visible_evidence`, `time_horizon`, `confidence` (0 to 1), `severity` (low, medium or high), `recommended_review`, and `evidence_frames` (unique 1-based indices of the selected frames showing its basis). These are predictions, never events that already happened. Return at most two concise forecasts, prioritizing the strongest visible basis, or an empty list when no forecast is supported by a selected frame. Do not invent speeds, distances, identities or intent. An empty list does not certify safety.
+- A currently uncovered head is an observation, not itself a forecast. Do not repeat a current finding as a predicted risk or fill forecast fields with the same sentence. Return an empty forecast list unless the frames support a separate possible future outcome.
 - Prefer a short qualitative horizon such as "if the observed movement continues in the next few seconds" when exact timing cannot be established. Recommend human review, not autonomous physical action.
 - Separate a clearly observed match, a possible match, and no visible match. For a possible match, name the visual ambiguity in `summary` or `detection_report` so the operator can decide whether to focus or continue watching.
 - If the goal asks whether something newly appeared, compare frames in this batch only when they show a reliable before-and-after view. Otherwise describe the current frame and say that first appearance cannot be established.
@@ -43,7 +45,7 @@ separate from the goal-match decision.
 ## Facility review outputs
 When a facility policy is supplied, return `site_findings` for each configured rule
 that you can examine. Each object requires `rule_id`, `status` (observed, possible,
-not_observed), `confidence` (0..1), `visible_evidence` (max800 characters) and
+not_observed), `confidence` (0..1), `visible_evidence` (max200 characters) and
 `evidence_frames` (unique 1-based selected frame indices). Omit a rule you cannot
 examine; omitted rules remain unexamined, never clear. Do not create unknown rule
 IDs. Use possible for insufficient perspective, head visibility or motion.
@@ -78,14 +80,19 @@ scene_understanding. Do not repeat sentences within a field or across fields.
 Do not repeat the scene in legacy fields such as detection_report,
 activity_description, visible_subjects, detected_types or appearance_notes; the
 report adapter supplies those fields from this compact account.
-Keep `summary` to one short sentence. Use two to six concrete sentences for
+Keep `summary` to one short sentence (at most 160 characters). Use two to six concrete sentences for
 `scene_understanding` when people are visible (at most 1800 characters), with
 enough detail to explain their actions and temporal changes. A quiet scene may
 need only one sentence. Keep other evidence descriptions brief; preserve frame
 references and uncertainty instead of repeating the scene.
-Keep the complete answer within approximately 900 output tokens. Prioritize the
+Keep the complete answer within approximately 450 output tokens. Prioritize the
 person's observable activity and required frame references. Omit weak or
 redundant forecasts rather than dropping evidence references or uncertainty.
+Write the detailed activity only once, in scene_understanding. Other fields
+need short distinguishing labels and frame-bound evidence, not another scene
+description. Helmet evidence is at most 160 characters and facility-rule
+evidence at most 200. Do not repeat clothing, movement and PPE policy in every
+field. Busy scenes may exceed the target to preserve supported evidence.
 
 Use these exact nested object fields:
 - Each `site_findings` item: rule_id, status, confidence, visible_evidence, evidence_frames.

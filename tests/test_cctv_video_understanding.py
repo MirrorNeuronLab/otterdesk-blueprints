@@ -8,54 +8,43 @@ import pytest
 from test_cctv_operator_conversation import _load_detector, _run_detector
 
 
-PREDICTION = {"risk": "Possible cart-pedestrian collision", "severity": "high", "confidence": .72,
+PREDICTION = {"evidence_frames": [1], "risk": "Possible cart-pedestrian collision", "severity": "high", "confidence": .72,
               "visible_evidence": "A moving cart and pedestrian approach the same aisle crossing.",
               "time_horizon": "If the sampled movement continues over the next few seconds",
               "recommended_review": "Review the crossing in the original video before intervening."}
 
 
-def test_cosmos_preserves_temporal_frames_and_only_publishes_final_answer(monkeypatch, tmp_path):
+def test_cosmos_frame_evidence_and_policy_preserve_temporal_scope_and_privacy(monkeypatch, tmp_path):
     detector = _load_detector()
-    captured = {}
-    monkeypatch.setenv("MN_VLM_MODEL", "cosmos3-nano-reasoner:1.7")
-    monkeypatch.setenv("MN_VLM_BACKEND", "nim")
-    monkeypatch.setenv("MN_VLM_PROVIDER", "docker_model_runner")
-    monkeypatch.setenv("MN_VLM_API_BASE", "auto")
+    captured = []
+    account = {"detected_target": False, "confidence": .8, "detections": [], "goal_event": None,
+        "helmet_observations": [], "site_findings": [], "summary": "A cart approaches the crossing.",
+        "scene_understanding": "The pedestrian and cart approach each other in frames 1 and 2.",
+        "risk_predictions": [{**PREDICTION, "evidence_frames": [1, 2]}], "uncertainties": ["Distance cannot be measured."]}
     def request(purpose, model, path, payload, **options):
-        captured.update(payload=payload, options=options, model=model, purpose=purpose)
-        return {"choices": [{"finish_reason": "stop", "message": {"content":
-            '<think>PRIVATE DRAFT {"summary":"wrong draft"}</think><answer>' +
-            json.dumps({"summary": "A cart approaches the crossing.", "scene_understanding": "The pedestrian and cart approach each other.",
-                        "risk_predictions": [PREDICTION], "uncertainties": ["Distance cannot be measured."]}) + '</answer>'}}]}
+        captured.append((purpose, payload, options))
+        content = "A cart is near a pedestrian." if purpose == "vlm" else json.dumps(account)
+        return {"choices": [{"finish_reason": "stop", "message": {"content": content, "reasoning": "PRIVATE DRAFT"}}]}
     from mn_sdk.integrations import block_model_request
     from mn_blueprint_blocks.testing import BlockHarness
     from mn_sdk.blueprints import blueprint_definition, read_blueprint
     from pathlib import Path
     descriptor = tmp_path / "runtime.json"
     descriptor.write_text(json.dumps(blueprint_definition(read_blueprint(Path(__file__).resolve().parents[1] / "cctv_operator"))))
-    block = BlockHarness(tmp_path / "run").context(environment={"MN_BLUEPRINT_MANIFEST_PATH": str(descriptor)})
+    harness = BlockHarness(tmp_path / "run")
+    block = harness.context(environment={"MN_BLUEPRINT_MANIFEST_PATH": str(descriptor)})
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", request)
-    from types import SimpleNamespace
-    def encode(command, **kwargs):
-        assert kwargs["input"] == b"firstsecond"
-        assert kwargs["timeout"] == 10
-        return SimpleNamespace(returncode=0, stdout=b"temporal-mp4", stderr=b"")
-    monkeypatch.setattr("mn_live_video_analysis_skill.video_content.shutil.which", lambda _: "ffmpeg")
-    monkeypatch.setattr("mn_live_video_analysis_skill.video_content.subprocess.run", encode)
     prepared = detector.vision_model.prepare(block, [b"first", b"second"], "Inspect the chronological sequence.")
-    raw = block_model_request.model_request(block, prepared["request"], key="scene")
+    from domain.scene_analysis import analyze
+    from domain.benchmarks import Benchmarks
+    raw, _metadata, error = analyze(block, prepared, Benchmarks(harness.store.run_dir, {}), frames=2, revision=1)
+    assert error is None
     result = detector.vision_model.interpret(raw, prepared)
-    media = next(message["content"] for message in captured["payload"]["messages"] if message["role"] == "user")
-    assert media[1] == {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dGVtcG9yYWwtbXA0"}}
-    assert captured["payload"]["media_io_kwargs"] == {"video": {"fps": 4.0}}
-    assert captured["options"]["backend"] == "nim"
-    assert captured["options"]["required_capabilities"] == ["image_input"]
-    assert captured["payload"]["max_tokens"] == 4096
-    assert captured["payload"]["response_format"]["type"] == "json_schema"
-    assert "thinking_budget_tokens" not in captured["payload"]
-    assert "chat_template_kwargs" not in captured["payload"]
-    assert captured["payload"]["messages"][0]["role"] == "system"
-    assert "PRIVATE DRAFT" not in json.dumps(result) and result["summary"] != "wrong draft"
+    assert [row[0] for row in captured] == ["vlm", "vlm", "llm"]
+    assert captured[0][1]["messages"][0]["content"][0]["image_url"]["url"].startswith("data:image/jpeg;base64,")
+    evidence = json.loads(captured[-1][1]["messages"][-1]["content"])["current_selected_frame_evidence"]
+    assert [item["frame"] for item in evidence] == [1, 2]
+    assert "PRIVATE DRAFT" not in json.dumps(evidence) + json.dumps(result)
     assert result["risk_predictions"][0]["qualification"] == "prediction_not_observed_event"
 
 

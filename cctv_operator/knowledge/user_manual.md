@@ -109,6 +109,21 @@ choose a time with saved analysis. Missing samples do not mean zero people or
 a safe scene. Repeated sightings cannot establish unique people or a cumulative
 total. Predictions are hypotheses, never confirmed incidents or probabilities.
 
+## Change the live goal in OtterDesk
+
+Use **Change monitoring goal**, enter a visible condition, then **Apply goal**.
+The desktop sends the declared control directly without model tool calling.
+The change applies to future samples in the current run; **Restore saved goal**
+restores its configured goal. Application is separate from a new analyzed sample.
+If confirmation is interrupted, use **Check status** for the same saved operation
+instead of sending the change again.
+
+“Please find if someone didn't wear the helmet” does not specify a time scope.
+Choose **Watch from now** to change future monitoring or **Search saved footage**
+to read existing observations. Explicit “earlier” questions read history. Preserve
+“wearing” versus “not wearing”; missing or obscured heads remain uncertain.
+External web search is not camera evidence.
+
 ## Ask useful questions
 
 - “Is monitoring ready?” checks camera and analysis health.

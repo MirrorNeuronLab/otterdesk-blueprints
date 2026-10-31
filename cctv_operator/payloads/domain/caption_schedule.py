@@ -66,9 +66,10 @@ def acknowledge_caption(run_dir, run_id, batch_id, *, status):
 
 
 class CaptionSchedule:
-    def __init__(self, run_dir, run_id, config, benchmarks):
+    def __init__(self, run_dir, run_id, config, benchmarks, *, frame_requests=False):
         self.root, self.run_id, self.config, self.benchmarks = Path(run_dir), run_id, config, benchmarks
         self.policy = SamplingPolicy.from_mapping(config.get("sampling"))
+        self.frame_requests = frame_requests
         self.window = self.policy.pre_roll_seconds + self.policy.post_roll_seconds
         if not .5 <= self.window <= 30:
             raise ValueError("caption sequence window must be between .5 and 30 seconds")
@@ -228,7 +229,7 @@ class CaptionSchedule:
                                     else "processing" if inflight else "idle"),
                 "coverage": "sampled windows; overwritten pending windows are counted"}
 
-    def claim(self, monitoring=None, *, force=False, invocation_id="", now=None):
+    def claim(self, monitoring=None, *, force=False, invocation_id="", now=None, ready=True):
         now = time.time() if now is None else now
         with self.lock:
             if monitoring is not None:
@@ -246,7 +247,10 @@ class CaptionSchedule:
                     self._offer(monitoring or initial_monitoring_state(), now, "on_demand")
                 else:
                     self.pending_requested_command = monitoring or initial_monitoring_state()
-            if self.state.get("inflight") or not self.pending:
+            # Preparation has its own health and timing. Keep refreshing the
+            # latest goal/window rather than freezing old footage during a
+            # potentially long cold model download and warmup.
+            if not ready or self.state.get("inflight") or not self.pending:
                 self._persist()
                 return {"batch": None, "state": self.snapshot()}
             if now - self.pending["frames"][-1]["timestamp"] > self.max_pending_age:
@@ -260,10 +264,15 @@ class CaptionSchedule:
             self.state["call_times"] = [at for at in self.state["call_times"] if now - at < 60]
             if self.state["call_times"] and now - self.state["call_times"][-1] < self.min_interval:
                 return {"batch": None, "state": self.snapshot()}
-            if len(self.state["call_times"]) >= self.policy.max_calls_per_minute:
-                return {"batch": None, "state": self.snapshot()}
             pending = self.pending
-            selected = select_diverse_frames(pending["frames"], limit=self.policy.max_model_frames)
+            limit = min(self.policy.max_model_frames, self.policy.max_calls_per_minute) if self.frame_requests else self.policy.max_model_frames
+            # A one-call budget permits only a current single-frame observation,
+            # not an apparent before/after comparison. Prefer the newest image.
+            candidates = pending["frames"][-1:] if limit == 1 else pending["frames"]
+            selected = select_diverse_frames(candidates, limit=limit)
+            calls = len(selected) if self.frame_requests else 1
+            if len(self.state["call_times"]) + calls > self.policy.max_calls_per_minute:
+                return {"batch": None, "state": self.snapshot()}
             instruction = pending["monitoring"]
             self.state["sequence"] += 1
             batch_id = "caption-" + hashlib.sha256(
@@ -285,7 +294,7 @@ class CaptionSchedule:
                        "camera_id", "command_id", "candidate_count", "selected_count")}
             message.update(frame_batch_ref=path.relative_to(self.root).as_posix(), tick_seq=self.state["sequence"])
             self.state["inflight"] = {"batch_id": batch_id, "claimed_at": now, "invocation_id": invocation_id, "message": message}
-            self.state["call_times"].append(now)
+            self.state["call_times"].extend([now] * calls)
             self.pending = None
             self.benchmarks.record("caption.queue_wait", max(0, (now - pending["offered_at"]) * 1000),
                                    variant="one in flight / one latest pending", metadata={"frames": len(selected)})

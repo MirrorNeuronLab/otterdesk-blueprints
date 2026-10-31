@@ -4,8 +4,6 @@ import base64
 import importlib
 import json
 from pathlib import Path
-import shutil
-import subprocess
 
 import pytest
 from jsonschema import Draft202012Validator, ValidationError
@@ -34,38 +32,68 @@ def vision(tmp_path, monkeypatch):
     return harness, block, module, encoded, temporal
 
 
-def test_nim_request_preserves_temporal_media_and_runtime_owned_route(vision, monkeypatch):
-    harness, block, module, encoded, temporal = vision
-    monkeypatch.setattr(module, "model_user_content", temporal)
-    prepared = module.prepare(block, [b"earlier", b"later"], "Describe this window")
-    request = prepared["request"]
-    assert prepared["nim"] is True and prepared["ollama"] is False
-    assert encoded == [("Describe this window", [b"earlier", b"later"], "video_url")]
-    assert request["model"] == "cosmos3-nano-reasoner:1.7" and request["path"] == "/chat/completions"
-    assert request["options"]["backend"] == "nim" and request["options"]["api_base"] == "auto"
-    assert request["options"]["model_spec"]["docker"]["image"] == "nvcr.io/nim/nvidia/cosmos3-reasoner:1.7"
-    payload = request["payload"]
-    assert payload["response_format"]["type"] == "json_schema"
-    assert payload["response_format"]["json_schema"]["strict"] is True
-    assert payload["max_tokens"] == 4096
-    assert "chat_template_kwargs" not in payload
-    assert payload["messages"][0]["role"] == "system"
-    assert "compact JSON" in payload["messages"][0]["content"]
-    assert payload["media_io_kwargs"] == {"video": {"fps": 4.0}}
-    media = payload["messages"][1]["content"][1]["video_url"]["url"]
-    assert media["encoding"] == "data_uri" and media["mime_type"] == "video/mp4"
-    assert harness.store.read_bytes(media["$artifact"]) == b"temporal fixture"
+def test_edge_requests_bind_one_real_frame_and_reserve_policy_budget(vision, monkeypatch):
+    harness, block, module, encoded, _temporal = vision
+    prepared = module.prepare(block, [b"earlier", b"later"], "AUTHORITATIVE TIMES AND HISTORY", goal="A person without a helmet")
+    requests = prepared["perception_requests"]
+    assert len(requests) == 2 and not encoded
+    assert sum(r["payload"]["max_tokens"] for r in requests) + prepared["policy_request"]["payload"]["max_tokens"] <= 4096
+    for request, frame in zip(requests, [b"earlier", b"later"]):
+        assert request["model"] == "cosmos3-edge:bf16" and request["path"] == "/chat/completions"
+        assert request["options"]["backend"] == "vllm" and request["options"]["api_base"] == "auto"
+        assert request["options"]["model_spec"]["docker"]["image"].startswith("vllm/vllm-openai@sha256:")
+        assert request["options"]["required_capabilities"] == ["image_input"]
+        payload = request["payload"]
+        assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert "response_format" not in payload
+        content = payload["messages"][0]["content"]
+        assert len(content) == 2 and "A person without a helmet" in content[1]["text"]
+        assert "AUTHORITATIVE TIMES AND HISTORY" not in content[1]["text"]
+        assert harness.store.read_bytes(content[0]["image_url"]["url"]["$artifact"]) == frame
+    policy = prepared["policy_request"]
+    assert policy["purpose"] == "llm" and policy["model"] != requests[0]["model"]
+    assert policy["payload"]["messages"][1]["content"] == "AUTHORITATIVE TIMES AND HISTORY"
+    assert policy["payload"]["response_format"]["json_schema"]["strict"] is True
+
+
+def test_frame_and_policy_effects_replay_without_more_inference(vision, monkeypatch):
+    harness, block, module, _encoded, _temporal = vision
+    scene = importlib.import_module("domain.scene_analysis")
+    prepared = module.prepare(block, [b"earlier", b"later"], "Review current evidence")
     calls = []
+    account = {**ACCOUNT, "detections": [], "goal_event": None, "helmet_observations": [], "site_findings": []}
     def client(*args, **options):
         calls.append((args, options))
-        return {"choices": [{"message": {"content": json.dumps(ACCOUNT)}}]}
+        content = "A cart is parked by the aisle." if args[0] == "vlm" else json.dumps(account)
+        return {"choices": [{"finish_reason": "stop", "message": {"content": content, "reasoning": "PRIVATE"}}]}
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", client)
-    raw = block_model_request.model_request(block, request, key="scene")
-    assert block_model_request.model_request(harness.context(environment=block.environment), request, key="scene") == raw
-    assert len(calls) == 1 and calls[0][1]["num_retries"] == 0
-    assert calls[0][0][3]["response_format"] == payload["response_format"]
-    assert calls[0][0][3]["messages"][1]["content"][1]["video_url"]["url"].startswith("data:video/mp4;base64,")
+    from domain.benchmarks import Benchmarks
+    metrics = Benchmarks(harness.store.run_dir, {})
+    raw, metadata, error = scene.analyze(block, prepared, metrics, frames=2, revision=1)
+    replay = scene.analyze(harness.context(environment=block.environment), prepared, metrics, frames=2, revision=1)
+    assert replay == (raw, metadata, error) and error is None
+    assert len(calls) == 3 and all(options["num_retries"] == 0 for _, options in calls)
+    evidence = json.loads(calls[-1][0][3]["messages"][-1]["content"])["current_selected_frame_evidence"]
+    assert [item["frame"] for item in evidence] == [1, 2]
+    assert "PRIVATE" not in json.dumps(evidence)
     assert module.interpret(raw, prepared)["scene_understanding"] == ACCOUNT["scene_understanding"]
+    assert metadata["duration_seconds"] == metadata["perception_seconds"] + metadata["decision_seconds"]
+
+
+@pytest.mark.parametrize("finish,content", [("length", "A partial account"), ("stop", ""), ("stop", "<think>private</think>")])
+def test_incomplete_frame_evidence_never_dispatches_a_policy_request(vision, monkeypatch, finish, content):
+    harness, block, module, _encoded, _temporal = vision
+    scene = importlib.import_module("domain.scene_analysis")
+    prepared = module.prepare(block, [b"one", b"two"], "Review")
+    calls = []
+    def client(*args, **options):
+        calls.append(args[0])
+        return {"choices": [{"finish_reason": finish, "message": {"content": content}}]}
+    monkeypatch.setattr(block_model_request, "runtime_model_json_request", client)
+    from domain.benchmarks import Benchmarks
+    raw, metadata, error = scene.analyze(block, prepared, Benchmarks(harness.store.run_dir, {}), frames=2, revision=1)
+    assert raw is None and error and calls == ["vlm"]
+    assert metadata["decision_seconds"] == 0
 
 
 def test_dmr_request_disables_thinking_and_keeps_image_capability(vision):
@@ -85,44 +113,22 @@ def test_dmr_request_disables_thinking_and_keeps_image_capability(vision):
 
 
 @pytest.mark.parametrize("count", [1, 3, 5, 7, 8])
-def test_nim_completes_temporal_pairs_without_changing_selected_evidence(vision, monkeypatch, count):
-    _harness, block, module, encoded, temporal = vision
-    monkeypatch.setattr(module, "model_user_content", temporal)
+def test_frame_evidence_is_not_duplicated_or_renumbered_by_the_model(vision, count):
+    harness, block, module, _encoded, _temporal = vision
     frames = [f"selected-{index}".encode() for index in range(count)]
     original = list(frames)
-    prompt = "Selected frame capture times are authoritative."
-    module.prepare(block, frames, prompt)
-    model_frames = encoded[0][1]
-    assert len(model_frames) % 2 == 0
-    assert model_frames[:count] == original
-    assert model_frames[count:] == ([original[-1]] if count % 2 else [])
-    assert frames == original and encoded[0][0].startswith(prompt)
-    if count % 2:
-        assert f"repeats selected frame {count}" in encoded[0][0]
-        assert f"original selected frame IDs 1 through {count}" in encoded[0][0]
-    else:
-        assert encoded[0][0] == prompt
-
-
-@pytest.mark.skipif(not shutil.which("ffmpeg") or not shutil.which("ffprobe"), reason="requires local FFmpeg tools")
-def test_nim_five_frame_window_encodes_six_decodable_video_frames(vision, tmp_path):
-    harness, block, module, _encoded, _temporal = vision
-    generated = subprocess.run([shutil.which("ffmpeg"), "-hide_banner", "-loglevel", "error",
-        "-f", "lavfi", "-i", "testsrc=size=32x32:rate=4", "-frames:v", "5",
-        "-threads", "1", "-f", "image2pipe", "-vcodec", "mjpeg", "pipe:1"],
-        capture_output=True, check=True, timeout=10)
-    frames = [b"\xff\xd8" + part for part in generated.stdout.split(b"\xff\xd8")[1:]]
-    assert len(frames) == 5
-    prepared = module.prepare(block, frames, "Inspect five selected frames captured at known times.")
-    media = prepared["request"]["payload"]["messages"][1]["content"][1]["video_url"]["url"]
-    video = tmp_path / "selected.mp4"
-    video.write_bytes(harness.store.read_bytes(media["$artifact"]))
-    probe = subprocess.run([shutil.which("ffprobe"), "-v", "error", "-count_frames",
-        "-select_streams", "v:0", "-show_entries", "stream=nb_read_frames,r_frame_rate",
-        "-of", "json", str(video)], capture_output=True, check=True, timeout=10)
-    stream = json.loads(probe.stdout)["streams"][0]
-    assert stream["nb_read_frames"] == "6" and stream["r_frame_rate"] == "4/1"
-    assert len(frames) == 5
+    prepared = module.prepare(block, frames, "Selected capture times are authoritative.")
+    actual = [harness.store.read_bytes(request["payload"]["messages"][0]["content"][0]["image_url"]["url"]["$artifact"])
+              for request in prepared["perception_requests"]]
+    assert actual == original == frames
+    evidence = importlib.import_module("domain.frame_perception")
+    observations = [evidence.observation({"choices": [{"finish_reason": "stop", "message": {
+        "content": "A person is standing; model caption says Frame 0."}}]}, i) for i in range(1, count + 1)]
+    policy = evidence.decision_request(prepared, observations)
+    assert [item["frame"] for item in json.loads(policy["payload"]["messages"][-1]["content"])["current_selected_frame_evidence"]] == list(range(1, count+1))
+    with pytest.raises(ValueError, match="every selected frame"):
+        evidence.decision_request(prepared, observations[:-1])
+    assert sum(r["payload"]["max_tokens"] for r in prepared["perception_requests"]) + policy["payload"]["max_tokens"] <= 4096
 
 
 def test_explicit_ollama_uses_sdk_transport_and_never_uses_private_thinking(vision):
@@ -207,7 +213,7 @@ def test_nim_generation_contract_covers_the_live_type_errors_and_original_frame_
     monkeypatch.setattr(module, "model_user_content", temporal)
     block.config["site"] = {"profile": "factory", "rule_ids": ["group_presence"]}
     prepared = module.prepare(block, [b"one", b"two", b"three"], "Review the selected evidence")
-    schema = prepared["request"]["payload"]["response_format"]["json_schema"]["schema"]
+    schema = prepared["schema"]
     Draft202012Validator.check_schema(schema)
     validate = Draft202012Validator(schema).validate
     prediction = {"risk": "Possible contact with the cart", "visible_evidence": "A person approaches a cart in frames 1 and 3.",
@@ -252,4 +258,34 @@ def test_nim_generation_contract_covers_the_live_type_errors_and_original_frame_
         site.enrich(result, batch, block.config, "", "")
     block.config["site"] = {"profile": "custom"}
     custom = module.prepare(block, [b"one", b"two"], "Review")
-    assert custom["request"]["payload"]["response_format"]["json_schema"]["schema"]["properties"]["site_findings"]["maxItems"] == 0
+    assert custom["schema"]["properties"]["site_findings"]["maxItems"] == 0
+
+
+@pytest.mark.parametrize("private_field", ["reasoning", "reasoning_content"])
+def test_native_reasoning_field_never_enters_the_public_observation(vision, private_field):
+    _harness, _block, module, _encoded, _temporal = vision
+    raw = {"choices": [{"finish_reason": "stop", "message": {
+        private_field: "PRIVATE MODEL REASONING",
+        "content": json.dumps(ACCOUNT),
+    }}]}
+    result = module.interpret(raw, {"nim": True, "ollama": False})
+    assert result["scene_understanding"] == ACCOUNT["scene_understanding"]
+    assert "PRIVATE" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("field,value", [("confidence", "PRIVATE BAD VALUE"), ("uncertainties", "PRIVATE BAD VALUE"),
+    ("goal_event", {"start_frame": 0, "end_frame": 1, "evidence_frame": 1})])
+def test_policy_schema_failure_is_explicit_and_never_contains_response_text(vision, field, value):
+    _harness, block, module, _encoded, _temporal = vision
+    prepared = module.prepare(block, [b"frame"], "Review")
+    account = {**ACCOUNT, "detections": [], "goal_event": None, "helmet_observations": [], "site_findings": [], field: value}
+    with pytest.raises(ValueError, match=field) as error:
+        module.interpret({"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(account)}}]}, prepared)
+    assert "PRIVATE" not in str(error.value)
+
+
+@pytest.mark.parametrize("raw", [None, {}, {"choices": "bad"}, {"choices": [None]}, {"choices": [{"message": "bad"}]}])
+def test_malformed_received_frame_response_is_a_known_failure(vision, raw):
+    evidence = importlib.import_module("domain.frame_perception")
+    with pytest.raises(ValueError, match="complete frame evidence"):
+        evidence.observation(raw, 1)

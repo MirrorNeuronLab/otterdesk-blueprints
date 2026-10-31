@@ -62,12 +62,12 @@ def test_cosmos_budget_leaves_capacity_for_conversation_and_matches_caption_lane
     from mn_sdk.blueprints import resolve_config
 
     package = read_blueprint(ROOT)
-    environment = blueprint_definition(package)["runtime"]["models"]["vision"][
+    arguments = blueprint_definition(package)["runtime"]["models"]["vision"][
         "model_spec"
-    ]["docker"]["environment"]
+    ]["docker"]["arguments"]
     config = resolve_config(package).data
-    assert float(environment["NIM_GPU_MEMORY_UTILIZATION"]) <= 0.5
-    assert int(environment["NIM_MAX_NUM_SEQS"]) == config["backpressure"][
+    assert float(arguments[arguments.index("--gpu-memory-utilization") + 1]) <= 0.5
+    assert int(arguments[arguments.index("--max-num-seqs") + 1]) == config["backpressure"][
         "llm"
     ]["max_concurrent_calls"]
 

@@ -59,6 +59,7 @@ def dashboard_html() -> str:
         </dd></div>
         <div class="status-row"><dt>Scene analysis</dt><dd><p class="health" id="caption-status" role="status">Waiting for the first scene sample.</p></dd></div>
         <div class="status-row"><dt>Monitoring</dt><dd><p class="health" id="analysis-status" role="status">Waiting for the first analysis.</p></dd></div>
+        <div class="status-row" id="coverage-row" hidden><dt>Coverage</dt><dd id="coverage-status"></dd></div>
       </dl>
       <p class="warning" id="pipeline-warning" role="alert" hidden></p>
     </section>
@@ -132,6 +133,9 @@ def dashboard_html() -> str:
         personHistory.title = String(presence.observed_at) + '. Sampled detection; scene review is separate.';
       }
       captionStatus.textContent = String((pipeline.captions || {}).summary || 'Waiting for the first scene sample.');
+      const skipped = Number(metrics['samples skipped']) || 0;
+      document.querySelector('#coverage-row').hidden = skipped === 0;
+      document.querySelector('#coverage-status').textContent = skipped + ' scene windows skipped or replaced. Coverage is sampled.';
       const status = String(metrics.status || 'Waiting for the first analysis.');
       if (analysisStatus.textContent !== status) analysisStatus.textContent = status;
       const warning = String(state.warning || '');
@@ -149,9 +153,10 @@ def dashboard_html() -> str:
           typeof understanding.scene_understanding === 'string' && understanding.scene_understanding.trim()) {
         sceneRevision = revision;
         document.querySelector('#scene-understanding').textContent = understanding.scene_understanding.slice(0, 1800);
-        sceneAt.textContent = displayTime(revision);
-        sceneAt.dateTime = revision;
-        sceneAt.title = 'Sample captured at ' + revision;
+        const captured = understanding.capture_ended_at || understanding.observed_at || revision;
+        sceneAt.textContent = 'Captured ' + displayTime(captured) + ' · Analyzed ' + displayTime(revision);
+        sceneAt.dateTime = captured;
+        sceneAt.title = 'Sample captured at ' + captured + '. Analysis completed at ' + revision;
         const risks = Array.isArray(understanding.risk_predictions) ? understanding.risk_predictions : [];
         analysisList('risk-predictions', risks.filter(risk => risk && typeof risk === 'object').slice(0, 2).map(risk =>
           [risk.risk, risk.visible_evidence, risk.time_horizon,

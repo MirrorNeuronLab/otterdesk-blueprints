@@ -26,10 +26,10 @@ def response_format(frame_count, config):
             "activity": {**text, "maxLength": 160}, "confidence": score,
         }), maxItems=20),
         "confidence": score,
-        "summary": {**text, "maxLength": 300},
+        "summary": {**text, "maxLength": 160},
         "scene_understanding": {**text, "maxLength": 1800},
         "risk_predictions": array(record({
-            "risk": text, "visible_evidence": {**text, "maxLength": 300},
+            "risk": text, "visible_evidence": {**text, "maxLength": 160},
             "time_horizon": {**text, "maxLength": 120},
             "confidence": score, "severity": {"enum": ["low", "medium", "high"]},
             "recommended_review": text, "evidence_frames": frames,
@@ -41,12 +41,12 @@ def response_format(frame_count, config):
         "helmet_observations": array(record({
             "helmet_status": {"enum": ["worn", "not_worn", "uncertain"]},
             "head_visible": {"type": "boolean"}, "evidence_frame": frame,
-            "visible_evidence": {**text, "maxLength": 500},
+            "visible_evidence": {**text, "maxLength": 160},
         }), maxItems=32),
         "site_findings": array(record({
             "rule_id": {"enum": rules} if rules else text,
             "status": {"enum": ["observed", "possible", "not_observed"]},
-            "confidence": score, "visible_evidence": {**text, "maxLength": 800},
+            "confidence": score, "visible_evidence": {**text, "maxLength": 200},
             "evidence_frames": frames,
         }), maxItems=len(rules)),
     })

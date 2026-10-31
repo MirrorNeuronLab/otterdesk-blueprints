@@ -145,3 +145,14 @@ def test_no_match_still_completes_the_applied_goal_analysis_status(tmp_path):
     status = server.tools["get_operation_status"]("goal-2")
     assert status["state"] == "completed" and status["analysis_ready"] is True
     assert status["latest_finding"] == sample()["scene_understanding"]
+
+
+def test_operator_status_preserves_capture_time_separately_from_completion(tmp_path):
+    _, server = exchange(tmp_path)
+    observation = sample()
+    (tmp_path / "cctv_report.json").write_text(json.dumps({"observations": [observation]}))
+    status = server.tools["get_operator_status"]()
+    assert status["observed_at"] == observation["observed_at"]
+    assert status["metrics"]["last analyzed"] == observation["analyzed_at"]
+    assert observation["observed_at"] in status["summary"]
+    assert f"Analysis completed at {observation['analyzed_at']}" in status["summary"]

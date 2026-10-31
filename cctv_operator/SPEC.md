@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.8 specification
+# CCTV Operator 5.3.12 specification
 
 ## Purpose and scope
 
@@ -93,7 +93,7 @@ Missing/corrupt weights fail without downloads or CPU fallback. A stale frame
 cannot advance episodes or establish absence. JPEG resizing and batch writes
 cannot hold the person-signal lock.
 
-Default caption sequence:4candidateFPS,1.5s pre-roll,0.5s post-roll,<=8 chronological
+Default caption sequence:4candidateFPS,1.5s pre-roll,0.5s post-roll,<=2 chronological
 frames within896pixels, no upscaling. Initial short person appearances can have
 less pre-roll; actual timestamps disclose that span. A complete2s empty-scene
 window permits the first scene audit. Subsequent audits require15s without an
@@ -108,7 +108,7 @@ baseline cadence. Claiming still enforces the existing single active request,
 minimum interval and per-minute budget; no concurrent Cosmos request is added.
 
 One active caption and one latest pending window; >=5s between admissions and
-<=12/minute. Configured ceilings are not achieved throughput promises. Unclaimed
+<=12 Cosmos image requests/minute. Configured ceilings are not achieved throughput promises. Unclaimed
 frames older than10s expire with a durable counter; requested commands await fresh
 evidence. Revisions cannot regress and preserve audit provenance. Completion is
 required before slot release; replay returns the same durable artifact. No lost
@@ -120,43 +120,77 @@ ownership; this blueprint owns only facility sampling/admission policy.
 Keep fixed parent graph ingress→sampling→vision→reporting, SDK DockerWorker
 placement, NVIDIA/CUDA 49152MB admission and single-node execution. The required
 camera/UI auxiliary entrypoint uses the SDK monitored-service block; model-registry
-and shared-skill contracts remain unchanged. Cosmos3 Nano
-Reasoner1.7 NIM receives selected MP4 frames at4FPS and true capture timestamps;
-the transport completes odd windows by repeating the final selected frame so
-Cosmos receives whole temporal pairs. The prompt declares the duplicate and
-permits only original selected-frame evidence IDs. Original frame counts, hashes,
-capture timestamps, memory and report provenance remain authoritative.
-compact direct JSON/up to4096 output tokens/300s request deadline apply;
-smaller gateway/request/hardware/context caps still win. Do not use an unsupported chat
-template reasoning switch. Nemotron text
-chat remains separate. Preparation and lifecycle are platform-owned. Malformed,
-truncated, unsupported or capacity-failed inference is explicit, never clear-scene
-success. Camera source/memory/model failures do not certify absence.
-Normally stopped Cosmos responses may omit the closing answer tag or contain one
-JSON fence. Accept only a complete JSON object after excluding completed private
-reasoning. Reject unfinished reasoning, truncation, malformed JSON and trailing
-content; do not salvage a partial object or dispatch another inference for parsing.
-The visual prompt declares one complete output contract, including site_findings
-and selected-frame references on every forecast. Missing references remain an
-analysis error; the parser must not invent them from a different finding.
-Cosmos requests also supply a strict JSON Schema through response_format. It
-requires the ten typed fields, list-valued uncertainties, lowercase severity,
-configured facility-rule IDs and original selected-frame bounds. This constrains
-generation; downstream semantic/provenance checks still determine acceptance.
-The generation schema excludes XGrammar's unsupported uniqueItems keyword;
-the existing domain validator continues to reject duplicate evidence indices.
-Every generated free-text field has a character bound, including the existing
-80/80/60/160/160 detection label/category/color/position/activity limits. Repetitive
-detection detail must not consume the answer budget before the scene account.
-Invalid final answers identify the failed field without logging response content.
-Ask for the compact ten-field account and at most two forecasts, targeting900
-output tokens. Person activity uses two to six concrete sentences (<=1800 chars)
-with visible posture, movement, hand actions, objects/interactions and changes
-across cited selected frames. Unclear actions remain uncertain; quiet scenes may
-be brief. Keep the summary and other evidence short. No model budget is increased.
-Normalization supplies the existing report's legacy
-fields. Never drop frame provenance or uncertainty to meet the target, and never
-accept a truncated reply as a completed observation.
+and shared-skill contracts remain unchanged. Cosmos3-Edge 4B uses the managed
+Docker/vLLM backend with the official `vllm/vllm-openai:cosmos3` image pinned by
+digest, and revision-pinned Hugging Face checkpoint in BF16. The SDK validates
+literal server arguments before effects. The recipe explicitly selects XGrammar
+structured decoding after the native reasoning phase, a Qwen3-compatible reasoning
+parser, optional whitespace disabled,32K context, one sequence
+and25% memory utilization. The native owner and submitter need the updated SDK
+contract; model lifecycle and cache ownership stay platform-owned.
+
+The primary scene analysis is a deliberate perception/policy composition using
+the two declared models. Cosmos receives one committed selected JPEG per request
+and returns two to four factual sentences with thinking disabled. It does not
+assign frame IDs or evaluate facility policy. Bind each response to the original
+selected frame from its request. Default to two chronological selected frames.
+Count every Cosmos image request against the existing twelve-call rolling-minute
+budget; cap selected frames by that budget when necessary. Preserve one active
+analysis and one latest pending window, minimum admission interval, freshness
+expiry and effect-journal replay. Individual frame requests are serial.
+
+The declared primary Nemotron model evaluates the current supervisor goal,
+including negation, facility rules and possible physical risks against those
+frame-bound descriptions and original capture timestamps. It performs semantic
+evaluation, never parsing repair. Historical text is bounded background, never
+current evidence. It must not invent motion, people, headwear or frame identities
+that the current evidence does not establish. Uncertain evidence cannot certify
+absence or a policy violation. Conversation/history behavior remains intact. Use the dedicated scene-decision
+prompt, not image-viewing instructions. A requested physical condition does not
+require proof of a site-policy breach. Supply the current goal beside the current
+frame evidence and require consistent helmet/head-visibility/facility findings.
+
+Each Cosmos response must stop normally with nonempty final content and no
+private-reasoning tags. Limit it to512 tokens. Limit the semantic decision to1800
+tokens; dynamically reduce component ceilings so their total never exceeds the
+existing4096-token scene allowance. The vision request deadline remains300s and
+the primary model deadline60s; smaller platform limits win. Preparation and
+lifecycle stay platform-owned. Malformed, truncated, unsupported or capacity-
+failed inference is explicit, never a successful clear scene. Do not dispatch
+another inference to repair output or salvage a partial JSON object.
+
+The primary model receives one strict JSON Schema requiring the ten typed
+observation fields, list-valued uncertainties, lowercase severity, configured
+facility-rule IDs and valid original selected-frame indices. Validate the full
+schema before normalization, then retain the existing goal, helmet, facility,
+forecast and provenance validators. Missing evidence references remain errors;
+never invent them from a different finding. The generation schema omits
+uniqueItems for decoder portability; downstream validation rejects duplicate
+indices. Every free-text field and array is bounded, including the existing
+80/80/60/160/160 detection limits. Invalid output identifies its failed field
+without logging response content. Private reasoning is excluded from publication.
+
+Ask for the compact ten-field decision and at most two forecasts. Describe
+visible posture, hand actions, objects, interactions and changes across cited
+frames only to the extent supported by the Cosmos evidence. Quiet scenes may
+be brief; unclear actions remain uncertain. Normalization supplies legacy report
+fields. Never drop provenance or uncertainty to meet the token target.
+
+Prepare the declared vision model through the existing SDK manager alongside
+camera/person sampling. Do not admit a caption until preparation and required
+image capability checks succeed. Pending evidence and goal revisions keep
+refreshing during preparation. Report preparation, failure and active inference
+separately, with caption.model_prepare timing. Preserve the single active request
+and all existing admission, evidence and deadline rules. Camera failure never
+becomes model readiness, and stopping prevents late preparation from opening
+admission.
+
+Keep the full scene activity account once; generation bounds summary to160,
+helmet evidence to160 and facility evidence to200 characters. Do not duplicate
+one person's continuing appearance as multiple detections, or present a current
+helmet finding as a forecast. The live default recalls one complete prior
+Markdown account; retained history and the twelve-account history/Q&A limit are
+unchanged. Busy scenes may exceed the450-token target to preserve evidence.
 
 Evidence batches and selected image hashes precede inference. Reports retain
 sample interval, source/demo qualification, frame refs, active instruction,
@@ -184,6 +218,10 @@ uncertainties appear above that snapshot while monitoring continues; empty model
 lists are reported as such, never as proof that the scene is safe or certain.
 The completed account remains visible during the next inference. Render model
 text as text, retain capture time and qualify recorded demo playback.
+Display capture and completion times distinctly. Freshness uses completion time;
+an active inference is processing until its deadline, not stale merely because
+its captured frames are older than60seconds. Surface resident overwritten plus
+expired window counts instead of the obsolete report-only sampling counter.
 Short local times retain full timestamps in tooltips.
 Long values must wrap within narrow panels. Preserve detailed scene accounts in
 latest-status replies and confirmed goal notices rather than the short metric
@@ -250,7 +288,7 @@ and response services remain SDK-owned, including operation receipts and lifecyc
 ## Measurement and acceptance
 
 See BENCHMARKS.md for exact boundaries. Add caption.preprocess timing; keep frame
-age, person preparation/inference/policy, caption queue/dispatch/model wait/inference,
+age, person preparation/inference/policy, caption queue/dispatch/model wait, Cosmos frame evidence, semantic decision and complete analysis,
 memory and historical-Q&A measurements separate. Fingerprints include implementation,
 model/hardware/configuration/site profile and footage cohort. No pooling across
 variants; successful retained percentiles exclude errors/skips, which remain visible.
@@ -337,3 +375,13 @@ OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guida
 Explicit aliases, camera knowledge and restrictive control rules keep their existing bounded Job memory path and receipts. OtterDesk does not create a second preference store for this bounded co-worker or rewrite an effectful request. Ordinary chat is not learned.
 
 Use timestamped saved camera Markdown and existing Membrane observation retrieval. Recorded demo playback is historical demonstration, not a live site event. A moving preview does not prove scene analysis. Missing observations do not mean a clear or safe scene. Stream addresses and credentials belong in secure fields. Monitoring goals, camera notes and bounded domain memory retain their existing authority. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.
+
+## Deterministic desktop goal control
+
+OtterDesk may call the existing monitoring tool directly for an explicit goal
+editor or Watch from now choice, without an LLM tool call. Preserve the exact
+condition and negation. A find-if request without clear time scope offers Watch
+from now and Search saved footage before dispatch. Explicit past-time questions
+remain history reads. Queued, applied and analyzed states stay separate; reconnect
+checks the saved operation instead of resubmitting a mutation. The existing MCP
+contract, readiness, Core steering and inference pipeline remain authoritative.

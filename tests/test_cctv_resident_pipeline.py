@@ -503,3 +503,40 @@ def test_person_presence_is_visible_while_scene_analysis_is_pending_or_delayed()
     assert pipeline["captions"]["summary"] == "Scene analysis delayed (303 s)."
     pipeline, _ = pipeline_status(person, captions, now=410, last_presence=presence)
     assert "waiting for fresh video frames" in pipeline["person_events"]["summary"]
+
+
+@pytest.mark.parametrize("budget,expected_frames", [(1, 1), (4, 2)])
+def test_framewise_caption_counts_every_cosmos_request_and_replays_without_spending(tmp_path, budget, expected_frames):
+    config = {"sampling": {"max_model_frames": 2, "max_calls_per_minute": budget,
+                           "pre_roll_seconds": 1.5, "post_roll_seconds": .5}}
+    schedule = CaptionSchedule(tmp_path, "run", config, Benchmarks(tmp_path), frame_requests=True)
+    goal = {"instruction": "A person without a helmet", "instruction_revision": 1}
+    schedule.capture(1, 100, jpeg("white"), goal)
+    schedule.person_sample(100.5, confirmed=True, episode=1)
+    schedule.person_sample(101, confirmed=True, episode=1)
+    schedule.capture(2, 101, jpeg("black"), goal)
+    first = schedule.claim(invocation_id="first", now=101)["batch"]
+    assert first["selected_count"] == expected_frames
+    assert len(schedule.state["call_times"]) == expected_frames
+    assert schedule.claim(invocation_id="first", now=102)["batch"] == first
+    assert len(schedule.state["call_times"]) == expected_frames
+    complete_caption(tmp_path, first["batch_id"], status="ok")
+    if budget == 4:
+        schedule.capture(3, 106, jpeg("gray"), goal)
+        schedule.person_sample(106.5, confirmed=True, episode=2)
+        schedule.person_sample(107, confirmed=True, episode=2)
+        schedule.capture(4, 107, jpeg("red"), goal)
+        second = schedule.claim(goal, force=True, invocation_id="second", now=107)["batch"]
+        assert second["selected_count"] == 2
+        complete_caption(tmp_path, second["batch_id"], status="ok")
+        assert len(schedule.state["call_times"]) == budget
+    schedule.person_sample(110, confirmed=True, episode=3)
+    schedule.capture(5, 111, jpeg("green"), goal)
+    assert schedule.claim(goal, force=True, invocation_id="budget-exhausted", now=112)["batch"] is None
+    # A new minute admits fresh evidence, never the expired budget-wait window.
+    schedule.capture(6, 169, jpeg("blue"), goal)
+    schedule.person_sample(169.5, confirmed=True, episode=4)
+    schedule.person_sample(170, confirmed=True, episode=4)
+    schedule.capture(7, 170, jpeg("yellow"), goal)
+    fresh = schedule.claim(goal, force=True, invocation_id="next-minute", now=170)["batch"]
+    assert fresh and len(schedule.state["call_times"]) == expected_frames

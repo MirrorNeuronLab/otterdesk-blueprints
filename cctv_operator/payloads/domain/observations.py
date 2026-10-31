@@ -68,6 +68,8 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
     return {
         "scene_understanding": detection_payload.get("scene_understanding"),
         "goal_event": detection_payload.get("goal_event"),
+        "helmet_observations": detection_payload.get("helmet_observations", []),
+        "goal_validation": detection_payload.get("goal_validation"),
         "monitoring_goal": detection_payload.get("monitoring_goal"),
         "risk_predictions": detection_payload.get("risk_predictions"),
         "site_findings": detection_payload.get("site_findings", []),
@@ -108,6 +110,8 @@ def observation_from_detection(detection_payload: dict[str, Any]) -> dict[str, A
         "selected_count": detection_payload.get("selected_count"),
         "command_id": detection_payload.get("command_id"),
         "model_latency_ms": detection_payload.get("model_latency_ms"),
+        "perception_latency_ms": detection_payload.get("perception_latency_ms"),
+        "decision_latency_ms": detection_payload.get("decision_latency_ms"),
         "condition_screening": detection_payload.get("condition_screening")
         if isinstance(detection_payload.get("condition_screening"), dict) else {},
         "sampling_metrics": detection_payload.get("sampling_metrics")
@@ -182,6 +186,8 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
         "payload": {
             "scene_understanding": observation.get("scene_understanding"),
             "goal_event": observation.get("goal_event"),
+            "helmet_observations": observation.get("helmet_observations", []),
+            "goal_validation": observation.get("goal_validation"),
             "monitoring_goal": observation.get("monitoring_goal"),
             "risk_predictions": observation.get("risk_predictions"),
             "site_findings": observation.get("site_findings", []),
@@ -220,6 +226,8 @@ def frame_observed_event(observation: dict[str, Any], conversation_summary: str 
             "selected_count": observation.get("selected_count"),
             "command_id": observation.get("command_id"),
             "model_latency_ms": observation.get("model_latency_ms"),
+            "perception_latency_ms": observation.get("perception_latency_ms"),
+            "decision_latency_ms": observation.get("decision_latency_ms"),
             "sampling_metrics": observation.get("sampling_metrics"),
             "observed_at": observation.get("observed_at"),
             "configured_targets": observation.get("configured_targets"),

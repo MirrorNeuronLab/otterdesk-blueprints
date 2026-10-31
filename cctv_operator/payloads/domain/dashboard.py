@@ -153,6 +153,7 @@ def operator_state(
     preview_status: str,
     preview_warning: str,
     now: float | None = None,
+    pipeline: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     observations = _items(report.get("observations"))
     detections = _items(report.get("detections"))
@@ -173,10 +174,16 @@ def operator_state(
         or latest_frame.get("updated_at")
         or latest_frame.get("created_at")
     )
-    last_seen_epoch = _epoch(last_seen)
+    last_completed = latest.get("analyzed_at") or latest_frame.get("analyzed_at") or last_seen
+    last_completed_epoch = _epoch(last_completed)
+    pipeline = _mapping(pipeline)
+    captions = _mapping(pipeline.get("captions"))
+    person = _mapping(pipeline.get("person_events"))
     gate_events = [event for event in supplemental_events
                    if event.get("type") == "cctv_operator_candidate_gate_checked"]
     last_sample = _mapping(gate_events[-1].get("payload")).get("sampled_at") if gate_events else None
+    if captions.get("last_offered_at") is not None:
+        last_sample = captions["last_offered_at"]
     last_sample_epoch = _epoch(last_sample)
     baseline = _mapping(config.get("sampling")).get(
         "baseline_interval_seconds", 20
@@ -186,10 +193,13 @@ def operator_state(
     except (TypeError, ValueError):
         stale_after = 60.0
     current_time = float(time.time() if now is None else now)
-    stale = (
-        (last_sample_epoch if last_sample_epoch is not None else last_seen_epoch) is not None
-        and current_time - (last_sample_epoch if last_sample_epoch is not None else last_seen_epoch) > stale_after
-    )
+    # A fresh, explicit gate rejection means no inference was due. Keep that
+    # legitimate quiet-camera state separate from overdue accepted analysis.
+    quiet_sample_at = _epoch(_mapping(gate_events[-1].get("payload")).get("sampled_at")) if gate_events else None
+    quiet_gate = (bool(gate_events) and _mapping(gate_events[-1].get("payload")).get("admit") is False
+                  and quiet_sample_at is not None and 0 <= current_time - quiet_sample_at <= stale_after)
+    stale = (last_completed_epoch is not None and current_time - last_completed_epoch > stale_after
+             and captions.get("inflight_status") != "processing" and not quiet_gate)
 
     review_alerts = [
         alert
@@ -197,10 +207,16 @@ def operator_state(
         if str(alert.get("status") or "review").lower()
         not in {"resolved", "dismissed"}
     ]
-    if errors:
+    if person.get("scene_model") == "failed":
+        status = "Analysis error"
+        warning = "Couldn't prepare scene analysis. Review the model preparation error before trying again."
+    elif errors:
         status = "Analysis error"
         warning = str(errors[-1].get("error") or "Frame analysis needs attention.")[:500]
-    elif stale:
+    elif person.get("scene_model") == "preparing":
+        status = "Preparing scene analysis"
+        warning = "Preparing the scene model. Camera preview and person detection have separate readiness."
+    elif captions.get("inflight_status") == "stalled" or stale:
         status = "Analysis delayed"
         warning = (
             f"No analyzed frame has arrived within {int(stale_after)} seconds. "
@@ -320,7 +336,8 @@ def operator_state(
             "frames analyzed": int(report.get("frames_analyzed") or len(observations)),
             "target detections": int(report.get("detection_count") or len(detections)),
             "alerts to review": len(review_alerts),
-            "last analyzed": _display_time(last_seen),
+            "last analyzed": _display_time(last_completed),
+            "last captured": _display_time(last_seen),
             "last sampled": _display_time(last_sample),
             "model latency": (
                 f"{int(sampling_metrics.get('latest_model_latency_ms') or 0)} ms"
@@ -333,7 +350,8 @@ def operator_state(
                 or "waiting"
             ),
             "selected frames": int(latest_batch.get("selected_count") or 0),
-            "samples skipped": int(sampling_metrics.get("samples_skipped") or 0),
+            "samples skipped": (int(captions.get("skipped_windows") or 0) + int(captions.get("stale_windows") or 0)
+                                if captions else int(sampling_metrics.get("samples_skipped") or 0)),
             "preview": preview_status,
             "instruction revision": int(
                 monitoring.get("instruction_revision") or 0
@@ -344,7 +362,7 @@ def operator_state(
         "understanding": {key: current_finding.get(key) for key in (
             "site_findings", "site_context", "site_coverage",
             "scene_understanding", "risk_predictions", "uncertainties", "observed_at",
-            "camera_id", "frame_batch_ref", "capture_started_at", "capture_ended_at", "source_profile")},
+            "camera_id", "frame_batch_ref", "capture_started_at", "capture_ended_at", "source_profile", "analyzed_at")},
         "warning": warning,
         "events": recent_events,
     }

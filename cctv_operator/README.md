@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.8 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.12 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -110,6 +110,27 @@ CLI uses repeated `--set`; it does not accept these files via `--config`.
 
 ## Responsive pipeline
 
+Scene-model preparation starts alongside camera sampling through the existing SDK
+model manager. The workspace shows **Preparing scene analysis** until readiness
+and image capability checks complete. No camera batch occupies the inference slot
+during download/load/warmup: the first admission uses fresh evidence and the latest
+applied goal. Preparation failures remain visible while the independent camera and
+person lanes continue. `caption.model_prepare` measures this work separately.
+
+Routine inference recalls one complete prior account by default instead of three;
+all saved accounts remain available to history/Q&A. Generated evidence fields are
+short, detailed activity appears once, and a person's appearance across multiple
+frames is not duplicated as multiple detections. Current helmet observations do
+not also fill the forecast list without evidence for a separate future outcome.
+These changes reduce prompt/response overhead; improved live latency and recall
+still require measurement on the selected hardware and footage.
+
+Existing active runs retain their submitted bundles. Load this revision through
+the normal idle Job update/preparation path before starting the next run; do not
+edit a running bundle or reset the runtime. Completed activity is published as
+final with its evidence, and the desktop persists the completed watch delivery
+before advancing its cursor.
+
 One persistent CUDA FFmpeg relay feeds the preview, an independent resident
 RF-DETR person lane and a separate caption sampling lane. Rate selection precedes
 CUDA resize and host download. The default shared relay is 1280 pixels wide at
@@ -119,7 +140,7 @@ No CPU decoder, replacement detector or demo-source fallback is used.
 
 Default caption policy:
 
-- 4 candidate FPS; 1.5-second pre-roll and 0.5-second post-roll; up to eight
+- 4 candidate FPS; 1.5-second pre-roll and 0.5-second post-roll; up to two
   chronological selected frames, resized within 896 pixels without upscaling.
 - Person confirmation triggers a sequence. Periodic scene audits inspect static
   hazards even without a person: first after a complete two-second window, then
@@ -129,7 +150,7 @@ Default caption policy:
   after a recent audit; continuing presence follows the normal sampling cadence.
   The active-request, minimum-admission and per-minute limits still apply.
 - One active Cosmos request and one latest pending window; five-second minimum
-  admission interval and twelve admissions/minute maximum. Actual throughput is
+  admission interval and twelve Cosmos image requests/minute maximum. Actual throughput is
   limited by measured model, Core and memory latency, not those ceilings.
 - Unclaimed windows older than ten seconds expire with a counter. A stale requested
   window retains its command for fresh evidence. Durable completion releases the
@@ -139,6 +160,11 @@ JPEG preparation and batch persistence cannot hold the person-signal lock.
 Stale camera frames do not advance person episodes or establish absence.
 Skipped/expired windows, frame age, preprocessing, queue, dispatch, model-slot,
 model inference and memory timings remain separate in `benchmarks/stages.sqlite3`.
+The workspace reports the resident scheduler's replaced and expired window counts.
+Capture time and analysis completion time are displayed separately; an older
+capture does not make a just-completed result unhealthy. A known active inference
+retains its processing state until its existing deadline, rather than using the
+60-second idle-result freshness check as a model timeout.
 Worker timestamps start at relay availability; sensor/network/decode latency before
 that is not measured. These settings reduce preparation work and configured wait;
 they do not guarantee model latency, recall or end-to-end response time.
@@ -204,47 +230,63 @@ Spark; a submitter's loopback address is not a remote camera. Invalid input,
 unavailable stream, CUDA/model failure and insufficient context remain explicit.
 No external source falls back to the demo. One configured camera per Job.
 
-Cosmos3 Nano Reasoner 1.7 remains the declared Docker/NVIDIA NIM vision model;
-Nemotron 3.5 Lightning remains the text conversation model. Preparation and
-lifecycle are SDK-owned. The exact model recipe, resource requirements and
-matching package versions remain in execution.json/dependencies.json.
-Initial NIM installation needs the existing runtime's NGC credential environment;
-the blueprint does not install or reconfigure the runtime. Cosmos receives the
-selected sequence via MP4/video_url at 4 FPS, real selected timestamps, optional
-complete history and a request ceiling of 4096 output tokens, subject to the
-runtime gateway's smaller per-response and hardware limits. Its request deadline remains
-300 seconds. Truncated, malformed or unsupported results are errors, not clear
-scenes. Private reasoning never enters reports or history.
-Routine monitoring requests compact JSON directly, without a reasoning-template switch,
-using the [Cosmos3 NIM direct-answer request contract](https://docs.nvidia.com/nim/vision-language-models/1.7.0/examples/cosmos-reason3/api.html).
-Requests include a strict JSON Schema for the ten-field observation, with
-array-valued uncertainties, lowercase risk severity and frame references bounded
-to the selected evidence. All free-text fields are bounded, including detection
-position/activity, so repeated detail cannot consume the entire answer budget.
-The deployed NIM must support JSON-schema response_format;
-an unsupported request fails explicitly. Semantic evidence validation remains in
-place. This fixes the normally stopped response that supplied a scene account but
-encoded uncertainties as a string and severity as `Low`, which previously surfaced
-as a misleading missing-scene error. Reprepare an idle saved Job before starting
-this revision; frozen requests in existing runs retain their original contract.
-Cosmos video input uses complete temporal frame pairs. An odd selected window
-repeats its final frame only in the encoded transport; the prompt identifies
-that duplicate and restricts evidence references to the original selected frames.
-Capture timestamps, selected counts, hashes and reports retain the original
-evidence. This prevents the timestamp/video-length failure seen with five-frame
-windows. Reprepare the saved Job from this blueprint revision before a new run;
-existing failed runs and frozen inference requests remain unchanged.
-The prompt requests ten evidence-bearing fields and at most two forecasts,
-targeting about 900 output tokens. Person activity receives two to six concrete
-sentences (up to 1800 characters), describing visible posture, movement, hand
-actions, objects and interactions, with selected-frame references and uncertainty.
-Quiet scenes can remain brief. The summary and other evidence stay concise;
-no reasoning or larger model allowance is requested. The report adapter retains legacy
-fields; it does not ask the model to repeat the same scene in each one.
-The final JSON object is the answer boundary: a normally stopped Cosmos reply may
-omit its closing answer tag or wrap the object in a JSON fence. The parser accepts
-only the complete object; unfinished reasoning, truncated output and trailing prose
-remain errors. It never recovers a partial object or repeats inference to repair it.
+Cosmos3-Edge 4B is the declared managed Docker vision model. It uses NVIDIA's
+[documented Cosmos3 vLLM image](https://huggingface.co/nvidia/Cosmos3-Edge#vllm),
+pinned by digest in execution.json, and checkpoint revision
+`344d602b128d1bbdacb43b08d0a3626f46343e29`. The API serves
+`nvidia/Cosmos3-Edge`; Nemotron 3.5 Lightning handles semantic monitoring decisions and text conversation.
+Preparation, ownership and lifecycle are SDK-owned. The recipe uses BF16, 32K
+context, one sequence and 25% GPU memory utilization. Weights stay in the owned
+Hugging Face cache volume; the public image/checkpoint needs no NGC credential.
+The SDK must support validated `docker.arguments` and OpenAI Docker backend
+`vllm`. Upgrade the submitter and selected owner together, then reprepare the
+saved Job. Existing frozen runs retain their original request/recipe.
+
+The server explicitly configures the Qwen3-compatible reasoning parser and
+XGrammar decoder. Live qualification found that Edge could describe a single
+image quickly, but did not reliably produce a complete ten-field observation or
+number the images in a multi-frame request. Fast malformed or semantically wrong
+JSON is not a successful analysis.
+
+The primary scene path therefore uses the two already-declared models for their
+separate responsibilities. Cosmos describes each selected JPEG in two to four
+factual sentences, with thinking disabled. Each request contains exactly one
+committed image; the request binds the response to its original selected frame.
+The default is two chronological frames, preserving before/after comparisons
+without asking Edge to invent frame IDs. Every image request consumes one credit
+from the existing twelve-Cosmos-calls-per-minute budget. One scene analysis remains
+active, with one latest pending window and the existing admission interval.
+
+Nemotron 3.5 Lightning then evaluates the supervisor's actual goal, configured
+facility rules and possible physical risks using those frame-bound observations,
+capture times and bounded historical context. This is semantic policy evaluation,
+not an extra call to repair malformed Cosmos output. It preserves the requested
+condition and negation. Historical text never becomes current image evidence.
+Only Cosmos sees the selected images; both models remain on the selected owner.
+
+Each Cosmos response is limited to 512 tokens and must stop normally with
+nonempty final content. The semantic decision has at most 1800 tokens. Their
+combined ceilings stay within the existing 4096-token scene allowance, including
+when an operator selects more frames. Smaller platform limits still apply.
+The dedicated `scene-decision.md` prompt distinguishes a requested physical
+condition from a policy breach and checks same-frame head visibility before
+classifying a missing helmet. The current goal accompanies the final frame
+evidence, so historical decisions cannot replace it.
+Nemotron receives the strict ten-field JSON Schema, including list-valued
+uncertainties, lowercase severity, configured rule IDs and valid frame bounds.
+Local schema and semantic evidence checks determine acceptance. Truncated or
+invalid output is an explicit failure; there is no repair inference or clear-scene
+substitution. Private reasoning never enters observations, history or notices.
+
+The camera service and detector use the same local model-manager endpoints in
+the host-network worker. The existing SDK effect journal freezes each frame
+request and the semantic decision independently, so replay does not repeat
+inference. Reprepare the saved Job from this revision before starting a new run;
+existing runs retain their frozen requests. Benchmarks distinguish
+`caption.perception` (all Cosmos frames), `caption.decision` (goal/rule evaluation)
+and `caption.inference` (complete scene analysis); published observations retain
+both component latencies. Live acceptance requires meaningful observations,
+immutable evidence and actual desktop receipt.
 
 ### Response-contract verification on 2026-10-28
 
@@ -313,6 +355,15 @@ before running this blueprint revision.
 ## Outputs and operations
 
 ### Change the Cosmos focus in Chat
+
+Version 5.3.9 aligns guidance with OtterDesk's direct **Change monitoring goal**
+editor. Apply or restore a goal without CPU model tool calling. Ambiguous requests
+such as “please find if someone didn't wear the helmet” offer **Watch from now**
+or **Search saved footage**. The choice preserves the condition and negation.
+Applied goals and new analyzed samples remain separate; interrupted confirmation
+checks the saved operation. Existing prepared Jobs need their normal blueprint
+refresh to load revised guidance; no runtime reset or runtime source change is needed.
+
 
 Ask for a visible subject or condition, including a question such as “can you
 focus on if the person wearing the safety helmet”. This changes the prompt for

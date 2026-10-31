@@ -451,6 +451,11 @@ class CCTVWebUIService:
         if batch and not isinstance(report.get("latest_batch"), dict):
             report = {**report, "latest_batch": batch}
         preview = self.preview_stream.snapshot()
+        projection = _load_domain_function("pipeline_status", "pipeline_status")
+        pipeline, warning = projection(
+            read_json_object(self.run_dir / "person_detector_state.json"),
+            read_json_object(self.run_dir / "caption_schedule.json"),
+            last_presence=_event_payload(_latest_event(events, "cctv_operator_person_event")))
         state = operator_state(
             run_id=self.run_id,
             config=self.config,
@@ -460,13 +465,10 @@ class CCTVWebUIService:
             supplemental_events=events,
             preview_status=str(preview.get("status") or "unavailable"),
             preview_warning=str(preview.get("warning") or ""),
+            pipeline=pipeline,
         )
         safe_state = json.loads(redact_source_urls(json.dumps(state)))
-        projection = _load_domain_function("pipeline_status", "pipeline_status")
-        safe_state["pipeline"], warning = projection(
-            read_json_object(self.run_dir / "person_detector_state.json"),
-            read_json_object(self.run_dir / "caption_schedule.json"),
-            last_presence=_event_payload(_latest_event(events, "cctv_operator_person_event")))
+        safe_state["pipeline"] = pipeline
         if warning:
             safe_state["warning"] = " ".join(dict.fromkeys(filter(None, [safe_state.get("warning"), warning])))
         if self._activity_store is not None:
@@ -758,7 +760,7 @@ def create_operator_mcp_server(
         state = service.ui_state()
         metrics = state["metrics"]
         finding = metrics["latest finding"]
-        observed_at = metrics["last analyzed"]
+        observed_at = metrics["last captured"]
         summary = _load_domain_function("conversation_status", "operator_status_summary")(state)
         return {
             "schema_version": "mn.cctv.operator_status.v1",

@@ -23,9 +23,15 @@ test("shows completed scene analysis and subsequent SSE results without a reload
     await page.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: "domcontentloaded" });
     await expect.poll(() => streams.size).toBe(1);
     await expect(page.getByRole("region", { name: "Latest scene analysis" })).toBeHidden();
+    send({ metrics: { status: "Preparing scene analysis", preview: "disabled", "samples skipped": 3 },
+      pipeline: { captions: { summary: "Preparing scene analysis (159 s)." } } });
+    await expect(page.locator("#caption-status")).toHaveText("Preparing scene analysis (159 s).");
+    await expect(page.locator("#coverage-status")).toContainText("3 scene windows skipped or replaced");
+    await expect(page.getByRole("region", { name: "Latest scene analysis" })).toBeHidden();
     const state = {
-      metrics: { status: "Monitoring", preview: "disabled", "last analyzed": "2026-10-28T23:30:00Z" },
+      metrics: { status: "Monitoring", preview: "disabled", "last analyzed": "2026-10-28T23:30:00Z", "samples skipped": 111 },
       understanding: { scene_understanding: "A person carries a box along the warehouse aisle.",
+        capture_ended_at: "2026-10-28T23:28:50Z",
         risk_predictions: [{ risk: "The box may obscure the travel path.", visible_evidence: "Box held in front of the person.",
           time_horizon: "Next few steps", recommended_review: "Review the original frames." }],
         uncertainties: ["The person's hands are partially obscured."] },
@@ -34,7 +40,9 @@ test("shows completed scene analysis and subsequent SSE results without a reload
     await expect(page.getByText(state.understanding.scene_understanding, { exact: true })).toBeVisible();
     await expect(page.getByText(/The box may obscure the travel path/)).toBeVisible();
     await expect(page.getByText(state.understanding.uncertainties[0], { exact: true })).toBeVisible();
-    await expect(page.locator("#scene-at")).toHaveAttribute("datetime", state.metrics["last analyzed"]);
+    await expect(page.locator("#scene-at")).toHaveAttribute("datetime", state.understanding.capture_ended_at);
+    await expect(page.locator("#scene-at")).toHaveAttribute("title", /Analysis completed at 2026-10-28T23:30:00Z/);
+    await expect(page.locator("#coverage-status")).toContainText("111 scene windows skipped or replaced");
     send({ metrics: { ...state.metrics, status: "Analysis delayed" }, warning: "The next sample is processing." });
     await expect(page.locator("#analysis-status")).toHaveText("Analysis delayed");
     await expect(page.getByRole("alert")).toHaveText("The next sample is processing.");

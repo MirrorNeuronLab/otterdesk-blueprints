@@ -42,10 +42,11 @@ def native(tmp_path, monkeypatch):
     monkeypatch.setattr(vision, "acknowledge_caption", acknowledge)
     calls = []
     account = {"detected_target": False, "confidence": .9, "summary": "A cart remains parked.",
-        "scene_understanding": "A cart remains beside the aisle.", "risk_predictions": [], "uncertainties": []}
+        "scene_understanding": "A cart remains beside the aisle.", "risk_predictions": [], "uncertainties": [],
+        "detections": [], "goal_event": None, "helmet_observations": [], "site_findings": []}
     def client(*args, **options):
         calls.append((args, options))
-        return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(account)}}]}
+        return {"choices": [{"finish_reason": "stop", "message": {"content": "A cart is parked by the aisle." if args[0] == "vlm" else json.dumps(account)}}]}
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", client)
     options = {**SCOPE, "config": CONFIG, "environment": environment}
     def seed(name="one", sequence=1, instruction="", revision=0):
@@ -68,14 +69,15 @@ def native(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("normal_stop_wrapper", [False, True])
-def test_native_vision_to_report_replays_one_model_request_and_no_early_publication(native, monkeypatch, normal_stop_wrapper):
+def test_native_vision_to_report_replays_frame_and_policy_requests_without_early_publication(native, monkeypatch, normal_stop_wrapper):
     h, _vision, _report, seed, invoke, calls, _account = native
     if normal_stop_wrapper:
         model = block_model_request.runtime_model_json_request
         def wrapped(*args, **options):
             result = model(*args, **options)
             message = result["choices"][0]["message"]
-            message["content"] = "<think>Private reasoning</think><answer>```json\n" + message["content"] + "\n```"
+            if args[0] == "llm":
+                message["content"] = "<think>Private reasoning</think><answer>```json\n" + message["content"] + "\n```"
             return result
         monkeypatch.setattr(block_model_request, "runtime_model_json_request", wrapped)
     payload = seed()
@@ -92,9 +94,11 @@ def test_native_vision_to_report_replays_one_model_request_and_no_early_publicat
     assert h.store.read(report["next"])["data"]["report"] == report["outputs"]["published_files"]["files"]["cctv_report.json"]
     assert saved["frames_analyzed"] == 1 and len(saved["observations"]) == 1
     assert saved["observations"][0]["scene_understanding"] == "A cart remains beside the aisle."
+    assert saved["observations"][0]["perception_latency_ms"] == 0
+    assert saved["observations"][0]["decision_latency_ms"] == 0
     assert not (h.store.run_dir / "cctv_report.json").exists()
     assert invoke(REPORT, first["emissions"][0]["value"], "report-1") == report
-    assert len(calls) == 1 and calls[0][1]["num_retries"] == 0
+    assert len(calls) == 2 and calls[0][1]["num_retries"] == 0
 
 
 def test_native_cumulative_report_uses_accepted_history_and_rejects_tampering(native):
@@ -106,11 +110,11 @@ def test_native_cumulative_report_uses_accepted_history_and_rejects_tampering(na
     ref = h.store.read(report2["next"])["data"]["report"]
     saved = json.loads(h.store.read_bytes(ref))
     assert saved["frames_analyzed"] == 2 and [item["frame_seq"] for item in saved["observations"]] == [1, 2]
-    assert len(calls) == 2
+    assert len(calls) == 4
     h.store.path(ref["path"]).write_bytes(b"changed history")
     with pytest.raises(RuntimeError, match="mismatch"):
         invoke(REPORT, second["emissions"][0]["value"], "report-2", state=report["next"])
-    assert len(calls) == 2
+    assert len(calls) == 4
 
 
 def test_unknown_model_outcome_keeps_caption_admission_stalled(native, monkeypatch):
@@ -167,7 +171,10 @@ def test_known_invalid_response_is_qualified_and_releases_only_the_known_model_s
     assert any(event["type"] == "cctv_operator_frame_analysis_failed" for event in result["events"])
     assert not any(event["type"] == "cctv_operator_frame_observed" for event in result["events"])
     assert json.loads((h.store.run_dir / "caption_completions/caption-one.json").read_text())["status"] == "error"
-    assert len(calls) == 1
+    stages = {row["stage"]: row for row in _vision.Benchmarks(h.store.run_dir, CONFIG).summary()["stages"]}
+    assert stages["caption.inference"]["errors"] == stages["caption.decision"]["errors"] == 1
+    assert stages["caption.inference"]["ok"] == 0
+    assert len(calls) == 2
 
 
 def test_vision_publication_repair_never_repeats_inference_or_increments_state(native, monkeypatch):
@@ -179,10 +186,10 @@ def test_vision_publication_repair_never_repeats_inference_or_increments_state(n
     monkeypatch.setattr(vision, "publish_files", unavailable)
     with pytest.raises(OSError, match="outage"):
         invoke(VISION, payload, "vision-repair")
-    assert len(calls) == 1
+    assert len(calls) == 2
     monkeypatch.setattr(vision, "publish_files", original)
     result = invoke(VISION, payload, "vision-repair")
-    assert h.store.read(result["next"])["data"]["frames_seen"] == 1 and len(calls) == 1
+    assert h.store.read(result["next"])["data"]["frames_seen"] == 1 and len(calls) == 2
     metrics = vision.Benchmarks(h.store.run_dir, CONFIG).summary()
     assert sum(stage["ok"] for stage in metrics["stages"] if stage["stage"] == "caption.inference") == 1
 
@@ -202,7 +209,7 @@ def test_lost_completion_ack_retries_the_same_batch_without_another_model_call(n
         invoke(VISION, payload, "vision-ack")
     first = (h.store.run_dir / "caption_completions/caption-one.json").read_bytes()
     result = invoke(VISION, payload, "vision-ack")
-    assert len(calls) == 1 and h.store.read(result["next"])["data"]["frames_seen"] == 1
+    assert len(calls) == 2 and h.store.read(result["next"])["data"]["frames_seen"] == 1
     assert acknowledgements == [("caption-one", "ok"), ("caption-one", "ok")]
     assert (h.store.run_dir / "caption_completions/caption-one.json").read_bytes() == first
 
@@ -213,7 +220,7 @@ def test_duplicate_admitted_window_never_repeats_model_or_report_emission(native
     first = invoke(VISION, payload, "vision-1")
     duplicate = invoke(VISION, payload, "vision-duplicate", state=first["next"])
     assert duplicate["events"] == [] and duplicate["emissions"] == []
-    assert len(calls) == 1
+    assert len(calls) == 2
 
 
 @pytest.mark.parametrize("fault", ["scope", "kind", "schema"])

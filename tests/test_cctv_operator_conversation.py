@@ -77,11 +77,19 @@ def _run_detector(module, monkeypatch, tmp_path, capsys, *, payload, detection,
         return [{"type": "text", "text": prompt}, {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dmlkZW8="}}]
     monkeypatch.setattr(module.vision_model, "model_user_content", encoder)
     def model(*args, **kwargs):
+        if args[0] == "vlm":
+            return {"choices": [{"finish_reason": "stop", "message": {"content": "A person is visible beside the aisle."}}]}
         user = next(message for message in args[3]["messages"] if message["role"] == "user")
-        prompts.append(user["content"][0]["text"])
+        prompts.append(user["content"])
         matched = detection.get("detected_target", detection.get("detected")) is True
-        value = {"scene_understanding": detection.get("summary", "Sampled scene account"), "risk_predictions": [], "uncertainties": [],
+        value = {"detected_target": matched, "confidence": .9, "summary": "Sampled scene account",
+            "detections": [], "helmet_observations": [], "site_findings": [],
+            "scene_understanding": detection.get("detection_report") or detection.get("summary", "Sampled scene account"), "risk_predictions": [], "uncertainties": [],
             "goal_event": {"start_frame": 1, "end_frame": 1, "evidence_frame": 1} if matched else None, **detection}
+        value["detections"] = [{**{key: "Unspecified" for key in ("label", "category", "color", "position", "activity")},
+            "confidence": value["confidence"], **item} for item in value["detections"]]
+        schema_keys = args[3]["response_format"]["json_schema"]["schema"]["properties"]
+        value = {key: value[key] for key in schema_keys}
         return {"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(value)}}]}
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", model)
     schedule = importlib.import_module("domain.caption_schedule")
@@ -131,6 +139,8 @@ def test_default_helmet_notices_use_cosmos_understanding_only(monkeypatch, tmp_p
     assert output["next_state"]["last_observation"]["scene_understanding"] == understanding
     assert "A visible person is not wearing a helmet." in prompts[0]
     assert "occluded, distant or unclear head is uncertain" in prompts[0]
+    assert output["next_state"]["last_observation"]["helmet_observations"] == ([{
+        "helmet_status": "not_worn", "head_visible": True, "evidence_frame": 1, "visible_evidence": understanding}] if matched else [])
     if expected:
         assert understanding in notices[0]["payload"]["message"]
         assert notices[0]["payload"]["image"]

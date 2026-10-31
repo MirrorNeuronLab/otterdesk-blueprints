@@ -10,10 +10,12 @@ from mn_sdk.model_json import parse_model_json
 
 from .visual_detection import normalize_detection
 from .vision_contract import response_format
+from . import frame_perception
 
 
-def prepare(block, frames, prompt):
-    declared = source_manifest(__file__, env=block.environment)["runtime"]["models"]["vision"]
+def prepare(block, frames, prompt, *, goal="visible people and physical conditions", policy_prompt=None):
+    models = source_manifest(__file__, env=block.environment)["runtime"]["models"]
+    declared = models["vision"]
     configured = ((block.config.get("llm") or {}).get("configs") or {}).get("vision") or {}
     env = block.environment or {}
     def setting(*names, default=None):
@@ -24,7 +26,8 @@ def prepare(block, frames, prompt):
         default=configured.get("provider") or declared["provider"]).lower().replace("-", "_")
     backend = setting("MN_VLM_BACKEND", "MN_LLM_BACKEND", default=declared.get("backend", "auto")
         if model == declared["model"] and provider == declared["provider"] else "auto")
-    nim = backend.lower() == "nim" and provider != "ollama"
+    nim = provider != "ollama" and (backend.lower() == "nim" or
+        (backend.lower() == "vllm" and model == declared["model"]))
     dmr = not nim and provider in {"docker_model_runner", "dmr"}
     if dmr and not prompt.lstrip().startswith("/no_think"):
         prompt = "/no_think\n" + prompt
@@ -34,6 +37,11 @@ def prepare(block, frames, prompt):
         "timeout_seconds": float(setting("MN_VLM_TIMEOUT_SECONDS", "MN_LLM_TIMEOUT_SECONDS", "OLLAMA_TIMEOUT_SECONDS", default=configured.get("timeout_seconds") or 90)),
         "api_key_env": "MN_VLM_API_KEY" if env.get("MN_VLM_API_KEY") else "MN_LLM_API_KEY"}
     temperature = float(setting("MN_VLM_TEMPERATURE", "OLLAMA_TEMPERATURE", default="0.0"))
+    if backend.lower() == "vllm" and model == declared["model"] and provider == declared["provider"]:
+        options.update(model_spec=declared["model_spec"], required_capabilities=["image_input"])
+        ceiling = int(setting("MN_VLM_MAX_TOKENS", default=str(configured.get("max_tokens") or 4096)))
+        return frame_perception.prepare(block, frames, policy_prompt if policy_prompt is not None else prompt, goal=goal, model=model, options=options,
+            temperature=temperature, ceiling=ceiling, primary=models["primary"])
     if provider == "ollama":
         refs = [block.store.commit_bytes(f"{block.root}/vision-inputs/{index}", frame, kind="model_media").to_dict()
             for index, frame in enumerate(frames)]
@@ -65,13 +73,15 @@ def prepare(block, frames, prompt):
             "max_tokens": int(setting("MN_VLM_MAX_TOKENS", "MN_LLM_MAX_TOKENS", "OLLAMA_NUM_PREDICT", default="4096" if nim else "900")),
             "temperature": temperature}
         if nim:
-            # Cosmos3 uses prompt-driven reasoning, not the Qwen template
-            # switch. Routine monitoring requests the documented direct answer
-            # mode to reserve its bounded output for the structured result.
+            # Edge needs its native reasoning phase before constrained JSON.
+            # The declared vLLM reasoning parser separates private reasoning;
+            # only message.content becomes the public observation.
+            payload["chat_template_kwargs"] = {"enable_thinking": backend.lower() == "vllm"}
             payload["messages"].insert(0, {"role": "system", "content":
                 "Inspect the selected CCTV frames. Return only the requested compact JSON object. "
                 "Describe visible people's actions and changes across the selected frames in detail. "
-                "Do not output reasoning, Markdown or XML tags. Keep the summary and evidence concise, with explicit uncertainty."})
+                "Keep private reasoning separate from the final JSON answer. Do not put Markdown or XML tags in the final answer. "
+                "Keep the summary and evidence concise, with explicit uncertainty."})
             payload.update(media_io_kwargs={"video": {"fps": 4.0}})
             payload["response_format"] = response_format(len(frames), block.config)
             options.update(model_spec=declared["model_spec"], required_capabilities=["image_input"])
@@ -134,4 +144,6 @@ def interpret(raw, prepared):
             raise ValueError("Cosmos final answer: risk_predictions must be a list")
         if not isinstance(result.get("uncertainties"), list) or any(not isinstance(item, str) for item in result["uncertainties"]):
             raise ValueError("Cosmos final answer: uncertainties must be a list of strings")
+    if "schema" in prepared:
+        frame_perception.validate_decision(result, prepared["schema"])
     return normalize_detection(result)

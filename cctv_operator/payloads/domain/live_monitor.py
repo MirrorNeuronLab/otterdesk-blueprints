@@ -18,6 +18,7 @@ from .monitoring import load_monitoring_state
 from .person_detector import RFDETRPersonDetector
 from .person_events import PersonEpisodes
 from .person_evidence import PersonEvidence
+from .scene_model import prepare_scene_model, framewise_scene_model
 
 
 class LiveMonitor:
@@ -37,9 +38,9 @@ class LiveMonitor:
         except FileNotFoundError:
             prior = {}
         self.episodes = PersonEpisodes(settings, prior.get("episodes"))
-        self.status = {"person_detector": "starting", "captions": "starting"}
+        self.status = {"person_detector": "starting", "captions": "starting", "scene_model": "preparing"}
         self.persist_lock = threading.Lock()
-        self.caption_schedule = CaptionSchedule(run_dir, run_id, config, self.benchmarks)
+        self.caption_schedule = CaptionSchedule(run_dir, run_id, config, self.benchmarks, frame_requests=framewise_scene_model(config))
         self.person_evidence = PersonEvidence(run_dir, run_id, config, self.benchmarks)
         self.stop_event = threading.Event()
         self.threads = []
@@ -48,7 +49,8 @@ class LiveMonitor:
     def start(self):
         self.service = LocalModelService(self.request, binding_path=self.root / BINDING_FILE, scope=self.run_id).start()
         self.frame_source.ensure_started()
-        for name, target in (("person", self._person_loop), ("caption-sampling", self._caption_loop)):
+        for name, target in (("scene-model", self._prepare_scene_model),
+                             ("person", self._person_loop), ("caption-sampling", self._caption_loop)):
             thread = threading.Thread(target=self._supervise, args=(name, target), name=f"cctv-{name}", daemon=True)
             self.threads.append(thread)
             thread.start()
@@ -60,10 +62,20 @@ class LiveMonitor:
         except Exception as exc:  # noqa: BLE001 -- A lane failure must not kill the independent camera lane.
             # The two lanes have explicit independent health. A failed detector
             # never makes an absence observation or opens the Cosmos gate.
-            self.status["person_detector" if stage == "person" else "captions"] = "failed"
+            field = {"person": "person_detector", "scene-model": "scene_model"}.get(stage, "captions")
+            self.status[field] = "failed"
             append_event(self.root, "cctv_operator_frame_analysis_failed", {"stage": stage,
                 "error": redact_source_urls(f"{type(exc).__name__}: {exc}")[:800],
                 "summary": f"{stage} stopped. Review worker logs and rebuild or restart."})
+            self._persist()
+
+    def _prepare_scene_model(self):
+        self.status["scene_model_started_at"] = time.time()
+        self._persist()
+        with self.benchmarks.measure("caption.model_prepare", variant="managed vision model"):
+            prepare_scene_model(self.config)
+        if not self.stop_event.is_set():
+            self.status.update(scene_model="ready", scene_model_ready_at=time.time())
             self._persist()
 
     def _person_loop(self):
@@ -138,7 +150,8 @@ class LiveMonitor:
             invocation = payload.get("invocation_id") or ""
             if not isinstance(invocation, str) or len(invocation) > 500:
                 raise ValueError("invalid caption invocation identity")
-            return self.caption_schedule.claim(monitoring, force=payload.get("force") is True, invocation_id=invocation)
+            return self.caption_schedule.claim(monitoring, force=payload.get("force") is True,
+                invocation_id=invocation, ready=self.status["scene_model"] == "ready")
         if payload.get("operation") == "status":
             return {**self.status, "caption_schedule": self.caption_schedule.snapshot()}
         raise ValueError("unsupported resident monitor operation")
