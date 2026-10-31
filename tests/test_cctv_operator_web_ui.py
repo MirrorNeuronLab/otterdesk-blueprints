@@ -426,6 +426,23 @@ def test_current_analysis_status_recovers_without_erasing_error_history(complete
     assert report["errors"] == [failure]
 
 
+@pytest.mark.parametrize("profile,goal,instruction", [
+    ("factory", "", ""), ("hotel", "", ""),
+    ("factory", "Watch for missing safety helmets.", ""),
+    ("hotel", "", "Watch the doorway."),
+])
+def test_displayed_monitoring_goal_matches_the_analysis_policy(profile, goal, instruction):
+    from cctv_operator.payloads.domain.dashboard import operator_state
+    from cctv_operator.payloads.domain.detection_policy import configured_monitoring_goal
+
+    config = {"site": {"profile": profile}, "inputs": {"payload": {"monitoring_goal": goal}}}
+    state = operator_state(run_id="run-1", config=config, report={}, latest_frame={},
+        monitoring={"instruction": instruction}, supplemental_events=[],
+        preview_status="live", preview_warning="")
+
+    assert state["metrics"]["watch target"] == (instruction or configured_monitoring_goal(config))
+
+
 @pytest.mark.parametrize("observations", [[], [{"summary": "A person walks past, without a group standing together.", "observed_at": "2026-09-08T22:23:39Z"}]])
 def test_quiet_and_unrelated_activity_never_publish_chat_updates(tmp_path, observations):
     (tmp_path / "cctv_report.json").write_text(json.dumps({"observations": observations, "alerts": []}))

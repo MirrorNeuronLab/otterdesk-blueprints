@@ -5,7 +5,7 @@ import math
 import time
 from typing import Any, Mapping
 
-from .detection_policy import DEFAULT_MONITORING_GOAL
+from .detection_policy import configured_monitoring_goal
 from .conversation_findings import conversation_findings
 
 
@@ -163,9 +163,8 @@ def operator_state(
     latest = observations[-1] if observations else {}
     latest_detection = detections[-1] if detections else {}
     latest_batch = _mapping(report.get("latest_batch"))
-    payload = _mapping(_mapping(config.get("inputs")).get("payload"))
     watch_target = str(monitoring.get("instruction") or "").strip()
-    watch_target = watch_target or str(payload.get("monitoring_goal") or DEFAULT_MONITORING_GOAL)
+    watch_target = watch_target or configured_monitoring_goal(config)
 
     last_seen = (
         latest.get("observed_at")

@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.14 specification
+# CCTV Operator 5.3.15 specification
 
 ## Purpose and scope
 
@@ -12,6 +12,8 @@ Edge frame evidence uses repetition_penalty=1.1 with the existing output budget
 and complete-response checks. A received incomplete answer fails that sample
 without repair inference. Current analysis status recovers only after a newer
 successful analysis; historical errors remain inspectable in the report/events.
+The displayed watch target must use the same configured/profile goal as scene
+analysis, with the active run's steering instruction taking precedence.
 
 ## Product policy
 
