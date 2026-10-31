@@ -1,6 +1,6 @@
 # CCTV Operator
 
-Version 5.3.15 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.16 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
@@ -12,6 +12,11 @@ sample; they are never treated as a clear scene. A later successful analysis
 clears the current error status while retaining failures in the report/history.
 The displayed monitoring goal uses the same profile/configuration policy as
 inference; an unset factory/hotel goal must not display a different helmet goal.
+Sampler claims and caption completions share one bounded, process-safe resident
+control slot. Their overlap must not produce HTTP 429 and restart monitoring.
+The control slot is released before inference; independent camera lanes continue.
+Use Configure > Monitoring goal for a goal that must apply to future starts;
+Chat steering changes the active run only.
 
 The live camera/UI owner now uses `mn.blocks.monitored_service@1` through
 `extensions/blocks.json`. Core retains the same entrypoints, routing and four

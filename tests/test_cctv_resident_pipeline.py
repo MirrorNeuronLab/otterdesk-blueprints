@@ -289,6 +289,52 @@ def test_resident_completion_rpc_is_scoped_and_idempotent_without_starting_camer
             monitor.request(invalid)
 
 
+def test_caption_claim_and_completion_share_the_single_resident_rpc_slot(tmp_path):
+    from concurrent.futures import ThreadPoolExecutor
+    from mn_sdk_models.local_service import LocalModelService
+    from cctv_operator.payloads.domain.caption_schedule import (
+        BINDING_FILE, acknowledge_caption, claim_caption,
+    )
+
+    entered, release, completing, completed = (threading.Event() for _ in range(4))
+    monitor = LiveMonitor.__new__(LiveMonitor)
+    monitor.root = tmp_path
+    monitor.status = {"scene_model": "ready"}
+    monitor.caption_schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))
+
+    def handle(payload):
+        if payload["operation"] == "claim_caption":
+            entered.set()
+            assert release.wait(5)
+        return monitor.request(payload)
+
+    def complete():
+        completing.set()
+        try:
+            return acknowledge_caption(tmp_path, "run", "caption-one", status="ok")
+        finally:
+            completed.set()
+
+    owner = LocalModelService(handle, binding_path=tmp_path / BINDING_FILE, scope="run").start()
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            claim = pool.submit(claim_caption, tmp_path, "run", monitoring={}, invocation_id="sampler")
+            try:
+                assert entered.wait(5)
+                completion = pool.submit(complete)
+                assert completing.wait(5)
+                # An uncoordinated second RPC immediately fails with HTTP 429.
+                # A queued completion waits for the claim, without retrying it.
+                completed.wait(1)
+            finally:
+                release.set()
+            assert claim.result(timeout=5)["batch"] is None
+            assert completion.result(timeout=5) == {"batch_id": "caption-one", "status": "ok"}
+            assert json.loads((tmp_path / "caption_completions/caption-one.json").read_text())["status"] == "ok"
+    finally:
+        owner.stop()
+
+
 @pytest.mark.parametrize("fault", ["batch", "status", "time", "shape"])
 def test_invalid_completion_receipt_cannot_release_inflight_admission(tmp_path, fault):
     schedule = CaptionSchedule(tmp_path, "run", {}, Benchmarks(tmp_path))

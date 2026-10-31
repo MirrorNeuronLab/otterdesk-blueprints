@@ -55,14 +55,23 @@ def complete_caption(run_dir, batch_id, *, status):
         store.commit(path, {"batch_id": batch_id, "status": status, "at": time.time()}, kind="caption_completion")
 
 
+def _resident_request(run_dir, run_id, payload):
+    # The sampler and caption worker are separate processes, but their resident
+    # adapter has one request slot. Serialize control transactions before HTTP
+    # admission; a normal claim/completion overlap must not restart the run.
+    # This lock is released before inference and does not block camera lanes.
+    with CommittedJsonStore(run_dir).locked("resident-monitor-rpc", deadline=time.monotonic() + 20):
+        return local_model_request(Path(run_dir) / BINDING_FILE, run_id, payload, timeout=20)
+
+
 def claim_caption(run_dir, run_id, *, monitoring, force=False, invocation_id=""):
-    return local_model_request(Path(run_dir) / BINDING_FILE, run_id,
-        {"operation": "claim_caption", "monitoring": monitoring, "force": bool(force), "invocation_id": invocation_id}, timeout=20)
+    return _resident_request(run_dir, run_id,
+        {"operation": "claim_caption", "monitoring": monitoring, "force": bool(force), "invocation_id": invocation_id})
 
 
 def acknowledge_caption(run_dir, run_id, batch_id, *, status):
-    return local_model_request(Path(run_dir) / BINDING_FILE, run_id,
-        {"operation": "complete_caption", "batch_id": batch_id, "status": status}, timeout=20)
+    return _resident_request(run_dir, run_id,
+        {"operation": "complete_caption", "batch_id": batch_id, "status": status})
 
 
 class CaptionSchedule:

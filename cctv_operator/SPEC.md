@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.15 specification
+# CCTV Operator 5.3.16 specification
 
 ## Purpose and scope
 
@@ -14,6 +14,9 @@ without repair inference. Current analysis status recovers only after a newer
 successful analysis; historical errors remain inspectable in the report/events.
 The displayed watch target must use the same configured/profile goal as scene
 analysis, with the active run's steering instruction taking precedence.
+Caption claim and completion workers must serialize their resident control RPCs
+with a bounded local-owner process lock, respecting the adapter's single slot.
+They must not hold this control lock during inference or retry received results.
 
 ## Product policy
 
