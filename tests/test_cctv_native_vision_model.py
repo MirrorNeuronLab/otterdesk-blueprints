@@ -45,6 +45,7 @@ def test_edge_requests_bind_one_real_frame_and_reserve_policy_budget(vision, mon
         assert request["options"]["required_capabilities"] == ["image_input"]
         payload = request["payload"]
         assert payload["chat_template_kwargs"] == {"enable_thinking": False}
+        assert payload["repetition_penalty"] == 1.1
         assert "response_format" not in payload
         content = payload["messages"][0]["content"]
         assert len(content) == 2 and "A person without a helmet" in content[1]["text"]

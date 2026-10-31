@@ -176,6 +176,14 @@ def operator_state(
     )
     last_completed = latest.get("analyzed_at") or latest_frame.get("analyzed_at") or last_seen
     last_completed_epoch = _epoch(last_completed)
+    last_error = errors[-1] if errors else {}
+    last_error_epoch = _epoch(last_error.get("observed_at"))
+    # Historical failures remain in the report and event history. A newer
+    # successful analysis establishes recovery for the current status only.
+    active_error = bool(last_error) and (
+        last_error_epoch is None or last_completed_epoch is None
+        or last_error_epoch >= last_completed_epoch
+    )
     pipeline = _mapping(pipeline)
     captions = _mapping(pipeline.get("captions"))
     person = _mapping(pipeline.get("person_events"))
@@ -210,9 +218,9 @@ def operator_state(
     if person.get("scene_model") == "failed":
         status = "Analysis error"
         warning = "Couldn't prepare scene analysis. Review the model preparation error before trying again."
-    elif errors:
+    elif active_error:
         status = "Analysis error"
-        warning = str(errors[-1].get("error") or "Frame analysis needs attention.")[:500]
+        warning = str(last_error.get("error") or "Frame analysis needs attention.")[:500]
     elif person.get("scene_model") == "preparing":
         status = "Preparing scene analysis"
         warning = "Preparing the scene model. Camera preview and person detection have separate readiness."

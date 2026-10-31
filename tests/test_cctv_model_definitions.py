@@ -58,6 +58,27 @@ def test_cosmos_recipe_belongs_to_the_blueprint_and_is_not_built_in():
     assert "NGC_API_KEY" not in spec["docker"]["environment"]
 
 
+def test_restart_recipe_selects_pinned_edge_without_a_nano_alias():
+    from mn_sdk.blueprints import resolve_config
+
+    package = read_blueprint(ROOT)
+    definition = blueprint_definition(package)
+    vision = definition["runtime"]["models"]["vision"]
+    spec = vision["model_spec"]
+    docker = spec["docker"]
+    config = resolve_config(package).data
+    assert vision["model"] == config["llm"]["configs"]["vision"]["model"] == "cosmos3-edge:bf16"
+    assert vision["backend"] == config["llm"]["configs"]["vision"]["backend"] == "vllm"
+    assert spec["api_model"] == "nvidia/Cosmos3-Edge"
+    assert docker["image"] == "vllm/vllm-openai@sha256:db0bb920b0b54e82ea96a98659bbd21921f87d0dcfc86feffdafa2db3f08be55"
+    assert docker["arguments"][docker["arguments"].index("--revision") + 1] == "344d602b128d1bbdacb43b08d0a3626f46343e29"
+    assert all("nano" not in alias.lower() for alias in spec["aliases"] + spec["route_aliases"])
+    assert docker["ready_path"] == "/health"
+    assert int(docker["arguments"][docker["arguments"].index("--kv-cache-memory-bytes") + 1]) == 4 * 1024**3
+    assert int(docker["arguments"][docker["arguments"].index("--max-model-len") + 1]) == 32768
+    assert spec["requirements"]["min_vram_gb"] >= 16
+
+
 def test_cosmos_budget_leaves_capacity_for_conversation_and_matches_caption_lane():
     from mn_sdk.blueprints import resolve_config
 

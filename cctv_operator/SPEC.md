@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.12 specification
+# CCTV Operator 5.3.14 specification
 
 ## Purpose and scope
 
@@ -7,6 +7,11 @@ camera per Job. Publish sampled observations, evidence-linked review actions,
 coverage gaps and qualified risk hypotheses. All safety/security decisions stay
 with an authorized human. No incident prediction guarantee, autonomous physical
 response, identity tracking, injury diagnosis or legal-compliance certification.
+
+Edge frame evidence uses repetition_penalty=1.1 with the existing output budget
+and complete-response checks. A received incomplete answer fails that sample
+without repair inference. Current analysis status recovers only after a newer
+successful analysis; historical errors remain inspectable in the report/events.
 
 ## Product policy
 
@@ -385,3 +390,8 @@ from now and Search saved footage before dispatch. Explicit past-time questions
 remain history reads. Queued, applied and analyzed states stay separate; reconnect
 checks the saved operation instead of resubmitting a mutation. The existing MCP
 contract, readiness, Core steering and inference pipeline remain authoritative.
+
+Cold starts use an explicit 4 GiB KV-cache allocation for the pinned Edge recipe,
+32K context and one sequence. Cache sizing must not depend on a dynamic
+free-memory delta while the co-resident text model loads or unloads. Model startup
+must pass before admitting a frame; a failed startup remains an explicit error.

@@ -402,6 +402,30 @@ def test_cctv_ui_operator_events_are_newest_first(tmp_path: Path):
     ]
 
 
+@pytest.mark.parametrize("completed,error_at,expected", [
+    (None, 100, "Analysis error"),
+    (99, 100, "Analysis error"),
+    (100, 100, "Analysis error"),
+    (101, 100, "Monitoring"),
+    (101, None, "Analysis error"),
+])
+def test_current_analysis_status_recovers_without_erasing_error_history(completed, error_at, expected):
+    from cctv_operator.payloads.domain.dashboard import operator_state
+
+    failure = {"error": "Incomplete frame evidence", "observed_at": error_at}
+    report = {"errors": [failure], "observations": ([{
+        "summary": "A cart is visible.", "observed_at": 98, "analyzed_at": completed,
+    }] if completed is not None else [])}
+    state = operator_state(run_id="run-1", config={}, report=report,
+        latest_frame={}, monitoring={}, supplemental_events=[],
+        preview_status="live", preview_warning="", now=102)
+
+    assert state["metrics"]["status"] == expected
+    assert bool(state["warning"]) == (expected == "Analysis error")
+    assert any(event["type"] == "Analysis error" for event in state["events"])
+    assert report["errors"] == [failure]
+
+
 @pytest.mark.parametrize("observations", [[], [{"summary": "A person walks past, without a group standing together.", "observed_at": "2026-09-08T22:23:39Z"}]])
 def test_quiet_and_unrelated_activity_never_publish_chat_updates(tmp_path, observations):
     (tmp_path / "cctv_report.json").write_text(json.dumps({"observations": observations, "alerts": []}))

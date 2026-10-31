@@ -610,7 +610,7 @@
           ],
           "context_size": 32768,
           "requirements": {
-            "min_vram_gb": 12,
+            "min_vram_gb": 16,
             "required_capabilities": [
               "cuda"
             ]
@@ -648,6 +648,8 @@
               "32768",
               "--gpu-memory-utilization",
               "0.25",
+              "--kv-cache-memory-bytes",
+              "4294967296",
               "--max-num-seqs",
               "1",
               "--structured-outputs-config",

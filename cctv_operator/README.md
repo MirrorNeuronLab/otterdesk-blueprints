@@ -1,10 +1,15 @@
 # CCTV Operator
 
-Version 5.3.12 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.3.14 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
 security system and does not take physical action.
+
+Edge frame requests use a 1.1 repetition penalty to prevent repeated sentences
+from consuming the bounded output budget. Incomplete responses still fail the
+sample; they are never treated as a clear scene. A later successful analysis
+clears the current error status while retaining failures in the report/history.
 
 The live camera/UI owner now uses `mn.blocks.monitored_service@1` through
 `extensions/blocks.json`. Core retains the same entrypoints, routing and four
@@ -236,11 +241,24 @@ pinned by digest in execution.json, and checkpoint revision
 `344d602b128d1bbdacb43b08d0a3626f46343e29`. The API serves
 `nvidia/Cosmos3-Edge`; Nemotron 3.5 Lightning handles semantic monitoring decisions and text conversation.
 Preparation, ownership and lifecycle are SDK-owned. The recipe uses BF16, 32K
-context, one sequence and 25% GPU memory utilization. Weights stay in the owned
+context, one sequence and an explicit 4 GiB KV-cache budget.
+The explicit KV budget bypasses vLLM's dynamic memory-sizing profile: another
+model unloading during cold start must not abort Edge with a free-memory
+profiling assertion. The 4 GiB cache is validated for this one-sequence 32K recipe. Weights stay in the owned
 Hugging Face cache volume; the public image/checkpoint needs no NGC credential.
 The SDK must support validated `docker.arguments` and OpenAI Docker backend
 `vllm`. Upgrade the submitter and selected owner together, then reprepare the
 saved Job. Existing frozen runs retain their original request/recipe.
+
+For a federated desktop launch, keep the owner computer's catalog on this same
+revision. Sending the saved camera credential launches through that owner; an
+older owner checkout previously replaced an Edge Job with the Nano recipe.
+The matching runtime API now rejects differing prepared/owner model bindings.
+Update the owner's catalog and reprepare the existing Job before starting it.
+Restart acceptance must inspect the committed Job's vision recipe and the live
+server's model identity, then wait for a newly captured frame to be analyzed.
+Preview alone does not verify inference. Nano can be removed with the runtime's
+model removal command after the Edge Job is prepared; no Nano alias is declared.
 
 The server explicitly configures the Qwen3-compatible reasoning parser and
 XGrammar decoder. Live qualification found that Edge could describe a single

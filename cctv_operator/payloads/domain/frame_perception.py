@@ -33,7 +33,8 @@ def prepare(block, frames, prompt, *, goal, model, options, temperature, ceiling
             "payload": {"model": model, "messages": [{"role": "user", "content": [
                 {"type": "image_url", "image_url": {"url": {"$artifact": ref.to_dict(), "encoding": "data_uri", "mime_type": "image/jpeg"}}},
                 {"type": "text", "text": instruction}]}], "max_tokens": frame_limit,
-                "temperature": temperature, "chat_template_kwargs": {"enable_thinking": False}},
+                "temperature": temperature, "repetition_penalty": 1.1,
+                "chat_template_kwargs": {"enable_thinking": False}},
             "options": dict(options)})
     policy_model = env.get("MN_LLM_MODEL") or settings.get("model") or primary["model"]
     provider = env.get("MN_LLM_PROVIDER") or settings.get("provider") or primary["provider"]
