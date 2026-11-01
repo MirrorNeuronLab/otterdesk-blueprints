@@ -19,7 +19,7 @@ async function main() {
   try {
     const output = path.resolve(process.env.BLUEPRINT_E2E_OUTPUT || "/private/tmp/otterdesk-blueprint-experience-e2e");
     await fs.mkdir(output, { recursive: true });
-    console.log(`Conversation experience suite includes every published blueprint, including General Assistant. Desktop replies use the cached real CPU conversation model. Job LLM mode: ${process.env.BLUEPRINT_E2E_FAKE_LLM === "0" ? "blueprint configuration" : "fake"}; skills: fake.`);
+    console.log(`Conversation experience suite includes every published blueprint, including Computer Use. Desktop replies use the cached real CPU conversation model. Job LLM mode: ${process.env.BLUEPRINT_E2E_FAKE_LLM === "0" ? "blueprint configuration" : "fake"}; skills: fake.`);
     const code = await new Promise((resolve, reject) => {
       child = spawn(process.execPath, [appRequire.resolve("@playwright/test/cli"), "test", "--config", path.join(__dirname, "playwright.config.cjs"), ...process.argv.slice(2)], {
         cwd: appRoot, stdio: "inherit", shell: false,

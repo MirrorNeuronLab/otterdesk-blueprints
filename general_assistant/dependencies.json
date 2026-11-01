@@ -4,7 +4,7 @@
     {
       "type": "pip",
       "source": "gar",
-      "name": "mirrorneuron-opencode-skill",
+      "name": "mirrorneuron-computer-use-skill",
       "version": ">=1.3.61.dev26,<2"
     }
   ],

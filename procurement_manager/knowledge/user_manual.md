@@ -30,6 +30,34 @@ Compare purchase options and see what they may cost over time. Get a side-by-sid
 
 ## Outputs and review
 
+## When I ask for your input
+
+At setup, start with what you need to buy and the outcome it must achieve.
+I keep confirmed answers and ask one clarification when a missing detail could
+change suitability, affordability or delivery. You can leave the budget open
+for an exploratory comparison. Detailed cost assumptions matter when you review
+modeled costs; they are not supplier facts.
+
+After the report is saved, the next question follows the evidence. An unconfirmed
+policy calls for the applicable review policy. Missing, expired or unsuitable
+quotes call for evidence or corrected requirements, before any approval. An
+outstanding quote calls for your choice about the next comparison; this completed
+run is not watching for supplier replies. A review-ready packet asks the purchase
+owner about fit, finance about cash and support commitments, legal about vendor
+terms, and security about sensitive data when the case requires those reviews.
+
+The report opens with the takeaway, comparable costs and **Your next decision**.
+It explains why the question matters now. Cash due at order is separate from
+cost over the comparison horizon. Known cost is a subtotal with explicit omissions;
+discounted modeled cost uses planning assumptions and is not a quoted price.
+
+Use Respond for **Approve**, **Request changes** or **Reject**, with optional
+notes, when those choices are offered. A response records review of that saved
+packet. It does not edit the inputs, recompute the report, approve an outside
+reviewer's work or start another run. Correct settings in Configure or update
+the source documents, then start a new run for a revised comparison and review.
+In manual cases, only the local owner's review can be recorded here; obtain
+other required reviews from the responsible people. Sample reviews are simulated.
 
 
 Consult the published run results and their evidence before making decisions. Missing evidence does not establish that an event or condition did not occur.

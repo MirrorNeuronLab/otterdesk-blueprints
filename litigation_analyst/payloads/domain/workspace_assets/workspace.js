@@ -207,7 +207,7 @@ function briefing() {
     financial_review:{events:[],transactions:[],evidence:[],status:"Not included in reviewed excerpt briefing"},
     capabilities:{...W.capabilities,financial_scenarios:"Unreviewed arithmetic not included",legal_elements:"Counsel intake not included"},
     coverage:{source_ids:[...sourceIds],readable_ids:[],unreadable_ids:[],definition:"Authorized approved excerpts only; this package does not include originals or full search coverage"},
-    reading_reports:[],reading_tasks:[],reading_copy:null,case_map:null,reading_review:{checks:[],withheld_finding_ids:[]},
+    reading_reports:[],reading_tasks:[],reading_copy:null,case_map:null,supervision:null,reading_review:{checks:[],withheld_finding_ids:[]},
     consistency:{status:"Not included in reviewed briefing",checks:[],withheld_finding_ids:[]},
     changes:{mode:"Frozen briefing; previous snapshots excluded",previous_snapshot:null,items:[]},decisions:[],saved_views:[],saved_state:{...defaults}};
   download("reviewed-briefing.html",pageFor(data),"text/html");document.getElementById("export-dialog").close();notice("Created a frozen briefing with reviewed findings and their supporting and contrary excerpts. Originals are excluded.");

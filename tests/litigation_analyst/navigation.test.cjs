@@ -69,6 +69,21 @@ test('All original routes and saved views highlight one of eight primary groups'
   assert.equal(vm.runInContext('state.view',a.ctx),'Matter settings');
 });
 
+test('The handoff asks one source-linked question and opens its existing review surface',async()=>{
+  const w=fixture();
+  w.supervision={next_review:{kind:'finding',finding_id:'F1',question:'How should this draft be qualified?',reason:'Compare both accounts.',
+    timing:'Before relying on this finding',evidence_ids:['E1']},boundary:'Discussion is not approval.'};
+  const a=app(w);
+  assert.match(a.html(),/Your next review/);
+  assert.match(a.html(),/How should this draft be qualified/);
+  assert.equal((a.html().match(/data-action="finding" data-id="F1" class="primary"/g)||[]).length,1);
+  assert.match(a.html(),/data-action="evidence" data-id="E1"/);
+  await a.click('finding','F1');
+  assert.equal(vm.runInContext('state.view',a.ctx),'Findings');
+  w.findings[0].review_history=[{actor:'Reviewer',action:'Reviewed with qualification',material_digest:'basis',text:'Qualified wording',rationale:'Compared records',at:'2026-11-01T12:00:00Z'}];
+  assert.doesNotMatch(app(w).html(),/How should this draft be qualified/);
+});
+
 test('Facts precede counts, flagged claims remain actionable and cannot become briefing eligible',()=>{
   const w=fixture();
   w.financial_review={transactions:[{transaction_ref:'TX1',currency:'USD',ledger_id:'ledger',request_minus_approval:'4500.00',posting_reversal_net:'0.00',qualification:'Accounting only.'}],

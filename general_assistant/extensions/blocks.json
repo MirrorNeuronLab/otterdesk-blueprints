@@ -6,7 +6,20 @@
       "hooks": {
         "operation": "domain.intake:prepare"
       },
-      "inputs": {},
+      "inputs": {
+        "task": {
+          "$ref": "run_input",
+          "path": ["task"]
+        },
+        "target_app_bundle_id": {
+          "$ref": "run_input",
+          "path": ["target_app_bundle_id"]
+        },
+        "supervisor_instructions": {
+          "$ref": "run_input",
+          "path": ["supervisor_instructions"]
+        }
+      },
       "outputs": {
         "result": {
           "$ref": "flow_output",
@@ -43,8 +56,8 @@
         }
       },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 7500
+        "max_calls": 256,
+        "timeout_seconds": 3600
       }
     },
     "publish_task": {

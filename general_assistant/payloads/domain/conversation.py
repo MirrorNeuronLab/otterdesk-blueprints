@@ -1,4 +1,4 @@
-"""Expose task entry, observed Harness2 progress and clarifications in Chat."""
+"""Request actual user help through the existing Core conversation authority."""
 import time
 import threading
 import json
@@ -23,12 +23,11 @@ class Conversation:
         human_interactions.publish_human_interaction_event(
             self.block.run_id, "human_notice", {
                 "request_id": fingerprint([self.block.invocation_id, identity]),
-                "title": "General assistant", "message": message, "blocking": False,
+                "title": "Computer Use", "message": message, "blocking": False,
             })
 
     def ask(self, identity, question, *, timeout=600):
-        # Harness2 can probe concurrently. Serialize admission of the same reply
-        # checkpoint rather than dispatching two recursive block effects.
+        # Core owns the reply; only its exact, unexpired request can continue.
         with self.questions_lock:
             reply = self._ask(identity, question, timeout=timeout)
             self.answers[question] = reply
@@ -55,7 +54,8 @@ class Conversation:
             self.block.check()
             payload = event.get("payload", {})
             if (event.get("type") != "human_input_received" or payload.get("request_id") != request_id
-                    or payload.get("decision") in {"reject", "cancel"}):
+                    or payload.get("decision") in {"reject", "cancel"}
+                    or time.time() * 1000 >= expires_at):
                 raise RuntimeError("The task needs a reply in Chat before it can continue")
             answer = payload.get("notes")
             if not isinstance(answer, str) or not answer.strip() or len(answer.encode()) > 8000:

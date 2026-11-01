@@ -1,148 +1,109 @@
-# General Assistant specification
+# Computer Use specification
 
-## Product contract
+Version 3.0.0 replaces General Assistant with a local macOS computer-use
+co-worker. Its stable catalog ID is general_assistant. Execution is restricted
+to the owner Mac with an unlocked GUI session, macOS 14+ and at least 24 GB RAM.
+The default system LLM provider supplies the catalog's logical `vision` model.
+Image input and structured JSON output are required and verified. The separate
+vision route leaves the shared text-model default chain unchanged. If the route
+cannot meet these requirements, the run fails explicitly. No provider or physical
+model is pinned by the product. Membrane runtime memory is required.
 
-Version 2.1.1 has three setup fields: input folder, output folder and instructions.
-Input defaults to `~/Downloads`; instructions default to summarizing its contents
-into `summary.md` in output. Output defaults to `~/Documents/general-assistant`
-so generated files remain outside the read-only input folder. Input is required,
-readable task material, including Markdown and source code. Instructions are
-saved configuration and may be overridden by an explicit per-run task. If absent,
-admission requests a task through the standard human-interaction channel.
-Subsequent clarification questions and human decisions remain in Chat.
+The dedicated native Computer Use.app is a headless-style tool service used by
+the co-worker. It owns ScreenCaptureKit and CGEvent calls, its own bundle ID
+io.mirrorneuron.computer-use, Accessibility/Screen Recording grants, and a stop
+control. LaunchServices opens it independently. OtterDesk and Python never
+capture screens or inject input. A permission window and CU menu are its only UI.
+Reusable build and IPC mechanics belong to the computer-use skill.
 
-The co-worker handles general writing, analysis, planning, document and software
-tasks. For Java-to-Rust conversion, it reads Java input and creates the Rust
-project and checks in output, preserving the input. Generated results use the
-standard per-run output folder. Source-diff export is removed in this major
-version; no migration of previous private harness prompts is implied.
+Three serial blocks admit the task, operate the Mac, and publish the observed
+result. Admission freezes explicit supervisor instructions and the task; empty
+instructions request the task in Chat. There is no input-folder staging or
+Downloads summary task. A default Documents/computer-use output folder receives
+standard run_<timestamp> results through SDK/Core delivery.
+The prepare block explicitly binds the declared run-input ports. Per-run task
+and supervisor instructions reach admission before its immutable checkpoint;
+omitted values use the saved configuration. Optional `target_app_bundle_id`
+freezes a single-app scope. Outside that app, only activation of the target,
+waiting and human help are offered; input and completion are rejected again
+before dispatch. Scoped runs use the browser's address bar instead of a URL
+operation that could open another browser.
+The engine activates an explicitly scoped app before requesting a page action;
+native activation acknowledges the foreground app and raises its existing
+window. Actual human replies are represented as user turns in the model
+conversation. Repeating an answered question without intervening task progress
+stops the run instead of publishing another identical human request.
 
-Admission requires 32 GB system RAM independent of GPU type. Every Harness2 role
-uses the prepared runtime `default` model route. Model serving and placement
-remain platform responsibilities.
+The task policy observes the focused app window's display (the main display when
+no focused window is available), retrieves app-specific navigation
+memory, asks the default vision model for one bounded action, validates it, and
+invokes the native tool. The structured action contract uses frame-local
+accessibility control activation and keyboard navigation. Observations
+include bounded visible control labels and roles, never secure fields. Typing
+requires a focused editable field. The co-worker never guesses screenshot
+coordinates; missing controls require human help. The model receives only
+currently offered control IDs, which are checked again before native dispatch.
+A native frame token expires after 150 seconds, is single-use, and requires the
+same foreground app. Secure fields reject capture/input. The API has no shell,
+AppleEvents, browser debugger or arbitrary filesystem access.
 
-## Composition
+The user authorizes the requested task and its explicit external actions. The
+co-worker asks for missing details, login/MFA/CAPTCHA, permissions, locked screen
+or a needed app. Control and capture are suspended before requesting help; only
+an exact, actual, unexpired Core reply allows continuation. Re-observation follows
+every reply. Passwords and authentication codes are never requested in Chat.
+Screen text, documents and memory cannot grant authority or redefine scope.
 
-Three serial native domain-operation blocks own admission, encapsulated execution
-and publication. Only execution uses OpenShell. Harness2 is an unmodified,
-commit-pinned dependency in the worker image. Its BenchmarkAdapter, Proposer,
-Library and run_task APIs retain upstream recursion, selection and reflection.
-There is no benchmark inventory or parallel blueprint-owned workflow runner.
+The SDK journals every model request and native action intent/result. Physical
+mutations have no automatic retries or optimistic reconciler. A durable session
+fence precedes control; interrupted sessions cannot replay. Concurrent Jobs share
+one exclusive desktop lease. Timeouts/disconnections during input set an unknown
+outcome and require desktop reconciliation. The native stop control cannot be
+resumed by the model. Core retains lifecycle and human-interaction authority.
 
-SDK/Core own input staging, nested artifact-reference transport and output-folder
-delivery. The owner passes immutable input and private memory snapshots, then
-receives committed artifacts and an updated opaque memory snapshot. Owner
-storage is never mounted writable in OpenShell.
-Admission consumes runtime-resolved configuration through the shared declared-input
-helper. It does not bind compiled run-input defaults over staged paths or saved
-instructions. Launch overrides use the same configured input fields as setup.
+Membrane uses explicit Job/run scope and the computer-use principal. Successful
+navigation records contain only app IDs, key shortcuts and HTTPS hostnames.
+They exclude typed text, recipients, message bodies, paths, queries, credentials,
+screenshots and old coordinates. Recall is app-filtered and bounded. Records
+are idempotent per request. No local memory fallback or harness migration exists.
+Explicit preferences are separately validated and frozen for each run; removing
+a preference cannot be undone by historical navigation hints.
 
-## Input and output boundary
+The default allowance is 80 turns, eight questions, 3300 seconds total, 600
+seconds per human reply and 90 seconds per model request. All are bounded runtime
+tunables. The native worker deadline is 3600 seconds, matching the host contract
+and leaving time for cleanup. Stale frames request a fresh observation; unknown effects are never
+repeated. Three delivered inputs with identical subsequent screen observations
+suspend control and request human help before any further model action.
+Navigation has a separate progress guard: a repeated URL or unscoped app launch
+suspends control before another native effect, regardless of screenshot changes.
+An active scoped app is excluded from model activation choices. If another app
+takes focus, the engine can restore the explicitly scoped app and re-observe;
+three restorations without task progress require human help before a fourth.
+This raises the existing window without opening a URL or tab. Verified stale
+actions remain unperformed and need a fresh model decision. Observed screen
+change following control, typing or keyboard input, or an actual user-help reply,
+releases the corresponding progress guards.
+Completion requires the final screen to support the stated result.
+A later memory write failure cannot erase an already-observed completed task.
 
-Each solver rollout has immutable captured `input/` material and a writable
-`output/` work area. Every model subprocess uses the shared OpenCode skill's
-Linux Landlock scopes; descendants inherit them. Writes, truncation, creates,
-deletes, links and renames cannot alter input contents or paths. Build products
-and generated source belong in output. A separate writable private runtime
-folder contains CLI caches and temporary state, never user deliverables.
-Improvers may write their private `context/harness` tree, not source material.
+Public outputs are result.json (otterdesk.computer_use.result.v1), answer.md and
+computer-use-audit.json. The result states status and requires_reconciliation.
+Audit entries contain app IDs and action types, not task content. Model screenshots
+and raw receipts remain private run artifacts. Only the public answer is a
+prepared conversation source. The configured provider may see screen content.
 
-Landlock ABI 4+ on Linux ARM64/x86-64 is required; unsupported enforcement fails
-closed with no unrestricted fallback. Landlock does not mediate chmod/chown
-metadata on disposable copies. Input content/path integrity is checked before
-accepting results, and the original host input is never mounted in the worker.
-Untrusted Markdown or other input instructions cannot change task authority.
+Acceptance compiles the published bindings; verifies Mac/local placement,
+24 GB admission, system-default vision and native permission ownership; exercises
+Gmail-style login/help and completion, expired/foreign replies, malformed tools,
+stale/secure/stopped/unknown native outcomes, exclusive leasing, Job-private
+memory across runs, replay fencing, and export privacy. Deterministic tests use
+fake model and helper responses. Swift compilation is a separate local build
+check. Live OS grants, default-provider vision and actual website operations are
+opt-in acceptance and never part of ordinary CI.
 
-The trusted controller's Core conversation RPC is separate from the model route.
-Model processes cannot connect to its TCP port and do not inherit Core tokens.
-The outer OpenShell policy continues to authorize binaries, hosts and HTTP routes.
-
-## Conversation contract
-
-Version 2.2.0 adds optional `inputs.payload.supervisor_instructions`, default
-`[]`, managed through OtterDesk Memory. Each item has an ID, kind
-(`communication` or `work_rule`) and text. Intake validates at most 50 items,
-1,000 characters per item and 16,000 UTF-8 JSON bytes, then freezes the list and
-its content revision alongside the task. Every solver prompt consumes this
-snapshot within existing task, sandbox and approval boundaries. Removed rules
-are not restored from older private lessons. Historical runs retain their
-original revision. No runtime or Membrane schema changes are required.
-
-OtterDesk reads `payloads/prompts/conversation.json` as app-owned stage guidance.
-The runtime response service uses the existing manual and prepared public
-`answer.md` under `context_sources/outputs/<run-hash>/`; private Harness2 state
-is never a source for Chat and worker TextMemory remains disabled.
-
-Core remains the authority for human notices, questions and response receipts.
-Missing task instructions use a blocking missing-information request. Solver
-work/refinement and result-ready notifications use nonblocking notices. OtterDesk's existing
-interaction subscription and reply controls present these in Chat. Standard Job
-MCP tools retain lifecycle supervision; human replies use the Core interaction
-contract. There is no new domain MCP tool or alternate conversation store.
-
-A blocked solver returns `{"input_required":{"question":"..."}}` as its final
-session response. The trusted controller publishes the bounded question, waits
-for a real reply for the exact request/run and continues the same workspace with
-that reply. Cancellation, expiry, foreign request IDs and empty answers reject
-continuation. Three replies per rollout are allowed, each bounded to ten minutes
-and the remaining overall allowance. Identical questions reuse the recorded
-human reply across probes. Chat replies are bounded to Core's 8,000-byte limit;
-direct per-run task inputs retain the 64,000-byte limit. This authorizes no
-external side effects.
-
-## Persistence, limits and failures
-
-The Job-private harness_memory resource retains the active harness and lesson
-library. Successful publication verifies artifact hashes and advances generation
-once using compare-and-swap. Failed work preserves previous memory. Replay cannot
-advance a generation twice; stale runs cannot overwrite newer context. Separate
-Jobs remain isolated. Membrane TextMemory recall is disabled.
-
-Defaults allow 64,000 UTF-8 task bytes; 512 input/output files and 32 MiB for each;
-1,024 memory files and 8 MiB. Symlinks, path conflicts and quota overflow fail.
-Sequential k=1 is the default; deployment config permits parallel mode and k=1–3.
-All roles share 24 sessions / 7,200 seconds, with 600 seconds and 8 MiB captured
-CLI output per session. Clarifications consume this allowance. There is no worker
-retry after interrupted uncommitted execution; reconciliation is required.
-The audit retains bounded per-rollout adapter errors, including failures before
-model dispatch that upstream Harness2 summarizes only as `base-failed`.
-A successful rollout must actually write a nonempty output/answer.md; the
-controller does not synthesize that file from a final chat response.
-
-Harness2 may adapt prompts, skills, scripts and memory, never model weights or
-outer policy. Plugins and delegated subagents remain disabled. Refinement is not
-a guarantee of monotonic quality. Missing compilers, dependencies or network
-access are explicit limitations, not successful checks.
-
-## Outputs and evaluation
-
-Public results are result.json, answer.md, harness-audit.json and generated
-files under deliverables/. The default task creates deliverables/summary.md.
-Private memory, CLI state and raw session context are not exported. The SDK/Core
-deliver declared outputs to the configured output
-folder using standard run_<timestamp> layout.
-
-Acceptance compiles the source package, verifies the three setup fields,
-Downloads/summary defaults and 32 GB/default-model contracts, exercises both actual
-Harness2 recursion modes with deterministic sessions, checks task entry and clarification continuation,
-rejects foreign/expired replies, preserves Markdown and source, and verifies
-private memory, replay, quotas and declared publication. Shared skill tests
-exercise actual Linux write/rename/delete/truncation/hardlink/symlink/descendant
-restrictions and TCP port isolation with fake executables. Live OpenShell,
-model, authentication and desktop conversation acceptance are deployment checks.
-
-## Limits and compatibility
-
-Deploy matching OpenCode scope support before distributing the 2.x package.
-The 2.1.0 defaults apply to newly configured co-workers; existing saved settings
-are not rewritten. Per-run tasks and Core clarification replies remain compatible.
-Version 2.1.1 corrects admission bindings, requires written results and adds
-rollout failure diagnostics and a bundled demo configuration.
-Existing prepared definitions must be refreshed to use the corrected blueprint.
-Internal gateway/Core addresses and recursion budgets remain deployment defaults,
-not customer setup fields. Default egress is model, controller RPC and declared
-GitHub reads. Input, task and private context may be visible to the configured
-model provider. The co-worker cannot change original input, send messages, buy,
-deploy, train weights or guarantee professional or software correctness.
-
-Prepared report sources use the existing Membrane CPU service and declared SDK context extra. `source_context.enabled` defaults to true; set it to false to disable prepared-source publication and preparation. Runtime TextMemory recall remains disabled. This does not publish private inputs or change the native task/inference model.
+Prepared definitions from version 2 must be refreshed. Old file-summary,
+OpenShell and Harness2 settings/memory are not used. Production native bundles
+must be signed/notarized consistently; local ad-hoc rebuilds may need renewed
+OS grants. The co-worker is idle between user-started runs and does not monitor
+the desktop in the background.

@@ -4,6 +4,7 @@ from __future__ import annotations
 from mn_sdk.agent_events import report_activity
 
 import json
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -12,28 +13,102 @@ from mn_sdk.blueprint_support import append_human_event, read_human_events
 from .procurement_decision import evaluate_case
 from .state import read_state
 from .common import BLUEPRINT_ID
+from .supervision import REVIEW_EFFECT, build_human_review, case_review_question
 
 
 CASE_PACKET = "procurement_case_packet.json"
 
 
+def _text(value: Any) -> str:
+    return str(value).replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ").replace("\r", " ").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _amount(value: Any, currency: str) -> str:
+    return f"{currency} {Decimal(str(value)):,.2f}" if value is not None else "Not quoted"
+
+
+def quote_review_reason(outcome: dict[str, Any], requirements: dict[str, Any]) -> str:
+    if outcome.get("outcome") == "NO_RESPONSE":
+        return "No quote by the recorded deadline; no price or rejection is inferred."
+    if outcome.get("outcome") == "WAITING_FOR_EXTERNAL":
+        return "Quote outstanding in this snapshot; this run is not watching for a reply."
+    reasons = []
+    if outcome.get("validity") != "CURRENT":
+        reasons.append("Quote expired" if outcome.get("validity") == "EXPIRED" else "Quote expiry unverified")
+    reasons.extend(f"{key.replace('_', ' ')}: {value.lower()}" for key, value in (outcome.get("fit") or {}).get("checks", {}).items() if value != "PASS")
+    cap = (outcome.get("policy") or {}).get("cash_cap_status")
+    if cap != "PASS":
+        reasons.append("Cash cap exceeded" if cap == "FAIL" else "Cash cap or cash due unverified")
+    cost = outcome.get("cost") or {}
+    missing = [item for item in cost.get("unknown_or_unquantified_cost_items") or [] if item in {"unit_price", "shipping", "tax", "required_support"}]
+    if missing:
+        reasons.append("Not quoted: " + ", ".join(item.replace("_", " ") for item in missing))
+    if cost.get("currency") != requirements.get("currency"):
+        reasons.append("Currency differs from the purchase brief")
+    return "; ".join(reasons) or "Meets the recorded fit, cash cap, currency and quote-validity checks; human reviews remain."
+
+
 def render_case_packet(packet: dict[str, Any]) -> str:
+    outcomes = packet.get("quote_outcomes") or []
+    selected = next((item for item in outcomes if item.get("supplier_id") == packet.get("selected_supplier_id")), {})
+    cost = selected.get("cost") or {}
+    requirements = packet.get("requirements") or {}
+    currency = cost.get("currency") or requirements.get("currency") or ""
+    review = build_human_review({"procurement_case": packet})
+    supplier = selected.get("supplier_name") or packet.get("selected_supplier_id")
     lines = [
-        "# Procurement approval packet — draft for review", "",
-        f"- Case: {packet.get('case_id') or 'Unassigned'}; revision: {packet.get('revision')}",
-        f"- Mode: {packet.get('mode')}; as of: {packet.get('as_of')}",
-        f"- Status: {packet.get('status')}; approvals: {packet.get('review_status')}",
-        f"- Decision digest: {packet.get('decision_digest')}",
-        f"- Proposed supplier: {packet.get('selected_supplier_id') or 'None'}",
-        f"- Required reviews: {', '.join(packet.get('required_reviewers') or []) or 'None recorded'}",
-        "", "| Supplier | Outcome | Fit | Cash due at order | Known horizon cost | Evidence |",
-        "| --- | --- | --- | ---: | ---: | --- |",
+        "# Purchase review", "",
+        "**Simulation: fictional suppliers and prices.**" if packet.get("mode") == "MOCK" else "**Draft for human review.**",
+        "", "## Decision brief", "",
+        f"**{_text(supplier)} has the lowest known cost among comparable quotes.** Human review is required; responses are recorded separately from this saved packet." if selected else "**No supplier is ready for a purchase decision.** " + _text(packet.get("reason") or review["why_now"]),
+        "",
     ]
-    for outcome in packet.get("quote_outcomes") or []:
+    if selected:
+        lines.extend([
+            f"- Cash due at order: **{_amount(cost.get('cash_due_at_order'), currency)}**.",
+            f"- Known cost over {cost.get('horizon_months')} months: **{_amount(cost.get('known_cost_over_comparison_horizon'), currency)}**.",
+            "- Known cost is a subtotal. Energy, resale value and downtime are unquantified; this is not complete total cost of ownership.",
+        ])
+        alternatives = [item for item in outcomes if item.get("comparable") and item is not selected]
+        if alternatives:
+            runner_up = min(alternatives, key=lambda item: Decimal(item["cost"]["known_cost_over_comparison_horizon"]))
+            difference = Decimal(runner_up["cost"]["known_cost_over_comparison_horizon"]) - Decimal(cost["known_cost_over_comparison_horizon"])
+            other = _text(runner_up.get('supplier_name') or runner_up['supplier_id'])
+            lines.append(f"- {_amount(difference, currency)} lower known cost than {other} over the same horizon." if difference else f"- The same known cost as {other} over the same horizon; review the non-price tradeoffs.")
+            cash_difference = Decimal(cost["cash_due_at_order"]) - Decimal(runner_up["cost"]["cash_due_at_order"])
+            if cash_difference > 0:
+                lines.append(f"- Upfront tradeoff: {_text(supplier)} needs {_amount(cash_difference, currency)} more cash at order than {other}. Compare the horizon costs as well as the upfront amounts.")
+    lines.extend(["", "## Your next decision", "", f"**{_text(review['prompt'])}**", "", _text(review["why_now"]), "", _text(review["next_step"]), "", REVIEW_EFFECT,
+                  "", "## Supplier comparison", "", "| Supplier | Fit | Cash due at order | Known horizon cost | Comparison |",
+                  "| --- | --- | ---: | ---: | --- |"])
+    for outcome in outcomes:
         cost = outcome.get("cost") or {}
-        lines.append(f"| {outcome.get('supplier_name') or outcome.get('supplier_id')} | {outcome.get('outcome')} | {(outcome.get('fit') or {}).get('status') or 'Unknown'} | {cost.get('cash_due_at_order') or 'Unknown'} | {cost.get('known_cost_over_comparison_horizon') or 'Unknown'} | {', '.join(outcome.get('evidence_refs') or []) or 'None'} |")
-    lines.extend(["", *[f"- {item}" for item in packet.get("limitations") or []], ""])
-    lines.append("Simulation values are fictional. No supplier contact or order occurred." if packet.get("mode") == "MOCK" else "Draft only. OtterDesk did not contact suppliers or place an order.")
+        fit = {"PASS": "Meets requirements", "FAIL": "Does not meet requirements"}.get((outcome.get("fit") or {}).get("status"), "Unverified")
+        comparison = "Comparable" if outcome.get("comparable") else "Quote outstanding" if outcome.get("outcome") == "WAITING_FOR_EXTERNAL" else "No response" if outcome.get("outcome") == "NO_RESPONSE" else "Not comparable"
+        lines.append(f"| {_text(outcome.get('supplier_name') or outcome.get('supplier_id'))} | {fit} | {_amount(cost.get('cash_due_at_order'), cost.get('currency') or currency)} | {_amount(cost.get('known_cost_over_comparison_horizon'), cost.get('currency') or currency)} | {comparison} |")
+    if not outcomes:
+        lines.append("| No quotes evaluated | Unverified | Not quoted | Not quoted | Confirm policy first |")
+    lines.extend(["", "### Why each option is here", ""])
+    for outcome in outcomes:
+        lines.append(f"- **{_text(outcome.get('supplier_name') or outcome.get('supplier_id'))}:** {_text(quote_review_reason(outcome, requirements))}")
+    lines.extend(["", "## Required reviews", ""])
+    for reviewer in packet.get("required_reviewers") or []:
+        question = case_review_question(packet, reviewer)
+        lines.append(f"- **{reviewer.capitalize()}:** {_text(question['prompt'])}")
+    if not packet.get("required_reviewers"):
+        lines.append("No reviews requested yet. Resolve the blocker or confirm the review policy first.")
+    if packet.get("mode") == "MANUAL":
+        lines.append("Only the local owner's review can be recorded here. Finance, legal and security reviews must be obtained from the responsible people outside this co-worker.")
+    lines.extend(["", "## Evidence and limitations", ""])
+    for outcome in outcomes:
+        lines.append(f"- **{_text(outcome.get('supplier_name') or outcome.get('supplier_id'))}:** quote version {_text(outcome.get('quote_version') or 'not received')}; evidence: {_text(', '.join(outcome.get('evidence_refs') or []) or 'none')}. Deadline or expected availability: {_text(outcome.get('deadline') or outcome.get('expected_at') or 'see quote')}.")
+    lines.extend(f"- {_text(item)}" for item in packet.get("limitations") or [])
+    lines.extend(["", "## Packet details", "",
+                  f"- Case: {_text(packet.get('case_id') or 'Unassigned')}; revision: {packet.get('revision')}",
+                  f"- As of: {_text(packet.get('as_of') or 'Not recorded')}",
+                  f"- Status at publication: {_text(packet.get('status'))}; review status: {_text(packet.get('review_status'))}",
+                  f"- Decision digest: `{packet.get('decision_digest')}`", "",
+                  "Simulation values are fictional. No supplier contact or order occurred." if packet.get("mode") == "MOCK" else "No supplier contact or order occurred."])
     return "\n".join(lines) + "\n"
 
 
@@ -96,26 +171,17 @@ def emit_review_requests(block, packet: dict[str, Any]) -> list[str]:
         if event.get("type") == "human_input_requested"
     }
     emitted: list[str] = []
-    for reviewer in packet.get("required_reviewers") or []:
+    reviewers = packet.get("required_reviewers") or []
+    for reviewer in sorted(reviewers, key=lambda role: (role != "owner", role)):
         if packet.get("mode") == "MANUAL" and reviewer != "owner":
             continue  # A local click cannot impersonate an outside reviewer.
         request_id = f"procurement-{packet['case_id']}-r{packet['revision']}-{reviewer}-{packet['decision_digest'][:16]}"
         if request_id in existing:
             continue
-        selected = next((item for item in packet.get("quote_outcomes") or [] if item.get("supplier_id") == packet.get("selected_supplier_id")), {})
-        cost = selected.get("cost") or {}
-        prompt = (
-            f"{'Simulated ' if packet.get('mode') == 'MOCK' else 'Local owner '}"
-            f"{reviewer} review for case {packet['case_id']} revision {packet['revision']}. "
-            f"Proposed supplier: {selected.get('supplier_name') or packet.get('selected_supplier_id')}; "
-            f"cash due at order {cost.get('currency')} {cost.get('cash_due_at_order')}; "
-            f"known {cost.get('horizon_months')}-month cost {cost.get('currency')} {cost.get('known_cost_over_comparison_horizon')}. "
-            f"Decision digest: {packet['decision_digest']}. "
-            "This review does not authorize supplier contact or an order."
-        )
+        question = case_review_question(packet, reviewer)
         append_human_event(
             run_id, "human_input_requested",
-            {"request_id": request_id, "prompt": prompt, "options": ["Approve", "Request changes", "Reject"], "decision_type": "procurement_review", "decision_digest": packet["decision_digest"], "case_id": packet["case_id"], "revision": packet["revision"], "reviewer": reviewer, "mode": packet["mode"]},
+            {**question, "request_id": request_id, "decision_type": "procurement_review", "decision_digest": packet["decision_digest"], "case_id": packet["case_id"], "revision": packet["revision"], "reviewer": reviewer, "mode": packet["mode"]},
             runs_root=runs_root, blueprint_id=BLUEPRINT_ID,
         )
         emitted.append(request_id)

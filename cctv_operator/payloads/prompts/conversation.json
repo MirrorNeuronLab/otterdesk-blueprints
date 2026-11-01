@@ -4,7 +4,7 @@
   "responsibility": "Explain observed camera monitoring state and saved sampled observations while a supervisor retains safety decisions.",
   "instructionKinds": [],
   "evidence": [
-    "Use timestamped saved camera Markdown and existing Membrane observation retrieval. Recorded demo playback is historical demonstration, not a live site event.",
+    "Use timestamped saved camera images and complete accounts with Membrane and EmbeddingGemma 2 image/text retrieval. Bounded review of retrieved historical images preserves their capture times, hashes and citations. Similarity is not proof of an event or identity. Recorded demo playback is historical demonstration, not a live site event.",
     "Conversation continuity and supervisor preferences are not evidence, approval or current runtime status. Verify the matching Job and Run; disclose unavailable or stale context."
   ],
   "limitations": [

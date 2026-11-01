@@ -43,7 +43,7 @@
     "customizable_for": "Office equipment, AI workstations, machinery, vehicles, software, services, supplier sourcing, property, travel, and custom purchase research.",
     "how_it_works": "Reviews requirements and quotes, researches available options, checks constraints, calculates purchase and ongoing costs, compares scenarios, and independently reviews its recommendation.",
     "input": "Your purchase request, supplier quotes, research links, and supporting documents, plus planning assumptions such as expected use, energy costs, maintenance, and resale value.",
-    "output": "Supplier comparisons, purchase and lifetime costs, financing and lease comparisons, scenario results, risks, evidence gaps, and an approval checklist.",
+    "output": "A readable decision brief, supplier and cost comparisons, evidence gaps, and the next human review question, with detailed calculations and sources.",
     "problem": "The lowest purchase price can hide higher operating costs, downtime, poor fit, or unfavorable terms.",
     "runtime_features": [
       "Local document search",
@@ -61,5 +61,8 @@
     "simulation_type": "Purchase research and cost comparison for human review and approval.",
     "target_users": "Engineering operations, IT buyers, finance operations, procurement teams, office managers, purchase analysts, and other business request owners."
   },
-  "overview": "Turns a purchase request into a review-ready comparison. Checks supplier quotes, known costs, requirements, and evidence; flags required reviews without contacting suppliers or placing orders."
+  "overview": "Turns a purchase request into a review-ready comparison. Checks supplier quotes, known costs, requirements, and evidence; flags required reviews without contacting suppliers or placing orders.",
+  "capabilities": [
+    "conversation_result_text:procurement_manager_report.md"
+  ]
 }

@@ -40,7 +40,7 @@ def test_demo_starts_with_factory_goal_and_markdown_summary_contract():
     chat = (blueprint / "payloads/prompts/chat-system.md").read_text()
     visual = (blueprint / "payloads/prompts/visual-detection.md").read_text()
     assert "Use `answer_video_question` with the actual question" in chat
-    assert "It never retrieves images or calls Cosmos" in chat
+    assert "EmbeddingGemma 2" in chat and "retrieved historical images" in chat
     assert "detection gaps do not prove absence" in chat
     assert "corridor is blocked" in chat
     assert "visible travel path" in visual

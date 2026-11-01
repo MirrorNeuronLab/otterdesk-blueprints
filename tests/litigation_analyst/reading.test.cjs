@@ -45,7 +45,8 @@ test('A conflicting draft cannot become approved through local review or leak re
     evidence:[{evidence_id:'verified-id',source_id:'case:visible'}],graph:{nodes:[],edges:[]},temporal:{},capabilities:{},
     analysis:{stop_reason:'completed'},reading_review:{withheld_finding_ids:['blocked']},
     reading_reports:[{markdown:'UNREVIEWED_REPORT_MARKER'}],reading_tasks:[{title:'UNREVIEWED_TASK_MARKER'}],
-    consistency:{checks:[{reason:'UNREVIEWED_CHECK_MARKER'}]},case_map:{private:'UNREVIEWED_GRAPH_MARKER'}});
+    consistency:{checks:[{reason:'UNREVIEWED_CHECK_MARKER'}]},case_map:{private:'UNREVIEWED_GRAPH_MARKER'},
+    supervision:{next_review:{question:'UNREVIEWED_QUESTION_MARKER'}}});
   vm.runInContext(`let decisions=[]; let state={}; const defaults={};
     function visibleFindings(){return W.findings;}`, ctx);
   vm.runInContext(base.split('\n').find(line=>line.startsWith('function currentReview(')),ctx);

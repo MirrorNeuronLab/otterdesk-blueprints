@@ -2,13 +2,13 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
   "type": "batch",
   "mode": "compiled",
-  "job_name": "general-assistant",
+  "job_name": "computer-use",
   "requirements": {
     "cpu": {
       "min_cores": 2
     },
     "memory": {
-      "min_gb": 32
+      "min_gb": 24
     },
     "disk": {
       "min_gb": 16
@@ -17,8 +17,9 @@
       "min_count": 0
     },
     "network": {
-      "egress": "Runtime model gateway and Core conversation RPC; HTTPS GET/HEAD reads from declared GitHub hosts. Model tools cannot reach the Core RPC."
-    }
+      "egress": "Runtime vision model and Membrane service. The independent native app opens user-authorized apps and HTTPS websites through the local desktop."
+    },
+    "os": "darwin"
   },
   "agents": {
     "registry": {}
@@ -37,7 +38,16 @@
             "target": "domain"
           }
         ],
-        "timeout_seconds": 900
+        "timeout_seconds": 900,
+        "pass_env": [
+          "MN_CONTEXT_ADDR",
+          "MN_CONTEXT_AUTH_TOKEN",
+          "MN_LLM_API_KEY",
+          "MN_LLM_PROVIDER",
+          "MN_LLM_API_BASE",
+          "MN_LLM_BACKEND",
+          "MN_COMPUTER_USE_APP"
+        ]
       }
     }
   },
@@ -49,50 +59,18 @@
         ],
         "uses": "mn-agents.worker.python_host@1",
         "with": {
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
-          "runner_module": "MirrorNeuron.Runner.OpenShell",
-          "from": "openshell_worker",
-          "custom_openshell_image": "openshell_worker",
-          "policy": "openshell_worker/policy.yaml",
-          "policy_config_bindings": true,
-          "sandbox_upload_path": "/sandbox/job",
-          "workdir": "/sandbox/job",
-          "reuse_shared_sandbox": true,
-          "no_auto_providers": true,
-          "no_keep": true,
-          "timeout_seconds": 7500,
+          "timeout_seconds": 3600,
           "max_attempts": 1,
           "safe_to_retry": false,
-          "idempotent": true,
-          "side_effect": "internal_write",
-          "upload_paths": [
-            {
-              "source": "domain",
-              "target": "domain"
-            }
-          ],
-          "environment": {
-            "PYTHONPATH": ".",
-            "OPENCODE_DISABLE_MODELS_FETCH": "true"
-          },
-          "stereotype": [
-            "blueprint_host_worker"
-          ],
-          "artifact_handoff": {
-            "version": "mn.artifact_handoff/v1",
-            "max_files": 2048,
-            "max_bytes": 134217728
-          },
-          "pass_env": [
-            "MN_GRPC_AUTH_TOKEN",
-            "MN_LLM_API_KEY"
-          ]
+          "idempotent": false,
+          "side_effect": "external_write"
         }
       }
     ]
+  },
+  "runtime": {
+    "placement": {
+      "must_run_local": true
+    }
   }
 }

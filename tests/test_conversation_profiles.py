@@ -9,7 +9,7 @@ from mn_sdk.blueprints.definition import setup_guide_from_contracts
 ROOT = Path(__file__).resolve().parents[1]
 FOLDERS = json.loads((ROOT / 'index.json').read_text())
 STAGES = {'onboarding', 'configuring', 'ready', 'preparing', 'working', 'waiting_for_input', 'paused', 'reviewing', 'failed', 'stopped', 'archived'}
-DERIVED_GUIDES = {'general_assistant', 'drug_discovery_research_assistant', 'research_assistant', 'vc_assistant', 'mac_security_investigator'}
+DERIVED_GUIDES = {'drug_discovery_research_assistant', 'research_assistant', 'vc_assistant', 'mac_security_investigator'}
 
 @pytest.mark.parametrize('folder', FOLDERS)
 def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):

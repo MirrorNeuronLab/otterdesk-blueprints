@@ -25,19 +25,34 @@ function findingsView() {
     empty(visible.length?"No findings need review in this view.":"No findings match this view.")}
     ${completed.length?`<details ${!pending.length&&!flags.length?'open':""}><summary>Reviewed findings (${completed.length})</summary>${completed.map(f=>findingCard(f)).join("")}</details>`:""}`;
 }
+function supervisorReview() {
+  const handoff=W.supervision, review=handoff?.next_review;
+  if(!review)return "";
+  if(review.finding_id) {
+    const finding=W.findings.find(f=>f.id===review.finding_id);
+    if(!finding||!needsReview(currentReview(finding)))return "";
+  }
+  const action=review.finding_id?btn("Review finding","finding",review.finding_id,'class="primary"'):
+    review.gap_id?btn("Review evidence gap","gap",review.gap_id,'class="primary"'):btn("Review findings","view","Findings",'class="primary"');
+  return `<section class="card" aria-label="Your next review"><span class="eyebrow">Your next review</span><h3>${e(review.question)}</h3>
+    <p>${e(review.reason)}</p><p class="qualification">${e(review.timing)}</p><div class="actions">${action}${evidenceButtons(review.evidence_ids)}</div>
+    <details><summary>How to record your decision</summary><p>${e(handoff.boundary)}</p></details></section>`;
+}
 function readingOverview() {
   const financial=W.financial_review, first=financial.transactions[0];
   const records=financial.events.filter(r=>!first||(r.transaction_ref===first.transaction_ref&&r.currency===first.currency&&r.ledger_id===first.ledger_id));
   const synthetic=W.sample||W.sources.some(s=>s.text?.includes("SYNTHETIC TEST MATTER"));
   const retained=visibleFindings();
-  return `<div class="page-intro"><div><h2>What the records support</h2><p>${e(W.matter_scope?.intended_decision||W.goal)}</p></div>${primaryAction()}</div>
+  const handoff=supervisorReview();
+  return `<div class="page-intro"><div><h2>What the records support</h2><p>${e(W.matter_scope?.intended_decision||W.goal)}</p></div>${handoff?"":primaryAction()}</div>
     ${synthetic?'<p class="sample-label">Synthetic test matter</p>':""}
+    ${handoff}
     <div class="reading-grid overview-main"><section class="card record-summary"><div class="section-title"><div><span class="eyebrow">Recorded facts</span><h3>${e(first?.transaction_ref||"Current findings")}</h3></div>${btn("View timeline","view","Chronology")}</div>
       ${records.length?`<div class="record-amounts">${records.filter(r=>["requested","approved","net_balance"].includes(r.event_type)).slice(0,6).map(r=>`<div><span>${e(({requested:"Requested",approved:"Stated approval",net_balance:"Recorded net"})[r.event_type])}</span><strong>${money(r.amount,r.currency)}</strong>${evidenceButtons(r.evidence_ids)}</div>`).join("")}</div>`:
         retained.length?retained.slice(0,2).map(f=>`<h4>${e(f.title)}</h4><p>${e(currentReview(f).reviewed_text||f.assessment)}</p>${btn("View finding","finding",f.id)}`).join(""):empty("Review the available documents and flagged claims to establish what the records support.")}
       ${first?`<p class="summary-result">Request less stated approval <strong>${money(first.request_minus_approval,first.currency)}</strong></p><p class="summary-result">Posting / reversal net <strong>${money(first.posting_reversal_net,first.currency)}</strong></p><p class="qualification">${e(first.qualification)}</p><details><summary>Record classifications and scope</summary><p>Event types and ledger grouping are counsel annotations. Exact quotations and recorded amounts are verified.</p>${financial.transactions.length>1?`<p>${financial.transactions.length} transaction groups are available. This summary shows ${e(first.transaction_ref)}.</p>${btn("View all transaction records","view","Chronology")}`:""}</details>`:""}</section>
       <section class="card"><span class="eyebrow">Next useful work</span><h3>What remains unresolved</h3>${nextSteps(3)||W.gaps.slice(0,3).map(g=>`<p>${btn(g.question,"gap",g.id)}</p>`).join("")||empty("No structured next steps were supplied.")}${btn("View questions","view","Issues & evidence")}</section></div>
-    ${readingFlags()}
+    ${handoff&&W.supervision.next_review.kind==="consistency"?"":readingFlags()}
     <div class="overview-counts" aria-label="Investigation counts">${btn(`${W.sources.length} documents`,"sources")}${btn(`${W.temporal.nodes.length} correspondents`,"view","People & relationships")}${btn(`${W.gaps.length} evidence gaps`,"view","Issues & evidence")}</div>
     <div class="reading-grid"><section class="card"><h3>People & events</h3><div class="person-chips">${W.temporal.nodes.slice(0,5).map(n=>btn(n.names.join(" / ")||n.label,"open-map",n.id)).join("")}</div>${btn("Open graph","open-map")}</section><section class="card"><h3>Review scope</h3><p>${e(W.analysis.scope)}.</p><details><summary>Coverage and provenance</summary><p>${W.coverage.readable_ids.length} readable documents. ${retained.length} narrative draft findings remain available after record checks.</p>${reviewAllowance()}<p>Snapshot ${e(W.snapshot_id)}</p>${W.reading_copy?`<p>${e(W.reading_copy.definition)}</p>`:""}</details></section></div>`;
 }

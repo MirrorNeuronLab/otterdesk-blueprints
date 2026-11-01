@@ -20,7 +20,7 @@ node tests/e2e/cctv-monitoring-prompt.cjs
 Use `OTTERDESK_APP_ROOT` for a non-default sibling desktop checkout.
 
 This opt-in suite reads every published package from `index.json`, including
-General Assistant, and uses the installed runtime plus the sibling desktop app.
+Computer Use, and uses the installed runtime plus the sibling desktop app.
 It hires through the GUI, asks a real setup question, selects declared samples or
 test-owned inputs, observes work and artifacts, and asks about the saved result.
 Screenshots cover 1,180- and 1,440-pixel windows and resizing in both directions.

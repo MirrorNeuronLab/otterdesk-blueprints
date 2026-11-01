@@ -12,7 +12,7 @@ from mn_sdk.integrations.block_publication_files import publish_files
 from mn_sdk_common.prompts import PromptLibrary
 from mn_sdk_common.publication import ArtifactWrite
 
-from . import camera_sources, vision_model, scene_analysis
+from . import camera_sources, vision_model, scene_analysis, history_memory
 from .alert_delivery import alert_text, post_slack
 from .benchmarks import Benchmarks
 from .caption_schedule import acknowledge_caption
@@ -190,6 +190,21 @@ def process(block, work):
         finally:
             memory.close()
         if recorded is not None:
+            if history_memory.enabled(block.config):
+                archive = history_memory.open_history(block.config, job_directory=block.job_directory,
+                    scope={'job_id': block.job_id, 'run_id': block.run_id},
+                    camera_id=prepared['camera'], source_key=prepared['source_key'])
+                try:
+                    block.register_capability('camera_visual_history', Capability(
+                        lambda request: archive.remember(recorded, batch, frames), block.revision, idempotent=True))
+                    with metrics.measure('memory.visual_index', variant='Membrane / EmbeddingGemma 2 image and text'):
+                        indexed = block.invoke('camera_visual_history', {'observation_id': recorded['observation']['observation_id'],
+                            'frame_hashes': [row['sha256'] for row in batch['selected_frames']]}, key='visual-history')
+                    state['last_history_index'] = indexed
+                    writes.append(ArtifactWrite('memory-visual-index', f"runtime_memory/frame-{payload['tick_seq']}-visual-index.json",
+                        json.dumps(indexed, sort_keys=True).encode(), kind='json', authoritative=True))
+                finally:
+                    archive.close()
             state["camera_source"], source = camera_sources.project(block, state.get("camera_source"), recorded)
             writes.append(source)
             writes.append(ArtifactWrite("memory-observation", f"runtime_memory/frame-{payload['tick_seq']}-observation.json",

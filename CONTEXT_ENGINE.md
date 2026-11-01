@@ -9,7 +9,7 @@ ingestion and citation-backed input/output/procedure queries.
 
 | Published blueprint | Markdown memory | Current boundary |
 | --- | --- | --- |
-| general_assistant | Disabled | Own Harness2 active harness and lesson library in Job-private storage; no Membrane worker recall |
+| general_assistant (Computer Use) | Enabled | Job-private app navigation hints; excludes typed text, email content, credentials, screenshots and coordinates; fresh screen observations remain authoritative |
 | mac_security_investigator | Enabled | Loopback-only authored assertion graphs with source locators, pinned scope/knowledge revision, local temporal witnesses; deterministic disable profile is explicit |
 | cctv_operator | Enabled | Camera/source-scoped sampled history before vision; job-scoped observations with run provenance |
 | drug_discovery_research_assistant | Source intelligence | Approved input Markdown, configured procedure and saved scientific results for stable Job Chat; runtime TextMemory recall disabled |

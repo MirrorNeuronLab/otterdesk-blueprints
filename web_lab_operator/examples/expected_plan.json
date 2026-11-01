@@ -1,0 +1,82 @@
+{
+  "status": "ready",
+  "summary": "Simulate a 100 uL water transfer using the declared reserve when the primary source is short.",
+  "assumptions": [],
+  "unresolved": [],
+  "plates": [
+    "source",
+    "destination"
+  ],
+  "liquids": [
+    {
+      "well": "source/A1",
+      "volume_ul": 20,
+      "liquid": "water"
+    },
+    {
+      "well": "source/A2",
+      "volume_ul": 200,
+      "liquid": "water"
+    }
+  ],
+  "steps": [
+    {
+      "id": "transfer_water",
+      "kind": "transfer",
+      "instruction_lines": [
+        14
+      ],
+      "source": "source/A1",
+      "destination": "destination/A1",
+      "volume_ul": 100,
+      "alternate_sources": [
+        "source/A2"
+      ]
+    },
+    {
+      "id": "mix_water",
+      "kind": "mix",
+      "instruction_lines": [
+        15
+      ],
+      "well": "destination/A1",
+      "volume_ul": 50,
+      "cycles": 2
+    },
+    {
+      "id": "wait_briefly",
+      "kind": "wait",
+      "instruction_lines": [
+        16
+      ],
+      "seconds": 5
+    },
+    {
+      "id": "check_water",
+      "kind": "check_volume",
+      "instruction_lines": [
+        17
+      ],
+      "well": "destination/A1",
+      "minimum_ul": 99.9,
+      "maximum_ul": 100.1
+    }
+  ],
+  "goals": [
+    {
+      "well": "destination/A1",
+      "volume_ul": 100,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "source/A1",
+      "volume_ul": 20,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "source/A2",
+      "volume_ul": 100,
+      "tolerance_ul": 0.1
+    }
+  ]
+}

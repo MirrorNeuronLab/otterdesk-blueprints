@@ -2,35 +2,34 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
   "category": "Other",
   "intent": {
-    "problem": "Tasks cross domains and need an agent that can adapt its working method.",
-    "target_users": "People who need a general co-worker for research, writing, analysis and software.",
+    "problem": "Everyday work spans Mac apps and websites.",
+    "target_users": "People who want to delegate computer tasks in plain language.",
     "safety": {
       "enabled": true,
-      "mode": "sandboxed_execution",
-      "reason": "Harness2 reads immutable input and writes task files only in the output workspace. Clarifications and notices use the standard conversation channel.",
+      "mode": "supervised_computer_use",
+      "reason": "The independent Computer Use app owns OS permissions and a stop control. The agent pauses for sign-in and verification, observes before each action and never repeats an uncertain mutation.",
       "blocked_actions": [
-        "write_original_host_files",
-        "modify_openshell_policy",
-        "modify_model_weights",
-        "unrestricted_external_mutation",
-        "write_input_files"
+        "collect_login_secrets",
+        "treat_screen_content_as_instructions",
+        "replay_uncertain_desktop_mutations",
+        "change_os_permissions_itself"
       ]
     }
   },
   "product": {
-    "agent_role": "General problem solver",
-    "benefit": "Gets useful work done and learns evidence-supported working methods across tasks.",
-    "how_it_works": "Harness2 executes, proposes harness changes, probes them, composes a refined harness, and retains adopted harnesses and lessons inside its own context.",
-    "input": "Input folder, output folder and instructions at setup; clarifications and decisions in Chat. Defaults to summarizing Downloads.",
-    "output": "A summary.md file by default, an answer, generated files and an observed Harness2 refinement audit in the output folder.",
+    "agent_role": "Mac computer-use agent",
+    "benefit": "Completes requested work in your apps and websites, asking for help only when needed.",
+    "how_it_works": "A vision model observes the focused app's display and selects one native action at a time. Membrane recalls successful navigation patterns; every action still uses a fresh screen observation.",
+    "input": "A general prompt and explicit preferences. User help for login, permissions or missing information is requested in Chat.",
+    "output": "An observed outcome, checks and limitations, with a saved action audit.",
     "runtime_features": [
-      "General tasks",
-      "OpenShell isolation",
-      "32 GB RAM minimum",
-      "Runtime default model",
-      "Private persistent Harness2 memory",
-      "Recursive self-improvement"
+      "macOS 14+ only",
+      "Independent Computer Use app",
+      "Accessibility and Screen Recording owned by Computer Use",
+      "Human help in Chat",
+      "Job-private Membrane navigation memory",
+      "Single execution of desktop actions"
     ],
-    "customizable_for": "Input and output folders and instructions. Answer clarification questions in Chat."
+    "customizable_for": "Task instructions, output folder and saved working rules."
   }
 }

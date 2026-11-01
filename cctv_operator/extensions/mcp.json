@@ -278,7 +278,7 @@
       }
     },
     "get_video_summary": {
-      "description": "Summarize this run\u2019s saved Markdown observations in context memory using the text model only. Never retrieve images or invoke Cosmos. This is an asynchronous read; report completion after get_operation_status returns completed. Optional after and before are timezone-qualified ISO 8601 capture times or empty strings. Preserve citations, sampled coverage, recording qualifications and omitted history. Does not change monitoring.",
+      "description": "Summarize this run\u2019s indexed saved image/text observations from Membrane. EmbeddingGemma 2 retrieves whole evidence groups; a bounded historical image review may support the text-model summary. This is an asynchronous read and never changes monitoring or starts capture. Report completion only after get_operation_status returns completed. Optional after/before are timezone-qualified ISO 8601 capture times or empty strings. Preserve citations, sampled coverage, original capture times, recording qualifications and omissions.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -337,7 +337,7 @@
       }
     },
     "answer_video_question": {
-      "description": "Invoke this read before answering any retrospective video question or an explicit Search saved footage choice, even when the conversation contains no observations. A find-if request without a clear time scope needs a Watch from now or Search saved footage choice first. Never claim \"I checked\", no events, or no evidence without its completed result. Read saved authored Markdown for the actual question across this camera/source's Job runs. \"Did anyone appear without a helmet earlier?\" requires this read: visible helmet status is within scope, though it cannot establish required PPE or compliance. Never change monitoring, retrieve images or invoke Cosmos. The text model reads Membrane history; poll get_operation_status for completion. Optional after/before are timezone-qualified ISO 8601 capture times or empty strings. Preserve evidence times, citations, recording qualifications and sampling limits. Missing history does not mean zero people; repeated observations cannot establish unique people or a cumulative total.",
+      "description": "Invoke this read before answering any retrospective video question or an explicit Search saved footage choice. A find-if request without a clear time scope needs a Watch from now or Search saved footage choice first. Never claim I checked, no events, or no evidence without its completed result. Search this camera/source Job history using EmbeddingGemma 2 image and text retrieval in Membrane, then review a bounded number of retrieved historical images with the declared vision model and produce a cited answer. Visible helmet status is in scope but cannot establish required PPE or compliance. Never change monitoring or start capture. Poll get_operation_status for completion. Optional after/before are timezone-qualified ISO 8601 capture times or empty strings. Preserve capture times, image hashes, citations, omissions and sampling limits. Missing history does not mean zero people, and repeated samples cannot establish unique people or total appearances.",
       "effect": "read",
       "inputSchema": {
         "type": "object",

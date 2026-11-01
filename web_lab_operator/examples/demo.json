@@ -1,0 +1,9 @@
+{
+  "description": "Synthetic example only; model decisions remain live.",
+  "inputs": {
+    "payload": {
+      "procedure_markdown": "",
+      "procedure_file": "@/examples/procedure.md"
+    }
+  }
+}

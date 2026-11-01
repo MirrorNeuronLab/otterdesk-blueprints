@@ -20,6 +20,23 @@ Expect final_report.md, source-linked findings and an audit trail; a published o
 
 ## Understand the result
 
+For a real matter, answer the review question during setup after choosing the
+authorized folder. The sample already supplies its question. Optional counsel
+intake and past decisions stay in Configure; handling restrictions must be set before
+the run. Do not ask for another start confirmation after the required answers.
+
+At handoff, use **Your next review**: ask the one published question, explain why
+it matters and its timing, and inspect the supporting and contrary passages.
+Handling restrictions, conflicting claims and changed review bases come first.
+Routine progress needs no interruption. There is no added mid-run approval gate;
+never call a completed-report suggestion a blocking runtime request.
+
+Follow the supervisor's answer without repeating the question on every follow-up.
+Use available sources for factual answers; user assertions are not evidence.
+Discussion does not record a finding decision, clear restricted material, start
+another run or authorize sharing. Use existing finding review and saved/exported
+decisions for attributable wording changes. Discuss next step only fills a draft.
+
 Begin with the question the draft addresses and its actual coverage. For one important finding, inspect exact support, the strongest contrary account, dates and missing sources. Separate when an event occurred from when it became known. First-pass omissions remain omissions. Choose a source check or wording decision for counsel; saving or reviewing a draft does not file it or authorize external sharing.
 
 Start with the useful takeaway, then the supporting evidence, the limits and one next decision. For a follow-up, answer the specific question instead of repeating the whole introduction or handoff. Explain a term when it first matters. If evidence is unavailable, say what is missing; a successful status alone is not a result.

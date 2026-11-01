@@ -7,7 +7,7 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll compare purchase options, costs and risks so you can review a recommendation. Try the fictional offline quote sample, or describe your purchase and add any supporting documents. You'll get a comparison with assumptions and missing terms; I won't contact suppliers or place orders.",
+    "introduction": "I'll compare purchase options and explain the costs, tradeoffs and missing evidence. Start with what you need to buy and what it must achieve, or try the fictional offline quote sample. You'll review the comparison and the next decision; I won't contact suppliers or place orders.",
     "sample": {
       "available": true,
       "title": "Simulation: GPU workstation quotes",
@@ -19,7 +19,7 @@
       }
     },
     "real": {
-      "introduction": "Describe what you want to purchase and the outcome it must achieve. Add must-have requirements and any budget or supporting quotes; I'll prepare a comparison and identify what still needs human review.",
+      "introduction": "Describe the purchase and the outcome you need. Include quantity, must-have requirements and any firm budget or deadline you already know. Unknown details can stay open for an exploratory comparison.",
       "values": {
         "inputs.payload.input_folder": "",
         "inputs.payload.item_description": ""
@@ -28,8 +28,8 @@
     "fields": [
       {
         "path": "inputs.payload.item_description",
-        "label": "What do you want to purchase?",
-        "description": "Describe the item or service, who it is for, and the outcome you need.",
+        "label": "What do you need to buy, and what must it achieve?",
+        "description": "Include quantity and non-negotiable requirements. Add a firm budget or deadline if you have one; say when a detail is still unknown.",
         "type": "textarea",
         "role": "input",
         "required": true
@@ -43,8 +43,8 @@
       },
       {
         "path": "inputs.payload.budget",
-        "label": "Budget",
-        "description": "Your maximum purchase or landed-cost budget.",
+        "label": "Maximum all-in budget",
+        "description": "Optional purchase ceiling, including tax, shipping and deployment. Leave it unset for an exploratory comparison; affordability will remain unverified.",
         "type": "number",
         "minimum": 0
       },
@@ -62,14 +62,14 @@
       },
       {
         "path": "inputs.payload.constraints",
-        "label": "Constraints",
-        "description": "Review the must-have requirements and change any values that do not apply.",
+        "label": "Must-have requirements",
+        "description": "Only non-negotiable requirements belong here. Keep preferences in Priorities; a failed must-have excludes an option.",
         "type": "domain_value"
       },
       {
         "path": "inputs.payload.analysis",
         "label": "Cost assumptions",
-        "description": "Review the lifecycle-cost, utilization, labor, downtime, tax, and residual-value assumptions.",
+        "description": "Planning estimates for the cost horizon, use, labor, downtime, tax and resale value. Review them when interpreting costs; these are not supplier facts.",
         "type": "domain_value"
       },
       {

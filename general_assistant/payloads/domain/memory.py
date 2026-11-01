@@ -1,78 +1,76 @@
-"""Opaque, versioned Harness2 memory snapshots, isolated by the runtime Job."""
-import json
-from pathlib import Path
+"""Job-private Membrane navigation hints, excluding task content and secrets."""
+from datetime import datetime, timezone
+import re
+from urllib.parse import urlsplit
 
-from mn_blueprint_blocks.contracts import fingerprint
-from mn_sdk.artifact_handoff import relative_path
-from mn_sdk_common.committed_artifacts import CommittedJsonStore
-from mn_sdk_common.files import atomic_write_text
+from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
 
-SCHEMA = "otterdesk.harness2.memory.v1"
+PRINCIPAL = "computer-use"
 
 
-def validate(snapshot, limits, job_id):
-    if (not isinstance(snapshot, dict) or snapshot.get("schema_version") != SCHEMA
-            or snapshot.get("job_id") != job_id
-            or type(snapshot.get("generation")) is not int or snapshot["generation"] < 0
-            or not isinstance(snapshot.get("files"), dict)):
-        raise ValueError("Harness2 memory has an invalid Job identity or generation")
-    files = snapshot["files"]
-    if len(files) > limits["max_memory_files"]:
-        raise ValueError("Harness2 memory file quota exceeded")
-    for name, body in files.items():
-        relative_path(name)
-        if name.split("/")[0] not in {"active", "library"} or not isinstance(body, str):
-            raise ValueError("Harness2 memory contains an unsupported entry")
-    if len(json.dumps(snapshot, ensure_ascii=False).encode()) > limits["max_memory_bytes"]:
-        raise ValueError("Harness2 memory byte quota exceeded")
-    return snapshot
+def navigation_hint(action):
+    """Retain reusable navigation only; no text, coordinates, recipients or paths."""
+    kind = action["type"]
+    if kind == "key":
+        return "key " + action["key"]
+    if kind == "open_url":
+        host = urlsplit(action["url"]).hostname
+        return "open https://" + host if host else None
+    if kind == "launch_app":
+        return "open app " + action["bundle_id"]
+    return None
 
 
-def storage(block):
-    if not block.job_id or not block.job_data_dir:
-        raise ValueError("Runtime Job storage is required for private Harness2 memory")
-    root = Path(block.job_data_dir) / "harness_memory"
-    if root.is_symlink() or (root / "state.json").is_symlink():
-        raise ValueError("Harness2 memory cannot use symlinks")
-    root.mkdir(parents=True, exist_ok=True)
-    return CommittedJsonStore(root)
+class NavigationMemory:
+    def __init__(self, block):
+        self.block = block
+        self.session = runtime_text_memory(block.config, principal=PRINCIPAL,
+            scope={"job_id": block.job_id, "run_id": block.run_id})
+        if self.session is None:
+            raise ValueError("Computer Use requires Membrane navigation memory")
+        # Analytical queries need these authored fields even before the first
+        # successful navigation exists. Keep schema declarations out of recall.
+        from mn_context_engine_sdk.intelligent_system import RuntimeRecord
+        from mn_blueprint_blocks.contracts import fingerprint
+        identity = "computer-navigation-schema-v1-" + fingerprint(self.session.scope)
+        clock = self.session.restore_checkpoint(identity)
+        if clock is None:
+            clock = {"declared_at": datetime.fromtimestamp(block.wall_time(), timezone.utc).isoformat()}
+            self.session.checkpoint(identity, clock)
+        self.session.record(RuntimeRecord(identity, "Computer navigation schema", clock["declared_at"],
+            "Schema declaration; not an observed navigation or permission grant.",
+            {"memory_family": "computer_navigation_schema", "app_bundle_id": "",
+             "observed_at": clock["declared_at"], "navigation_count": 0, "run_id": block.run_id}, kind="constraint"),
+            namespace="job", event_id=identity, allow=[PRINCIPAL])
 
+    def recall(self, bundle_id):
+        config = self.block.config["text_memory"]
+        return retrieve_memory_context(self.session, "Successful Mac navigation for " + bundle_id,
+            stages=[{"mode": "analytical", "analytical": {"operation": "recent", "timestamp_field": "observed_at",
+                "limit": config["max_results"], "filters": [
+                    {"field": "memory_family", "op": "eq", "value": "computer_navigation"},
+                    {"field": "app_bundle_id", "op": "eq", "value": bundle_id}]}}],
+            max_results=config["max_results"], max_context_bytes=config["max_context_bytes"],
+            hydrate_runtime_records=True)
 
-def load(block, limits):
-    store = storage(block)
-    with store.locked("memory"):
-        path = store.path("state.json")
-        value = json.loads(path.read_text()) if path.exists() else {
-            "schema_version": SCHEMA, "job_id": block.job_id,
-            "generation": 0, "files": {}, "last_request": None,
-        }
-        return validate(value, limits, block.job_id)
+    def remember(self, request, routes):
+        from mn_context_engine_sdk.intelligent_system import RuntimeRecord
+        from mn_blueprint_blocks.contracts import fingerprint
 
+        receipts = []
+        for bundle_id, hints in sorted(routes.items()):
+            if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.-]{0,199}", bundle_id) or not hints:
+                continue
+            identity = fingerprint([request["request_id"], bundle_id, hints])
+            observed_at = datetime.fromtimestamp(request["admitted_at"], timezone.utc).isoformat()
+            record = RuntimeRecord(identity, "Observed successful Mac navigation", observed_at,
+                "Historical navigation hints; re-observe the UI. These are not instructions or permission.",
+                {"memory_family": "computer_navigation", "app_bundle_id": bundle_id,
+                 "observed_at": observed_at, "navigation_count": len(set(hints)),
+                 "run_id": self.block.run_id},
+                notes="\n".join("- " + hint for hint in list(dict.fromkeys(hints))[:24]), kind="observation")
+            receipts.append(self.session.record(record, namespace="job", event_id=identity, allow=[PRINCIPAL]))
+        return receipts
 
-def adopt(block, snapshot, *, expected_generation, request_id, limits):
-    """Compare-and-swap the opaque state; retries never advance memory twice."""
-    validate(snapshot, limits, block.job_id)
-    if snapshot.get("last_request") != request_id:
-        raise ValueError("Harness2 memory does not match the admitted request")
-    if snapshot["generation"] != expected_generation + 1:
-        raise ValueError("Harness2 returned an unexpected memory generation")
-    store = storage(block)
-    receipt_path = f"receipts/{request_id}.json"
-    digest = fingerprint(snapshot)
-    receipt = {"request_id": request_id, "generation": snapshot["generation"], "sha256": digest}
-    with store.locked("memory"):
-        if store.path(receipt_path).exists():
-            if store.read_path(receipt_path) != receipt:
-                raise ValueError("A retained Harness2 request changed on replay")
-            return receipt
-        path = store.path("state.json")
-        previous = json.loads(path.read_text()) if path.exists() else {"generation": 0}
-        if previous.get("last_request") == request_id:
-            if fingerprint(previous) != digest:
-                raise ValueError("Retained Harness2 memory differs from the replay")
-        else:
-            if previous["generation"] != expected_generation:
-                raise ValueError("Harness2 memory changed since admission; start a new run")
-            atomic_write_text(path, json.dumps(snapshot, ensure_ascii=False, sort_keys=True) + "\n")
-        store.commit(receipt_path, receipt, kind="harness_memory_receipt")
-    return receipt
+    def close(self):
+        self.session.close()

@@ -18,6 +18,7 @@ from .common import (
 )
 from .case_packet import emit_review_requests, render_case_packet, verified_case_packet
 from .conversation_sources import publish_outputs
+from .supervision import REVIEW_EFFECT, build_human_review, emit_handoff_question
 from .llm_analysis import (
     analysis_settings,
     analysis_validation_context,
@@ -45,6 +46,7 @@ def build_final_artifact(inputs: dict[str, Any], evidence: dict[str, Any], recom
         "status": "review_ready",
         "purchase_type": inputs.get("purchase_type"),
         "item_description": inputs.get("item_description"),
+        "currency": inputs.get("currency") or "USD",
         "executive_summary": f"Research packet for {inputs.get('purchase_type')} purchase: {item_description}. Recommendation: {recommendation.get('label')} with {recommendation.get('confidence')} confidence.",
         "recommended_action": recommendation.get("label"),
         "confidence": recommendation.get("confidence"),
@@ -200,9 +202,9 @@ def build_procurement_summary(
     }
 
 
-def _currency(value: Any) -> str:
+def _currency(value: Any, currency: str = "USD") -> str:
     amount = _currency_amount(value)
-    return f"${amount:,.2f}" if amount is not None else "Not quoted"
+    return f"{currency} {amount:,.2f}" if amount is not None else "Not quoted"
 
 
 def _percent(value: Any) -> str:
@@ -210,9 +212,9 @@ def _percent(value: Any) -> str:
     return f"{amount * 100:.2f}%" if amount is not None else "Not set"
 
 
-def _unit_rate(value: Any) -> str:
+def _unit_rate(value: Any, currency: str = "USD") -> str:
     amount = _currency_amount(value)
-    return f"${amount:.4f}" if amount is not None else "Not set"
+    return f"{currency} {amount:.4f}" if amount is not None else "Not set"
 
 
 def _business_days(value: Any) -> str:
@@ -257,39 +259,73 @@ def render_markdown(artifact: dict[str, Any]) -> str:
     )
     preferred_tco = preferred.get("tco") or {}
     methodology = preferred.get("tco_methodology") or {}
+    currency = artifact.get("currency") or "USD"
+    horizon = f"{methodology['horizon_years']} years" if methodology.get("horizon_years") is not None else "Not recorded"
+    def format_cost(value: Any) -> str:
+        return _currency(value, currency)
     generation = artifact.get("llm_generation") or {}
     narrative = artifact.get("report_narrative") or {}
     analysis_interpretation = artifact.get("analysis_interpretation") or {}
     risk_interpretation = artifact.get("risk_interpretation") or {}
     decision_analysis = artifact.get("decision_analysis") or {}
+    review = artifact.get("human_review") or build_human_review(artifact)
     lines = [
-        "# Procurement Manager Report",
+        "# Purchase review",
         "",
-        f"**Purchase type:** {artifact.get('purchase_type')}",
-        f"**Item or trip:** {artifact.get('item_description') or 'Not specified'}",
-        f"**Recommendation:** {artifact.get('recommended_action')}",
+        f"**Purchase brief:** {artifact.get('item_description') or 'Not specified'}",
+        "",
+        "## Decision brief",
+        "",
+        f"**Recommendation:** {str(artifact.get('recommended_action') or 'Not assessed').replace('_', ' ').capitalize()}. Human review required.",
+        f"**Proposed option:** {preferred.get('label') or artifact.get('preferred_candidate') or 'No eligible option'}",
+        f"**Supplier:** {procurement.get('preferred_vendor') or 'Not identified'}",
         f"**Confidence:** {artifact.get('confidence')}",
-        f"**LLM narrative status:** {generation.get('status') or 'not available'}",
         "",
-        "## Executive Summary",
+        str(artifact.get("recommendation_rationale") or "No supported recommendation is available."),
+        "",
+        f"Comparison horizon: {horizon}. Currency: {currency}. These modeled costs depend on the recorded planning assumptions.",
+        "",
+        "| Cost basis | Amount | What it means |",
+        "| --- | ---: | --- |",
+        f"| Landed acquisition | {format_cost(procurement.get('landed_acquisition_cost'))} | Acquisition and deployment under the recorded assumptions |",
+        f"| Lifecycle cost, present value | {format_cost(procurement.get('financial_npv_tco'))} | Future modeled cash flows expressed in today's money |",
+        f"| Risk-adjusted lifecycle cost | {format_cost(procurement.get('risk_adjusted_npv_tco'))} | Adds modeled disruption exposure; this is an estimate |",
+        "",
+        f"Source observed: {procurement.get('observed_at') or 'Not recorded'}. Current quote, stock and delivery still need confirmation.",
+        "",
+        "## Your next decision",
+        "",
+        f"**{review['prompt']}**",
+        "",
+        review["why_now"],
+        "",
+        review["next_step"],
+        "",
+        REVIEW_EFFECT,
+        "",
+        "### Evidence to resolve before commitment",
+        "",
+        *[f"- {item}" for item in artifact.get("evidence_gaps") or ["Confirm the recorded source evidence and company planning assumptions."]],
+        "",
+        "## Executive summary",
         str(narrative.get("executive_summary") or artifact.get("executive_summary") or ""),
         "",
-        "## Decision Rationale",
+        "## Decision rationale",
         str(narrative.get("decision_rationale") or artifact.get("recommendation_rationale") or ""),
         "",
-        "## Procurement Decision Summary",
+        "## Detailed cost and readiness",
         f"- Decision status: {procurement.get('decision_status') or 'human_review_required'}",
         f"- Preferred option: {procurement.get('preferred_candidate') or 'No eligible option'}",
         f"- Preferred supplier: {procurement.get('preferred_vendor') or 'Not identified'}",
         f"- Budget status: {procurement.get('budget_status') or 'not_set'}",
-        f"- Observed base price: {_currency(procurement.get('observed_base_price'))}",
-        f"- Landed acquisition cost: {_currency(procurement.get('landed_acquisition_cost'))}",
-        f"- Landed-budget headroom: {_currency(procurement.get('landed_budget_headroom'))}",
-        f"- Financial NPV TCO: {_currency(procurement.get('financial_npv_tco'))}",
-        f"- Risk-adjusted NPV TCO: {_currency(procurement.get('risk_adjusted_npv_tco'))}",
-        f"- Risk-adjusted equivalent annual cost: {_currency(procurement.get('equivalent_annual_cost'))}",
-        f"- Risk-adjusted cost per productive hour: {_currency(procurement.get('risk_adjusted_cost_per_productive_hour'))}",
-        f"- Scenario range, risk-adjusted NPV: {_currency(procurement.get('scenario_risk_adjusted_npv_low'))} to {_currency(procurement.get('scenario_risk_adjusted_npv_high'))}",
+        f"- Observed base price: {format_cost(procurement.get('observed_base_price'))}",
+        f"- Landed acquisition cost: {format_cost(procurement.get('landed_acquisition_cost'))}",
+        f"- Landed-budget headroom: {format_cost(procurement.get('landed_budget_headroom'))}",
+        f"- Financial NPV TCO: {format_cost(procurement.get('financial_npv_tco'))}",
+        f"- Risk-adjusted NPV TCO: {format_cost(procurement.get('risk_adjusted_npv_tco'))}",
+        f"- Risk-adjusted equivalent annual cost: {format_cost(procurement.get('equivalent_annual_cost'))}",
+        f"- Risk-adjusted cost per productive hour: {format_cost(procurement.get('risk_adjusted_cost_per_productive_hour'))}",
+        f"- Scenario range, risk-adjusted NPV: {format_cost(procurement.get('scenario_risk_adjusted_npv_low'))} to {format_cost(procurement.get('scenario_risk_adjusted_npv_high'))}",
         f"- Source observed: {procurement.get('observed_at') or 'Timestamp missing'}",
         f"- Availability: {procurement.get('availability_status') or 'Verify with supplier'}",
         f"- Lead time: {_business_days(procurement.get('lead_time_business_days'))}",
@@ -304,13 +340,13 @@ def render_markdown(artifact: dict[str, Any]) -> str:
     lines.extend(
         [
             "",
-            "## Financial Interpretation",
+            "## Financial interpretation",
             str(narrative.get("financial_interpretation") or analysis_interpretation.get("summary") or "Deterministic tables are authoritative."),
             "",
-            "## Risk Interpretation",
+            "## Risk interpretation",
             str(narrative.get("risk_interpretation") or risk_interpretation.get("overall_posture") or "See deterministic risk flags."),
             "",
-            "## Candidate Comparison",
+            "## Option comparison",
             "| Option | Supplier | Observed price | Landed cost | Financial NPV | Risk-adjusted NPV | Risk-adjusted EAC | Hard gate |",
             "| --- | --- | ---: | ---: | ---: | ---: | ---: | --- |",
         ]
@@ -320,17 +356,19 @@ def render_markdown(artifact: dict[str, Any]) -> str:
             "| {label} | {vendor} | {price} | {landed} | {financial} | {risk} | {eac} | {constraints} |".format(
                 label=candidate.get("label") or candidate.get("candidate_id"),
                 vendor=candidate.get("vendor") or "Not identified",
-                price=_currency((candidate.get("tco") or {}).get("base_purchase_price")),
-                landed=_currency((candidate.get("tco") or {}).get("landed_acquisition_cost")),
-                financial=_currency((candidate.get("tco") or {}).get("financial_npv_tco")),
-                risk=_currency((candidate.get("tco") or {}).get("risk_adjusted_npv_tco")),
-                eac=_currency((candidate.get("tco") or {}).get("equivalent_annual_cost")),
+                price=format_cost((candidate.get("tco") or {}).get("base_purchase_price")),
+                landed=format_cost((candidate.get("tco") or {}).get("landed_acquisition_cost")),
+                financial=format_cost((candidate.get("tco") or {}).get("financial_npv_tco")),
+                risk=format_cost((candidate.get("tco") or {}).get("risk_adjusted_npv_tco")),
+                eac=format_cost((candidate.get("tco") or {}).get("equivalent_annual_cost")),
                 constraints="Pass" if candidate.get("hard_constraints_passed") else "Does not pass",
             )
         )
+    if not comparisons:
+        lines.append("| No structured options supplied | — | — | — | — | — | — | — |")
     alternative_tradeoffs = narrative.get("alternative_tradeoffs") or decision_analysis.get("why_not_alternatives") or []
     if alternative_tradeoffs:
-        lines.extend(["", "## Alternative Tradeoffs"])
+        lines.extend(["", "## Alternative tradeoffs"])
         for item in alternative_tradeoffs:
             if isinstance(item, dict):
                 lines.append(
@@ -338,54 +376,52 @@ def render_markdown(artifact: dict[str, Any]) -> str:
                 )
     negotiation_points = narrative.get("negotiation_points") or risk_interpretation.get("negotiation_points") or []
     if negotiation_points:
-        lines.extend(["", "## Negotiation Points"])
+        lines.extend(["", "## Negotiation points"])
         lines.extend(f"- {item}" for item in negotiation_points)
     narrative_conditions = narrative.get("approval_conditions") or decision_analysis.get("approval_conditions") or []
     if narrative_conditions:
-        lines.extend(["", "## Narrative Approval Conditions"])
+        lines.extend(["", "## Approval conditions"])
         lines.extend(f"- {item}" for item in narrative_conditions)
-    if not comparisons:
-        lines.append("| No structured options supplied | — | — | — | — | — | — | — |")
     if preferred:
         lines.extend(
             [
                 "",
-                "## Preferred Option Lifecycle Cost Analysis",
+                "## Preferred option lifecycle cost analysis",
                 f"- Model completeness: {str(preferred_tco.get('model_status') or 'Not assessed').replace('_', ' ')}",
-                f"- Vendor cash cost, including estimated tax: {_currency(preferred_tco.get('vendor_cash_cost'))}",
-                f"- Internal implementation: {_currency(preferred_tco.get('internal_implementation_cost'))} ({_display_number(preferred_tco.get('internal_labor_hours'))} hours)",
-                f"- Planned annual energy: {_display_number(preferred_tco.get('annual_energy_kwh'))} kWh / {_currency(preferred_tco.get('annual_energy_cost'))}",
+                f"- Vendor cash cost, including estimated tax: {format_cost(preferred_tco.get('vendor_cash_cost'))}",
+                f"- Internal implementation: {format_cost(preferred_tco.get('internal_implementation_cost'))} ({_display_number(preferred_tco.get('internal_labor_hours'))} hours)",
+                f"- Planned annual energy: {_display_number(preferred_tco.get('annual_energy_kwh'))} kWh / {format_cost(preferred_tco.get('annual_energy_cost'))}",
                 f"- Power planning inputs: {_display_number(preferred_tco.get('active_power_watts'))} W active component envelope and {_display_number(preferred_tco.get('idle_power_watts'))} W idle",
                 f"- Power evidence status: {preferred_tco.get('power_measurement_status') or 'No measurement status supplied'}",
-                f"- Annual financial operating cost: {_currency(preferred_tco.get('annual_financial_operating_cost'))}",
-                f"- Annual downtime exposure: {_currency(preferred_tco.get('annual_downtime_exposure'))}",
-                f"- Expected year-{methodology.get('horizon_years') or 3} residual value: {_currency(preferred_tco.get('residual_value'))}",
-                f"- Undiscounted lifecycle cost: {_currency(preferred_tco.get('undiscounted_lifecycle_cost'))}",
+                f"- Annual financial operating cost: {format_cost(preferred_tco.get('annual_financial_operating_cost'))}",
+                f"- Annual downtime exposure: {format_cost(preferred_tco.get('annual_downtime_exposure'))}",
+                f"- Expected year-{methodology.get('horizon_years') or 3} residual value: {format_cost(preferred_tco.get('residual_value'))}",
+                f"- Undiscounted lifecycle cost: {format_cost(preferred_tco.get('undiscounted_lifecycle_cost'))}",
                 f"- Excluded or unpriced items: {', '.join(preferred_tco.get('excluded_or_unpriced_costs') or []) or 'None recorded'}",
                 "",
-                "### Planning Assumptions",
+                "### Planning assumptions",
                 f"- Horizon: {methodology.get('horizon_years') or 'Not set'} years; annual discount rate: {_percent(methodology.get('discount_rate'))}",
-                f"- Sales-tax rate: {_percent(methodology.get('tax_rate'))}; electricity: {_unit_rate(methodology.get('electricity_rate_per_kwh'))}/kWh",
+                f"- Sales-tax rate: {_percent(methodology.get('tax_rate'))}; electricity: {_unit_rate(methodology.get('electricity_rate_per_kwh'), currency)}/kWh",
                 f"- Utilization: {_display_number(methodology.get('active_hours_per_year'))} active plus {_display_number(methodology.get('idle_hours_per_year'))} idle hours/year",
-                f"- Loaded labor: {_currency(methodology.get('loaded_labor_cost_per_hour'))}/hour; downtime: {_currency(methodology.get('downtime_cost_per_hour'))}/hour for {_display_number(methodology.get('expected_downtime_hours_per_year'))} hours/year",
-                f"- Maintenance reserve: {_currency(methodology.get('annual_maintenance_reserve'))}/year; residual: {_percent(methodology.get('residual_value_percent'))} of observed base price",
+                f"- Loaded labor: {format_cost(methodology.get('loaded_labor_cost_per_hour'))}/hour; downtime: {format_cost(methodology.get('downtime_cost_per_hour'))}/hour for {_display_number(methodology.get('expected_downtime_hours_per_year'))} hours/year",
+                f"- Maintenance reserve: {format_cost(methodology.get('annual_maintenance_reserve'))}/year; residual: {_percent(methodology.get('residual_value_percent'))} of observed base price",
                 f"- Methods applied: {', '.join(methodology.get('methods') or [])}",
             ]
         )
-        lines.extend(["", "### Scenario Sensitivity", "| Scenario | Financial NPV | Risk-adjusted NPV | Risk-adjusted EAC | Energy/year | Downtime/year | Residual |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"])
+        lines.extend(["", "### Scenario sensitivity", "| Scenario | Financial NPV | Risk-adjusted NPV | Risk-adjusted EAC | Energy/year | Downtime/year | Residual |", "| --- | ---: | ---: | ---: | ---: | ---: | ---: |"])
         for scenario in preferred.get("scenario_analysis") or []:
             lines.append(
                 "| {name} | {financial} | {risk} | {eac} | {energy} | {downtime} | {residual} |".format(
                     name=scenario.get("name"),
-                    financial=_currency(scenario.get("financial_npv_tco")),
-                    risk=_currency(scenario.get("risk_adjusted_npv_tco")),
-                    eac=_currency(scenario.get("equivalent_annual_cost")),
-                    energy=_currency(scenario.get("annual_energy_cost")),
-                    downtime=_currency(scenario.get("annual_downtime_exposure")),
-                    residual=_currency(scenario.get("residual_value")),
+                    financial=format_cost(scenario.get("financial_npv_tco")),
+                    risk=format_cost(scenario.get("risk_adjusted_npv_tco")),
+                    eac=format_cost(scenario.get("equivalent_annual_cost")),
+                    energy=format_cost(scenario.get("annual_energy_cost")),
+                    downtime=format_cost(scenario.get("annual_downtime_exposure")),
+                    residual=format_cost(scenario.get("residual_value")),
                 )
             )
-        lines.extend(["", "### Acquisition Funding Method Analysis", "Funding-method amounts cover the supplier cash cost. Internal deployment and lifecycle costs remain outside this table and apply according to the selected structure.", "", "| Method | Status | Monthly payment | Nominal cash outflow | Present-value cost | Incremental PV vs cash |", "| --- | --- | ---: | ---: | ---: | ---: |"])
+        lines.extend(["", "### Acquisition funding method analysis", "Funding-method amounts cover the supplier cash cost. Internal deployment and lifecycle costs remain outside this table and apply according to the selected structure.", "", "| Method | Status | Monthly payment | Nominal cash outflow | Present-value cost | Incremental PV vs cash |", "| --- | --- | ---: | ---: | ---: | ---: |"])
         for method in preferred.get("acquisition_method_analysis") or []:
             missing = ", ".join(method.get("missing_terms") or [])
             status = method.get("status") or "unknown"
@@ -395,44 +431,38 @@ def render_markdown(artifact: dict[str, Any]) -> str:
                 "| {method} | {status} | {monthly} | {nominal} | {pv} | {incremental} |".format(
                     method=method.get("method"),
                     status=status,
-                    monthly=_currency(method.get("monthly_payment")),
-                    nominal=_currency(method.get("nominal_cash_outflow")),
-                    pv=_currency(method.get("present_value_cost")),
-                    incremental=_currency(method.get("incremental_present_value_vs_cash")),
+                    monthly=format_cost(method.get("monthly_payment")),
+                    nominal=format_cost(method.get("nominal_cash_outflow")),
+                    pv=format_cost(method.get("present_value_cost")),
+                    incremental=format_cost(method.get("incremental_present_value_vs_cash")),
                 )
             )
     lines.extend([
         "",
-        "## Purchase Decision Frame",
+        "## Purchase decision frame",
         f"- Goal: {intake_plan.get('normalized_goal') or 'Not specified'}",
         f"- Criteria: {', '.join(intake_plan.get('decision_criteria') or []) or 'Not specified'}",
         f"- Unknowns: {', '.join(intake_plan.get('unknowns') or []) or 'None recorded.'}",
         "",
-        "## Deterministic Evidence",
+        "## Evidence coverage",
         f"- Documents reviewed: {evidence.get('deterministic', {}).get('document_count', 0)}",
         f"- Live public-source refreshes completed in this run: {evidence.get('deterministic', {}).get('public_source_count', 0)}",
         f"- {evidence.get('deterministic', {}).get('price_evidence_label') or 'Observed prices'}: {evidence.get('deterministic', {}).get('observed_price_values') or 'Unknown'}",
         "",
-        "## Risk Flags",
+        "## Risk flags",
     ])
     lines.extend(f"- {item}" for item in artifact.get("risk_flags") or ["None recorded by deterministic checks."])
-    lines.extend(["", "## Evidence Gaps"])
+    lines.extend(["", "## Evidence gaps"])
     lines.extend(f"- {item}" for item in artifact.get("evidence_gaps") or ["None recorded."])
     lines.extend(["", "## Sources"])
     lines.extend(f"- {item}" for item in artifact.get("source_refs") or ["No source references recorded."])
-    lines.extend(["", "## Next Steps"])
+    lines.extend(["", "## Next steps"])
     lines.extend(f"- {item}" for item in artifact.get("next_steps") or [])
-    lines.extend(["", "## Approval Checklist"])
+    lines.extend(["", "## Approval checklist"])
     lines.extend(f"- {item}" for item in procurement.get("approval_checklist") or [])
-    lines.extend(["", "## Review Boundary"])
+    lines.extend(["", "## Review boundary"])
     lines.extend(f"- Do not: {item}" for item in (artifact.get("review_boundary") or {}).get("blocked_actions") or BLOCKED_ACTIONS)
-    case = artifact.get("procurement_case")
-    if isinstance(case, dict):
-        lines.extend(["", "## Structured Procurement Case", f"- Mode: {case.get('mode') or 'Unknown'}", f"- Status: {case.get('status') or 'Unknown'}", f"- As of: {case.get('as_of') or 'Unknown'}", f"- Decision digest: {case.get('decision_digest') or 'Pending'}", f"- Selected supplier: {case.get('selected_supplier_id') or 'None'}", f"- Required reviews: {', '.join(case.get('required_reviewers') or []) or 'None recorded'}", "", "| Supplier | Outcome | Fit | Cash due at order | Known horizon cost | Evidence |", "| --- | --- | --- | ---: | ---: | --- |"])
-        for outcome in case.get("quote_outcomes") or []:
-            cost = outcome.get("cost") or {}
-            lines.append(f"| {outcome.get('supplier_name') or outcome.get('supplier_id')} | {outcome.get('outcome')} | {(outcome.get('fit') or {}).get('status') or 'Unknown'} | {cost.get('cash_due_at_order') or 'Unknown'} | {cost.get('known_cost_over_comparison_horizon') or 'Unknown'} | {', '.join(outcome.get('evidence_refs') or []) or 'None'} |")
-        lines.extend(["", *[f"- {item}" for item in case.get("limitations") or []], "- Simulation values are fictional." if case.get("mode") == "MOCK" else "- Manual drafts have not been sent by OtterDesk."])
+    lines.extend(["", "## Report details", "", f"- Narrative status: {generation.get('status') or 'Not available'}"])
     lines.append("")
     return "\n".join(lines)
 
@@ -569,7 +599,7 @@ def publish_report(
         selected = case_packet.get("selected_supplier_id")
         summary = (
             f"{case_packet.get('mode')} procurement case {case_packet.get('case_id')} is {case_packet.get('status')}. "
-            + (f"{selected} has the lowest comparable known cost; required reviews remain pending." if selected else "No supplier is ready for an approval decision.")
+            + (f"{selected} has the lowest comparable known cost; review responses are recorded separately from this saved packet." if selected else "No supplier is ready for an approval decision.")
         )
         final.update({
             "status": case_packet.get("status"),
@@ -577,7 +607,7 @@ def publish_report(
             "preferred_candidate": selected,
             "executive_summary": summary,
             "recommendation_rationale": summary,
-            "next_steps": [f"Complete {reviewer} review of decision {case_packet.get('decision_digest')}." for reviewer in case_packet.get("required_reviewers") or []] or ["Resolve the case blocker before requesting approvals."],
+            "next_steps": [f"Complete {reviewer} review of this saved packet." for reviewer in case_packet.get("required_reviewers") or []] or ["Resolve the case blocker before requesting approvals."],
         })
         selected_outcome = next((item for item in case_packet.get("quote_outcomes") or [] if item.get("supplier_id") == selected), {})
         case_cost = selected_outcome.get("cost") or {}
@@ -593,6 +623,7 @@ def publish_report(
         final["report_narrative"] = {**final["report_narrative"], "executive_summary": summary, "decision_rationale": summary}
         final["source_refs"] = list(dict.fromkeys([*(final.get("source_refs") or []), *(ref for item in case_packet.get("quote_outcomes") or [] for ref in item.get("evidence_refs") or [])]))
     final["warnings"] = [*warnings, *(state.get("llm_warnings") or [])]
+    final["human_review"] = build_human_review(final)
     narrative_refs = [
         ref
         for section in (
@@ -624,7 +655,9 @@ def publish_report(
     saved = {"audit": audit, "analysis": analysis}
     block.store.commit(checkpoint, {**saved, "digest": fingerprint(saved)}, kind="procurement_report_analysis")
     receipt = publish_documents(block, final, result)
-    if isinstance(case_packet, dict):
+    if isinstance(case_packet, dict) and case_packet.get("status") == "READY_FOR_REVIEW" and case_packet.get("required_reviewers"):
         emit_review_requests(block, case_packet)
+    else:
+        emit_handoff_question(block, final)
     return {"state": save_state(block, state, "publication"), "artifacts": receipt["artifacts"],
             "recommended_action": final["recommended_action"]}

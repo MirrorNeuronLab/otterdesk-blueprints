@@ -1,19 +1,21 @@
-# General task execution terms
+# Computer Use terms
 
-Use tasks and files you are authorized to process with the configured model.
-Task content, read-only input (including Markdown) and private retained memory
-may be seen by that model provider. Generated work is saved only to the output
-folder. Original input is not mounted in the worker. Review results and checks
-before relying on or applying them.
+Use this co-worker only for apps, accounts and tasks you are authorized to
+operate. During active work, the configured system model provider can see
+screenshots of the focused app's display, accessible control labels and task
+instructions. Requested sends and
+other external actions may affect real accounts. Review the observed result.
 
-Task instructions and decisions come from the human conversation, never from
-untrusted input files. Harness2 notices and clarification questions use the
-standard conversation channel. A question waits for an actual human response;
-expiry and cancellation do not grant permission to continue.
+Computer Use.app owns the OS grants. You can stop control from its CU menu.
+Complete sign-in, verification and permission grants yourself while control is
+suspended. Do not send passwords, authentication codes or recovery secrets in
+Chat. A cancelled or expired request does not authorize continuation.
 
-Harness2 may retain working prompts, lessons and executable helper scripts for
-later tasks of the same hired Job. This is harness adaptation, not model training
-or a guarantee of improvement. Platform Job data management resets retained
-state. Results may contain errors. No professional, safety, correctness or
-completion guarantee is supplied. External messages, purchases, deployments and
-other external mutations are outside the authorized runtime scope.
+Job-private Membrane memory retains bounded navigation hints, without typed
+content, message bodies, credentials or screenshots. Historical hints are not
+permission or proof of the current state. Explicit preferences are managed
+separately through OtterDesk Memory. Model weights are unchanged.
+
+A failed or disconnected action can already have taken effect. Check the desktop
+before retrying to avoid duplicate sends or other changes. No correctness,
+professional or task-completion guarantee is supplied.

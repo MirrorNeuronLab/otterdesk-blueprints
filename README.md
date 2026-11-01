@@ -12,10 +12,10 @@ own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
 
 All published blueprints declare the Markdown context profile.
-CCTV, Architecture, Litigation, VC and Mac security investigator use Membrane v2
+CCTV, Architecture, Litigation, VC, Computer Use and Mac security investigator use Membrane v2
 runtime recall. Drug Discovery uses Membrane source intelligence for input, output
-and procedure questions; other blueprints disable worker context consumers. General
-Assistant retains its own Job-private Harness2 context inside OpenShell. See
+and procedure questions; other blueprints disable worker context consumers. Computer
+Use retains Job-private navigation hints through its memory engine. See
 [the catalog audit and runtime prerequisites](CONTEXT_ENGINE.md).
 Every active context consumer prepares Membrane SDK 2.1 and the v2 RPC service.
 The shared runtime readiness check rejects older engines before submission;
@@ -96,11 +96,12 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 
 | Blueprint | Category | Purpose |
 | --- | --- | --- |
-| [`general_assistant`](general_assistant/README.md) | Other | General task solving with the default model, 32 GB RAM and private Harness2 improvement in OpenShell. |
+| [`general_assistant`](general_assistant/README.md) | Other | Computer Use: Mac tasks through a dedicated native helper, the system default LLM, 24 GB RAM and private Membrane navigation memory. |
 | [`gtm_planner`](gtm_planner/README.md) | Business | Plans marketing work and publishes bounded collaboration packets. |
 | [`gtm_executor`](gtm_executor/README.md) | Business | Executes approved marketing work through declared tools and Job collaboration. |
 | [`drug_discovery_research_assistant`](drug_discovery_research_assistant/README.md) | Research | Runs one discovery cycle, evaluates five distinct molecules, writes a review packet to `~/Downloads/drug-discovery-research-assistant`, and completes. |
 | [`ct_reader`](ct_reader/README.md) | Research | Experimental NVIDIA CT reader with Chat uploads and local NIfTI preview. Not for real diagnosis. Requires one NVIDIA GPU with 48 GiB memory. |
+| [`web_lab_operator`](web_lab_operator/README.md) | Research | Turns Markdown procedures into a PyLabRobot liquid-handling simulation with live visualization, bounded source adaptation and saved review evidence. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
 | [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |

@@ -1,1 +1,1 @@
-"""General Assistant composition around the encapsulated Harness2 engine."""
+"""Mac computer-use product policy and composition."""

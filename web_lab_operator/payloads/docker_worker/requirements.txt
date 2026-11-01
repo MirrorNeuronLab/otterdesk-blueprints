@@ -1,0 +1,2 @@
+pylabrobot==0.2.1
+websockets==17.4

@@ -127,7 +127,7 @@ def test_conversation_review_requests_are_exact_and_idempotent(tmp_path):
     assert emit_review_requests(ctx, packet) == []
     events = [json.loads(line) for line in (tmp_path / "sample-run" / "human.jsonl").read_text().splitlines()]
     assert len(events) == 4
-    assert all(packet["decision_digest"] in event["payload"]["prompt"] for event in events)
+    assert all(packet["decision_digest"] == event["payload"]["decision_digest"] for event in events)
     assert all(event["payload"]["decision_type"] == "procurement_review" for event in events)
     record_human_response("sample-run", requests[0], {"decision": "approve", "approved": True}, runs_root=tmp_path)
     assert len(list_pending_human_requests("sample-run", runs_root=tmp_path)) == 3

@@ -1,10 +1,37 @@
 # CCTV Operator
 
-Version 5.3.16 runs one approved camera stream per Job on an NVIDIA CUDA node.
+Version 5.4.0 runs one approved camera stream per Job on an NVIDIA CUDA node.
 Choose a factory or hotel review profile, see timestamped sampled observations
 and frame-linked human notices, and ask questions about retained camera history.
 Risk forecasts remain hypotheses for review. This is not a certified safety or
 security system and does not take physical action.
+
+Historical questions now use Membrane image and text retrieval with EmbeddingGemma
+2. Each completed scene account is indexed with its original selected JPEGs,
+including people captures. A relevant older image can outrank newer unrelated
+accounts. The Job keeps immutable image copies under its declared state resource;
+capture times, original hashes, camera/source scope and citations survive across
+runs. No image bytes enter canonical text memory or the text answering model.
+
+The retrospective question path reviews up to two retrieved saved images with
+the declared vision model before the prepared text model answers. Review uses the
+same single Cosmos slot and rolling image-call budget as monitoring. It never
+starts capture or changes the monitoring goal. Image similarity alone cannot
+confirm an event, a person's identity or continuous coverage. Missing indexing,
+provider errors, changed assets and insufficient capacity remain explicit.
+Set `visual_memory.max_review_frames` (1–4) or `max_context_bytes` (1 KiB–1 MiB)
+for bounded review; defaults are two frames and 48 KiB of complete source context.
+An interval containing more than 5,000 native source identities requires narrower
+capture-time bounds. Assets are retained until the operator's Job data retention
+or deletion process removes them; this feature does not automatically erase images.
+
+Load the matching main SDK and source-built Membrane engine/SDK 2.2, then refresh
+the idle prepared Job and start a new run. Existing submitted runs keep their
+bundles. Existing text-only accounts remain readable through `get_video_history`;
+this revision indexes the captures it processes. Its local SQLite catalog holds
+locators and capture metadata; native Membrane owns source authorization, complete
+source hydration and lexical/vector rankings. The shared runtime model manager
+owns embedding selection and placement through the merged `rag-embedding` alias.
 
 Edge frame requests use a 1.1 repetition penalty to prevent repeated sentences
 from consuming the bounded output budget. Incomplete responses still fail the
@@ -357,9 +384,11 @@ retain capture interval, recording qualification, active instruction and omissio
 separate person/caption health. `get_video_history` retrieves up to twelve complete
 matching authored Markdown accounts across Job runs for the same camera/source,
 with timezone-qualified after/before bounds. `answer_video_question` and
-`get_video_summary` use the text model and complete authored history, never another
-image interpretation. Their correlated get_operation_status result updates the
-original turn. Missing history is not zero activity. Repeated sightings cannot
+`get_video_summary` retrieve complete image/text evidence groups, with bounded
+historical image review followed by the text answer. Their correlated get_operation_status
+result updates the original turn. This requires Membrane SDK 2.2 and the main SDK's
+RuntimeEmbeddings integration (1.4.1.dev35 or newer); reprepare an idle Job to adopt
+this source revision. Missing history is not zero activity. Repeated sightings cannot
 establish unique people or total appearances. Knowledge examples are synthetic
 reference material, never observations.
 

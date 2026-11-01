@@ -129,7 +129,13 @@ def evaluate_case(case: dict[str, Any]) -> dict[str, Any]:
     if len(ids) != len(suppliers) or any(not isinstance(value, str) or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", value) is None for value in ids) or len(set(ids)) != len(ids):
         raise ValueError("supplier IDs must be unique short identifiers")
     if case.get("mode") == "MANUAL" and not case.get("policy", {}).get("confirmed"):
-        return {"status": "WAITING_FOR_USER", "reason": "No company policy loaded or confirmed. Confirm a local review policy before evaluation."}
+        return {"status": "WAITING_FOR_USER", "reason": "No company policy loaded or confirmed. Confirm a local review policy before evaluation.",
+                "case_id": case["case_id"], "revision": case["revision"], "mode": case["mode"],
+                "as_of": case["clock"], "requirements": case.get("request") or {}, "policy": case.get("policy") or {},
+                "quote_outcomes": [], "selected_supplier_id": None, "required_reviewers": [],
+                "review_status": "NOT_REQUESTED", "order_status": "NOT_PREPARED",
+                "limitations": ["Quotes have not been evaluated because the review policy is unconfirmed."],
+                "decision_digest": digest(case)}
     requirement = case["request"]
     results = [assess_quote(requirement, case["policy"], supplier, today=case["clock"]) for supplier in case["suppliers"]]
     responsive = [item for item in results if item["outcome"] == "RECEIVED"]

@@ -28,8 +28,10 @@ STAGES = {
     "caption.decision": "Monitoring goal and facility evaluation",
     "memory.recall": "MN caption context retrieval",
     "memory.write": "MN caption memory publication",
+    "memory.visual_index": "Membrane image and text history indexing",
     "caption.capture_to_memory": "Frame availability to caption memory",
     "rag.retrieve": "MN historical caption retrieval",
+    "rag.image_review": "Retrieved historical image interpretation",
     "rag.answer": "Historical Q&A text generation",
     "caption.coverage": "Caption coverage",
     "person.coverage": "Person detector coverage",
@@ -44,7 +46,8 @@ class Benchmarks:
         self.cohort = str(settings.get("cohort", "live"))[:80]
         sections = {"person_detector": ("model", "fps", "confidence_threshold", "consecutive_hits", "absence_seconds", "max_gap_seconds"),
                     "sampling": ("baseline_interval_seconds", "burst_candidate_fps", "frame_jpeg_max_width", "max_model_frames", "max_calls_per_minute", "pre_roll_seconds", "post_roll_seconds", "scene_audit_seconds", "max_pending_age_seconds"),
-                    "text_memory": ("enabled", "max_results", "max_context_bytes")}
+                    "text_memory": ("enabled", "max_results", "max_context_bytes"),
+                    "visual_memory": ("enabled", "max_context_bytes", "max_review_frames")}
         self.configuration = {section: {key: (config or {}).get(section, {}).get(key) for key in keys}
                               for section, keys in sections.items()}
         llm = (config or {}).get("llm") or {}

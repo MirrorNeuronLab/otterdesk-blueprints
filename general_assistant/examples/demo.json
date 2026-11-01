@@ -1,10 +1,10 @@
 {
   "inputs": {
     "payload": {
-      "input_folder": "@/examples/sample_inputs"
+      "task": "Open https://example.com in my browser and tell me the page heading. Do not submit anything."
     }
   },
   "outputs": {
-    "folder_path": "~/Documents/general-assistant-demo"
+    "folder_path": "~/Documents/computer-use-demo"
   }
 }

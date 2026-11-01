@@ -2,17 +2,15 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "init_config_review": {
     "required": true,
-    "title": "Set folders and instructions",
+    "title": "Set up computer use on this Mac",
     "fields": [
       {
-        "path": "inputs.payload.input_folder",
-        "label": "Input folder",
-        "type": "local_path",
-        "path_kind": "directory",
-        "role": "input",
-        "required": true,
-        "default": "~/Downloads",
-        "description": "Read-only files for your tasks, including Markdown and source code."
+        "path": "inputs.payload.task",
+        "label": "Instructions",
+        "type": "textarea",
+        "required": false,
+        "default": "",
+        "description": "Describe the task, or tell me in Chat when you start. For example: send an email using Gmail."
       },
       {
         "path": "outputs.folder_path",
@@ -21,16 +19,8 @@
         "path_kind": "directory",
         "role": "output",
         "required": true,
-        "default": "~/Documents/general-assistant",
-        "description": "Completed work is saved here. Choose a folder outside the input folder."
-      },
-      {
-        "path": "inputs.payload.task",
-        "label": "Instructions",
-        "type": "textarea",
-        "required": true,
-        "default": "Summarize the contents of the input folder and save the summary as summary.md in the output folder.",
-        "description": "What to do each run. The co-worker can ask for clarification in Chat."
+        "default": "~/Documents/computer-use",
+        "description": "Save the result and action audit here."
       },
       {
         "path": "inputs.payload.supervisor_instructions",
@@ -39,45 +29,27 @@
         "value_type": "array",
         "required": false,
         "default": [],
-        "description": "Manage explicit preferences and working rules in Chat > Memory. Applies to future runs."
+        "description": "Manage preferences and working rules in Chat > Memory. Applies to future runs."
       }
     ]
   },
   "starter_questions": [
-    "What do you need from me to create a useful summary?",
-    "How can I try the bundled sample files?",
-    "What did you deliver, and which checks remain?"
+    "How do I grant permissions to Computer Use?",
+    "Can you send an email using Gmail?",
+    "What do you remember from previous tasks?"
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll turn your chosen files into a summary or another deliverable you describe. Try the synthetic sample, or choose your own files and instructions; I'll read the input and save new work in a separate output folder. Review the selected folders before starting.",
+    "introduction": "Describe what you want done on this Mac. Computer Use has its own app for screen and input permissions. I will ask in Chat if you need to open an app, sign in, or resolve a blocker.",
     "sample": {
-      "available": true,
-      "title": "File summary sample",
-      "description": "Summarize synthetic Java and Markdown files without supplying your own documents. Normal model preparation still applies.",
-      "expected_output": "With the default instructions, expect summary.md and a saved explanation of checks and unfinished work after the sample run completes.",
-      "values": {
-        "inputs.payload.input_folder": "@/examples/sample_inputs"
-      }
+      "available": false,
+      "values": {}
     },
     "real": {
-      "introduction": "Choose the read-only input folder, a separate output folder and instructions describing the result you want. I’ll deliver new work in output and explain the checks and anything unfinished.",
-      "values": {
-        "inputs.payload.input_folder": ""
-      }
+      "introduction": "Use this Mac with an unlocked desktop. Grant Computer Use Accessibility and Screen Recording when prompted, then give a task.",
+      "values": {}
     },
-    "fields": [
-      {
-        "path": "inputs.payload.input_folder",
-        "label": "Input folder",
-        "description": "Read-only task material, including Markdown files and source code. Generated work belongs only in the output folder.",
-        "type": "local_path",
-        "required": true,
-        "path_kind": "directory",
-        "role": "input",
-        "default": "~/Downloads"
-      }
-    ],
+    "fields": [],
     "prompt_file": "@/payloads/prompts/setup.md"
   }
 }

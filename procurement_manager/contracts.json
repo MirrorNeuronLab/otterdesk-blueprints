@@ -381,6 +381,17 @@
           "events.jsonl"
         ],
         "type": "benchmark_report"
+      },
+      {
+        "artifact_id": "procurement_manager_report_markdown",
+        "mime_type": "text/markdown",
+        "path": "procurement_manager_report.md",
+        "producer": "workflow",
+        "schema_version": "mn.blueprint.procurement_manager.v1",
+        "source_refs": [
+          "procurement_manager.json"
+        ],
+        "type": "generated_report"
       }
     ],
     "primary": {
@@ -398,7 +409,8 @@
         "risk_interpretation",
         "decision_analysis",
         "report_narrative",
-        "llm_generation"
+        "llm_generation",
+        "human_review"
       ],
       "schema_version": "mn.blueprint.final_artifact_contract.v1",
       "type": "final_artifact"

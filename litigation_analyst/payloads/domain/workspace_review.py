@@ -91,6 +91,8 @@ def attach(workspace):
     workspace['reading_review'] = {'checks': checks, 'withheld_finding_ids': sorted(blocked),
         'definition': 'Limited checks for explicit absence claims and annotated ledger conflicts. Passing is not a substantive accuracy determination.'}
     workspace['reading_tasks'] = review_tasks(workspace)
+    from .supervision import build as build_handoff
+    workspace['supervision'] = build_handoff(workspace)
     workspace['case_map'] = case_map(workspace)
     workspace['reading_reports'] = reports(workspace)
     return workspace
@@ -135,10 +137,12 @@ def citations(ids):
 
 
 def reports(workspace):
+    from .supervision import markdown as review_question
     blocked = set(workspace['reading_review']['withheld_finding_ids'])
     financial = workspace['financial_review']
     lines = ['# Counsel review brief', '', '**Draft for attorney review.** Source statements and annotations are not legal conclusions.', '',
         '## Decision to support', '', md(workspace.get('matter_scope', {}).get('intended_decision') or workspace['goal']), '',
+        review_question(workspace, appendix='exact-source-passages.md#'), '',
         '## What the transaction records show', '',
         '| Reference | Recorded event | Amount | Basis |', '| --- | --- | ---: | --- |']
     for record in financial['events']:

@@ -183,8 +183,8 @@ payloads in technical details; ordinary replies explain their results.
 | `set_monitoring_instruction` | Change future monitoring for a concrete visible goal. Clarify ambiguous requests first. Wait for completed status before reporting it applied; check analysis_ready before reporting a new finding. Clearing restores the configured goal. |
 | `acknowledge_operator_notice` | Mark a specific notice reviewed only when requested. This does not change monitoring. |
 | `get_video_history` | Read up to twelve complete matching camera/source accounts across Job runs. Optional after/before times need a timezone. Bounded history is not exhaustive coverage. |
-| `get_video_summary` | Summarize this run's saved Markdown with the text model. No image analysis or goal change. Poll the correlated operation for completion. |
-| `answer_video_question` | Read saved Markdown across this camera/source's Job runs for the actual retrospective question. Do this before answering or claiming missing evidence. No image retrieval or Cosmos call. Poll for completion; retain citations, capture times, omissions and sampling limits. |
+| `get_video_summary` | Summarize this run's indexed image/text history, with bounded review of saved images. No goal change or new capture. Poll for completion. |
+| `answer_video_question` | Search saved images and complete accounts across this camera/source's Job runs with EmbeddingGemma 2 and Membrane. A bounded vision review uses retrieved historical captures before the cited text answer. Do this before claiming findings or missing evidence. Poll for completion; retain capture times, hashes, omissions and sampling limits. The monitoring goal stays unchanged. |
 | `get_pipeline_benchmarks` | Read separate stage timings, errors and skipped coverage. Timing establishes neither accuracy nor desktop receipt latency. |
 
 ## Supervision
@@ -201,3 +201,10 @@ OtterDesk reads `payloads/prompts/conversation.json` as optional app-owned guida
 Explicit aliases, camera knowledge and restrictive control rules keep their existing bounded Job memory path and receipts. OtterDesk does not create a second preference store for this bounded co-worker or rewrite an effectful request. Ordinary chat is not learned.
 
 Use timestamped saved camera Markdown and existing Membrane observation retrieval. Recorded demo playback is historical demonstration, not a live site event. A moving preview does not prove scene analysis. Missing observations do not mean a clear or safe scene. Stream addresses and credentials belong in secure fields. Monitoring goals, camera notes and bounded domain memory retain their existing authority. Existing submitted runs retain their configuration, evidence and approvals. An idle prepared Job may refresh through the existing conditional API without rehiring, resetting memory or mutating an active run.
+
+
+## Image and text history
+
+Version 5.4 indexes each completed scene account and its original selected captures in Membrane. Images, including people captures, remain private in this Job's durable state and survive a later run. Ask a specific past-event question, optionally with timezone-qualified after/before capture times. Retrieval considers image content as well as the complete saved account, so a relevant older capture can outrank newer unrelated samples. At most two retrieved images are reviewed by default, with their original times and hashes retained in the answer citations. Similarity is not evidence that the requested event occurred.
+
+History review shares the existing image request allowance with monitoring. A full allowance, unavailable index/model or changed asset is an explicit failure, not an empty-scene answer. There is no automatic image deletion in this feature. Keep the Job state and use the existing operator-owned retention/deletion process. Existing text-only observations remain available through get_video_history; images become searchable when their captures are indexed by this revision. Preparing an idle Job from the matching blueprint, SDK and Membrane 2.2 sources is required; active runs keep their submitted bundle.

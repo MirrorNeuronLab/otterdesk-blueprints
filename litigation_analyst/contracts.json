@@ -355,6 +355,16 @@
         "schema_version": "mn.litigation.sample_attribution.v1",
         "privacy": "confidential",
         "required": false
+      },
+      {
+        "artifact_id": "conversation_summary",
+        "path": "data/chat-summary.json",
+        "mime_type": "application/json",
+        "type": "conversation_summary",
+        "producer": "workflow",
+        "schema_version": "otterdesk.report-summary.v1",
+        "privacy": "confidential",
+        "required": false
       }
     ]
   },

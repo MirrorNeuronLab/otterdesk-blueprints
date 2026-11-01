@@ -112,6 +112,25 @@ outputs remain run-scoped.
 
 ## Outputs
 
+OtterDesk shows the saved report directly in Chat. Start with **Decision brief**:
+the proposed option (or why none qualifies), comparable costs and the decisive
+tradeoff. **Your next decision** explains the question, why it matters now and
+what to do after replying. Detailed calculations and source references follow.
+
+Setup asks for the purchase and intended outcome first. Keep unknown details
+explicit; an exploratory comparison does not require a budget. After publication,
+the co-worker asks for missing policy or quote evidence before offering a packet
+review. A ready structured case asks each required reviewer about their own scope:
+purchase fit, finance, supplier terms or sensitive data. In manual mode, only
+the local owner's review is offered in the app; other reviews stay external.
+
+Use **Approve**, **Request changes** or **Reject** for a packet review, with
+optional notes. A reply records review of that saved packet. It does not update
+inputs, recalculate costs, satisfy outside approvals or start work. To revise the
+comparison, change settings in Configure or update the source documents, then
+start a new run. The next packet needs its own review. Ordinary market comparisons
+offer a shortlist judgment or one clarification rather than purchase approval.
+
 The output bundle contains `procurement_manager.json`,
 `procurement_manager_report.md`, `evidence.json`, `research_sources.json`,
 `knowledge_rag.json`, `action_ledger.json`, `artifact_quality.json`, and
@@ -138,6 +157,7 @@ provider, broker, landlord, dealer, or airline. All output requires human review
 - `payloads/domain/llm_analysis.py`: bounded prompts, structured validation,
   reference controls, usage provenance, and deterministic fallback.
 - `payloads/domain/reporting.py`: durable customer artifacts.
+- `payloads/domain/supervision.py`: evidence-based next questions and review scope.
 - `tests/block_workflow_fixture.py`: offline samples using compiled worker bindings.
 - `payloads/domain/intake.py`: native request capture and evidence retrieval.
 - `payloads/docker_worker/Dockerfile`: shared Python/w3m worker build context

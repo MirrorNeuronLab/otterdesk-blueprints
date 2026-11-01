@@ -108,13 +108,13 @@ run = run_blueprint(
 packet = run['final_artifact']['procurement_case']
 report = (out / 'procurement_manager_report.md').read_text()
 human_events = [json.loads(line) for line in (out / 'runs' / 'procurement-sample' / 'human.jsonl').read_text().splitlines()]
-print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supplier_id'], 'delta': packet['quote_outcomes'][2]['outcome'], 'mode': packet['mode'], 'report_has_simulation': 'Simulation values are fictional.' in report, 'public_sources': len(run['final_artifact']['evidence'].get('public_sources') or []), 'approval_packet': (out / 'approval-packet.json').exists(), 'draft_label': 'draft for review' in (out / 'approval-packet.md').read_text(), 'review_requests': len([event for event in human_events if event['type'] == 'human_input_requested'])}}))
+print(json.dumps({{'status': packet['status'], 'selected': packet['selected_supplier_id'], 'delta': packet['quote_outcomes'][2]['outcome'], 'mode': packet['mode'], 'report_has_simulation': 'Simulation values are fictional.' in report, 'public_sources': len(run['final_artifact']['evidence'].get('public_sources') or []), 'approval_packet': (out / 'approval-packet.json').exists(), 'review_question': '## Your next decision' in (out / 'approval-packet.md').read_text(), 'review_requests': len([event for event in human_events if event['type'] == 'human_input_requested'])}}))
 """,
     )
     assert result == {
         "status": "READY_FOR_REVIEW", "selected": "cedar", "delta": "NO_RESPONSE",
         "mode": "MOCK", "report_has_simulation": True, "public_sources": 0,
-        "approval_packet": True, "draft_label": True,
+        "approval_packet": True, "review_question": True,
         "review_requests": 4,
     }
 
@@ -256,12 +256,12 @@ print(json.dumps({{
     "decision_status": artifact["procurement_summary"]["decision_status"],
     "approval_count": len(artifact["procurement_summary"]["approval_checklist"]),
     "preferred_warranty": comparisons[0]["warranty_years"],
-    "report_has_decision_summary": "## Procurement Decision Summary" in report,
+    "report_has_decision_summary": "## Detailed cost and readiness" in report,
     "report_has_comparison_table": "| Option | Supplier | Observed price | Landed cost |" in report,
-    "report_has_lifecycle_analysis": "## Preferred Option Lifecycle Cost Analysis" in report,
-    "report_has_scenarios": "### Scenario Sensitivity" in report,
-    "report_has_acquisition_methods": "### Acquisition Funding Method Analysis" in report,
-    "report_has_approval_checklist": "## Approval Checklist" in report,
+    "report_has_lifecycle_analysis": "## Preferred option lifecycle cost analysis" in report,
+    "report_has_scenarios": "### Scenario sensitivity" in report,
+    "report_has_acquisition_methods": "### Acquisition funding method analysis" in report,
+    "report_has_approval_checklist": "## Approval checklist" in report,
 }}))
 """,
     )
@@ -733,9 +733,9 @@ print(json.dumps({{
     "report_summary": artifact["report_narrative"]["executive_summary"],
     "max_prompt_chars": max(len(item["user"]) for item in llm.prompts),
     "intake_excludes_document_text": '\"text\":' not in llm.prompts[0]["user"] and '\"text_included\": false' in llm.prompts[0]["user"],
-    "report_has_financial_interpretation": "## Financial Interpretation" in report,
-    "report_has_risk_interpretation": "## Risk Interpretation" in report,
-    "executive_heading_count": report.count("## Executive Summary"),
+    "report_has_financial_interpretation": "## Financial interpretation" in report,
+    "report_has_risk_interpretation": "## Risk interpretation" in report,
+    "executive_heading_count": report.count("## Executive summary"),
 }}))
 """,
     )

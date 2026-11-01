@@ -1,0 +1,149 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Simulation-only Markdown lab operator with tracked liquid handling and bounded source adaptation.",
+  "input_adapters": {
+    "default": "json",
+    "supported": [
+      "json",
+      "file",
+      "env_json"
+    ],
+    "resolved_artifact": "inputs.json"
+  },
+  "inputs": {
+    "procedure_markdown": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "maxLength": 32000,
+      "description": "Markdown with goal, explicit plate/well inventory, numbered steps and final volume goals. Use text or a file."
+    },
+    "procedure_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": false,
+      "privacy": "confidential",
+      "description": "UTF-8 .md file, at most 32,000 bytes; leave Markdown text empty when selecting a file."
+    },
+    "supervisor_instructions": {
+      "type": "array",
+      "required": false,
+      "privacy": "confidential",
+      "maxItems": 50,
+      "description": "Chat explanation preferences only. Procedure changes require a new run.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{1,80}$"
+          },
+          "kind": {
+            "enum": [
+              "communication"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "text"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "schema_version": "mn.web_lab.review.v1",
+      "type": "review_packet",
+      "required_fields": [
+        "status",
+        "simulation_only",
+        "procedure_sha256",
+        "summary",
+        "goals",
+        "steps_completed",
+        "limitations"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "final_artifact",
+        "path": "final_artifact.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "result",
+        "path": "result.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "report",
+        "path": "report.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "procedure",
+        "path": "procedure.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "plan",
+        "path": "plan.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "simulation",
+        "path": "simulation.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "trace",
+        "path": "trace.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_report",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "required": false,
+        "privacy": "confidential"
+      }
+    ]
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled",
+    "notes": "Procedure and bounded simulation observations go to the configured model route. No physical devices, generated Python, arbitrary network endpoints or uploads. The Web UI exposes selected simulated deck state only."
+  }
+}

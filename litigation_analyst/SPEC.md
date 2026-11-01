@@ -1,5 +1,35 @@
 # Litigation Analyst specification
 
+## Human review handoff (5.2)
+
+Real-data desktop setup confirms an authorized folder and a neutral review goal
+before launch. The synthetic sample supplies its goal; optional counsel intake
+and past reviews stay in Configure without interrupting first setup. CLI input defaults remain supported.
+
+Blueprint-owned supervision projects one question from the permission-filtered,
+source-verified workspace. Priority is handling review, mechanical source
+conflicts, changed/disputed review bases, ordinary unreviewed findings, evidence
+gaps, then future scope. Every evidence reference must exist in that workspace.
+The question states why it matters and when to decide; it creates no runtime
+pending request or approval. Resolving its finding in the offline view removes
+that prompt. Existing finding-review, persistence and export authority applies.
+
+The draft and reading brief include this handoff with exact passage links. The
+optional web publication declares `data/chat-summary.json` using
+`otterdesk.report-summary.v1`, including bounded optional `review` fields
+`question` (320), `reason` (400) and `timing` (160 characters). It retains partial
+coverage, synthetic labeling, excerpt labels and limitations; conflicting or
+inaccessible findings cannot become highlights. Publication replay verifies the
+summary bytes. Optional rendering failures remove stale summaries and pages.
+Reviewed excerpt briefings omit this unreviewed projection.
+
+The desktop renders the summary as inert text. Discuss next step only fills the
+existing message draft scoped to that report. It cannot apply a wording decision,
+start a run, clear handling restrictions or authorize sharing. Stage guidance
+asks only the actual pending question, avoids routine interruptions and does not
+repeat the handoff on every follow-up. No runtime, SDK or workflow change is
+required. Deterministic tests do not establish live-model legal accuracy.
+
 Version 5.0.2 publishes the existing four-report allowlist and `review_index.json`
 through the SDK's verified artifact-bundle adapter after domain verification and
 host export. Successful publication registers exact byte sizes and hashes for

@@ -31,7 +31,8 @@ def native(tmp_path, monkeypatch):
     h = BlockHarness(tmp_path / "run")
     descriptor = tmp_path / "runtime.json"
     descriptor.write_text(json.dumps(blueprint_definition(read_blueprint(ROOT))))
-    environment = {"MN_BLUEPRINT_MANIFEST_PATH": str(descriptor)}
+    environment = {"MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
+        'MN_JOB_DATA_DIR': str(tmp_path / SCOPE['job_id'])}
     def media(prompt, frames, *, media_format):
         assert frames and media_format == "video_url"
         return [{"type": "text", "text": prompt}, {"type": "video_url", "video_url": {"url": "data:video/mp4;base64,dmlkZW8="}}]
@@ -49,8 +50,10 @@ def native(tmp_path, monkeypatch):
         return {"choices": [{"finish_reason": "stop", "message": {"content": "A cart is parked by the aisle." if args[0] == "vlm" else json.dumps(account)}}]}
     monkeypatch.setattr(block_model_request, "runtime_model_json_request", client)
     options = {**SCOPE, "config": CONFIG, "environment": environment}
-    def seed(name="one", sequence=1, instruction="", revision=0):
-        selected = [{"timestamp": 100.0 + sequence, "content": b"\xff\xd8synthetic frame\xff\xd9"}]
+    def seed(name="one", sequence=1, instruction="", revision=0, frame_count=1):
+        selected = [{"timestamp": 100.0 + sequence + index * .1,
+            "content": b"\xff\xd8synthetic frame\xff\xd9" + (str(index).encode() if index else b'')}
+            for index in range(frame_count)]
         path, batch = write_frame_batch(h.store.run_dir, batch_id="caption-" + name, trigger="person_gate",
             source={"mode": "stream", "uri": "rtsp://camera.example/live", "name": "camera"},
             instruction=instruction, instruction_revision=revision, candidates=selected, selected=selected, schema="otterdesk.cctv_operator.frame_batch.v2",
@@ -99,6 +102,35 @@ def test_native_vision_to_report_replays_frame_and_policy_requests_without_early
     assert not (h.store.run_dir / "cctv_report.json").exists()
     assert invoke(REPORT, first["emissions"][0]["value"], "report-1") == report
     assert len(calls) == 2 and calls[0][1]["num_retries"] == 0
+
+
+def test_native_vision_indexes_both_captured_images_and_the_complete_account_before_publication(
+    native, monkeypatch, tmp_path, text_memory_transport,
+):
+    from test_cctv_history_memory import Embeddings
+    h, vision, _report, seed, invoke, calls, account = native
+    monkeypatch.setitem(CONFIG, 'text_memory', {'enabled': True, 'max_context_bytes': 49152})
+    monkeypatch.setitem(CONFIG, 'visual_memory', {'enabled': True, 'max_review_frames': 2})
+    monkeypatch.setenv('MN_JOB_ID', SCOPE['job_id'])
+    monkeypatch.setenv('MN_WORKFLOW_RUN_ID', SCOPE['run_id'])
+    provider = Embeddings()
+    monkeypatch.setattr(vision.history_memory, 'RuntimeEmbeddings', lambda: provider)
+    account.update(scene_understanding='A person carries a box beside the entrance.')
+    payload = seed(frame_count=2)
+    result = invoke(VISION, payload, 'visual-history-vision')
+    state = h.store.read(result['next'])['data']
+    assert state['last_error'] is None
+    assert state['last_history_index']['image_count'] == 2
+    assert state['last_history_index']['indexed_units'] == 3
+    assert len(provider.images) == 2 and provider.texts
+    assert 'carries a box' in ''.join(provider.texts)
+    assert len(calls) == 3  # Two current image descriptions and their scene decision.
+    assert invoke(VISION, payload, 'visual-history-vision') == result
+    assert len(calls) == 3 and len(provider.images) == 2
+    assert not (h.store.run_dir / 'runtime_memory/frame-1-visual-index.json').exists()
+    assets = list((tmp_path / SCOPE['job_id'] / 'state/camera_history').glob('*/images/*.jpg'))
+    assert len(assets) == 2 and {p.read_bytes() for p in assets} == {image.data for image in provider.images}
+    assert any(operation == 'source_unit_vectors' for operation, *_ in text_memory_transport.calls)
 
 
 def test_native_cumulative_report_uses_accepted_history_and_rejects_tampering(native):

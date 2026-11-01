@@ -1,19 +1,19 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "General task execution and recursive harness improvement in a Job-isolated OpenShell workspace.",
+  "summary": "Local macOS computer use with a separate native permission owner, human help in Chat, and Membrane navigation memory.",
   "inputs": {
     "task": {
       "type": "string",
       "required": false,
       "privacy": "confidential",
-      "description": "Saved instructions for each run. Defaults to summarizing the input folder into summary.md. A per-run task overrides these instructions; if absent, ask in Chat."
+      "description": "A general instruction for this run, such as sending a specified email using Gmail. If missing, ask in Chat. Saved instructions may be overridden per run."
     },
-    "input_folder": {
-      "type": "local_path",
-      "path_kind": "directory",
-      "required": true,
-      "privacy": "confidential",
-      "description": "Read-only task material, including Markdown files and source code. Generated work belongs only in the output folder."
+    "target_app_bundle_id": {
+      "type": "string",
+      "required": false,
+      "privacy": "public",
+      "pattern": "^([A-Za-z0-9][A-Za-z0-9.-]{0,199})?$",
+      "description": "Optional macOS app scope for this run. When the user names one app, Chat can supply its bundle identifier so inputs stay in that app."
     },
     "supervisor_instructions": {
       "type": "array",
@@ -54,13 +54,14 @@
     "primary": {
       "id": "result",
       "path": "result.json",
-      "schema_version": "otterdesk.general_assistant.result.v1",
+      "schema_version": "otterdesk.computer_use.result.v1",
       "type": "task_result",
       "required_fields": [
         "status",
         "answer",
-        "deliverables",
-        "improvement"
+        "audit",
+        "memory",
+        "requires_reconciliation"
       ]
     },
     "artifacts": [
@@ -79,15 +80,8 @@
         "privacy": "confidential"
       },
       {
-        "artifact_id": "deliverables",
-        "path": "deliverables",
-        "mime_type": "application/octet-stream",
-        "required": false,
-        "privacy": "confidential"
-      },
-      {
-        "artifact_id": "harness_audit",
-        "path": "harness-audit.json",
+        "artifact_id": "computer_use_audit",
+        "path": "computer-use-audit.json",
         "mime_type": "application/json",
         "required": true,
         "privacy": "confidential"
@@ -96,7 +90,7 @@
   },
   "privacy": {
     "classification": "confidential",
-    "external_sharing": "disabled",
-    "notes": "The task, read-only input and Harness2 memory may be read by the runtime model. Task tools cannot write input or reach the Core conversation RPC. Generated work is exported only to the configured output folder. Memory is private to the hired Job."
+    "external_sharing": "user_authorized",
+    "notes": "The model can see screenshots of the focused app's display during active work. User-authorized sends and website actions are permitted within the task. Sign-in and verification are performed by the user while control is suspended. Navigation memory is Job-private and excludes screenshots, typed text, email content and credentials."
   }
 }

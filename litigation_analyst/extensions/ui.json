@@ -6,7 +6,7 @@
   },
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll organize documents into draft findings, timelines and counterevidence for legal review. Try the public synthetic EMC-2 sample, downloaded from GitHub, or choose an authorized legal-document folder. The first pass gives a bounded investigation with citations and gaps, not a legal determination.",
+    "introduction": "I'll organize documents into draft findings, timelines and counterevidence for legal review. Try the public synthetic EMC-2 sample from GitHub, or choose an authorized folder and tell me which question the review should answer. At handoff, I'll explain the evidence, limits and next decision for counsel.",
     "sample": {
       "available": true,
       "title": "EMC-2 investigation sample",
@@ -14,13 +14,15 @@
       "expected_output": "After the sample investigation completes, a local interactive draft with cited findings, counterevidence, relationship paths and an audit for human review.",
       "values": {
         "inputs.payload.input_folder": "",
+        "inputs.payload.goal": "Investigate financially relevant events and competing explanations in the synthetic EMC-2 materials. Cite the evidence and state limitations.",
         "review.profile": "first_pass"
       }
     },
     "real": {
-      "introduction": "Choose the legal-document folder you are authorized to review. I'll prepare a source-linked investigation draft with competing explanations and gaps for counsel to inspect.",
+      "introduction": "Choose your authorized document folder, then name the question this review should help answer. Optional counsel intake and previous decisions are available in Configure. I'll return a partial draft with evidence, competing explanations and one next review question.",
       "values": {
         "inputs.payload.input_folder": "",
+        "inputs.payload.goal": "",
         "review.profile": "first_pass"
       }
     },
@@ -28,18 +30,27 @@
       {
         "path": "inputs.payload.input_folder",
         "label": "Legal documents folder",
-        "description": "Leave blank to download the public EMC-2 sample, or choose a folder with your own sources.",
+        "description": "Choose the folder you are authorized to review. Use Start from sample data for the public synthetic EMC-2 case.",
         "type": "local_path",
         "path_kind": "directory",
-        "role": "input"
+        "role": "input",
+        "requiredModes": ["real"]
+      },
+      {
+        "path": "inputs.payload.goal",
+        "label": "What question should this review help you answer?",
+        "description": "Name the disputed event or decision to support. Include a date range or transaction reference if useful. I will test competing explanations; your question is review direction, not evidence.",
+        "type": "textarea",
+        "requiredModes": ["real"]
       },
       {
         "path": "inputs.payload.matter_file",
         "label": "Counsel matter intake",
-        "description": "Optional matter.json containing your questions, scope, exclusions and source-cited transaction records.",
+        "description": "Optional matter.json for questions, exclusions and source-cited transaction records. Add in Configure before starting when needed; Chat cannot clear restricted sources.",
         "type": "local_path",
         "path_kind": "file",
-        "role": "input"
+        "role": "input",
+        "requiredModes": []
       },
       {
         "path": "review.profile",
@@ -67,10 +78,11 @@
       {
         "path": "inputs.payload.review_file",
         "label": "Previous review decisions",
-        "description": "Optional review-decisions.json exported from a prior investigation of this matter.",
+        "description": "Optional review-decisions.json from this matter. Add in Configure when available. Changed evidence requires a fresh wording review.",
         "type": "local_path",
         "path_kind": "file",
-        "role": "input"
+        "role": "input",
+        "requiredModes": []
       },
       {
         "path": "inputs.payload.supervisor_instructions",

@@ -103,6 +103,26 @@ Recommendation labels are `buy`, `consider`, `wait`, `avoid`, and `insufficient_
 
 ## Evaluation
 
+- Version 5.2 adds a deterministic `human_review` projection to every saved
+  packet. It selects one material handoff question from policy readiness,
+  comparable quote coverage, budget status or shortlist readiness. Questions
+  explain why they are timely and what a response records. No model call or
+  runtime contract is added.
+- Questions publish only after the complete report bundle commits. Replaying
+  publication cannot duplicate or reopen a recorded question. Structured ready
+  cases retain separate exact-digest role reviews; manual mode cannot offer
+  external-role approval. Incomplete cases never offer purchase approval.
+- Published review questions are explicitly nonblocking. Replies record review
+  only; corrected inputs and a new run are needed for revised analysis. Existing
+  requirements, calculations, rankings, approval semantics and transaction
+  prohibitions remain authoritative.
+- The declared `conversation_result_text:procurement_manager_report.md`
+  capability uses the desktop's existing saved-report surface. Reports lead
+  with a decision brief, plain-language cost basis and the next decision, then
+  comparison reasons, required reviews, evidence, limitations and packet details.
+  A missing quote is never rendered as a zero price. Known cost remains a
+  subtotal; simulated suppliers and prices remain visibly fictional.
+
 - Category-specific inputs normalize correctly.
 - Plain-text requests override generic structured fallbacks and preserve their
   source reference.

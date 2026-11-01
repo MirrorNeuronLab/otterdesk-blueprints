@@ -92,6 +92,16 @@ def test_changed_case_is_rejected_before_report_model_call(purchase):
     assert model.calls == 4 and not block.store.path('final_artifact.json').exists()
 
 
+def test_no_review_question_is_published_before_the_report_commits(purchase, monkeypatch):
+    block, modules, model, joined = purchase
+    def interrupted(*args):
+        raise OSError('report publication interrupted')
+    monkeypatch.setattr(modules['reporting'], 'publish_documents', interrupted)
+    with pytest.raises(OSError, match='publication interrupted'):
+        modules['reporting'].publish_report(block, joined)
+    assert not block.store.path('human.jsonl').exists()
+
+
 def test_changed_audit_is_rejected_before_publication(purchase):
     block, modules, model, joined = purchase
     block.store.path(joined['previous']['state']['path']).write_text('{}')

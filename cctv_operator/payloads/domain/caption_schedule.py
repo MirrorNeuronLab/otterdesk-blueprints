@@ -22,6 +22,7 @@ from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from mn_sdk_models.local_service import local_model_request
 
 from .monitoring import initial_monitoring_state
+from .cosmos_access import reserve_calls
 
 BINDING_FILE = "resident_monitor_binding.json"
 
@@ -283,9 +284,12 @@ class CaptionSchedule:
             if len(self.state["call_times"]) + calls > self.policy.max_calls_per_minute:
                 return {"batch": None, "state": self.snapshot()}
             instruction = pending["monitoring"]
-            self.state["sequence"] += 1
+            sequence = self.state['sequence'] + 1
             batch_id = "caption-" + hashlib.sha256(
-                f"{self.run_id}:{self.state['sequence']}:{pending['offered_at']}".encode()).hexdigest()[:24]
+                f"{self.run_id}:{sequence}:{pending['offered_at']}".encode()).hexdigest()[:24]
+            if not reserve_calls(self.root, batch_id, calls, self.policy.max_calls_per_minute, now=now):
+                return {'batch': None, 'state': self.snapshot()}
+            self.state['sequence'] = sequence
             source = self.config.get("video_source") or {}
             camera_id = os.environ.get("VIDEO_SOURCE_CAMERA_ID") or source.get("camera_id", "cctv")
             path, batch = write_frame_batch(self.root, batch_id=batch_id, trigger=pending["trigger"],

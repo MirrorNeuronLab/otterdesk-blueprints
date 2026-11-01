@@ -1,0 +1,41 @@
+{
+  "inputs": {
+    "adapter": "json",
+    "payload": {
+      "procedure_markdown": "",
+      "procedure_file": "@/examples/procedure.md",
+      "supervisor_instructions": []
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/web-lab-operator"
+  },
+  "local_inputs": {
+    "files": [
+      {
+        "config_path": "inputs.payload.procedure_file",
+        "payload_path": "runtime/mn_local_inputs/procedure.md",
+        "runtime_path": "mn_local_inputs/procedure.md"
+      }
+    ]
+  },
+  "simulation": {
+    "max_steps": 80,
+    "max_duration_seconds": 900,
+    "action_delay_seconds": 0.7
+  },
+  "web_ui": {
+    "enabled": true,
+    "kind": "live_service",
+    "service": {
+      "host": "0.0.0.0",
+      "port": 0
+    }
+  },
+  "llm": {
+    "enabled": true,
+    "provider": "docker_model_runner",
+    "model": "default",
+    "require_live": true
+  }
+}

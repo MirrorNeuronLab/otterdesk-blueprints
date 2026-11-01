@@ -35,7 +35,7 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
         if name != "ros_amr_controller":
             execution = json.loads((package / "execution.json").read_text(encoding="utf-8"))
             folder_path = config["outputs"]["folder_path"]
-            # General Assistant reads Downloads by default; keep output outside input.
+            # Computer Use keeps its task result and audit in Documents.
             output_root = "~/Documents" if name == "general_assistant" else "~/Downloads"
             assert folder_path == f"{output_root}/{execution['job_name']}", name
             payload_folder = config.get("inputs", {}).get("payload", {}).get("output_folder")

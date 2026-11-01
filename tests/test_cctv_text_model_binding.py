@@ -10,6 +10,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
 
 
+@pytest.mark.parametrize("visual", [False, True])
 @pytest.mark.parametrize("summarize", [False, True])
 @pytest.mark.parametrize("timeout,tokens,expected_timeout,expected_tokens", [
     (120, 1800, 60, 1024),
@@ -20,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
     ("openai", "registered/history-model"),
 ])
 def test_history_dispatch_preserves_prepared_model_binding(
-    monkeypatch, tmp_path, summarize, provider, model,
+    monkeypatch, tmp_path, visual, summarize, provider, model,
     timeout, tokens, expected_timeout, expected_tokens
 ):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
@@ -44,11 +45,17 @@ def test_history_dispatch_preserves_prepared_model_binding(
         }),
     }.items():
         monkeypatch.setenv(name, value)
-    monkeypatch.setattr(history, "read_video_history", lambda *args, **kwargs: {
+    def saved_history(*args, **kwargs):
+        return {
         "history": {"status": "ready", "evidence": [{"text": "A cart was parked."}]},
         "qualification": "Sampled history only.",
         "citations": {"m1": [{"source_id": "saved-observation"}]},
-    })
+        }
+    monkeypatch.setattr(history, "read_video_history", saved_history)
+    monkeypatch.setattr(history.history_memory, "search_video_history", saved_history)
+    def reviewed_history(config, run_dir, evidence, question, **kwargs):
+        return {**evidence["history"], "retrieved_image_count": 1, "reviewed_image_count": 1}
+    monkeypatch.setattr(history, "review_history_images", reviewed_history)
     calls = []
 
     def dispatch(purpose, selected_model, path, payload, **options):
@@ -61,6 +68,7 @@ def test_history_dispatch_preserves_prepared_model_binding(
     # Catalog defaults are deliberately different from the already prepared
     # runtime binding, as with registered providers and selected-owner routes.
     config = json.loads((ROOT / "config/default.json").read_text())
+    config["visual_memory"]["enabled"] = visual
     result = history.answer_video(config, tmp_path, "test-run", "What happened?", summarize=summarize)
 
     assert len(calls) == 1

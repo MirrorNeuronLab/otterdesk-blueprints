@@ -1,0 +1,86 @@
+# Web Lab Operator specification
+
+## Outcome
+
+A supervisor supplies Markdown describing a simulated web lab's purpose and
+numbered procedure. A model produces a typed, source-linked plan. The co-worker
+executes supported steps through PyLabRobot Chatterbox, observes tip and liquid
+trackers, makes bounded next-step decisions and publishes evidence and a replay.
+This is simulation for protocol development and teaching, not a physical lab.
+
+## Inputs and procedure language
+
+Accept exactly one UTF-8 Markdown text or staged `.md` file, at most 32,000 bytes.
+Require explicit inventory, one to four named 96-well 360 uL plates, numbered
+steps and observable final volume goals. One channel and 96 fresh 300 uL tips
+are fixed. Unlisted wells begin empty. Operations are transfer (0.1..360 uL),
+mix (0.1..300 uL, 1..10 cycles), wait (0..30 virtual seconds) and volume check.
+Each step points to source Markdown lines. All numbered instructions must be
+represented. Missing parameters, unsupported operations or assumptions require
+review and admit no simulation actions. No code from Markdown is executed.
+
+## Adaptation and observation
+
+Before every step the model receives current tracked volumes and tips, the
+fixed step, allowed source candidates and previous outcome. A decision is
+execute, adapt or pause. Only a transfer source can change, only to a source
+explicitly declared in the plan for that transfer, only when the primary is
+short, and only to one holding enough of the same nominal liquid. No change to
+amounts, destination, step order or goals is permitted. Deterministic policy
+validates every decision before command dispatch. Transfers above tip capacity
+split into <=300 uL chunks with fresh tips. Invalid decisions, volume failures
+and insufficient tips end the bounded procedure as Needs review.
+
+No successful step is inferred from a model statement. The executor reads
+PyLabRobot tracker state after operations. Completion requires every planned
+step and every declared final volume goal to pass. Goals have at most 5 uL
+tolerance. Model failures, timeouts, cancellation, required UI failures and
+artifact-integrity failures remain observable failures; they are not replaced
+with deterministic production success.
+
+## Composition and lifecycle
+
+Four logical steps compose existing SDK blocks. The shared structured-assessment
+block owns initial model execution. The simulation hook uses the existing managed
+model request journal and scoped checkpoints for its domain-specific procedure
+loop. It owns no message routing, ACK/retry logic or Core completion protocol.
+The existing Web UI binding and claim contract carries a single HTTP/WebSocket
+listener serving the native PyLabRobot visualizer and bounded monitor state.
+The listener is required only while the simulation phase is active and closes
+in cleanup, including partial startup and cancellation. No auxiliary workflow
+or always-alive wrapper is introduced. Core owns execution controls.
+
+At most 80 steps execute inside the 900-second phase budget, also bounded by the
+block deadline. Checks occur between simulator calls and animation ticks. Each
+model request has a maximum 60-second transport timeout and zero retries. A
+cancelled or timed-out model outcome is not redispatched without reconciliation.
+A resumed attempt starts a fresh Chatterbox simulation, reconstructs confirmed
+steps and verifies restored observations before advancing. A partly failed
+command cannot resume. No replay can target a physical backend.
+
+## Evidence and presentation
+
+Preserve procedure bytes/hash, typed plan, initial inventory, source lines,
+decisions/reasons, pre/post states, check outcomes, final goals and limitations.
+Required artifacts are procedure, plan, trace, simulation, Markdown report and
+JSON review results. Optional static replay/UI publication cannot block required
+results. The replay provides all recorded states without a running service;
+it is an observed-state replay, not the live PyLabRobot canvas. No confidential
+input or unrestricted file-serving endpoint is exposed by the live page.
+
+## Limits and acceptance
+
+Model interpretation can be wrong despite source-line coverage. Liquid labels
+are supplied metadata. No physical sensing, fluid dynamics, reaction kinetics,
+contamination prediction, collision validation, assay result, medical judgment
+or experimental validation is claimed. No hardware backend, arbitrary network
+target, generated Python, package installation at run time or external upload
+is available to the planner.
+
+Acceptance includes canonical manifest compilation, actual stock-handler
+execution with injected model responses, real Chatterbox tracker transfers and
+mixing, source-shortage adaptation, undeclared/wrong-liquid source rejection,
+overfill/tip exhaustion/failed-goal review, complete instruction coverage,
+immutable replay, tamper detection, cancelled cleanup, optional presentation
+failure isolation and narrow/wide replay layouts. Live provider, Docker image,
+cross-node proxy and Core lifecycle behavior require separate live qualification.

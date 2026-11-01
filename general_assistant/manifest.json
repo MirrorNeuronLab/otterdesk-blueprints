@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "general_assistant",
-  "name": "General Assistant",
-  "version": "2.2.0",
-  "description": "Summarize files in your Downloads folder into summary.md, or configure another task and input folder. Save results only to the output folder and ask for clarification in Chat. Harness2 refines its approach using private Job memory and the runtime default model. Requires 32 GB RAM.",
+  "name": "Computer Use",
+  "version": "3.0.0",
+  "description": "Operate apps and websites on your Mac from a general prompt. A separate Computer Use app owns Accessibility and Screen Recording permissions. Ask for sign-in or other help in Chat, verify results on screen, and reuse Job-private navigation memory.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

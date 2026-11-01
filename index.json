@@ -9,5 +9,6 @@
   "procurement_manager",
   "ros_amr_controller",
   "mac_security_investigator",
-  "ct_reader"
+  "ct_reader",
+  "web_lab_operator"
 ]

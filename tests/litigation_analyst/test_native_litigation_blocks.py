@@ -152,6 +152,15 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     assert 'Approval notice' in case.store.path('final_report.md').read_text()
     assert case.store.path('case/workspace.json').exists()
     assert bool(published['web_ui']) is not ui_failure
+    summary_path = case.store.path('data/chat-summary.json')
+    assert summary_path.is_file() is not ui_failure
+    if not ui_failure:
+        summary = json.loads(summary_path.read_text())
+        assert summary['schema_version'] == 'otterdesk.report-summary.v1'
+        assert summary['review']['question']
+        assert 'otterdesk-chat-summary' in case.store.path('web/index.html').read_text()
+        assert 'data/chat-summary.json' in {f['path'] for f in published['files']}
+    assert '## Your next review' in case.store.path('final_report.md').read_text()
     from mn_sdk.run_outputs import output_metadata
     downloads = output_metadata(case.store.run_dir)
     assert {item['name'] for item in downloads} == {
@@ -166,6 +175,13 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     assert not case.marker.exists() and len(case.calls) == 1
     assert len(json.dumps(result.outputs)) < 2048
     count = len(model.calls)
+    if not ui_failure:
+        original_summary = summary_path.read_bytes()
+        summary_path.write_text('tampered review question')
+        with pytest.raises(ValueError, match='hash mismatch'):
+            case.execute('write_review_draft', {'previous': terminal})
+        assert len(model.calls) == count
+        summary_path.write_bytes(original_summary)
     case.store.path('final_report.md').write_text('tampered after success')
     with pytest.raises(ValueError, match='hash mismatch'):
         case.execute('write_review_draft', {'previous': terminal})

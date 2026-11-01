@@ -9,11 +9,15 @@ from test_cctv_operator_conversation import _load_detector, _run_detector
 
 def test_membrane_is_declared_with_context_dependency():
     from pathlib import Path
+    from packaging.specifiers import SpecifierSet
     root = Path(__file__).resolve().parents[1] / 'cctv_operator'
     assert json.loads((root / 'extensions/context.json').read_text())['text_memory']['enabled']
     dependency = next(p for p in json.loads((root / 'dependencies.json').read_text())['packages']
                       if p['name'] == 'mirrorneuron-python-sdk')
     assert 'context' in dependency['extras']
+    supported = SpecifierSet(dependency['version'])
+    assert supported.contains('1.4.1.dev35')
+    assert not supported.contains('1.3.61.dev38')
 
 
 def test_history_reaches_vision_before_current_write_and_excludes_other_camera(
@@ -31,7 +35,8 @@ def test_history_reaches_vision_before_current_write_and_excludes_other_camera(
     other.remember({'frame_seq': 2, 'camera_id': 'private-camera', 'observed_at': '2026-10-03T01:00:01Z',
                     'summary': 'OTHER_CAMERA_CANARY', 'batch_id': 'other',
                     'condition_screening': {'route': 'deep_analysis'}})
-    old.close(); other.close()
+    old.close()
+    other.close()
     output, prompts = _run_detector(detector, monkeypatch, tmp_path, capsys,
         payload={'tick_seq': 3, 'camera_id': 'entrance', 'instruction': 'Watch the floor', 'instruction_revision': 2},
         config=config, detection={'detected': False, 'confidence': .9, 'summary': 'The floor is visible.'})

@@ -23,6 +23,18 @@ Make sense of a large collection of case documents. Find important facts, timeli
 
 ## Outputs and review
 
+For real-data desktop setup, choose the authorized folder and state the question
+the review should help answer. The synthetic sample supplies its question.
+Optional counsel intake and previous decisions stay in Configure. Set handling restrictions
+before work; Chat cannot clear excluded material.
+
+Start with **Your next review** in the draft or offline overview. It explains one
+question, why it matters now, when to decide and the source passages to inspect.
+Chat shows a compact saved handoff. View full report opens the evidence workspace;
+Discuss next step fills a draft message without sending it. Record wording
+decisions through the existing finding review, then save or export to retain them.
+No discussion starts further work, grants approval or authorizes sharing.
+
 
 
 Consult the published run results and their evidence before making decisions. Missing evidence does not establish that an event or condition did not occur.

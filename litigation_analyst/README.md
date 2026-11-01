@@ -1,5 +1,34 @@
 # Litigation Analyst
 
+## Human review and clearer handoffs (5.2)
+
+For your own matter, choose the authorized document folder, then answer **What
+question should this review help you answer?** Name a disputed event or the
+decision you want to inform. The synthetic EMC-2 sample supplies its own question.
+Optional counsel intake and earlier review decisions stay in Configure; first setup does not ask for them.
+Set handling exclusions before starting; a Chat answer cannot clear a restricted
+source.
+
+The completed draft and offline overview begin with **Your next review**: one
+question, why it matters now, when to decide, and links to the relevant source
+passages. Handling restrictions come first, followed by conflicting claims and
+changed or disputed review bases. Ordinary draft findings and evidence gaps
+follow. Questions that need more evidence stay unresolved; another run or a
+record request is a separate decision.
+
+Chat presents a short saved summary, draft excerpts, support and contrary-passage
+counts, and the same next review question. **View full report** opens the evidence
+workspace. **Discuss next step** fills a message draft for you to review and send.
+Use the finding review to record attributable wording decisions; save a copy or
+export review decisions to retain them. Discussion grants no approval or sharing
+permission. Reviewed briefings exclude the unreviewed handoff.
+
+These changes use the existing desktop and blueprint contracts. They add no
+mid-run checkpoint, runtime change or new execution authority. Refresh the idle
+prepared co-worker definition for new runs; frozen and active runs retain their
+original behavior. Optional webpage failure still leaves the authoritative draft
+and evidence available.
+
 Version 5.0.2 registers the four reviewed Markdown reports and `review_index.json`
 with the existing SDK publication adapter so the runtime API can list and download
 their verified bytes. Case originals, model receipts and audit databases remain

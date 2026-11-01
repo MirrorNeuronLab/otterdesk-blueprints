@@ -102,8 +102,10 @@ def report_sections(workspace):
 
 
 def issue_brief(workspace):
+    from .supervision import markdown as review_question
     lines = ['# Litigation review draft', '', '**Draft for attorney review. Source authenticity and legal effect remain unverified.**', '',
         '## Executive summary', '', escaped(workspace['matter_scope']['intended_decision'] or workspace['goal']), '',
+        review_question(workspace), '',
         '### Available transaction records', '',
         '| Reference | Recorded event (counsel classification) | Currency | Amount | Source |',
         '| --- | --- | --- | ---: | --- |']

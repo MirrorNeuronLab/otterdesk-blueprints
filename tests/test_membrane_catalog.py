@@ -18,7 +18,7 @@ from mn_sdk.context_engine import blueprint_requires_context_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = json.loads((ROOT / "index.json").read_text())
-ACTIVE = {"cctv_operator", "software_architecture_advisor", "litigation_analyst", "vc_assistant", "mac_security_investigator"}
+ACTIVE = {"cctv_operator", "software_architecture_advisor", "litigation_analyst", "vc_assistant", "mac_security_investigator", "general_assistant"}
 SOURCE_ACTIVE = {"drug_discovery_research_assistant", "general_assistant", "ct_reader"}
 
 
@@ -60,7 +60,8 @@ def test_all_catalog_context_consumers_resolve_the_v2_sdk_and_wire_protocol():
     dependency, = [Requirement(value) for value in project["project"]["optional-dependencies"]["context"]
                    if Requirement(value).name == "mirrorneuron-membrane-python-sdk"]
     assert dependency.extras == {"grpc"}
-    assert dependency.specifier.contains("2.1.7")
+    assert dependency.specifier.contains("2.2.0")
+    assert not dependency.specifier.contains("2.1.7")
     assert not dependency.specifier.contains("2.1.6")
     assert not dependency.specifier.contains("2.1.3")
     assert not dependency.specifier.contains("1.3.57")

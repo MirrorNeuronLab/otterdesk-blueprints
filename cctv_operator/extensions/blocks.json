@@ -82,7 +82,7 @@
       },
       "limits": {
         "timeout_seconds": 1800,
-        "max_calls": 4
+        "max_calls": 5
       }
     },
     "report_writer": {

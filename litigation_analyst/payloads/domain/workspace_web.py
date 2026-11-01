@@ -33,6 +33,7 @@ def publish(context, workspace):
         (root / "case/workspace.json").write_text(json.dumps(workspace, ensure_ascii=False, allow_nan=False), encoding="utf-8")
         maximum = context.config.get("workspace", {}).get("max_page_bytes", 32*1024*1024)
         page = render(workspace, max_bytes=maximum)
+        page = page.replace('</head>', '<meta name="otterdesk-chat-summary" content="data/chat-summary.json"></head>', 1)
         if type(maximum) is not int or maximum < 1 or len(page.encode()) > maximum:
             raise ValueError("Workspace page exceeds configured byte limit")
         web.mkdir(exist_ok=True)
@@ -51,6 +52,9 @@ def publish(context, workspace):
             suffix = ".pdf" if source["media_type"] == "application/pdf" else ".bin"
             shutil.copyfile(original, originals / (source["original_sha256"] + suffix))
         (web / "index.html").write_text(page, encoding="utf-8")
+        from .supervision import chat_summary
+        (root / 'data').mkdir(exist_ok=True)
+        (root / 'data/chat-summary.json').write_text(json.dumps(chat_summary(workspace), ensure_ascii=False), encoding='utf-8')
         page_path = (web / "index.html").resolve()
         handle = {"kind": "output", "adapter": "static_html", "title": workspace["title"],
             "path": str(page_path), "url": page_path.as_uri(), "metadata": {"renderer": "static_html", "optional": True}}
@@ -58,11 +62,13 @@ def publish(context, workspace):
         status = {"status": "Available", "path": "web/index.html", "handle": handle}
         refs.append(artifact_reference("interactive_investigation", "web/index.html"))
         refs.append(artifact_reference("web_ui_handle", "web_ui.json"))
+        refs.append(artifact_reference("conversation_summary", "data/chat-summary.json"))
     except (OSError, ValueError, TypeError, RuntimeError, KeyError) as error:
         # Do not retain a prior page with a broader source authorization.
         if web.exists():
             shutil.rmtree(web)
         (root / "web_ui.json").unlink(missing_ok=True)
+        (root / 'data/chat-summary.json').unlink(missing_ok=True)
         status = {"status": "Unavailable", "reason": type(error).__name__,
                   "affected": "Webpage preview; verified workspace JSON and draft remain available"}
     (root / "workspace_status.json").write_text(json.dumps(status), encoding="utf-8")

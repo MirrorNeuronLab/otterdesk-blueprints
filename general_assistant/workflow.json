@@ -10,8 +10,8 @@
     {
       "id": "prepare_task",
       "kind": "source",
-      "label": "Prepare instructions and read-only input",
-      "goal": "Prepare instructions and read-only input",
+      "label": "Prepare the Mac task and working rules",
+      "goal": "Prepare the Mac task and working rules",
       "needs": [],
       "control": {
         "timeout_seconds": 900,
@@ -23,13 +23,13 @@
     {
       "id": "solve_task",
       "kind": "stage",
-      "label": "Solve and refine in OpenShell",
-      "goal": "Solve and refine in OpenShell",
+      "label": "Observe and operate the Mac, asking for help when needed",
+      "goal": "Observe and operate the Mac, asking for help when needed",
       "needs": [
         "prepare_task"
       ],
       "control": {
-        "timeout_seconds": 7500,
+        "timeout_seconds": 3600,
         "retry": {
           "max_attempts": 1
         }
@@ -38,8 +38,8 @@
     {
       "id": "publish_task",
       "kind": "sink",
-      "label": "Publish results and retain lessons",
-      "goal": "Publish results and retain lessons",
+      "label": "Publish the observed result and retain navigation lessons",
+      "goal": "Publish the observed result and retain navigation lessons",
       "needs": [
         "solve_task"
       ],

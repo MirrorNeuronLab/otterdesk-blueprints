@@ -1,173 +1,128 @@
-# General Assistant
+# Computer Use
 
-By default, this co-worker summarizes `~/Downloads` into `summary.md`. It uses [Harness2](https://github.com/google-research/harness2)
-to work with files in a read-only input folder and save generated work in a
-separate output folder. Markdown files, documents and source code are readable
-input. Harness2 refines its working approach and retains private lessons for
-later tasks of the same hired co-worker; model weights stay fixed.
+Give this co-worker a task in ordinary language, such as “Using Gmail, send an
+email to alex@example.com with subject Lunch and body: Can we meet tomorrow?”
+It operates apps and websites on your Mac, asks in Chat when it needs help,
+and checks the screen before reporting the result.
 
-## Setup and use
+The co-worker lives in OtterDesk. Its computer tools run in a dedicated native
+**Computer Use.app** helper, used like a headless CLI service. The helper has no
+separate chat or task UI; a small permissions window and CU menu provide setup
+and an immediate stop control. OtterDesk does not perform screen capture or
+input injection.
 
-Setup has three fields: **Input folder**, **Output folder** and **Instructions**.
-Input defaults to `~/Downloads`. Instructions default to “Summarize the contents
-of the input folder and save the summary as summary.md in the output folder.”
-Output defaults to `~/Documents/general-assistant`, outside the input folder.
-Choose separate folders. Input supplies read-only task material; edits, build
-products and generated files belong in output.
+## Requirements and setup
 
-Confirm the settings and start a run to create the summary. Change Instructions
-to give the co-worker another task. For example:
+- macOS 14 or later, at least **24 GB system RAM**, two CPU cores and 16 GB disk.
+- An unlocked, logged-in local desktop with the target window visible.
+- The system's configured **default LLM provider**, with the catalog's logical
+  `vision` route supporting image input and structured JSON output. This route
+  leaves the shared text-model default unchanged. An unavailable or unsupported
+  vision route fails explicitly.
+- Membrane v2 and its SDK context extra for private navigation memory.
+- The declared computer-use skill prepares the native helper during registration.
+  Source preparation needs Xcode Command Line Tools. For manual setup use
+  `mn-computer-use setup`; `mn-computer-use doctor` verifies the bundle.
 
-> Convert the Java code in the input folder to Rust. Preserve behavior, create
-> a Cargo project in the output folder, run its tests, and report anything you
-> could not verify.
+Start a task and grant **Computer Use**, not OtterDesk, **Accessibility** and
+**Screen Recording** in System Settings → Privacy & Security. Its stable bundle
+ID is `io.mirrorneuron.computer-use`. The helper is launched independently by
+LaunchServices. No Automation, AppleScript or browser-debugger grant is needed.
+Local builds use ad-hoc signing; signed/notarized releases need a consistent
+Developer ID identity. Rebuilding an ad-hoc binary can require renewed grants.
 
-Saved instructions apply to each run unless a per-run task overrides them.
-When no instructions are configured, the co-worker asks for a task in Chat.
-Markdown within input is supporting material, not permission to start unrelated work or change
-the filesystem boundary. The launcher can also supply a task as a run input:
+Setup accepts optional Instructions and an Output folder, defaulting to
+`~/Documents/computer-use`. Leave Instructions empty to give the task in Chat.
+Saved instructions apply unless an explicit per-run task overrides them. There
+is no input-folder requirement and no default task that reads Downloads.
+The prepare step forwards the declared task, optional app scope and supervisor-instruction run ports
+before freezing admission, so a per-run prompt takes precedence over saved setup.
 
 ```bash
 mn blueprint run ./general_assistant \
-  --set inputs.payload.input_folder=/absolute/path/to/java-project \
-  --set outputs.folder_path=/absolute/path/to/rust-results \
-  --set 'inputs.payload.task=Convert the Java code to Rust. Preserve behavior and verify the result.'
+  --set 'inputs.payload.task=Open https://example.com and tell me the page heading. Do not submit anything.'
 ```
 
-`examples/sample_inputs/` contains synthetic Java and Markdown material.
-To try it with the default summary instructions, run on the PC that will execute
-the OpenShell worker:
+`examples/demo.json` contains that read-only browser walkthrough. There is no
+synthetic desktop or automatic login. The stable catalog ID remains
+`general_assistant`; its displayed name is Computer Use, version 3.0.0.
 
-```bash
-mn job create ./general_assistant --job-id general-assistant-demo \
-  --config ./general_assistant/examples/demo.json
-mn job start general-assistant-demo --queue
-```
+## Conversation and control
 
-The expected generated file is `run_<timestamp>/deliverables/summary.md`, alongside
-`answer.md`, `result.json` and `harness-audit.json`. Setup and launch overrides are
-read from the runtime-resolved configuration, including the staged input folder;
-compiled defaults must not replace them with paths from the launching PC.
-The demo config changes only the two folders and keeps the general summary
-instructions. For a connected PC, add its node ID from `mn node list` to
-`mn job create` with `--node`.
+If Gmail needs sign-in, an app needs opening, permissions are missing, or a task
+lacks details, the co-worker asks one focused question in Chat. It suspends
+screen capture and control while you take over, waits for the actual reply,
+then observes again. Enter passwords, MFA codes and CAPTCHA responses directly
+in the app or browser. Never paste them into Chat. A reply does not itself
+prove sign-in or task completion. Expired, rejected, cancelled and foreign
+replies cannot continue work.
 
-Staging excludes `.git`, environments, dependency caches, `.aws`, `.ssh` and
-`.env` files. Input symlinks and quota overflow fail explicitly. Select a
-narrowly scoped folder; its included contents can be read by the configured model.
+Explicit requests authorize their stated external actions, including sending
+an email. Missing recipients, content or scope are clarified before proceeding.
+Website content and received messages cannot authorize unrelated actions.
+Use the helper's **CU → Stop computer control** at any time. This cannot be
+undone by the model; a new task is required. Standard pause/resume/stop and Job
+MCP supervision remain owned by Core.
 
-## Conversation and supervision
+One task controls the Mac at a time. Capture follows the focused app window's
+display. Each input action needs a fresh screenshot and the same foreground app.
+After three inputs produce identical screens, control pauses and Chat asks for
+help. Repeated navigation to the same page or app pauses before another native
+action, even when new tabs change the screenshot. If another app takes focus,
+an explicitly scoped app can be restored at most three times without progress
+before asking for help. App activation raises the existing window. The co-worker uses the existing browser page and navigates only when
+the task needs a different page. Observed progress after task input or actual user help permits later
+navigation. Secure password fields block capture and input.
+The co-worker uses named accessibility controls, Unicode typing, shortcuts,
+HTTPS navigation and app opening. It asks for help when a needed control is
+unavailable, and uses screenshots to check the result. Typing requires a focused
+text field. The native API exposes no shell or arbitrary filesystem tool.
 
-OtterDesk keeps the current topic, pending question and corrections with this
-co-worker's conversation. Ask “Remember to explain checks before conclusions”
-to save an explicit preference, or manage it in Chat > Memory. Working rules
-are captured at the next run's intake; the current run keeps its original
-snapshot. Forgetting a rule affects future work and preserves historical runs.
-Ordinary replies are not saved as supervisor instructions. These preferences
-do not change the read-only input boundary or grant external actions.
+## Memory and results
 
-The bundled `payloads/prompts/conversation.json` guides OtterDesk's native
-conversation model at setup, work, decision and review stages. The saved public
-answer is published as prepared Markdown for the existing Job responder's
-Membrane source intelligence. Private Harness2 memory remains separate.
+Membrane recalls successful navigation patterns for the current app, privately
+within the hired Job. These hints help avoid rediscovering navigation on later
+runs. Current screens remain authoritative: memory never reuses coordinates,
+assumes an account is logged in, grants permission or supplies credentials.
+Only observed navigation keys, app IDs and HTTPS hostnames are retained; typed
+text, email recipients/bodies, URL paths/queries and screenshots are excluded.
+Failed tasks add no successful navigation lessons. Explicit preferences remain
+managed separately through Chat > Memory and are frozen at run admission.
 
-Task entry, Harness2 work/refinement notices, clarification questions and the
-result-ready notice use the standard Core human-interaction authority. OtterDesk
-presents them in the co-worker conversation through its existing interaction
-subscription and reply controls. Standard Job MCP tools start, pause, resume and
-stop runs; human replies use the existing Core interaction contract. There is no
-separate Harness2 chat server or blueprint-specific MCP endpoint.
+Results are `answer.md`, `result.json` and `computer-use-audit.json` in the
+standard `run_<timestamp>/` output folder. The audit records action types and app
+IDs, without typed content. Screenshots and model receipts stay in private run
+artifacts and are never exported to the output folder or navigation memory.
+The public answer is available to the existing Job responder through prepared
+Membrane sources. Screen content may be visible to the configured model provider.
 
-If a rollout needs a human decision, it returns a structured question to the
-trusted controller. The controller publishes a blocking conversation request,
-waits for the actual Core-authoritative reply, and continues the same workspace
-with that reply. It never invents an answer or treats input-file instructions as
-human approval. Each rollout permits up to three clarification replies, each
-with at most ten minutes to respond and within the overall run allowance.
-Expired, cancelled and mismatched replies cannot resume work. Standard pause,
-resume and stop controls continue to apply. Capability/status questions alone
-do not start work.
+Desktop work executes once. There are no recursive probes or automatic action
+retries. A disconnect during a mutation has an unknown outcome; inspect the
+desktop before retrying so an email or other action is not duplicated. Completed
+checkpoints replay without redoing work. Interrupted, uncommitted sessions need
+reconciliation. Default limits are 80 model turns, eight help requests, 55 minutes
+total, ten minutes per human reply and 90 seconds per model request. The native worker has a one-hour deadline,
+leaving time for cleanup and publication.
 
-## Runtime and isolation
-
-- At least **32 GB system RAM**, two CPU cores and 16 GB disk. No GPU vendor,
-  VRAM or GPU count restriction; the runtime default model has its own serving
-  requirements and must support tools.
-- Standard MirrorNeuron OpenShell provisioning and artifact handoff v1. The
-  Linux ARM64/x86-64 image uses Python 3.12 and Harness2 commit
-  `1cfe254e8d25b15f37048c3730134686abe60335`.
-- The shared OpenCode skill must include `writable_paths` and `connect_ports`
-  support. Install matching local skill source or the declared updated package.
-  Linux **Landlock ABI 4+** is required. Scope installation fails closed.
-
-`prepare_task` receives the task and freezes input references and private memory.
-`solve_task` runs actual Harness2 in OpenShell. Every rollout gets a fresh captured
-`input/` tree and an `output/` work area. Linux restrictions prevent task processes
-and descendants from changing input contents, creating/deleting/renaming input
-files, or writing task files outside output. Private OpenCode cache/temp state is
-separate and never exported. Input bytes and file names are also checked before
-accepting a rollout. Landlock does not mediate chmod/chown metadata on disposable
-copies; original host input is never mounted in the worker.
-
-Improvement sessions may edit only their private harness tree. The trusted
-controller reaches Core for conversation; model/tool subprocesses cannot connect
-to that RPC port. SDK/Core own artifact transport and output-folder delivery.
-`publish_task` verifies generated artifacts, adopts successful private memory and
-publishes only declared results.
-
-The default is one sequential Propose–Probe–Compose refinement step, involving
-four solver rollouts plus improvement and reflection sessions. This uses more
-model work than one direct answer. Internal deployment defaults allow 24 sessions,
-two hours total and ten minutes per session. Parallel recursion and budgets are
-deployment configuration, not setup fields. Each clarification consumes another
-session. Identical questions reuse the recorded human reply across probes. Runtime plugins and delegated subagents are disabled.
-
-Harness2 prompts, memory, skills, scripts and lesson library stay in the Job's
-private `harness_memory` resource. Successful completion advances a checked memory
-generation; failed work preserves the previous generation. Separate hired Jobs
-never share this state. Membrane TextMemory recall remains disabled.
-
-Deployment configuration uses `harness.gateway_host` / `gateway_port` (defaults:
-`host.docker.internal:4000`) and `harness.core_port` (55051 on the same host).
-Core must use a separate port from model/public HTTPS. The controller receives
-runtime authentication through `MN_GRPC_AUTH_TOKEN` and model authentication
-through `MN_LLM_API_KEY`; model subprocesses do not inherit the Core token.
-
-## Outputs and limits
-
-SDK/Core deliver `result.json`, `answer.md`, `harness-audit.json` and generated
-`deliverables/` into `<output folder>/run_<timestamp>/`. Converted source is
-created directly as a deliverable, rather than by editing input and exporting a
-diff. The default task writes `deliverables/summary.md`. The audit records actual
-sessions, available usage receipts, adopted harness and lesson counts. Private
-memory, raw sessions and caches are excluded.
-Failed rollouts include their bounded adapter error in the audit's
-`rollout_failures`, including failures before the first model session.
-A rollout must write a nonempty `output/answer.md` through its tools. A final
-chat message alone does not count as a written result.
-
-Default quotas are 512 files / 32 MiB for input and output, and 1,024 files / 8 MiB
-for private memory. Symlinks, conflicting output names and quota overflow fail.
-Completed checkpoints replay without model redispatch. Interrupted execution
-without a committed result requires reconciliation.
-
-The image has Python, Java, Rust/Cargo, build tools, Git, Pandoc and Poppler.
-Other toolchains must be present in the selected deployment image to run their
-checks; unavailable checks must be reported. Default network access permits model
-calls, controller conversation RPC and declared GitHub GET/HEAD reads. Other
-websites and package downloads require an explicit deployment policy change.
-Messages, purchases, deployments and external mutations remain outside scope.
-An artifact or refinement receipt does not independently prove task correctness.
-
-## Verification
+## Verification and migration
 
 ```bash
 python -m pytest tests/test_general_assistant.py tests/test_manifest_contracts.py -q
 ```
 
-Tests use the real pinned Harness2 engine with deterministic model sessions and
-mocked Core interactions. The shared OpenCode tests separately exercise real
-Linux write and TCP scopes with fake executables. Live model/OpenShell/Chat
-acceptance remains an opt-in deployment check.
+Tests exercise compiled bindings, native IPC contracts, human help, memory
+isolation, action fencing and output privacy using deterministic models and
+helper responses. A native source build verifies the Swift app without opening
+it. Live OS grants, default-provider vision and website acceptance are separate
+opt-in checks; tests do not send real email.
+Explicit fake-model or fake-skill execution rejects live computer control before
+opening the helper. Conversation-only tests can still discuss its capabilities.
 
-Prepared report sources use the existing Membrane CPU service and declared SDK context extra. `source_context.enabled` defaults to true; set it to false to disable prepared-source publication and preparation. Runtime TextMemory recall remains disabled. This does not publish private inputs or change the native task/inference model.
+REST `RunCreate.inputs` uses the compiled entry-point shape:
+`{"prepare_task__start":[{"args":[],"kwargs":{"task":"...","target_app_bundle_id":"com.google.Chrome"}}]}`.
+The app scope keeps input in the requested app and the per-run task leaves saved
+setup instructions unchanged.
+
+Version 3 replaces the previous file/Harness2/OpenShell product. Refresh prepared
+Jobs and review saved instructions before running. Old input-folder and harness
+settings are not migrated or executed; existing historical runs remain historical.

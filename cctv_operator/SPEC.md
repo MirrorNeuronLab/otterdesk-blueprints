@@ -1,4 +1,4 @@
-# CCTV Operator 5.3.16 specification
+# CCTV Operator 5.4.0 specification
 
 ## Purpose and scope
 
@@ -283,10 +283,12 @@ Retain complete authored Markdown Facts/Relations/Notes in camera/source Job sco
 Current selected frames take precedence over historical text. Prior accounts are
 navigation, never a before/after image pair or instructions. Membrane hydration
 preserves complete records with explicit capacity failures. No raw images, source
-credentials or private reasoning enter memory. get_operator_status exposes the
+credentials or private reasoning enter canonical text memory. get_operator_status exposes the
 facility queue/coverage and separate lane health. get_video_history returns up to
 twelve complete matching accounts across Job runs; time bounds need timezone.
-Video Q&A and summaries use the text model, no new image analysis or goal change.
+Video Q&A and summaries use EmbeddingGemma 2 image/text discovery, bounded review
+of retrieved saved images and the prepared text model; they never change the goal
+or start capture. The chronological get_video_history read retains its text-only contract.
 They retain the runtime-prepared text-model binding and generation controls rather
 than reapplying catalog model/provider/endpoint defaults. Require structured output,
 disable private thinking and retries, and retain the 60-second/1024-token limits
@@ -294,6 +296,50 @@ without increasing a smaller runtime allowance.
 Preserve citations, capture times, omitted counts and source qualification. No
 unique-person/total-appearance claims from repeated samples. Stable Job supervision
 and response services remain SDK-owned, including operation receipts and lifecycle.
+
+## Image and text history (5.4)
+
+Every successfully analyzed selected capture and its complete authored account
+are published to a separate, camera/source/Job-bound Membrane source corpus.
+Binary JPEGs are copied by content hash into the declared Job state resource
+before publishing their immutable references. They survive run cleanup. The
+local SQLite catalog contains capture bounds, source locators, revision/hash
+catalogs and indexing state; it does not rank vectors or duplicate source prose.
+Native Membrane validates whole manifests, source ACLs and current revisions,
+and performs lexical/vector RRF with the shared EmbeddingGemma 2 identity.
+The SDK's merged model catalog and runtime model manager own embedding aliases,
+artifact identity, preparation, placement and transport. No alternate CLIP or
+caption-only retrieval substitutes for a failed configured visual-history path.
+
+History questions prefilter original capture times and optional current-run scope
+before native ranking. Image and complete-account hits join into one observation
+group; captions remain whole under the context-byte allowance. Up to twelve
+groups are admitted, with explicit omissions/pending indexing and bounded native
+candidate coverage. More than 5,000 scoped source identities requires a shorter
+interval. Cross-run restoration revalidates Job originals; camera/source/Job
+changes cannot widen the corpus. Images are size/hash verified when loaded and
+again before model dispatch. Missing/changed assets or unavailable embeddings
+are explicit failures. Existing text-only records retain the chronological
+get_video_history read and are not silently presented as image-indexed history.
+
+The default retrospective review sends at most two retrieved historical images
+to the declared vision model, serially in the existing Cosmos slot. The answer
+model sees complete original accounts plus capture/hash-bound image descriptions,
+never binary media. Each image response must stop normally and pass the existing
+frame-evidence validator; failed/truncated results cannot fall through to a text
+answer. Review is bounded to 512 tokens/60 seconds per image, respecting smaller
+runtime settings. Monitoring admissions and explicit historical reviews share
+one process-safe rolling image-request allowance; a busy allowance is explicit.
+The retrospective tool never changes monitoring or starts capture. Image
+similarity is navigation, not event verification, identity or motion evidence.
+
+visual_memory defaults enabled, max_context_bytes=49152 and max_review_frames=2
+(valid 1..4). The source-built engine, Membrane SDK 2.2 and main SDK
+1.4.1.dev35 or newer with RuntimeEmbeddings are required. Reprepare an idle Job to adopt
+the new bundle. Images have no automatic deletion in this feature; operator-owned
+Job storage retention/deletion remains authoritative. Indexing and image review
+have separate memory.visual_index and rag.image_review measurements. No live
+camera, model-quality or throughput qualification follows from offline tests.
 
 ## Measurement and acceptance
 

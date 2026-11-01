@@ -2,6 +2,9 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/llm.schema.json",
   "enabled": true,
   "require_live": true,
-  "provider": "docker_model_runner",
-  "model": "default"
+  "model": "vision",
+  "required_capabilities": [
+    "image_input",
+    "structured_output"
+  ]
 }

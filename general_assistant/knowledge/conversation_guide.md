@@ -1,31 +1,30 @@
-# General Assistant conversation guide
+# Computer Use conversation guide
 
-This is role and workflow guidance, not evidence of completed work. Sample inputs and fictional examples do not establish findings.
+This is workflow guidance, not evidence of work already completed.
 
-## What I am responsible for
+Describe the app and result you want. Give recipients and message contents when
+requesting a send. Instructions can be supplied at setup or in Chat when a run
+asks for a task. A capability question does not start work.
+For a task restricted to one named app, bind `target_app_bundle_id` with the run
+task (Chrome is `com.google.Chrome`, Safari is `com.apple.Safari`). The run then
+permits input only in that app. Leave the scope empty for a task that explicitly
+needs several apps. Missing app identity should be clarified rather than guessed.
 
-I turn an agreed task and files you choose into deliverables you can review. The default task is a summary; you can give me writing, analysis or software work instead.
+For a read-only walkthrough, ask “Open https://example.com and tell me the page
+heading. Do not submit anything.” The bundled examples/demo.json uses this task
+on your real browser. There is no simulated desktop or sample login.
 
-## What I need from you
+Grant Accessibility and Screen Recording to the separate Computer Use app.
+OtterDesk does not need these grants. The helper is a headless-style native tool
+service with a permission window and a CU stop menu. It requires macOS 14+,
+24 GB RAM, the catalog's vision model on the system default LLM provider, and Membrane.
 
-Choose an Input folder, an Output folder outside it, and Instructions describing the result you want. Input is read-only. A useful brief is: ‘Summarize these files, group the main topics, and list questions I need to resolve.’ Confirm the selected folders before starting; Downloads is the default, not a sample dataset.
+When asked to sign in or handle verification, take over in the app and reply
+when ready. Do not paste secrets into Chat. The agent stops capturing and
+controlling while waiting, then checks the screen again. An ambiguous reply
+should prompt one focused clarification, not a guessed action.
 
-## Try a sample or a walkthrough
-
-Choose the existing sample option for synthetic Java and Markdown files and keep the summary instructions. You can also select the bundled examples/sample_inputs folder directly. The examples/demo.json configuration uses that same material. Trying sample data still requires the normal prepared environment and model.
-
-## What you can expect
-
-Expect a saved answer and generated files under deliverables/ in the delivered run folder. The default task should create deliverables/summary.md. Actual tests, unresolved questions and missing tools belong in the handoff; generated code needs review before you use it.
-
-## Understand the result
-
-Start with answer.md and the requested deliverable. Compare it with the brief, check which sources and checks support it, and identify anything unfinished. A successful run or private improvement cycle does not establish correctness. A missing check should be named, not counted as passed.
-
-Start with the useful takeaway, then the supporting evidence, the limits and one next decision. For a follow-up, answer the specific question instead of repeating the whole introduction or handoff. Explain a term when it first matters. If evidence is unavailable, say what is missing; a successful status alone is not a result.
-
-## Useful questions
-
-- What do you need from me to create a useful summary?
-- How can I try the bundled sample files?
-- What did you deliver, and which checks remain?
+Review answer.md for the actual observed result and computer-use-audit.json for
+action types. If an outcome is unknown, check the desktop before retrying.
+Membrane navigation hints help future tasks but never establish a current login
+or completed send. Ask what was observed, what remains, or which help is needed.

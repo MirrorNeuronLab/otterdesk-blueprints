@@ -6,8 +6,7 @@ Python workers use Python 3.12, matching the MirrorNeuron runtime and SDK. Pytho
 
 For a configured host output folder such as `~/Downloads/<job name>`, batch
 blueprints put job-level entries declared in `outputs.job_files` at the root.
-General Assistant defaults to `~/Documents/general-assistant` because its
-read-only input defaults to `~/Downloads`.
+Computer Use defaults to `~/Documents/computer-use` for its result and action audit.
 The prepared `context_sources/` folder is always a job-level root entry.
 Each run's remaining output belongs in `run_<timestamp>/`; timestamps use UTC,
 and delivery retries reuse the same folder. Service blueprints publish all
@@ -76,8 +75,8 @@ CCTV, Architecture, Litigation, VC and Mac security investigator enable it and
 declare the SDK `context` extra;
 Drug Discovery declares the context extra and enables separate `source_context`
 intelligence for complete prepared inputs, configured procedure and saved results.
-It keeps unused TextMemory recall disabled. General Assistant retains its own
-Job-private Harness2 memory and improvement library inside OpenShell. Other entries have disabled
+It keeps unused TextMemory recall disabled. Computer Use enables Job-private
+Membrane navigation recall for its dedicated native macOS tool service. Other entries have disabled
 profiles and no worker context consumer. Resolved
 config overrides take precedence. Complete preprocessing output is ingested into
 trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation
