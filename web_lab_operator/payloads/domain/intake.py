@@ -5,6 +5,8 @@ from pathlib import Path
 
 from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
+from .memory import LabMemory
+
 
 def capture(block, inputs):
     values = capture_declared_inputs(block, inputs, runtime_file=__file__)
@@ -25,7 +27,11 @@ def capture(block, inputs):
     if not isinstance(markdown, str) or not 1 <= len(markdown.encode('utf-8')) <= 32000 or '\x00' in markdown:
         raise ValueError("Supply a nonempty Markdown procedure within 32,000 UTF-8 bytes.")
     reference = block.store.commit_bytes('procedure.md', markdown.encode('utf-8'), kind='markdown')
-    return {'markdown': markdown, 'sha256': hashlib.sha256(markdown.encode()).hexdigest(),
+    identity = hashlib.sha256(markdown.encode()).hexdigest()
+    with LabMemory(block, identity) as memory:
+        history, witness = memory.recall('planning')
+    return {'markdown': markdown, 'sha256': identity,
             'procedure': reference.to_dict(), 'mode': 'simulation_only',
+            'runtime_memory': history, 'memory_recall': witness,
             'supported_labware': '1..4 96-well 360 uL plates; 96 fresh 300 uL tips; one channel',
             'supported_steps': ['transfer', 'mix', 'wait', 'check_volume']}

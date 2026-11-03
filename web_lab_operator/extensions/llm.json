@@ -22,6 +22,7 @@
   "responsibilities": [
     "Create typed simulation protocols from supplied Markdown without inventing missing inventory or instructions.",
     "Observe tracked state before each step; adapt only within declared alternate sources.",
+    "Consider source-qualified Membrane experience about prior successes and failures while current observations and policy retain authority.",
     "Pause when a safe, supported simulation step is unavailable."
   ]
 }

@@ -34,9 +34,34 @@ def conversation_events(monkeypatch):
 def domain(monkeypatch, conversation_events):
     monkeypatch.syspath_prepend(str(BLUEPRINT / "payloads"))
     modules = SimpleNamespace(**{name: importlib.import_module("domain." + name)
-        for name in ["intake", "solver", "engine", "reporting", "memory", "configuration", "conversation"]})
+        for name in ["intake", "solver", "engine", "reporting", "memory", "configuration", "conversation", "visual_memory"]})
     monkeypatch.setattr(modules.configuration, "require_mac", lambda: None)
+    monkeypatch.setattr(modules.visual_memory, "RuntimeEmbeddings", MemoryEmbeddings)
     return modules
+
+
+class MemoryEmbeddings:
+    metadata = {"model": "test-embeddinggemma2", "tokenizer": "test-image-space"}
+
+    def __init__(self, model="embeddinggemma-2", **kwargs):
+        self.model, self.images, self.queries = model, [], []
+
+    def embed_media(self, media):
+        self.images.append(media)
+        return {"vector": [1., 0.], **self.metadata}
+
+    def embed_query(self, media):
+        self.queries.append(media)
+        return {"vector": [1., 0.], **self.metadata}
+
+
+def visual_owner(domain, tmp_path, *, run="run-one", job="job-one", config=None):
+    block = context(tmp_path, step="solve_task", run=run, job=job, config=config)
+    return domain.visual_memory.VisualMemory(block)
+
+
+def visual_request(owner):
+    return {"job_id": owner.block.job_id, "run_id": owner.block.run_id, "admitted_at": 1700000000}
 
 
 def context(tmp_path, *, job="job-one", run="run-one", step="prepare_task", config=None):
@@ -53,7 +78,7 @@ class Desktop:
         self.suspended = False
         self.closed = False
         self.frames = 0
-        self.controls = [{"control_id": f"c{index}", "role": "AXButton", "label": f"Test control {index}", "editable": False}
+        self.controls = [{"control_id": f"c{index}", "role": "AXTextField" if index == 1 else "AXButton", "label": f"Test control {index}", "editable": index == 1}
                          for index in range(1, 4)]
 
     def __enter__(self):
@@ -197,7 +222,7 @@ def test_gmail_help_suspends_then_observes_and_completes_once(domain, monkeypatc
     requests = model_actions(monkeypatch, domain, desktop, [
         {"type": "ask_user", "question": "Please open Gmail and sign in, then reply when ready."},
         {"type": "key", "key": "cmd+l"},
-        {"type": "type_text", "text": "synthetic confidential message"}, DONE])
+        {"type": "type_text", "control_id": "c1", "text": "synthetic confidential message"}, DONE])
     real_wait = domain.conversation.human_interactions.await_human_decision
     def wait(*args, **kwargs):
         assert desktop.suspended
@@ -324,7 +349,7 @@ def test_admitted_app_scope_is_frozen_with_the_task(domain, tmp_path):
 
 @pytest.mark.parametrize("action", [
     {"type": "activate_control", "control_id": "c1"},
-    {"type": "type_text", "text": "Keep this out of the wrong app"},
+    {"type": "type_text", "control_id": "c1", "text": "Keep this out of the wrong app"},
     {"type": "key", "key": "return"},
     {"type": "open_url", "url": "https://mail.google.com"},
     {"type": "launch_app", "bundle_id": "com.apple.Safari"},
@@ -460,28 +485,73 @@ def test_answered_help_is_not_requested_again_without_progress(domain, monkeypat
     assert store.read_path("computer-use-audit.json")["failure"]["stage"] == "conversation_progress"
 
 
-def test_typing_is_not_offered_or_accepted_without_a_focused_text_field(domain, monkeypatch, tmp_path):
+def test_typing_is_not_offered_or_accepted_without_an_editable_target(domain, monkeypatch, tmp_path):
     desktop = Desktop()
     frame = desktop.request({"type": "observe"})
     frame["text_field_focused"] = False
+    frame["controls"] = [dict(c, editable=False) for c in frame["controls"]]
     def ignore_schema(block, request, **kwargs):
         variants = request["payload"]["response_format"]["json_schema"]["schema"]["properties"]["action"]["anyOf"]
         assert "type_text" not in {value["properties"]["type"]["enum"][0] for value in variants}
-        return {"choices": [{"message": {"content": json.dumps({"action": {"type": "type_text", "text": "Do not type"}})}}]}
+        return {"choices": [{"message": {"content": json.dumps({"action": {"type": "type_text", "control_id": "c1", "text": "Do not type"}})}}]}
     monkeypatch.setattr(domain.engine, "model_request", ignore_schema)
     block = context(tmp_path, step="solve_task")
-    with pytest.raises(ValueError, match="no focused text field"):
+    with pytest.raises(ValueError, match="not editable in this observation"):
         domain.engine.decide(block, {"task": TASK, "supervisor_instructions": [],
             "settings": block.config["computer_use"]}, frame, {}, [], 0, 60)
     assert not desktop.actions
 
 
+@pytest.mark.parametrize("target", ["c2", "c99"])
+def test_typing_rejects_noneditable_or_stale_control_ids(domain, monkeypatch, tmp_path, target):
+    desktop = Desktop()
+    monkeypatch.setattr(domain.engine, "model_request", lambda *args, **kwargs: {
+        "choices": [{"message": {"content": json.dumps({
+            "action": {"type": "type_text", "control_id": target, "text": "test"}})}}]})
+    block = context(tmp_path, step="solve_task")
+    with pytest.raises(ValueError, match="not editable in this observation"):
+        domain.engine.decide(block, {"task": TASK, "supervisor_instructions": [],
+            "settings": block.config["computer_use"]}, desktop.request({"type": "observe"}), {}, [], 0, 60)
+    assert not desktop.actions
+
+
+def test_targeted_typing_is_offered_before_the_target_has_focus(domain, monkeypatch, tmp_path):
+    desktop = Desktop()
+    frame = desktop.request({"type": "observe"})
+    frame["text_field_focused"] = False
+    action = {"type": "type_text", "control_id": "c1", "text": "test"}
+    model_actions(monkeypatch, domain, desktop, [action])
+    block = context(tmp_path, step="solve_task")
+    assert domain.engine.decide(block, {"task": TASK, "supervisor_instructions": [],
+        "settings": block.config["computer_use"]}, frame, {}, [], 0, 60) == action
+
+
+def test_send_is_followed_by_observation_only_verification(domain, monkeypatch, tmp_path, text_memory_transport):
+    desktop = Desktop()
+    desktop.controls[1]["label"] = "Send (⌘Enter)"
+    requests = model_actions(monkeypatch, domain, desktop, [{"type": "activate_control", "control_id": "c2"}, DONE])
+    store, _, _, result = execute(domain, tmp_path)
+    assert result["status"] == "completed" and len(desktop.actions) == 1
+    variants = requests[-1]["payload"]["response_format"]["json_schema"]["schema"]["properties"]["action"]["anyOf"]
+    assert {v["properties"]["type"]["enum"][0] for v in variants} == {"wait", "ask_user", "done"}
+    assert store.read_path("computer-use-audit.json")["actions"][0]["commit_check"] is True
+
+
+def test_another_input_cannot_bypass_commit_verification(domain, monkeypatch, tmp_path):
+    monkeypatch.setattr(domain.engine, "model_request", lambda *args, **kwargs: {
+        "choices": [{"message": {"content": json.dumps({"action": {"type": "type_text", "control_id": "c1", "text": "Send"}})}}]})
+    block = context(tmp_path, step="solve_task")
+    with pytest.raises(ValueError, match="blocked while checking"):
+        domain.engine.decide(block, {"task": TASK, "supervisor_instructions": [], "verify_commit": True,
+            "settings": block.config["computer_use"]}, Desktop().request({"type": "observe"}), {}, [], 0, 60)
+
+
 def test_rejected_typing_is_not_replayed_before_the_model_focuses_a_field(domain, monkeypatch, tmp_path, text_memory_transport):
     desktop = Desktop()
     requests = model_actions(monkeypatch, domain, desktop, [
-        {"type": "type_text", "text": "test recipient"},
+        {"type": "type_text", "control_id": "c1", "text": "test recipient"},
         {"type": "activate_control", "control_id": "c1"},
-        {"type": "type_text", "text": "test recipient"}, DONE])
+        {"type": "type_text", "control_id": "c1", "text": "test recipient"}, DONE])
     request = desktop.request
     focused = False
     def focus_required(action):
@@ -545,7 +615,7 @@ def test_navigation_memory_recall_is_job_private_and_omits_sensitive_content(dom
     memory = domain.memory.NavigationMemory(block)
     request = {"request_id": "request-one", "admitted_at": 1700000000}
     actions = [{"type": "open_url", "url": "https://mail.google.com/mail/u/0/?token=synthetic-secret#inbox"},
-               {"type": "type_text", "text": "alice@example.com and secret email body"},
+               {"type": "type_text", "control_id": "c1", "text": "alice@example.com and secret email body"},
                {"type": "click", "x": .2, "y": .3}, {"type": "key", "key": "cmd+l"}]
     hints = [hint for action in actions if (hint := domain.memory.navigation_hint(action))]
     receipts = memory.remember(request, {"com.apple.Safari": hints})
@@ -761,7 +831,7 @@ def test_missing_or_foreign_reply_cannot_resume_control(domain, monkeypatch, tmp
 @pytest.mark.parametrize("value", [
     {"type": "click", "x": True, "y": 0}, {"type": "click", "x": 2, "y": 0},
     {"type": "scroll", "x": .5, "y": .5, "amount": 1.5}, {"type": "shell", "command": "anything"},
-    {"type": "type_text", "text": "x", "extra": "bad"}, {"type": "key", "key": "cmd+exec"},
+    {"type": "type_text", "control_id": "c1", "text": "x", "extra": "bad"}, {"type": "key", "key": "cmd+exec"},
     {"type": "open_url", "url": "file:///etc/passwd"}, {"type": "open_url", "url": "https://u:p@example.com"},
     {"type": "done", "summary": "Done", "evidence": ""},
     {"type": "activate_control", "control_id": "foreign"},
@@ -791,3 +861,151 @@ def test_supervisor_rules_are_frozen_and_forgetting_affects_next_run(domain, tmp
 def test_invalid_saved_rules_fail_before_model_work(domain, tmp_path, rules):
     with pytest.raises((ValueError, __import__("jsonschema").ValidationError)):
         domain.intake.prepare(context(tmp_path), {"task": TASK, "supervisor_instructions": rules})
+
+
+def test_visual_memory_indexes_original_images_and_recalls_across_runs(domain, tmp_path, text_memory_transport):
+    from mn_context_engine_sdk import MediaInput
+    first = visual_owner(domain, tmp_path)
+    frame = Desktop().request({"type": "observe"})
+    first.capture(frame, {"type": "type_text", "control_id": "c1", "text": "must-not-store-this"})
+    result = first.remember(visual_request(first), completed=True)
+    assert result["images_learned"] == 1 and first.embeddings.model == "embeddinggemma-2"
+    assert first.embeddings.images == [MediaInput(b"synthetic screenshot", "image/jpeg")]
+    assert "control_id" not in first.store.path.read_text() and "must-not-store-this" not in first.store.path.read_text()
+    first.close()
+    later = visual_owner(domain, tmp_path, run="run-two")
+    packet, receipt = later.recall(frame)
+    assert packet["status"] == "ready"
+    assert packet["matches"][0]["field_hints"] == [{"role": "AXTextField", "label": "Test control 1"}]
+    assert packet["matches"][0]["source_run_id"] == "run-one"
+    assert later.embeddings.queries == [MediaInput(b"synthetic screenshot", "image/jpeg")]
+    assert not later.embeddings.images and not receipt["reused_layout_query"]
+    later.recall({**frame, "image_base64": base64.b64encode(b"changed text in the same UI layout").decode()})
+    assert len(later.embeddings.queries) == 1
+    assert "control_id" not in json.dumps(packet) and "must-not-store-this" not in json.dumps(packet)
+    later.close()
+
+
+def test_visual_memory_never_crosses_job_or_app_boundaries(domain, tmp_path, text_memory_transport):
+    first = visual_owner(domain, tmp_path)
+    frame = Desktop().request({"type": "observe"})
+    first.capture(frame)
+    first.remember(visual_request(first), completed=True)
+    first.close()
+    other = visual_owner(domain, tmp_path, run="run-two", job="job-other")
+    assert other.recall(frame)[0]["status"] == "empty"
+    assert not other.embeddings.queries
+    other.close()
+    later = visual_owner(domain, tmp_path, run="run-two")
+    assert later.recall({**frame, "bundle_id": "com.google.Chrome"})[0]["status"] == "empty"
+    later.close()
+    forged = context(tmp_path, job="job-other", run="run-three")
+    forged.job_data_dir = str(tmp_path / "job-one")
+    with pytest.raises(ValueError, match="another Job"):
+        domain.visual_memory.VisualMemory(forged)
+
+
+@pytest.mark.parametrize("changed_time,accepted", [(1793580491.52766, True), (1793580492.52766, False)])
+def test_visual_provenance_uses_transport_stable_observation_time(
+        domain, tmp_path, text_memory_transport, monkeypatch, changed_time, accepted):
+    owner = visual_owner(domain, tmp_path)
+    frame = {**Desktop().request({"type": "observe"}), "observed_at": 1793580491.5276601}
+    owner.capture(frame)
+    assert next(iter(owner.states.values()))["observed_at"] == 1793580491.528
+    owner.remember(visual_request(owner), completed=True)
+    read_complete = owner.session.client.read_complete
+
+    def transported(*args, **kwargs):
+        source = copy.deepcopy(read_complete(*args, **kwargs))
+        for value in source["metadata"]["upstream"]:
+            if "computer_use_visual" in value:
+                value["observed_at"] = changed_time
+        return source
+
+    monkeypatch.setattr(owner.session.client, "read_complete", transported)
+    if accepted:
+        assert owner.recall(frame)[0]["status"] == "ready"
+    else:
+        with pytest.raises(ValueError, match="canonical provenance"):
+            owner.recall(frame)
+        assert not owner.embeddings.queries
+    owner.close()
+
+
+@pytest.mark.parametrize("change", ["targets", "run_id", "scope", "image"])
+def test_visual_locators_and_pixels_are_checked_against_canonical_sources(domain, tmp_path, text_memory_transport, change):
+    owner = visual_owner(domain, tmp_path)
+    frame = Desktop().request({"type": "observe"})
+    owner.capture(frame)
+    owner.remember(visual_request(owner), completed=True)
+    value = json.loads(owner.store.path.read_text())
+    row = value["entries"][0]
+    if change == "targets":
+        row["targets"] = [{"role": "AXTextField", "label": "forged navigation"}]
+    elif change == "run_id":
+        row["run_id"] = "another-run"
+    elif change == "scope":
+        row["catalog"]["scope"][0] = "another-corpus"
+    else:
+        (owner.store.root / "images" / (row["media"]["sha256"] + ".jpg")).write_bytes(b"tampered")
+    owner.store.path.write_text(json.dumps(value))
+    with pytest.raises(ValueError):
+        owner.recall(frame)
+    assert not owner.embeddings.queries
+    owner.close()
+
+
+def test_visual_index_failure_is_pending_and_recoverable_without_desktop_replay(domain, tmp_path, text_memory_transport):
+    owner = visual_owner(domain, tmp_path)
+    frame = Desktop().request({"type": "observe"})
+    owner.capture(frame)
+    def unavailable(_media):
+        raise RuntimeError("embedding service unavailable")
+    owner.embeddings.embed_media = unavailable
+    with pytest.raises(RuntimeError, match="embedding service"):
+        owner.remember(visual_request(owner), completed=True)
+    assert owner.store.entries()[0]["model_identity"] is None
+    owner.close()
+    later = visual_owner(domain, tmp_path, run="run-two")
+    assert later.recall(frame)[0]["status"] == "ready"
+    assert len(later.embeddings.images) == 1
+    later.close()
+
+
+def test_visual_memory_capacity_is_explicit_and_does_not_delete_prior_images(domain, tmp_path, text_memory_transport):
+    config = resolve_config(read_blueprint(BLUEPRINT)).data
+    config["visual_memory"]["max_images"] = 1
+    owner = visual_owner(domain, tmp_path, config=config)
+    frame = Desktop().request({"type": "observe"})
+    owner.capture(frame)
+    owner.capture({**frame, "bundle_id": "com.google.Chrome", "image_base64": base64.b64encode(b"other pixels").decode()})
+    result = owner.remember(visual_request(owner), completed=True)
+    assert result["status"] == "capacity_reached" and result["states_skipped"] == 1
+    assert len(owner.store.entries()) == len(list((owner.store.root / "images").glob("*.jpg"))) == 1
+    owner.close()
+
+
+def test_failed_tasks_do_not_publish_buffered_visual_lessons(domain, monkeypatch, tmp_path, text_memory_transport):
+    desktop = Desktop()
+    model_actions(monkeypatch, domain, desktop, [
+        {"type": "type_text", "control_id": "c1", "text": "synthetic text"},
+        {"type": "open_url", "url": "http://not-allowed.example"}])
+    _, _, _, result = execute(domain, tmp_path)
+    assert result["status"] == "failed"
+    assert not list((tmp_path / "job-one").rglob("*.jpg"))
+    owner = visual_owner(domain, tmp_path, run="run-two")
+    assert not owner.store.entries()
+    with pytest.raises(ValueError, match="Only completed"):
+        owner.remember(visual_request(owner), completed=False)
+    owner.close()
+
+
+def test_visual_write_failure_preserves_a_completed_task(domain, monkeypatch, tmp_path, text_memory_transport):
+    desktop = Desktop()
+    model_actions(monkeypatch, domain, desktop, [DONE])
+    def unavailable(*args, **kwargs):
+        raise RuntimeError("embedding service unavailable")
+    monkeypatch.setattr(domain.visual_memory.VisualMemory, "remember", unavailable)
+    store, _, _, result = execute(domain, tmp_path)
+    assert result["status"] == "completed"
+    assert store.read_path("result.json")["memory"]["visual"]["status"] == "write_failed"

@@ -16,7 +16,7 @@
       "expected_output": "A live deck, a transfer decision, final volume checks and a saved replay.",
       "values": {
         "inputs.payload.procedure_markdown": "",
-        "inputs.payload.procedure_file": "@/examples/procedure.md"
+        "inputs.payload.procedure_file": "@/examples/sample_inputs/procedure.md"
       }
     },
     "real": {

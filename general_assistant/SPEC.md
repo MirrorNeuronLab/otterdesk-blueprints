@@ -34,13 +34,16 @@ window. Actual human replies are represented as user turns in the model
 conversation. Repeating an answered question without intervening task progress
 stops the run instead of publishing another identical human request.
 
-The task policy observes the focused app window's display (the main display when
-no focused window is available), retrieves app-specific navigation
+The task policy observes a crop of the focused app window on its display (the main
+display when no focused window is available), retrieves app-specific navigation
 memory, asks the default vision model for one bounded action, validates it, and
 invokes the native tool. The structured action contract uses frame-local
 accessibility control activation and keyboard navigation. Observations
-include bounded visible control labels and roles, never secure fields. Typing
-requires a focused editable field. The co-worker never guesses screenshot
+include bounded visible control labels and roles, never secure fields. Every
+typing action names a current editable control ID. The native helper focuses
+that exact field and verifies its identity or nested editor before every Unicode
+batch; an unrelated focused browser address bar cannot receive the text.
+The co-worker never guesses screenshot
 coordinates; missing controls require human help. The model receives only
 currently offered control IDs, which are checked again before native dispatch.
 A native frame token expires after 150 seconds, is single-use, and requires the
@@ -69,6 +72,29 @@ are idempotent per request. No local memory fallback or harness migration exists
 Explicit preferences are separately validated and frozen for each run; removing
 a preference cannot be undone by historical navigation hints.
 
+Required visual memory is separate from navigation records and optional public
+answer projection. It uses Membrane SourceCorpus under the Job's source corpus,
+the computer-use-visual principal, and the catalog's embeddinggemma-2 model via
+SDK RuntimeEmbeddings. Actual JPEG bytes, not captions, produce 768-dimensional
+vectors. Immutable manifests bind the private image URI, hash, size, source run,
+app and historical editable-field labels. Observation times have millisecond
+precision across JSON transports; other provenance fields are compared exactly.
+Recall revalidates canonical source
+provenance and the original bytes before rebinding an authorized Job catalog to
+the current run. No local vector index or caption/lexical fallback exists.
+
+Only completed trajectories publish visual states. Default bounds are four
+distinct control layouts per run, 32 stored states, 64 MiB of image assets,
+three recalled matches and 4 KiB of model context. The caller-owned Job image
+store and locator catalog use private atomic writes; vectors remain in Membrane.
+At capacity, prior images are preserved and new learning reports capacity_reached.
+Pending canonical publications/indexing recover idempotently; changed or missing
+assets fail explicitly. Changed embedding identities require image re-indexing.
+Repeated layout queries can reuse their result only after source revalidation.
+Images can contain visible email and other confidential content; action text,
+coordinates and ephemeral control IDs are not stored as replay instructions.
+Visual hints never authorize input, establish a login or verify a current send.
+
 The default allowance is 80 turns, eight questions, 3300 seconds total, 600
 seconds per human reply and 90 seconds per model request. All are bounded runtime
 tunables. The native worker deadline is 3600 seconds, matching the host contract
@@ -86,6 +112,12 @@ change following control, typing or keyboard input, or an actual user-help reply
 releases the corresponding progress guards.
 Completion requires the final screen to support the stated result.
 A later memory write failure cannot erase an already-observed completed task.
+Recognized commit buttons (Send, Submit, Publish, Post, Buy, Purchase, Pay, Delete,
+Remove) and cmd/ctrl+return enter observation-only verification after delivery.
+Only wait, actual human help and completion are offered and validated; the engine
+may restore the scoped window to observe it. It does not type another button
+label or repeat a send. Verification uses the current image without another
+visual-memory preparation. Ambiguous outcomes need inspection before a new task.
 
 Public outputs are result.json (otterdesk.computer_use.result.v1), answer.md and
 computer-use-audit.json. The result states status and requires_reconciliation.

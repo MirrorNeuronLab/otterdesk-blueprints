@@ -15,6 +15,8 @@ def settings(block):
             raise ValueError(f"computer_use.{key} must be in 1..{maximum}")
     if not block.config.get("text_memory", {}).get("enabled") or block.config.get("offline"):
         raise ValueError("Computer Use requires the enabled Membrane memory engine")
+    from .visual_memory import settings as visual_settings
+    visual_settings(block.config)
     return values
 
 

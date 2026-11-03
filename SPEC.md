@@ -76,7 +76,9 @@ declare the SDK `context` extra;
 Drug Discovery declares the context extra and enables separate `source_context`
 intelligence for complete prepared inputs, configured procedure and saved results.
 It keeps unused TextMemory recall disabled. Computer Use enables Job-private
-Membrane navigation recall for its dedicated native macOS tool service. Other entries have disabled
+Membrane navigation recall for its dedicated native macOS tool service. Web Lab
+Operator enables job-private simulation experience and procedure/step-qualified
+recall before planning and execution. Other entries have disabled
 profiles and no worker context consumer. Resolved
 config overrides take precedence. Complete preprocessing output is ingested into
 trusted job/current-run Markdown memory and indexed by CPU DuckDB. Compilation

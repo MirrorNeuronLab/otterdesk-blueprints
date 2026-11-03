@@ -6,11 +6,13 @@ import json
 from uuid import uuid4
 
 from mn_sdk.agent_events import report_activity
+from mn_sdk.context_session.contracts import digest
 from mn_sdk_common.files import atomic_write_json
 from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
 from .decisions import choose
 from .lab import SimulatedLab
+from .memory import LabMemory, stamp
 from .protocol import action_for, goal_results, initial_state, number, validate_plan
 
 
@@ -26,13 +28,14 @@ def run(block, inputs):
     if len(plan['steps']) > policy['max_steps']:
         raise ValueError("The procedure exceeds the configured step limit.")
     block.store.commit('plan.json', plan, kind='lab_plan')
-    if plan['status'] != 'ready':
-        return save(block, plan, procedure, [], initial_state(plan), 'needs_review',
-                    'Clarify the plan assumptions and unresolved instructions before starting.')
-    return asyncio.run(execute(block, plan, procedure, policy))
+    with LabMemory(block, procedure['sha256']) as memory:
+        if plan['status'] != 'ready':
+            return save(block, plan, procedure, [], initial_state(plan), 'needs_review',
+                        'Clarify the plan assumptions and unresolved instructions before starting.', memory)
+        return asyncio.run(execute(block, plan, procedure, policy, memory))
 
 
-async def execute(block, plan, procedure, policy):
+async def execute(block, plan, procedure, policy, memory):
     from .visualizer import LabVisualizer
 
     lab, visualizer, claimed = SimulatedLab(plan), None, False
@@ -79,6 +82,7 @@ async def execute(block, plan, procedure, policy):
             check()
             projection['current_step'] = step['id']
             path = f'simulation/steps/{index:03}.json'
+            history, memory_ref = await asyncio.to_thread(memory.recall, f'step-{index:03}', step)
             if block.store.path(path).exists():
                 # Each attempt creates a new, empty simulation. Reconstruct only
                 # confirmed actions; physical robots can never enter this path.
@@ -93,7 +97,8 @@ async def execute(block, plan, procedure, policy):
                     if lab.observe() != event['after']:
                         raise ValueError("Replayed simulator state differs from the saved observation.")
             else:
-                decision = await asyncio.to_thread(choose, block, step, state, trace[-1]['outcome'] if trace else None)
+                decision = await asyncio.to_thread(choose, block, step, state,
+                                                 trace[-1]['outcome'] if trace else None, history)
                 check()
                 proposal = decision
                 error, action, outcome = '', None, {'passed': False}
@@ -115,10 +120,12 @@ async def execute(block, plan, procedure, policy):
                             raise
                         error = f"Simulation command failed ({type(problem).__name__}). Review the observed deck."
                 event = {'step': step, 'decision': decision, 'action': action,
-                         'proposal': proposal, 'before': state, 'after': lab.observe(), 'outcome': outcome, 'error': error}
-                block.freeze_checkpoint(path, lambda: event)
+                         'proposal': proposal, 'before': state, 'after': lab.observe(), 'outcome': outcome, 'error': error,
+                         'observed_at': stamp(block), 'memory_recall': memory_ref}
+                reference = block.freeze_checkpoint(path, lambda: event)
             trace.append(event)
             state = event['after']
+            await asyncio.to_thread(memory.remember_step, index, event, reference.to_dict(), plan)
             projection.update(state=state, steps_completed=sum(e['outcome']['passed'] for e in trace),
                               reason=event['error'] or ('The volume check did not pass.'
                                      if event['action'] is not None and not event['outcome']['passed'] else event['decision']['reason']),
@@ -138,13 +145,25 @@ async def execute(block, plan, procedure, policy):
             status = 'completed' if met else 'needs_review'
             reason = 'All simulated steps and final volume goals passed.' if met else 'One or more final volume goals did not pass.'
         projection.update(status=status, reason=reason)
-        return save(block, plan, procedure, trace, state, status, reason)
+        return await asyncio.to_thread(save, block, plan, procedure, trace, state, status, reason, memory)
     except BaseException as error:
         status = 'cancelled' if getattr(error, 'code', '') == 'cancelled' else 'failed'
         # Failure observations are qualified; they do not become successful steps.
-        atomic_write_json(block.store.path('interrupted-simulation.json'), {
+        interruption = {
             'status': status, 'state': lab.observe(), 'completed_records': len(trace),
-            'error_type': type(error).__name__, 'simulation_only': True})
+            'steps_completed': sum(event['outcome']['passed'] for event in trace),
+            'current_step': projection['current_step'], 'observed_at': stamp(block),
+            'error_type': type(error).__name__, 'simulation_only': True}
+        evidence = block.store.commit('simulation/interruptions/' + digest(interruption) + '.json',
+                                      interruption, kind='interrupted_simulation')
+        atomic_write_json(block.store.path('interrupted-simulation.json'), interruption)
+        try:
+            await asyncio.to_thread(memory.remember_interruption, interruption, evidence.to_dict(), plan)
+        except Exception as memory_error:
+            # A memory outage must not hide the cancellation/failure that caused
+            # cleanup. Its own failure remains inspectable and never means success.
+            atomic_write_json(block.store.path('memory-interruption-error.json'), {
+                'status': 'failed', 'error_type': type(memory_error).__name__, 'simulation_only': True})
         raise
     finally:
         try:
@@ -160,7 +179,7 @@ async def execute(block, plan, procedure, policy):
                                            expected_generation=generation)
 
 
-def save(block, plan, procedure, trace, state, status, reason):
+def save(block, plan, procedure, trace, state, status, reason, memory):
     trace_ref = block.store.commit('trace.json', {'initial': initial_state(plan), 'events': trace}, kind='lab_trace')
     value = {'schema_version': 'mn.web_lab.simulation.v1', 'status': status,
              'simulation_only': True, 'procedure_sha256': procedure['sha256'],
@@ -172,6 +191,8 @@ def save(block, plan, procedure, trace, state, status, reason):
              'plan': block.store.commit('plan.json', plan, kind='lab_plan').to_dict(),
              'procedure': procedure['procedure'],
              'assumptions': plan['assumptions'], 'unresolved': plan['unresolved']}
+    memory.remember_result(value, {'trace': value['trace'], 'plan': value['plan'], 'procedure': value['procedure']})
+    value['memory'] = block.store.commit('memory.json', memory.audit(procedure['memory_recall']), kind='memory_audit').to_dict()
     artifact = block.store.commit('simulation.json', value, kind='lab_simulation')
     reference = block.commit_checkpoint('simulation-checkpoint.json', value)
     return {'simulation': reference.to_dict(), 'simulation_artifact': artifact.to_dict()}
@@ -187,4 +208,5 @@ def verify(block, result):
         raise ValueError("The simulation result does not match its final observation.")
     if block.read_evidence(result['simulation_artifact']) != value:
         raise ValueError("The saved simulation result changed.")
+    block.read_evidence(value['memory'])
     return True

@@ -15,3 +15,11 @@ For review, point to the plan, trace, volume checks and replay. State incomplete
 steps and unresolved instructions first. Volume goals passing establishes only
 this simulated bookkeeping result. Saved communication preferences may change
 explanations, never runtime policy, approvals, inputs or execution authority.
+
+When explaining experience memory, use memory.json to distinguish history
+supplied to a decision from newly observed tracker results. Retain procedure,
+step and run provenance. Earlier outcomes may concern a different procedure or
+state. Report omissions and disabled/unavailable memory honestly. Do not infer
+that a model used a recalled item merely because it was supplied, or that missing
+history proves no earlier failure. Questions about history never start a run,
+edit the procedure or expand the action policy.

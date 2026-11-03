@@ -15,6 +15,15 @@
     "human_timeout_seconds": 600,
     "model_timeout_seconds": 90
   },
+  "visual_memory": {
+    "model": "embeddinggemma-2",
+    "max_images": 32,
+    "max_bytes": 67108864,
+    "max_states_per_run": 4,
+    "max_results": 3,
+    "max_context_bytes": 4096,
+    "embedding_timeout_seconds": 120
+  },
   "source_context": {
     "enabled": true
   }

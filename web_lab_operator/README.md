@@ -4,7 +4,8 @@ Turn a Markdown lab procedure into a supervised **PyLabRobot simulation**. The
 co-worker plans typed steps, observes the tracked deck before each step and can
 switch to an explicitly allowed source well when the primary source is short.
 Watch the native PyLabRobot visualizer during the run; review a self-contained
-deck replay, decisions and final volume checks afterwards.
+deck replay, decisions and final volume checks afterwards. Membrane retains
+job-private experience so later decisions can consider what worked and failed.
 
 This blueprint controls simulated liquid handling only. It never constructs a
 hardware backend or executes model-generated Python. PyLabRobot's trackers model
@@ -12,7 +13,8 @@ liquid volumes and tips; they do not establish experimental or physical results.
 
 ## Start with the included example
 
-Prepare a MirrorNeuron Docker worker and the runtime's configured text model,
+Prepare a MirrorNeuron Docker worker, the runtime's configured text model and
+its matching authenticated Membrane v2 context service,
 then hire **Web Lab Operator** in OtterDesk and select the included sample. From
 a checkout you can also run:
 
@@ -43,7 +45,12 @@ co-worker controls to pause, resume or stop; asking a question never starts work
 Provide either `inputs.payload.procedure_markdown` or
 `inputs.payload.procedure_file`, and clear the other value. Text and files are
 bounded to 32,000 UTF-8 bytes. Files use `.md` and are staged by the runtime.
-The default file is [`examples/procedure.md`](examples/procedure.md).
+The default file is
+[`examples/sample_inputs/procedure.md`](examples/sample_inputs/procedure.md).
+The sample folder includes its README and `SAMPLE_DATASET_MANIFEST.json` inventory.
+`examples/task.json` contains run inputs; `examples/demo.json` is a configuration
+overlay selecting the same sample. Expected model responses are test fixtures
+under `tests/fixtures/web_lab_operator/`, outside the published package.
 
 Include:
 
@@ -71,6 +78,44 @@ goal, transfer amount, destination or step order. A failed check, missing source
 unsafe decision or exhausted inventory ends the procedure with review evidence.
 Revise the Markdown and start a new run to correct it.
 
+## Remember prior work
+
+Memory is enabled by default. After each confirmed step, the co-worker saves
+its action, affected wells before and after, tip count, outcome and source
+references as authored Markdown through the SDK's Membrane TextMemory API.
+Successful adaptations, failed checks, rejected choices and pauses stay
+distinct. The final run record includes completion and unmet goals. Interrupted
+runs also attempt to save a qualified failure or cancellation record; a memory
+failure during cleanup is recorded in `memory-interruption-error.json` while
+the original runtime failure remains visible.
+
+Before planning, recall includes earlier outcomes for this exact procedure and
+recent run summaries from the same hired co-worker. A revised procedure can see
+earlier review issues without inheriting their inventory or instructions.
+Before every simulated step, recall selects matching procedure/step identities
+and recent observations from the current run, reserving space for both successes
+and failures. This history is supplied to the model to inform its next decision;
+it does not change model weights. The current Markdown, observed deck and
+deterministic execution policy remain authoritative. Historical text cannot add
+sources, bypass a check or authorize hardware.
+
+Memory is private to the stable runtime Job and the web lab principal. Repeated
+runs of that hired co-worker share it; another hired Job has separate memory.
+Records include run, procedure and policy provenance. The runtime owns durable
+Markdown and DuckDB storage, authentication and service preparation. Reference
+knowledge RAG remains separate. No runtime changes or blueprint-owned memory
+database are needed.
+
+`text_memory.max_results` defaults to 6 (supported 3..12), with an 18,000-byte
+`text_memory.max_context_bytes` share. Retrieval is bounded, not exhaustive;
+oversized records are omitted whole and omissions are visible in `memory.json`.
+Selection is frozen before model dispatch, so resume cannot replace a decision's
+original history with its own later outcomes. SDK checkpoints and immutable
+Membrane records prevent duplicate learning on replay. When enabled, unavailable
+memory stops the phase; it does not silently run without history. An explicit
+`text_memory.enabled=false` override disables reads, writes and service
+preparation and marks the saved audit as disabled.
+
 ## Inspect the evidence
 
 | Artifact | Contents |
@@ -79,6 +124,7 @@ Revise the Markdown and start a new run to correct it.
 | `plan.json` | Typed plan, initial inventory, instruction-line references and unresolved items |
 | `trace.json` | Initial state, each decision, pre/post observations and outcomes |
 | `simulation.json` | Final tracked state and volume goals |
+| `memory.json` | History supplied to each model decision, source citations, query witnesses and saved outcome receipts |
 | `report.md`, `final_artifact.json`, `result.json` | Review outcome and qualifications |
 | `web/index.html`, `web_ui.json` | Optional standalone replay and static Web UI handle |
 | `interrupted-simulation.json` | Qualified observed state when a phase is interrupted |
@@ -93,14 +139,16 @@ failure cannot invalidate an already recorded simulation or required report.
 `capture_lab_procedure` → `plan_lab_procedure` → `simulate_lab_procedure` →
 `publish_lab_review` uses stock `domain_operation` and `structured_assessment`
 blocks. SDK input capture, managed model journals, checkpoints, publication and
-Web UI claims retain their existing owners. No runtime or desktop change is
+Web UI claims and Membrane persistence retain their existing owners. No runtime or desktop change is
 required. Domain policy, the PyLabRobot integration and selected presentation
 live under `payloads/domain/`.
 
 The Python 3.12 Docker image installs pinned PyLabRobot and WebSocket versions.
 Its build downloads hash-checked visualizer dependencies and serves them locally;
 the browser does not use CDNs. Planning and adaptive decisions send the procedure
-and selected simulation state to the configured model route. No robot address,
+and selected simulation state and recalled experience to the configured model route.
+Selected simulation experience persists in the authenticated job-private Membrane service.
+No robot address,
 serial/USB device, arbitrary tool, shell or generated-code endpoint is exposed.
 The standard runtime Web UI proxy owns authentication and cross-node transport.
 
@@ -115,6 +163,7 @@ With the repository's sibling SDK/agent/skill sources and Python test dependenci
 
 ```bash
 python -m pytest tests/test_web_lab_operator.py -q
+python -m pytest tests/test_membrane_catalog.py tests/test_sdk_package_contracts.py -q -k web_lab_operator
 python -m pytest tests/test_manifest_contracts.py -q
 python -m pytest tests -q
 git diff --check

@@ -8,7 +8,7 @@
   ],
   "evidence": [
     "Use the selected run\u2019s saved answer and observed screen result. An input receipt alone does not prove a website accepted an action.",
-    "Membrane navigation hints are historical guidance, not current evidence, permissions, login state or a completed send."
+    "Membrane navigation and EmbeddingGemma 2 visual hints are historical guidance, not current evidence, permissions, login state or a completed send. Private visual memory can contain visible screen content; it is not exported with results."
   ],
   "limitations": [
     "Require macOS 14+, 24 GB RAM and the catalog's vision model on the system default LLM provider. Computer Use owns screen and input grants, not OtterDesk.",
@@ -23,7 +23,7 @@
     "working": "Explain useful observed progress and actual blockers. The helper performs one action at a time and checks a new screen. Keep routine capture and memory bookkeeping quiet. Never infer task completion from an action receipt.",
     "waiting_for_input": "Restate the exact pending help request. For login, MFA, CAPTCHA or OS grants, tell the user to act directly in the app and reply when ready; never request secrets in Chat. Control and capture are suspended. Resume only through the existing real response control, then inspect the screen again.",
     "paused": "State that work is paused. Discuss existing evidence or the pending decision without claiming control or capture continues. A capability question does not resume execution.",
-    "reviewing": "Lead with the observed result against the user\u2019s task. Point to answer.md and the action audit. Distinguish input delivered from an observed accepted send. Name anything unfinished or uncertain. Memory hints do not establish success. Answer follow-up questions directly without repeating the whole handoff.",
+    "reviewing": "Lead with the observed result against the user\u2019s task. Point to answer.md and the action audit. Distinguish input delivered from an observed accepted send. Name anything unfinished or uncertain. Memory hints do not establish success. If image indexing failed after completion, preserve the completed result and explain the memory issue; do not repeat the task to teach memory. Answer follow-up questions directly without repeating the whole handoff.",
     "failed": "Explain the observed blocker and what remains incomplete. If a mutation has an unknown outcome, ask the user to inspect the target app before another run. Never suggest blindly repeating a send. Do not invent permission, provider or login state.",
     "stopped": "State that control stopped and name any saved result. The native CU stop control cannot be undone by the model. A fresh task needs explicit user intent; discussion alone restarts nothing.",
     "archived": "Discuss saved work in past tense. Restoring the co-worker is required before changing instructions or starting another task. Historical navigation is not current desktop evidence."

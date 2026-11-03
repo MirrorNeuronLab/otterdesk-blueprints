@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Local macOS computer use with a separate native permission owner, human help in Chat, and Membrane navigation memory.",
+  "summary": "Local macOS computer use with a separate native permission owner, human help in Chat, and Membrane navigation and image memory.",
   "inputs": {
     "task": {
       "type": "string",
@@ -91,6 +91,6 @@
   "privacy": {
     "classification": "confidential",
     "external_sharing": "user_authorized",
-    "notes": "The model can see screenshots of the focused app's display during active work. User-authorized sends and website actions are permitted within the task. Sign-in and verification are performed by the user while control is suspended. Navigation memory is Job-private and excludes screenshots, typed text, email content and credentials."
+    "notes": "The model sees the focused app window, or the display when no window is available, during active work. Requested sends and website actions stay within the task. The user handles sign-in and verification while control is suspended. Job-private navigation records exclude typed text and screenshots. Separate visual memory uses EmbeddingGemma 2 to index original screenshots from completed work; these private images can contain visible email or other confidential content and are not exported with results. Historical field hints never replay typed content, coordinates, control IDs or sends."
   }
 }

@@ -12,7 +12,8 @@ unchanged. Registration prepares Computer Use.app.
 When prompted, grant Computer Use Accessibility and Screen
 Recording in System Settings. These grants belong to Computer Use, not OtterDesk.
 Use the CU menu to stop control immediately. Keep the target window visible;
-capture follows its focused window across displays.
+capture crops to its focused window across displays when available. Text is
+bound to a named editable field, with focus checked by the native helper.
 
 Instructions are optional at setup. If empty, the run asks for a task in Chat.
 The output folder defaults to ~/Documents/computer-use. Start work only when the
@@ -38,10 +39,17 @@ an email blindly. Historical results are not current findings.
 Membrane remembers successful navigation privately for this hired Job. It can
 reuse app navigation hints, but must observe the current screen and cannot
 assume login state. Stored hints omit typed text, email content, credentials,
-URL paths/queries, screenshots and coordinates. Explicit supervisor preferences
+URL paths/queries, screenshots and coordinates. Separate visual memory uses
+EmbeddingGemma 2 to encode screenshots of completed work and recall similar app
+layouts. These private images can contain visible email or other screen content.
+The default cap is 32 states and 64 MiB; new learning stops at capacity while
+existing recall continues. Images and vectors are not exported with results.
+Historical field hints are checked against current controls and never replay a
+send or typed text. A memory failure after completion does not undo the result.
+Explicit supervisor preferences
 remain in Chat > Memory and apply to the next run. They grant no new authority.
-Raw model screenshots remain private run artifacts and are not exported as
-navigation memory or output-folder files.
+Raw model screenshots remain private run artifacts; selected successful images
+also remain in the Job's private visual memory.
 
 See [the conversation guide](conversation_guide.md) for a safe walkthrough and
 how to review the result. Examples describe possible tasks, not completed work.

@@ -19,7 +19,8 @@ input injection.
   `vision` route supporting image input and structured JSON output. This route
   leaves the shared text-model default unchanged. An unavailable or unsupported
   vision route fails explicitly.
-- Membrane v2 and its SDK context extra for private navigation memory.
+- Membrane v2 and its SDK context extra for private navigation and image memory.
+  The runtime prepares EmbeddingGemma 2 for image encoding.
 - The declared computer-use skill prepares the native helper during registration.
   Source preparation needs Xcode Command Line Tools. For manual setup use
   `mn-computer-use setup`; `mn-computer-use doctor` verifies the bundle.
@@ -64,8 +65,8 @@ Use the helper's **CU → Stop computer control** at any time. This cannot be
 undone by the model; a new task is required. Standard pause/resume/stop and Job
 MCP supervision remain owned by Core.
 
-One task controls the Mac at a time. Capture follows the focused app window's
-display. Each input action needs a fresh screenshot and the same foreground app.
+One task controls the Mac at a time. Capture crops to the focused app window on
+its display when available. Each input action needs a fresh screenshot and the same foreground app.
 After three inputs produce identical screens, control pauses and Chat asks for
 help. Repeated navigation to the same page or app pauses before another native
 action, even when new tabs change the screenshot. If another app takes focus,
@@ -75,8 +76,9 @@ the task needs a different page. Observed progress after task input or actual us
 navigation. Secure password fields block capture and input.
 The co-worker uses named accessibility controls, Unicode typing, shortcuts,
 HTTPS navigation and app opening. It asks for help when a needed control is
-unavailable, and uses screenshots to check the result. Typing requires a focused
-text field. The native API exposes no shell or arbitrary filesystem tool.
+unavailable, and uses screenshots to check the result. Typing names a current
+editable field; the helper focuses and verifies that exact field while posting
+text. The native API exposes no shell or arbitrary filesystem tool.
 
 ## Memory and results
 
@@ -85,14 +87,31 @@ within the hired Job. These hints help avoid rediscovering navigation on later
 runs. Current screens remain authoritative: memory never reuses coordinates,
 assumes an account is logged in, grants permission or supplies credentials.
 Only observed navigation keys, app IDs and HTTPS hostnames are retained; typed
-text, email recipients/bodies, URL paths/queries and screenshots are excluded.
-Failed tasks add no successful navigation lessons. Explicit preferences remain
+text, email recipients/bodies, URL paths/queries and screenshots are excluded from
+these navigation records. Failed tasks add no successful lessons. Explicit preferences remain
 managed separately through Chat > Memory and are frozen at run admission.
+
+Visual memory uses **EmbeddingGemma 2** to encode actual screenshots from completed
+work into 768-dimensional vectors in Membrane. It recalls up to three similar
+layouts for the current app, with historical field labels and roles. Current
+controls are always checked again; memory contains no executable actions, old
+control IDs or coordinates. Repeated queries for an unchanged control layout are
+cached after the original sources and images are revalidated.
+
+Original images remain in private Job storage at
+`state/computer_use_visual/`; the local catalog holds locators, not vectors.
+Screenshots can contain visible email or other confidential screen content.
+The default limits are four states per completed run, 32 retained states and
+64 MiB of image assets. At capacity, recall continues and new learning reports
+`capacity_reached`; existing images are preserved. Failed tasks never publish
+their buffered images. A later indexing failure preserves task completion and
+reports the memory failure, so a completed send is not repeated to teach memory.
 
 Results are `answer.md`, `result.json` and `computer-use-audit.json` in the
 standard `run_<timestamp>/` output folder. The audit records action types and app
 IDs, without typed content. Screenshots and model receipts stay in private run
-artifacts and are never exported to the output folder or navigation memory.
+artifacts; selected successful images also enter private visual memory. They
+are never exported to the output folder.
 The public answer is available to the existing Job responder through prepared
 Membrane sources. Screen content may be visible to the configured model provider.
 
@@ -103,6 +122,9 @@ checkpoints replay without redoing work. Interrupted, uncommitted sessions need
 reconciliation. Default limits are 80 model turns, eight help requests, 55 minutes
 total, ten minutes per human reply and 90 seconds per model request. The native worker has a one-hour deadline,
 leaving time for cleanup and publication.
+After a recognized Send, Submit, Publish, Purchase, Pay or Delete control, or a
+send shortcut, the co-worker can only observe, wait, ask for help or finish.
+Further typing and page actions stay blocked while that result is checked.
 
 ## Verification and migration
 

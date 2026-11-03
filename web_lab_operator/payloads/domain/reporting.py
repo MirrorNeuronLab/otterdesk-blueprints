@@ -14,6 +14,7 @@ LIMITATIONS = [
     'The model may misinterpret Markdown. Review the saved plan and its numbered-instruction references.',
     'Adaptation selects a predeclared source with the same liquid and enough volume. Goals, order and transfer amounts cannot change.',
     'Waits advance virtual procedure time; they do not simulate reaction kinetics or incubation.',
+    'Membrane recall is bounded historical simulation evidence. Current procedure rules and tracked state remain authoritative; missing history is not proof of absence.',
 ]
 
 
@@ -21,11 +22,15 @@ def publish(block, inputs):
     value = block.read_checkpoint(inputs['simulation']['simulation'], expected_path='simulation-checkpoint.json')
     trace = block.read_evidence(value['trace'])
     block.read_evidence(value['plan'])
+    memory = block.read_evidence(value['memory'])
     final = {key: value[key] for key in ['status', 'simulation_only', 'procedure_sha256', 'summary',
                                         'reason', 'steps_completed', 'steps_total', 'adaptations', 'goals',
                                         'assumptions', 'unresolved']}
     final.update(schema_version='mn.web_lab.review.v1', limitations=LIMITATIONS,
-                 source_refs=['procedure.md', 'plan.json', 'trace.json', 'simulation.json'])
+                 memory={'enabled': memory['enabled'], 'scope': memory['scope'], 'artifact': 'memory.json',
+                         'records_saved': len(memory['records']),
+                         'evidence_supplied': sum(len(item['packet']['evidence']) for item in memory['recalls'])},
+                 source_refs=['procedure.md', 'plan.json', 'trace.json', 'simulation.json', 'memory.json'])
     document = {'title': 'Web lab review', 'summary': value['summary'], 'sections': [
         {'id': 'outcome', 'title': 'Observed outcome', 'blocks': [
             {'type': 'paragraph', 'text': value['reason']},
@@ -44,6 +49,13 @@ def publish(block, inputs):
                       for e in trace['events']]}]},
         {'id': 'review', 'title': 'Review before another run', 'blocks': [
             {'type': 'paragraph', 'text': text} for text in value['assumptions'] + value['unresolved']]},
+        {'id': 'memory', 'title': 'Memory supplied to decisions', 'blocks': [
+            {'type': 'paragraph', 'text': ('Job-private Membrane history was enabled. Inspect memory.json for complete '
+                'query witnesses, source citations and saved outcome receipts.' if memory['enabled'] else
+                'Memory was explicitly disabled for this run. No experience was retrieved or saved.')},
+            {'type': 'table', 'columns': ['Phase', 'Recall status', 'Evidence supplied', 'Omitted'],
+             'rows': [[item['phase'], item['packet']['status'], len(item['packet']['evidence']),
+                       item['packet'].get('omitted_count', 0)] for item in memory['recalls']]}]},
         {'id': 'limits', 'title': 'Simulation limits', 'blocks': [
             {'type': 'warning', 'text': text} for text in LIMITATIONS]},
     ]}
@@ -66,6 +78,7 @@ def publish(block, inputs):
         writes.append(ArtifactWrite(identifier, reference['path'], block.store.read_bytes(reference), kind=reference['kind']))
     writes.append(ArtifactWrite('simulation', 'simulation.json',
                               block.store.read_bytes(inputs['simulation']['simulation_artifact']), kind='json'))
+    writes.append(ArtifactWrite('memory', 'memory.json', block.store.read_bytes(value['memory']), kind='json'))
     writes.extend([
         ArtifactWrite('web_report', 'web/index.html', page, kind='html', required=False, revision=revision),
         ArtifactWrite('web_ui', 'web_ui.json', handle, kind='json', required=False, revision=revision, mode=0o644),

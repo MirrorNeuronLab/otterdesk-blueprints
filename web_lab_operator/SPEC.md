@@ -8,9 +8,45 @@ executes supported steps through PyLabRobot Chatterbox, observes tip and liquid
 trackers, makes bounded next-step decisions and publishes evidence and a replay.
 This is simulation for protocol development and teaching, not a physical lab.
 
+## Experience memory
+
+Version 1.1 enables the existing `mn.context.text.v1` profile and SDK `context`
+extra. Authenticated Membrane v2 retains job-private runtime-authored Markdown,
+not a blueprint-owned database. The web lab principal can recall only authorized
+records in its trusted Job scope. Knowledge RAG remains separate.
+
+Commit each observed step checkpoint before publishing its memory record.
+Retain the fixed step, actual chosen source, affected well states, tips, outcome,
+timestamp, run/procedure/plan identities, policy revision and artifact provenance.
+Distinguish passed, failed, paused and rejected outcomes; model reasons remain
+qualified proposals. Record run completion, unmet goals and selected review
+issues against complete evidence. Cleanup attempts to remember interruptions;
+if memory is unavailable, retain the original failure and a memory diagnostic.
+
+Planning recalls prior matching procedure outcomes plus recent Job run summaries
+to help review a revised procedure. Per-step recall filters exact procedure and
+step identities and includes recent current-run observations. Typed analytical
+queries reserve results for successes and failures. Native hydration verifies
+canonical Markdown revisions. Use whole records within configured bounds,
+expose omissions, and keep full witnesses/citations outside the model packet.
+Current input and tracker state always control execution. Memory cannot expand
+the allowed action language, source candidates or hardware boundary.
+
+Freeze every retrieval packet before the associated model request. Replay uses
+the same packet, original event timestamp and immutable outcome identity; it
+cannot learn an action twice or rewrite an earlier decision using future history.
+An enabled memory failure is an observable phase failure. The standard explicit
+disabled override makes no context calls and preserves the simulation policy.
+Publish required `memory.json` with supplied context and native receipts, and
+report the enabled/disabled state. Defaults are six records and 18,000 bytes;
+the result limit is configurable within 3..12 and does not imply exhaustive recall.
+
 ## Inputs and procedure language
 
 Accept exactly one UTF-8 Markdown text or staged `.md` file, at most 32,000 bytes.
+The bundled procedure is `examples/sample_inputs/procedure.md`, accompanied by a
+sample README and `otterdesk.sample_dataset.v1` inventory. Defaults, setup sample,
+demo configuration and task inputs select that same SDK `@/` bundle reference.
 Require explicit inventory, one to four named 96-well 360 uL plates, numbered
 steps and observable final volume goals. One channel and 96 fresh 300 uL tips
 are fixed. Unlisted wells begin empty. Operations are transfer (0.1..360 uL),
@@ -63,7 +99,7 @@ command cannot resume. No replay can target a physical backend.
 Preserve procedure bytes/hash, typed plan, initial inventory, source lines,
 decisions/reasons, pre/post states, check outcomes, final goals and limitations.
 Required artifacts are procedure, plan, trace, simulation, Markdown report and
-JSON review results. Optional static replay/UI publication cannot block required
+JSON review results and the memory audit. Optional static replay/UI publication cannot block required
 results. The replay provides all recorded states without a running service;
 it is an observed-state replay, not the live PyLabRobot canvas. No confidential
 input or unrestricted file-serving endpoint is exposed by the live page.
@@ -84,3 +120,8 @@ overfill/tip exhaustion/failed-goal review, complete instruction coverage,
 immutable replay, tamper detection, cancelled cleanup, optional presentation
 failure isolation and narrow/wide replay layouts. Live provider, Docker image,
 cross-node proxy and Core lifecycle behavior require separate live qualification.
+Memory acceptance includes cross-run success/failure composition at actual
+compiled model boundaries, revised-procedure qualification, job isolation,
+whole-record omissions, no duplicate publication on replay, frozen context on
+resume, explicit disable, memory outages and audit tamper detection. Injected
+transports do not establish live Membrane storage or service behavior.

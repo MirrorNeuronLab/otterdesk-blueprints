@@ -21,6 +21,7 @@ ingestion and citation-backed input/output/procedure queries.
 | procurement_manager (`purchasing_manager`) | Disabled | Procurement evidence/decisions; no TextMemory calls |
 | microduck_controller | Disabled | Simulation state and bounded MCP operations; no TextMemory calls |
 | ros_amr_controller | Disabled | ROS state and bounded MCP operations; no TextMemory calls |
+| web_lab_operator | Enabled | Job-private simulated step successes/failures and run outcomes; procedure/step-qualified recall before planning and each action, frozen context and source receipts in `memory.json`; current deck/policy stay authoritative |
 | gtm_planner | Disabled | Job MCP exchange and collaboration packets; no TextMemory calls |
 | gtm_executor | Disabled | Job MCP exchange and collaboration packets; no TextMemory calls |
 

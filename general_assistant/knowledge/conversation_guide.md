@@ -28,3 +28,7 @@ Review answer.md for the actual observed result and computer-use-audit.json for
 action types. If an outcome is unknown, check the desktop before retrying.
 Membrane navigation hints help future tasks but never establish a current login
 or completed send. Ask what was observed, what remains, or which help is needed.
+EmbeddingGemma 2 also recalls similar successful app layouts from Job-private
+screenshots. Images can include visible content; they stay out of exported
+results. Historical field hints are always matched against current controls.
+After a commit input, inspect the result instead of entering another action.

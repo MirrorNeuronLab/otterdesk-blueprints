@@ -1,0 +1,23 @@
+{
+  "schema": "otterdesk.sample_dataset.v1",
+  "blueprint_id": "web_lab_operator",
+  "description": "Synthetic Markdown liquid-handling procedure demonstrating a declared reserve-source adaptation in a PyLabRobot simulation.",
+  "files": [
+    {
+      "path": "procedure.md",
+      "type": "text/markdown",
+      "contains_pii": false,
+      "intended_use": "simulation-only procedure planning, observed source adaptation and tracked-volume validation"
+    }
+  ],
+  "expected_outputs": [
+    "procedure.md",
+    "plan.json",
+    "trace.json",
+    "simulation.json",
+    "memory.json",
+    "report.md",
+    "final_artifact.json",
+    "result.json"
+  ]
+}

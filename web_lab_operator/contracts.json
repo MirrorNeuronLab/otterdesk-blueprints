@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Simulation-only Markdown lab operator with tracked liquid handling and bounded source adaptation.",
+  "summary": "Simulation-only Markdown lab operator with tracked liquid handling, private Membrane experience and bounded source adaptation.",
   "input_adapters": {
     "default": "json",
     "supported": [
@@ -72,7 +72,8 @@
         "summary",
         "goals",
         "steps_completed",
-        "limitations"
+        "limitations",
+        "memory"
       ]
     },
     "artifacts": [
@@ -126,6 +127,13 @@
         "privacy": "confidential"
       },
       {
+        "artifact_id": "memory",
+        "path": "memory.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
         "artifact_id": "web_report",
         "path": "web/index.html",
         "mime_type": "text/html",
@@ -137,13 +145,16 @@
         "path": "web_ui.json",
         "mime_type": "application/json",
         "required": false,
-        "privacy": "confidential"
+        "privacy": "confidential",
+        "source_refs": [
+          "web/index.html"
+        ]
       }
     ]
   },
   "privacy": {
     "classification": "confidential",
     "external_sharing": "disabled",
-    "notes": "Procedure and bounded simulation observations go to the configured model route. No physical devices, generated Python, arbitrary network endpoints or uploads. The Web UI exposes selected simulated deck state only."
+    "notes": "Procedure, bounded simulation observations and recalled experience go to the configured model route. Authenticated runtime Membrane stores job-private simulated outcomes with run provenance; no cross-job recall. No physical devices, generated Python, arbitrary network endpoints or uploads. The Web UI exposes selected simulated deck state only."
   }
 }

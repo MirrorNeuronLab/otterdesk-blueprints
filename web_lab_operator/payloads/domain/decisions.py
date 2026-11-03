@@ -18,10 +18,10 @@ DECISION_SCHEMA = {
 }
 
 
-def choose(block, step, observed, previous):
+def choose(block, step, observed, previous, history):
     llm = block.config['llm']
     user = {'step': step, 'observed': observed, 'allowed_sources': candidates(step, observed),
-            'previous_outcome': previous}
+            'previous_outcome': previous, 'runtime_memory': history}
     response = model_request(block, {
         'purpose': 'web_lab_operator', 'model': llm['model'], 'path': '/chat/completions',
         'payload': {'messages': [
