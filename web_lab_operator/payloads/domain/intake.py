@@ -6,6 +6,7 @@ from pathlib import Path
 from mn_sdk.integrations.block_inputs import capture_declared_inputs
 
 from .memory import LabMemory
+from .protocol import numbered_instructions
 
 
 def capture(block, inputs):
@@ -31,6 +32,7 @@ def capture(block, inputs):
     with LabMemory(block, identity) as memory:
         history, witness = memory.recall('planning')
     return {'markdown': markdown, 'sha256': identity,
+            'numbered_instructions': numbered_instructions(markdown),
             'procedure': reference.to_dict(), 'mode': 'simulation_only',
             'runtime_memory': history, 'memory_recall': witness,
             'supported_labware': '1..4 96-well 360 uL plates; 96 fresh 300 uL tips; one channel',

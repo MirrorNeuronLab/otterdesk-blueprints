@@ -6,7 +6,7 @@ It operates apps and websites on your Mac, asks in Chat when it needs help,
 and checks the screen before reporting the result.
 
 The co-worker lives in OtterDesk. Its computer tools run in a dedicated native
-**Computer Use.app** helper, used like a headless CLI service. The helper has no
+**mn computer use.app** helper, used like a headless CLI service. The helper has no
 separate chat or task UI; a small permissions window and CU menu provide setup
 and an immediate stop control. OtterDesk does not perform screen capture or
 input injection.
@@ -21,16 +21,17 @@ input injection.
   vision route fails explicitly.
 - Membrane v2 and its SDK context extra for private navigation and image memory.
   The runtime prepares EmbeddingGemma 2 for image encoding.
-- The declared computer-use skill prepares the native helper during registration.
-  Source preparation needs Xcode Command Line Tools. For manual setup use
+- Adding this co-worker downloads its signed, notarized native helper from GAR.
+  Installing OtterDesk or the runtime does not install it. Xcode is not required.
+  For manual setup use
   `mn-computer-use setup`; `mn-computer-use doctor` verifies the bundle.
 
-Start a task and grant **Computer Use**, not OtterDesk, **Accessibility** and
+Start a task and grant **mn computer use**, not OtterDesk, **Accessibility** and
 **Screen Recording** in System Settings → Privacy & Security. Its stable bundle
 ID is `io.mirrorneuron.computer-use`. The helper is launched independently by
 LaunchServices. No Automation, AppleScript or browser-debugger grant is needed.
-Local builds use ad-hoc signing; signed/notarized releases need a consistent
-Developer ID identity. Rebuilding an ad-hoc binary can require renewed grants.
+Reinstalling reuses the verified current helper. An unsuccessful update preserves
+the previous app; stop active computer-use tasks before updating.
 
 Setup accepts optional Instructions and an Output folder, defaulting to
 `~/Documents/computer-use`. Leave Instructions empty to give the task in Chat.

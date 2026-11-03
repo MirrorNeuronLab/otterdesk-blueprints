@@ -6,7 +6,7 @@ screenshots of the focused app window (or display when no window is available), 
 instructions. Requested sends and
 other external actions may affect real accounts. Review the observed result.
 
-Computer Use.app owns the OS grants. You can stop control from its CU menu.
+mn computer use.app owns the OS grants. You can stop control from its CU menu.
 Complete sign-in, verification and permission grants yourself while control is
 suspended. Do not send passwords, authentication codes or recovery secrets in
 Chat. A cancelled or expired request does not authorize continuation.

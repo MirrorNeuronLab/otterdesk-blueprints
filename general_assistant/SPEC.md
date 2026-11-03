@@ -9,12 +9,17 @@ vision route leaves the shared text-model default chain unchanged. If the route
 cannot meet these requirements, the run fails explicitly. No provider or physical
 model is pinned by the product. Membrane runtime memory is required.
 
-The dedicated native Computer Use.app is a headless-style tool service used by
+The dedicated native mn computer use.app is a headless-style tool service used by
 the co-worker. It owns ScreenCaptureKit and CGEvent calls, its own bundle ID
 io.mirrorneuron.computer-use, Accessibility/Screen Recording grants, and a stop
 control. LaunchServices opens it independently. OtterDesk and Python never
 capture screens or inject input. A permission window and CU menu are its only UI.
 Reusable build and IPC mechanics belong to the computer-use skill.
+Its dependency declares `setup: on_install`. API hiring and `mn blueprint add`
+prepare the signed, notarized GAR app before recording the co-worker as added.
+OtterDesk/runtime installation, catalog reads and task actions do not install it.
+The skill owns checksum/signature verification and atomic replacement; no client
+compiler or Xcode installation is required.
 
 Three serial blocks admit the task, operate the Mac, and publish the observed
 result. Admission freezes explicit supervisor instructions and the task; empty

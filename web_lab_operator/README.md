@@ -62,6 +62,11 @@ Include:
 5. Any allowed alternate source for each transfer. It must have the same
    nominal liquid identity and hold the full requested amount by itself.
 
+The plan retains the primary source and allowed reserves. A short primary source
+can still produce a ready plan when an allowed reserve holds the full transfer.
+The simulator selects the reserve after observing the deck, takes the complete
+amount from it and leaves the short primary unchanged.
+
 Transfers are bounded to 360 uL and split into chunks of at most 300 uL. Each
 chunk uses a fresh tip. Mixing uses one fresh tip, at most 300 uL and 1..10 cycles.
 Waits advance virtual time by 0..30 seconds; they do not simulate reactions.
@@ -71,8 +76,10 @@ There are at most 80 steps and a 900-second simulation-phase deadline.
 pacing. They cannot enable physical operation or an unsupported instrument.
 
 The model must mark assumptions or unsupported instructions **Needs review**.
-Every numbered source instruction must be represented in a ready plan. Before
-each action, deterministic policy checks deck resources, available tips, source
+Every numbered source instruction must be represented in a ready plan. Intake
+supplies exact physical line references for those instructions; the coverage
+validator uses the same parser. Before each action, deterministic policy checks
+deck resources, available tips, source
 volume, destination capacity and the adaptation envelope. It cannot revise the
 goal, transfer amount, destination or step order. A failed check, missing source,
 unsafe decision or exhausted inventory ends the procedure with review evidence.

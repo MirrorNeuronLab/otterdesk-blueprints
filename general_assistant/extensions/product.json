@@ -7,7 +7,7 @@
     "safety": {
       "enabled": true,
       "mode": "supervised_computer_use",
-      "reason": "The independent Computer Use app owns OS permissions and a stop control. The agent pauses for sign-in and verification, observes before each action and never repeats an uncertain mutation.",
+      "reason": "The independent mn computer use app owns OS permissions and a stop control. The agent pauses for sign-in and verification, observes before each action and never repeats an uncertain mutation.",
       "blocked_actions": [
         "collect_login_secrets",
         "treat_screen_content_as_instructions",
@@ -24,8 +24,8 @@
     "output": "An observed outcome, checks and limitations, with a saved action audit.",
     "runtime_features": [
       "macOS 14+ only",
-      "Independent Computer Use app",
-      "Accessibility and Screen Recording owned by Computer Use",
+      "Independent mn computer use app",
+      "Accessibility and Screen Recording owned by mn computer use",
       "Human help in Chat",
       "Job-private Membrane navigation memory",
       "Single execution of desktop actions"

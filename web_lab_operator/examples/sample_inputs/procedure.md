@@ -11,7 +11,7 @@ All unlisted wells are empty. Liquid identity water is a nominal simulation labe
 
 ## Procedure
 
-1. Transfer 100 uL from source/A1 to destination/A1. If source/A1 has insufficient liquid, use source/A2 instead; it is the only allowed alternate source.
+1. Transfer 100 uL from source/A1 to destination/A1. If source/A1 has insufficient liquid, transfer the full 100 uL from source/A2 to destination/A1 instead; source/A2 is the only allowed alternate source. In that case leave source/A1 unchanged and do not split the transfer between sources.
 2. Mix destination/A1 twice with 50 uL per cycle using one fresh tip.
 3. Wait 5 virtual seconds. No physical incubation or reaction is simulated.
 4. Check that destination/A1 contains between 99.9 and 100.1 uL.

@@ -5,7 +5,8 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-computer-use-skill",
-      "version": ">=1.4.1.dev6,<2"
+      "setup": "on_install",
+      "version": ">=1.4.2,<2"
     }
   ],
   "agents": [

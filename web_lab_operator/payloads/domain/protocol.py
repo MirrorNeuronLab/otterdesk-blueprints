@@ -11,6 +11,13 @@ TIP_CAPACITY = 300
 MAX_STEPS = 80
 
 
+def numbered_instructions(markdown):
+    """Bind numbered instructions to exact physical source lines once."""
+    return [{'line': number, 'text': line}
+            for number, line in enumerate(markdown.splitlines(), 1)
+            if re.match(r'^\s*\d+[.)]\s+\S', line)]
+
+
 def number(value, minimum, maximum, label):
     if type(value) not in (int, float) or not math.isfinite(value) or not minimum <= value <= maximum:
         raise ValueError(f"{label} must be finite and in {minimum}..{maximum}.")
@@ -115,8 +122,7 @@ def validate_plan(plan, markdown=None):
             raise ValueError("Final well-volume goals must be unique.")
         seen.add(goal['well'])
     if markdown is not None and plan['status'] == 'ready':
-        instructions = {i for i, line in enumerate(markdown.splitlines(), 1)
-                        if re.match(r'^\s*\d+[.)]\s+\S', line)}
+        instructions = {item['line'] for item in numbered_instructions(markdown)}
         if not instructions or instructions - covered:
             raise ValueError("Every numbered Markdown instruction must be represented; clarify missing steps.")
     if plan['status'] == 'ready' and (plan['unresolved'] or plan['assumptions']):

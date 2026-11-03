@@ -8,9 +8,10 @@ native Mac helper as a headless tool service; Chat remains in OtterDesk.
 Use macOS 14+ with at least 24 GB RAM and an unlocked local desktop. Your system's
 default LLM provider supplies the catalog's logical vision model, with verified
 image input and structured JSON output. The shared text-model default remains
-unchanged. Registration prepares Computer Use.app.
-When prompted, grant Computer Use Accessibility and Screen
-Recording in System Settings. These grants belong to Computer Use, not OtterDesk.
+unchanged. Adding this co-worker downloads and prepares the signed, notarized
+mn computer use.app. Installing OtterDesk or the runtime does not install it.
+When prompted, grant mn computer use Accessibility and Screen
+Recording in System Settings. These grants belong to mn computer use, not OtterDesk.
 Use the CU menu to stop control immediately. Keep the target window visible;
 capture crops to its focused window across displays when available. Text is
 bound to a named editable field, with focus checked by the native helper.

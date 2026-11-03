@@ -18,7 +18,7 @@ def solve(block, inputs):
             raise RuntimeError("An interrupted computer-use task requires reconciliation before another run; do not repeat desktop actions")
         block.store.commit(marker, {"request_id": request["request_id"]}, kind="computer_session_fence")
         from .engine import run
-        report_activity("Starting the requested task in the Computer Use app", kind="action",
+        report_activity("Starting the requested task in the mn computer use app", kind="action",
                         step_id=block.step_id, run_dir=block.store.run_dir)
         result = run(block, request)
         answer = block.store.commit_bytes("answer.md", result.pop("answer").encode(), kind="markdown")

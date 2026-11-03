@@ -288,7 +288,7 @@ def run(block, request):
                     raise ComputerUseError("stopped", "Computer control was stopped from the native app")
                 if not status.get("accessibility") or not status.get("screen_recording"):
                     desktop.request({"type": "request_permissions"})
-                    help_user(desktop, "In System Settings → Privacy & Security, enable Accessibility and Screen Recording for Computer Use. Then reply when ready. OtterDesk does not need these grants.", f"permissions-{turn}")
+                    help_user(desktop, "In System Settings → Privacy & Security, enable Accessibility and Screen Recording for mn computer use. Then reply when ready. OtterDesk does not need these grants.", f"permissions-{turn}")
                     continue
                 try:
                     phase = "screen_capture"
@@ -447,7 +447,7 @@ def run(block, request):
                         "memory_recall": "Membrane navigation recall failed. Check the memory engine connection.",
                         "visual_memory": "Membrane visual memory could not open. Check the memory engine and private Job storage.",
                         "visual_recall": "Visual memory recall failed. Check Membrane and the EmbeddingGemma 2 image model.",
-                        "native_session": "The native Computer Use helper could not open. Reprepare the helper and check the local desktop session.",
+                        "native_session": "The native mn computer use helper could not open. Reprepare the helper and check the local desktop session.",
                         "user_help": "The task did not receive a valid, unexpired reply in Chat.",
                         "screen_capture": "The screen could not be observed. Check the native helper and its Screen Recording grant.",
                         "native_status": "The native helper connection failed. Check the desktop session.",

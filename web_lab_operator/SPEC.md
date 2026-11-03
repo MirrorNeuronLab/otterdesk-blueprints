@@ -51,7 +51,11 @@ Require explicit inventory, one to four named 96-well 360 uL plates, numbered
 steps and observable final volume goals. One channel and 96 fresh 300 uL tips
 are fixed. Unlisted wells begin empty. Operations are transfer (0.1..360 uL),
 mix (0.1..300 uL, 1..10 cycles), wait (0..30 virtual seconds) and volume check.
-Each step points to source Markdown lines. All numbered instructions must be
+Intake annotates numbered instructions with their exact text and physical source
+line numbers, using the same parser as plan coverage validation. The model copies
+those references instead of counting lines. Original Markdown bytes remain the
+authoritative artifact. Each step points to source Markdown lines. All numbered
+instructions must be
 represented. Missing parameters, unsupported operations or assumptions require
 review and admit no simulation actions. No code from Markdown is executed.
 
@@ -66,6 +70,12 @@ amounts, destination, step order or goals is permitted. Deterministic policy
 validates every decision before command dispatch. Transfers above tip capacity
 split into <=300 uL chunks with fresh tips. Invalid decisions, volume failures
 and insufficient tips end the bounded procedure as Needs review.
+
+Planning retains the requested primary source and declared alternates. A primary
+shortage alone does not require review when one allowed same-liquid alternate
+can supply the complete transfer. "Use the alternate instead" means the entire
+amount comes from that alternate, without combining sources. Source selection
+remains an execution-time decision against observed state.
 
 No successful step is inferred from a model statement. The executor reads
 PyLabRobot tracker state after operations. Completion requires every planned

@@ -3,7 +3,7 @@
   "id": "general_assistant",
   "name": "Computer Use",
   "version": "3.0.0",
-  "description": "Operate apps and websites on your Mac from a general prompt. A separate Computer Use app owns Accessibility and Screen Recording permissions. Ask for sign-in or other help in Chat, verify results on screen, and reuse Job-private navigation memory.",
+  "description": "Operate apps and websites on your Mac from a general prompt. A separate mn computer use app owns Accessibility and Screen Recording permissions. Ask for sign-in or other help in Chat, verify results on screen, and reuse Job-private navigation memory.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",

@@ -34,19 +34,19 @@
     ]
   },
   "starter_questions": [
-    "How do I grant permissions to Computer Use?",
+    "How do I grant permissions to mn computer use?",
     "Can you send an email using Gmail?",
     "What do you remember from previous tasks?"
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Describe what you want done on this Mac. Computer Use has its own app for screen and input permissions. I will ask in Chat if you need to open an app, sign in, or resolve a blocker.",
+    "introduction": "Describe what you want done on this Mac. The mn computer use helper has its own app for screen and input permissions. I will ask in Chat if you need to open an app, sign in, or resolve a blocker.",
     "sample": {
       "available": false,
       "values": {}
     },
     "real": {
-      "introduction": "Use this Mac with an unlocked desktop. Grant Computer Use Accessibility and Screen Recording when prompted, then give a task.",
+      "introduction": "Use this Mac with an unlocked desktop. Grant mn computer use Accessibility and Screen Recording when prompted, then give a task.",
       "values": {}
     },
     "fields": [],

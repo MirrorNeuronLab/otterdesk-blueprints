@@ -286,6 +286,24 @@ def test_default_markdown_file_is_staged_and_captured_by_sdk(domain, tmp_path):
                         through_step='capture_lab_procedure')
     assert result['markdown'] == PROCEDURE.read_text()
     assert (tmp_path / 'runs/lab-file/procedure.md').read_text() == result['markdown']
+    assert result['numbered_instructions'] == [
+        {'line': number, 'text': PROCEDURE.read_text().splitlines()[number - 1]}
+        for number in (14, 15, 16, 17)]
+
+
+def test_instruction_annotations_share_the_plan_coverage_boundary(domain, plan):
+    protocol = domain('protocol')
+    markdown = '# Procedure\r\n\r\n1. Transfer.\r\n2) Mix.\r\n\r\n3. Wait.\r\n4. Check.\r\n'
+    annotated = protocol.numbered_instructions(markdown)
+    assert annotated == [
+        {'line': 3, 'text': '1. Transfer.'}, {'line': 4, 'text': '2) Mix.'},
+        {'line': 6, 'text': '3. Wait.'}, {'line': 7, 'text': '4. Check.'}]
+    for step, instruction in zip(plan['steps'], annotated, strict=True):
+        step['instruction_lines'] = [instruction['line']]
+    assert protocol.validate_plan(plan, markdown) == plan
+    plan['steps'][-1]['instruction_lines'] = [6]
+    with pytest.raises(ValueError, match='Every numbered'):
+        protocol.validate_plan(plan, markdown)
 
 
 @pytest.mark.parametrize('condition', ['unsupported', 'failed_check', 'failed_goal', 'invalid_decision'])

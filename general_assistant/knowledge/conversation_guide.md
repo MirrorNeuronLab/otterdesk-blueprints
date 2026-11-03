@@ -14,7 +14,7 @@ For a read-only walkthrough, ask “Open https://example.com and tell me the pag
 heading. Do not submit anything.” The bundled examples/demo.json uses this task
 on your real browser. There is no simulated desktop or sample login.
 
-Grant Accessibility and Screen Recording to the separate Computer Use app.
+Grant Accessibility and Screen Recording to the separate mn computer use app.
 OtterDesk does not need these grants. The helper is a headless-style native tool
 service with a permission window and a CU stop menu. It requires macOS 14+,
 24 GB RAM, the catalog's vision model on the system default LLM provider, and Membrane.
