@@ -19,13 +19,13 @@ async def verify(url, output, timeout):
                 page = await browser.new_page(viewport={"width": 1440, "height": 1000})
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 await page.goto(url, wait_until="domcontentloaded")
-                await page.wait_for_function("document.getElementById('camera-image').naturalWidth > 0", timeout=timeout * 1000)
-                await page.wait_for_function("document.querySelectorAll('.caption').length >= 3", timeout=timeout * 1000)
+                await page.wait_for_function("() => document.getElementById('camera-image').naturalWidth > 0", timeout=timeout * 1000)
+                await page.wait_for_function("() => document.querySelectorAll('.caption').length >= 3", timeout=timeout * 1000)
                 initial = (await client.get("api/status")).json()
                 count = initial["session"]["total_captions"]
                 await page.reload(wait_until="domcontentloaded")
-                await page.wait_for_function("document.querySelectorAll('.caption').length >= 3")
-                await page.wait_for_function(f"Number(document.getElementById('caption-count').textContent) > {count}", timeout=timeout * 1000)
+                await page.wait_for_function("() => document.querySelectorAll('.caption').length >= 3")
+                await page.wait_for_function(f"() => Number(document.getElementById('caption-count').textContent) > {count}", timeout=timeout * 1000)
                 for width in [1440, 320, 1000, 320, 1440]:
                     await page.set_viewport_size({"width": width, "height": 1000})
                     assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth"), width
