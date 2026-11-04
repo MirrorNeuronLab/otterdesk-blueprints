@@ -1,43 +1,128 @@
-# CCTV 6.0 validation
+# CCTV 6.0 validation — 2026-11-04
 
-The replacement uses Spark's rt_vlm sample and pinned NVIDIA vss-rt-vlm 3.3.0
-image. The original sample has been stopped at the operator's request.
+The implementation replaces the old CCTV pipeline using Spark's rt_vlm sample
+and its pinned NVIDIA vss-rt-vlm 3.3.0 image. The original demo containers were
+stopped as requested; their weights and caches were preserved.
+
+## Final live deployment
+
+- Submitted from mini through its normal Core, explicitly placed on Spark
+  (`mirror_neuron@10.0.4.32`). No cluster bypass or runtime reset.
+- Job: `job_co-cb158112`; execution: `cctv_operator-f9ffa3c84d`.
+- Physical output run: `ngh886Me2RtJcA`; submission:
+  `job_co-cb158112-def-f2a9343443c2594a`.
+- Approved camera: `rtsp://10.0.4.27:8554/stream`.
+- Workspace: `http://localhost:55173/jobs/job_co-cb158112/ui` on mini.
+- Runtime code commit: `2601de37b`; SDK commit: `414857e2`, matching on mini and
+  Spark. Subsequent validation-document changes do not alter deployed Python.
+
+The final service remained running. Real NVIDIA captions, live preview and
+public Job MCP reads authenticated by a scoped session were verified. The final
+MCP smoke read four saved captions. Its short four-window sample reported
+684 ms median model inference and 4,219 ms median video-window latency. A prior
+26-window acceptance sample reported 750 ms median / 1,241 ms p95 inference and
+4,263 ms median / 4,768 ms p95 video-window latency. These exclude model loading
+and connection startup and do not measure incident-detection accuracy or
+end-to-end alerts.
+
+## Live acceptance exercised
+
+The preceding acceptance run (`job_co-ff3edc0d`) passed forty authenticated public
+Job MCP calls, including readiness, history, activity and timings. A monitoring
+change and clear each completed through the SDK operation protocol and produced
+new completed video windows for their goal revisions. Repeating a caller request
+ID returned the same operation. Clear restored the original configured prompt.
+The completed goal-change receipts required cancellation/deletion of the prior
+NVIDIA request/stream before replacement. Routine captions stayed in the workspace;
+Chat activity contained the first completed observation for each goal revision.
+
+The final workspace passed Playwright through the actual UI proxy, including real
+preview decoding, at least three captions, reload followed by a newly arriving
+caption, export, and 1440 → 320 → 1000 → 320 → 1440 pixel resizing without page
+overflow or browser errors. Wide and narrow captures were visually inspected.
+The strict CSP remains enabled. Raw model text renders as text. The normal
+mini workspace route also showed Running, completed captions and a decoded
+preview through the cross-node proxy with no browser errors.
+
+Acceptance artifacts on Spark are in `/tmp/cctv-v6-final-acceptance/`; public
+goal-operation records from the earlier run are in
+`/tmp/cctv-final-acceptance/public-mcp.json`. SDK run artifacts remain authoritative
+under the shared submission/output paths above. Temporary completed test Jobs
+were archived rather than deleting their evidence.
+
+## Evidence replication
+
+The first replication check found that the SDK atomic writer defaults to private
+mode 0600, so the host sync user could not read container-root caption/report
+files. Publication now explicitly uses mode 0644 for credential-free source
+accounts, reports and status; the regression test checks all published files.
+Previously generated public files from our acceptance runs were repaired too.
+
+The final run's new files replicated without repair. Mini and Spark had matching
+SHA-256 values for its immutable JSON caption and complete Markdown account:
+
+- JSON: `9a753f5af3857fa56f8266f11498fd8e103e9794b30da20ef79eaf6bc507fdd7`
+- Markdown: `9c24f9b7029599ad6f9396b0f27c2af6ebcbc6fda62b57d6f4ab5d88f8f0958c`
+
+These were compared in each Core's actual shared storage while capture continued.
+The cumulative report changes as new windows arrive; immutable source accounts
+provide a stable comparison. Camera credentials and cleanup leases are excluded
+from the published accounts.
+
+## Shutdown and platform limitation
+
+Pause removed the preceding run's NVIDIA container and stopped its listeners;
+all fifty saved captions remained. Independent cancellation tests also removed
+the owned project while retaining the external model-cache volumes.
+
+**Resume is not qualified.** Core's current delivery-v2 invocation journal fences
+replay of an interrupted long-running handler as `invocation_outcome_unconfirmed`.
+The live resume attempt reproduced that guard and subsequent stale-epoch warnings.
+Core's existing pause/resume E2E explicitly expects this uncertain-effect fence.
+No Core code, delivery version or safety guard was changed to bypass it. Stop and
+an explicitly new run are available; automatic resume needs a platform lifecycle
+reconciliation contract. The final working run was launched separately.
+
+Core can close NVIDIA before the operator's HTTP cleanup completes during a
+whole-project stop. The operator records an unconfirmed cleanup lease instead of
+claiming successful release. A later start must reconcile that lease with NVIDIA
+before registering another stream. The native project removal itself was verified.
 
 ## Offline checks
 
-The focused protocol, caption persistence, manifest, HTTP, native listener/block
-lifecycle and MCP suite passed 36 checks. The final focused run, including shared input and
-architecture checks, passed 54 checks. Ruff and `git diff --check` passed.
-The first catalog-wide run completed with 1,295 passes, 29 skips, 50 failures
-and 60 errors. Retired CCTV model-routing/agentic assumptions were subsequently
-updated for the new service composition; the generic atomic-writer gate found
-and removed a local writer in favor of the SDK's file primitives. Other failures
-include absent Research Assistant sources, stale Litigation fixture versions,
-test-environment dependencies and unrelated Web Lab work already in progress.
-This is not a clean full-catalog qualification.
+The final focused CCTV protocol, persistence, compiled manifest, HTTP, native
+listener/block lifecycle, SDK-proxy binding, MCP and catalog-block checks passed
+**49 tests**. Ruff and `git diff --check` passed. Earlier focused checks including
+shared input/architecture coverage passed 54 tests before the final networking
+corrections; the later focused run covers the changed bindings.
 
-## Required SDK correction
+The initial full catalog run had 1,295 passes, 29 skips, 50 failures and 60 errors.
+CCTV's retired model/agentic assumptions and the duplicated atomic writer were
+corrected afterward. Remaining failures include absent Research Assistant sources,
+stale Litigation fixture versions, environment dependencies and unrelated Web Lab
+changes already in progress. A final manifest/agentic gate had seven passes and
+one failure caused by the absent `research_assistant/manifest.json`. The complete
+catalog is not green.
 
-SDK commit `414857e2` fixes activation of inline Compose projects without
-retransmitting source payloads. It retains and verifies content-addressed native
-source, rejects changed/redirected/symlink contexts and preserves separate revisions.
-The normal activation helper also now uses the canonical agents.nodes envelope.
-It passed 83 focused preparation/RPC tests, whole-SDK Ruff and a wheel/sdist build.
-The broad SDK run had 3,432 passes and 15 skips; six failures/four setup errors
-included missing isolated-process packages and the missing mocker fixture.
-Mini and Spark use the same SDK commit, and Spark's existing native SDK watchdog
-has reloaded it. No runtime reset or data deletion was performed.
+## Required SDK correction and deployment settings
 
-## Live acceptance
+SDK commit `414857e2` fixes native activation of prepared inline Compose projects
+without retransmitting payloads. It retains verified content-addressed source,
+rejects changed/redirected/symlink contexts and preserves separate revisions.
+The activation helper also uses the canonical `agents.nodes` envelope. Its 83
+focused preparation/RPC tests, SDK Ruff, and wheel/sdist build passed. Spark's
+existing native-SDK watchdog reloaded the matching code without a runtime reset.
 
-Approved source: `rtsp://10.0.4.27:8554/stream`. The final live gate remains in
-progress. An initial native run exposed the SDK inline-context activation bug
-before NVIDIA startup. Its retained run receipt is `run_co-86e40e5a` on Spark.
-No real caption result is claimed from that attempt. The first federated CLI
-start reported local exclusive-resource contention; starting its prepared Job
-through Spark's normal local Core reserved the Spark GPU successfully.
+The broad SDK run had 3,432 passes and 15 skips, plus six failures/four setup errors
+including absent isolated-process packages and a missing mocker fixture. Installing
+the required temporary test dependencies resolved the compiled-service entrypoint
+failure; an unrelated native-host worker fixture still failed. This is not a clean
+whole-SDK qualification.
 
-Live acceptance must verify real consecutive captions, preview, goal replacement,
-saved reports/history, browser resizing and request/stream cleanup. Timing figures
-will distinguish NVIDIA inference/window latency from model loading and connection
-startup. No site accuracy or safety qualification is implied.
+The pinned NVIDIA image's serialized vLLM graphs failed PyTorch's metrics-context
+check. The final recipe uses the supported `VLLM_DISABLE_COMPILE_CACHE=1` setting,
+retaining GPU compilation/CUDA graphs and cached weights. Model warmup completed
+successfully. The CPU operator uses HostLocal in Core's prepared Python environment,
+private runtime-network access to NVIDIA, SDK container-proxy binding for MCP, and
+Core's private interface for the separate UI proxy. These replace the incompatible
+host-network/automatic-port combination found by the live gate.
