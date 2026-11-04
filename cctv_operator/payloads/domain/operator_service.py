@@ -50,6 +50,7 @@ class Operator:
         self.loop = None
         self.started = threading.Event()
         try:
+            from mn_sdk_mcp.cli import default_host
             self.store = CaptionStore(state_dir / "captions.sqlite3", job_id=job_id, run_id=run_id,
                                       source_id=self.settings.source_id,
                                       max_records=config.get("retention", {}).get("max_captions", 10000))
@@ -59,7 +60,9 @@ class Operator:
             self.publisher = Publisher(self.run_dir, self.store, self.exchange)
             self.preview = Preview()
             self.web_socket = listener(host, port)
-            self.mcp_socket = listener("127.0.0.1", mcp_port)
+            # Core's published internal range forwards to its container interface.
+            # The SDK keeps native execution on loopback and honors that proxy.
+            self.mcp_socket = listener(default_host(), mcp_port)
         except BaseException:
             self.close_sockets()
             self.ownership.close()

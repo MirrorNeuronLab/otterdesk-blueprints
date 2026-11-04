@@ -16,7 +16,7 @@ from test_cctv_realtime_protocol import CaptionStream
 ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
 
 
-@pytest.mark.parametrize("failure", [None, "health", "model"])
+@pytest.mark.parametrize("failure", [None, "health", "model", "proxy"])
 def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(tmp_path, monkeypatch, failure):
     bundle = tmp_path / "blueprint"
     shutil.copytree(ROOT, bundle, ignore=shutil.ignore_patterns("__pycache__"))
@@ -31,7 +31,7 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     native = importlib.import_module("domain.operator_service")
     lifecycle = importlib.import_module("domain.service_lifecycle")
     client_module = importlib.import_module("domain.realtime_client")
-    calls, operators, previews = [], [], []
+    calls, operators, previews, control_hosts = [], [], [], []
 
     async def handler(request):
         calls.append((request.method, request.url.path))
@@ -64,6 +64,7 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     def construct(self, **options):
         original(self, **options)
         operators.append(self)
+        control_hosts.append(self.mcp_socket.getsockname()[0])
     monkeypatch.setattr(native.Operator, "__init__", construct)
     monkeypatch.setattr(native, "VLMClient", client)
     monkeypatch.setattr(native, "Preview", Preview)
@@ -82,6 +83,8 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
         monkeypatch.setenv(name, str(value))
     for name in ["MN_PORT_CCTV_OPERATOR_MCP", "MN_PORT_WEB_UI", "MN_EXECUTION_NODE", "MN_BLUEPRINT_WEB_UI_BASE_URL"]:
         monkeypatch.delenv(name, raising=False)
+    monkeypatch.delenv("MN_MCP_HOST", raising=False)
+    monkeypatch.setenv("MN_MCP_CONTAINER_LOOPBACK_PROXY", "1" if failure == "proxy" else "0")
     compiled = compile_blueprint(read_blueprint(bundle)).manifest
     descriptor = tmp_path / "compiled.json"
     descriptor.write_text(json.dumps(compiled))
@@ -91,13 +94,14 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
                           config=config, message={"envelope": {"message_id": "delivery"}},
                           environment={"MN_RUN_DIR": str(output), "MN_RUN_ID": "execution", "MN_WORKFLOW_RUN_ID": "run",
                                        "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor), "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'})
-    if failure:
+    if failure in {"health", "model"}:
         with pytest.raises((RuntimeError, ValueError)):
             run(context, **parameters)
     else:
         result = run(context, **parameters)
         assert run(context, **parameters) == result
         assert len(operators) == 1
+        assert control_hosts == ["0.0.0.0" if failure == "proxy" else "127.0.0.1"]
         report = json.loads((output / "cctv_report.json").read_text())
         assert report["observations"][0]["model"] == "Cosmos3-Edge"
         assert ("DELETE", "/v1/streams/delete/camera-1") in calls
