@@ -18,7 +18,7 @@ from mn_sdk.context_engine import blueprint_requires_context_engine
 
 ROOT = Path(__file__).resolve().parents[1]
 CATALOG = json.loads((ROOT / "index.json").read_text())
-ACTIVE = {"cctv_operator", "software_architecture_advisor", "litigation_analyst", "vc_assistant", "mac_security_investigator", "general_assistant", "web_lab_operator"}
+ACTIVE = {"software_architecture_advisor", "litigation_analyst", "vc_assistant", "mac_security_investigator", "general_assistant", "web_lab_operator"}
 SOURCE_ACTIVE = {"drug_discovery_research_assistant", "general_assistant", "ct_reader"}
 
 

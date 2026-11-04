@@ -2,62 +2,48 @@
   "cctv_operator": {
     "steps": [
       {
-        "id": "start_video_monitor",
+        "id": "serve_video_model",
         "needs": []
-      },
-      {
-        "id": "adaptively_sample_video",
-        "needs": [
-          "start_video_monitor"
-        ]
-      },
-      {
-        "id": "detect_visual_targets",
-        "needs": [
-          "adaptively_sample_video"
-        ]
-      },
-      {
-        "id": "write_cctv_report",
-        "needs": [
-          "detect_visual_targets"
-        ]
       }
     ],
-    "edges": [
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "video_monitor_start",
-        "from": "start_video_monitor",
-        "id": "start_video_monitor_to_adaptively_sample_video",
-        "required": true,
-        "to": "adaptively_sample_video"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "cctv_operator_frame_batch_ready",
-        "from": "adaptively_sample_video",
-        "id": "adaptively_sample_video_to_detect_visual_targets",
-        "required": true,
-        "to": "detect_visual_targets"
-      },
-      {
-        "accepts": [
-          "done"
-        ],
-        "event": "cctv_operator_detection",
-        "from": "detect_visual_targets",
-        "id": "detect_visual_targets_to_write_cctv_report",
-        "required": true,
-        "to": "write_cctv_report"
-      }
-    ],
+    "edges": [],
     "collaboration": {},
-    "native": {}
+    "native": {
+      "realtime_vlm": {
+        "resources": {
+          "gpu_count": 1,
+          "ports": [
+            {
+              "label": "realtime_vlm",
+              "port": 8019,
+              "protocol": "http"
+            }
+          ],
+          "devices": [
+            {
+              "kind": "gpu",
+              "type": "nvidia/gpu",
+              "vendor": "nvidia",
+              "driver": "cuda",
+              "min_memory_mb": 49152,
+              "memory_operator": ">=",
+              "count": 1
+            }
+          ]
+        },
+        "constraints": [
+          {
+            "attribute": "capabilities",
+            "operator": "contains_all",
+            "value": [
+              "nvidia",
+              "cuda"
+            ]
+          }
+        ],
+        "runner_module": "MirrorNeuron.Runner.DockerCompose"
+      }
+    }
   },
   "drug_discovery_research_assistant": {
     "steps": [

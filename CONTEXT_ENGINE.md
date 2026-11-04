@@ -11,7 +11,7 @@ ingestion and citation-backed input/output/procedure queries.
 | --- | --- | --- |
 | general_assistant (Computer Use) | Enabled | Job-private app navigation hints; excludes typed text, email content, credentials, screenshots and coordinates; fresh screen observations remain authoritative |
 | mac_security_investigator | Enabled | Loopback-only authored assertion graphs with source locators, pinned scope/knowledge revision, local temporal witnesses; deterministic disable profile is explicit |
-| cctv_operator | Enabled | Camera/source-scoped sampled history before vision; job-scoped observations with run provenance |
+| cctv_operator | Disabled | NVIDIA owns current-video inference; source-scoped Job caption history uses its declared SQLite state and complete Markdown outputs |
 | drug_discovery_research_assistant | Source intelligence | Approved input Markdown, configured procedure and saved scientific results for stable Job Chat; runtime TextMemory recall disabled |
 | software_architecture_advisor | Enabled | Complete frozen source text, runtime decisions and canonical memory recall |
 | litigation_analyst | Enabled | Complete normalized case corpus, specialist observations and durable context turns |
@@ -117,12 +117,12 @@ identifies Markdown/DuckDB runtime memory separately from DuckDB product RAG.
 Deployment gates use fake Docker/installer commands and temporary homes.
 No context benchmark or GPU/model workflow was run for this audit.
 
-The subsequent VC/CCTV context work preserves the distinction between external
+The subsequent VC context work preserves the distinction between external
 knowledge and runtime observations: the knowledge provider retrieves a small
 response, Membrane composes it with query-selected runtime evidence, and the
 model boundary admits the complete request. Retrieved knowledge bodies are not
-ingested as runtime memory. VC uses typed role/observation queries; CCTV queries
-recent sampled camera history before each current-image call. Litigation and
+ingested as runtime memory. VC uses typed role/observation queries. CCTV 6.0
+uses NVIDIA streaming captions and no Membrane recall before inference. Litigation and
 architecture use bounded filesystem passages instead of whole recall bundles.
 
 Membrane graph/table operations run in DuckDB. The source-backed structural

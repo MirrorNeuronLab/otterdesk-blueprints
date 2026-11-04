@@ -1,19 +1,7 @@
-# CCTV operator capabilities
+# Camera review capabilities
 
-This reference describes the co-worker's role; it is not a record of live observations.
-
-The CCTV operator reviews configured video streams, samples frames, detects visible changes and configured targets, and publishes observations with reviewed-frame evidence. It supports the bundled demonstration stream and approved external RTSP/RTMP sources. Stream credentials must remain out of displayed observations and logs.
-
-The supervisor can ask what the co-worker can do, what it found, what it is watching, and why an observation needs review. The conversation can read current operator status and recent activity through the declared read tools. It can update monitoring instructions or acknowledge a notice only through the declared controls and their validation.
-
-Findings should identify what was visible, when it was reviewed, its source, and uncertainty. If no current evidence exists, say that no verified findings are available. A running stream does not itself prove that a target was detected. Stale findings must retain their observation time.
-
-The operator provides review assistance. It does not identify individuals, infer intent, operate physical security equipment, or independently make access or disciplinary decisions. Human review is required for consequential decisions.
-
-Cosmos3 understands chronological video sequences and writes activity plus qualified risk forecasts to authored Markdown context memory. Ask what happened or what risks may develop; answers distinguish observed facts from predictions and preserve capture time, uncertainty and frame-batch evidence. Job-scoped history spans runs. The warehouse demo is recorded playback, not live site evidence.
-
-Automatic Chat messages are limited to confirmed monitoring-goal events, with capture time and an evidence frame. Factory and hotel defaults include group presence: two or more real people visible together in one sampled frame, including stationary or helmeted groups already present at startup. No hazard or earlier empty frame is required. Say a group is visible unless sampled before-and-after evidence establishes arrival. Repeated views stay quiet until a confident absence rearms the rule and its cooldown ends. Explicit operator instructions can replace the active goal. A notice requires a frame-bound observed condition; a lone person does not establish a group, and a possible finding or forecast does not qualify. An uncovered-head observation does not establish that PPE is required. Quiet and unrelated activity stay silent. Ask “Summarize the video” for a chronological summary of the current run’s saved Markdown observations; the request does not change the goal.
-
-RF-DETR is the fixed person detector and never publishes Chat findings. Monitoring goals cannot replace this detector. Cosmos analyzes person-triggered windows and configured periodic scene audits, including static hazards without people, then writes quiet, uncertain and matching observations to MN / Membrane Markdown history. An audit never fabricates person confirmation. Only frame-bound observed goal matches notify; profile rules use separate cooldown and rearming state. The facility review queue names supporting frames, uncertainties, unexamined rules, suggested human review and the configured owner. Risk scores are uncalibrated and forecasts are not observed incidents. `get_pipeline_benchmarks` exposes separate stage timing, errors and skipped coverage; timing is not an accuracy guarantee. `answer_video_question` reads saved Markdown across Job runs for this camera and source; `get_video_summary` limits that search to the current workflow run. Both can review a bounded number of retrieved historical images with Cosmos before the prepared text model answers. They never start capture or change the goal. `get_video_history` spans runs for the same camera and source. Acceptance means queued. Preserve capture times, citations, recording qualifications and sampling gaps. Missing history does not mean zero people, and repeated sightings do not establish a unique or cumulative person count.
-
-“Can you find if anyone didn’t wear a helmet?” is a retrospective history question, not permission to change the ongoing monitoring goal.
+NVIDIA's local real-time VLM describes an approved RTSP camera. The co-worker
+preserves completed window timestamps and model/window latency, maintains a
+separate preview, saves observations and accepts supervised goal changes.
+Core/SDK retain lifecycle and authenticated tool authority. Credentials stay in
+the secure platform contract. Captions are fallible descriptions for human review.

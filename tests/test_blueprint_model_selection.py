@@ -50,22 +50,6 @@ from mn_sdk.model_access.runtime import clear_runtime_model_cache, ensure_runtim
             "nemotron-3.5-lightning:latest",
             "remote",
         ),
-        (
-            "cctv_operator",
-            "nvidia",
-            131072,
-            None,
-            "nemotron-3.5-lightning:latest",
-            "local",
-        ),
-        (
-            "cctv_operator",
-            "apple",
-            16384,
-            131072,
-            "nemotron-3.5-lightning:latest",
-            "remote",
-        ),
     ],
 )
 @pytest.mark.parametrize("installed", [False, True])
@@ -162,11 +146,7 @@ def test_blueprint_model_selection_preserves_default_and_explicit_model_contract
         **llm,
         **llm.get("configs", {}).get(llm.get("default_config", "primary"), {}),
     }
-    authored_model = (
-        "nemotron-3.5-lightning:latest"
-        if blueprint_id == "cctv_operator"
-        else "default"
-    )
+    authored_model = "default"
     assert llm["model"] == authored_model
     clear_runtime_model_cache()
     try:

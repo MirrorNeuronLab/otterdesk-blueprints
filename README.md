@@ -12,7 +12,7 @@ own model specifications and use the SDK runtime model wrapper, while each
 blueprint declares only its product-level behavior and required skills and SDK packages.
 
 All published blueprints declare the Markdown context profile.
-CCTV, Architecture, Litigation, VC, Computer Use, Web Lab Operator and Mac security investigator use Membrane v2
+Architecture, Litigation, VC, Computer Use, Web Lab Operator and Mac security investigator use Membrane v2
 runtime recall. Drug Discovery uses Membrane source intelligence for input, output
 and procedure questions; other blueprints disable worker context consumers. Computer
 Use retains Job-private navigation hints through its memory engine. See
@@ -107,7 +107,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |
 | [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
 | [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
-| [`cctv_operator`](cctv_operator/README.md) | Physical AI | A steerable NVIDIA CCTV co-worker with secure approved-stream setup, live preview, Cosmos3 sequence understanding, Markdown activity memory, and qualified risk predictions for chat. |
+| [`cctv_operator`](cctv_operator/README.md) | Physical AI | NVIDIA real-time video captions, a separate live preview, secure RTSP setup, saved observations and supervised monitoring goals. |
 | [`microduck_controller`](microduck_controller/README.md) | Physical AI | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`litigation_analyst`](litigation_analyst/README.md) | Business | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
 | [`financial_advisor`](financial_advisor/README.md) | Business | Reviews financial documents and prepares a grounded advisory packet. |
@@ -319,7 +319,7 @@ unpublished. Domain controls are listed below.
 
 | Blueprint | Additional domain tools |
 |---|---|
-| CCTV operator | Read status/activity, video history/summary and benchmarks; answer video questions; change monitoring instructions; acknowledge notices |
+| CCTV operator | Read NVIDIA analysis status/activity, saved video captions and timing; change monitoring goals. |
 | Microduck controller | Read duck state; move, perform a routine, find a ball, start free play, stop; set locomotion/posture, play ball actions, reset the simulation |
 | ROS AMR controller | Read robot status, navigate to a zone, cancel navigation, adjust motion |
 | CT reader | Common supervision |
@@ -371,17 +371,18 @@ The offline catalog regression (`python -m pytest tests vc_assistant/tests -q`)
 passes **1,378 cases with 29 skips** at this source checkpoint. SDK CI passes
 3,571 cases at its existing coverage floor; the block gate passes 473 cases at
 its existing floor. Installed SDK dev34 / blocks dev33 / common dev30 test
-candidates execute and replay all four compiled CCTV workers in fresh processes,
-with synthetic resident/model transports and real JPEG/MP4 preparation. Earlier
+candidates previously exercised the retired four-worker CCTV graph. CCTV 6.0
+uses native DockerCompose and one SDK-monitored streaming operator; its current
+checks and live results are recorded in `cctv_operator/VALIDATION.md`. Earlier
 installed-package probes cover Litigation's child workflow, all 21 VC specialists
 and Microduck's native binding. These are source/test candidates, not releases.
 
-Current packaged Python, measured against `HEAD` before this migration:
+Historical migration measurements (CCTV 6.0 replaces its former implementation):
 
 | Blueprint | Before | Current | Change | Python files |
 | --- | ---: | ---: | ---: | ---: |
 | Architecture Advisor | 9,241 | 7,158 | -2,083 (-22.5%) | 79 → 50 |
-| CCTV Operator | 6,893 | 6,046 | -847 (-12.3%) | 44 → 46 |
+| CCTV Operator 5.x (retired) | 6,893 | 6,046 | -847 (-12.3%) | 44 → 46 |
 | Code Verifier | 1,354 | 1,321 | -33 (-2.4%) | 30 → 15 |
 | CT Reader | 247 | 193 | -54 (-21.9%) | 8 → 6 |
 | Drug Discovery Research Assistant | 3,590 | 2,887 | -703 (-19.6%) | 46 → 23 |

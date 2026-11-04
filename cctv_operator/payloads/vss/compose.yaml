@@ -1,0 +1,69 @@
+services:
+  vlm:
+    image: ${RTVI_IMAGE:-ghcr.io/nvidia-ai-blueprints/vss/vss-rt-vlm@sha256:f539300f249e3d30528a986deac6796a8c89e8e9c431bb4357d504fbd173541c}
+    runtime: nvidia
+    gpus: all
+    shm_size: 16gb
+    ipc: host
+    ports:
+    - 127.0.0.1:8019:8000
+    tmpfs:
+    - /tmp/assets:size=4g,mode=1777
+    - /tmp/rtvi:size=2g,mode=1777
+    volumes:
+    - hf-cache:/tmp/huggingface
+    - model-cache:/opt/nvidia/rtvi/.rtvi/ngc_model_cache
+    environment:
+      MODEL_PATH: ${MODEL_PATH:-git:https://huggingface.co/nvidia/Cosmos3-Edge}
+      VLM_MODEL_TO_USE: ${VLM_MODEL_TO_USE:-cosmos-reason3}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      VLM_BATCH_SIZE: '1'
+      NUM_VLM_PROCS: '1'
+      VLLM_MAX_NUM_SEQS: '1'
+      VLM_MAX_MODEL_LEN: '8192'
+      VLLM_MAX_NUM_BATCHED_TOKENS: '8192'
+      VLLM_GPU_MEMORY_UTILIZATION: ${VLLM_GPU_MEMORY_UTILIZATION:-0.35}
+      VLLM_ENFORCE_EAGER: 'false'
+      VLLM_USE_STANDALONE_COMPILE: '0'
+      VLLM_USE_AOT_COMPILE: '0'
+      VLLM_WORKER_MULTIPROC_METHOD: spawn
+      VLLM_MM_PROCESSOR_VIDEO_NUM_FRAMES: '16'
+      VLM_MAX_GENERATION_TOKENS: '1024'
+      VLM_INPUT_WIDTH: '608'
+      VLM_INPUT_HEIGHT: '320'
+      VLM_DEFAULT_NUM_FRAMES_PER_SECOND_OR_FIXED_FRAMES_CHUNK: '8'
+      VLM_TRUST_REMOTE_CODE: 'true'
+      RTVI_MODEL_PATH_ALLOWLIST: ${MODEL_PATH:-git:https://huggingface.co/nvidia/Cosmos3-Edge}
+      MESSAGE_BUS: ''
+      ERROR_BUS: ''
+      KAFKA_ENABLED: 'false'
+      ENABLE_REDIS_ERROR_MESSAGES: 'false'
+      ENABLE_OTEL_MONITORING: 'false'
+      MAX_ASSET_STORAGE_SIZE_GB: '3'
+      LOG_LEVEL: INFO
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      stack: 67108864
+      nofile:
+        soft: 65535
+        hard: 65535
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -fsS
+      - http://localhost:8000/v1/ready
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 600s
+volumes:
+  hf-cache:
+    name: otterdesk-cctv-hf-cache
+    external: true
+  model-cache:
+    name: otterdesk-cctv-model-cache
+    external: true

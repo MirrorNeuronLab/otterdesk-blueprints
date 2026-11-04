@@ -1,155 +1,40 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
-  "edges": [
-    {
-      "accepts": [
-        "done"
-      ],
-      "event": "video_monitor_start",
-      "from": "start_video_monitor",
-      "id": "start_video_monitor_to_adaptively_sample_video",
-      "required": true,
-      "to": "adaptively_sample_video"
-    },
-    {
-      "accepts": [
-        "done"
-      ],
-      "event": "cctv_operator_frame_batch_ready",
-      "from": "adaptively_sample_video",
-      "id": "adaptively_sample_video_to_detect_visual_targets",
-      "required": true,
-      "to": "detect_visual_targets"
-    },
-    {
-      "accepts": [
-        "done"
-      ],
-      "event": "cctv_operator_detection",
-      "from": "detect_visual_targets",
-      "id": "detect_visual_targets_to_write_cctv_report",
-      "required": true,
-      "to": "write_cctv_report"
-    }
-  ],
+  "workflow_id": "cctv_operator_v6",
   "execution": {
-    "strategy": "parallel"
+    "strategy": "serial"
   },
   "steps": [
     {
-      "goal": "Validate the bundled demo or configured external RTSP/RTMP stream and start the analysis session.",
-      "id": "start_video_monitor",
-      "in": {
-        "video_source": "$state.video_source"
-      },
-      "kind": "stage",
-      "label": "Start Video Monitor",
-      "out": {
-        "stream_session": "$state.stream_session"
-      },
+      "id": "serve_video_model",
+      "needs": [],
+      "kind": "task",
+      "label": "Monitor camera activity",
+      "goal": "Keep NVIDIA real-time video analysis and the supervised camera operator running.",
       "run": {
-        "agent": "ingress",
-        "binding": "start_video_monitor"
-      }
-    },
-    {
-      "goal": "Claim bounded person-triggered or periodic scene-audit windows; expire stale pending work.",
-      "id": "adaptively_sample_video",
-      "in": {
-        "session": "$state.stream_session"
+        "agent": "realtime_vlm",
+        "binding": "serve_video_model"
       },
-      "kind": "stage",
-      "label": "Adaptively Sample Video",
-      "out": {
-        "frame_batches": "$state.frame_batches"
+      "worker": {
+        "enabled": false
       },
-      "run": {
-        "agent": "adaptive_frame_sampler",
-        "binding": "adaptively_sample_video"
-      }
-    },
-    {
-      "goal": "Understand selected video frames, validate frame-bound facility rules and qualified forecasts, then publish reviewable goal matches.",
-      "id": "detect_visual_targets",
       "control": {
-        "timeout_seconds": 600
-      },
-      "in": {
-        "frame_batches": "$state.frame_batches",
-        "policy": "$state.alert_policy",
-        "targets": "$state.visual_targets"
-      },
-      "kind": "stage",
-      "label": "Detect Visual Targets",
-      "out": {
-        "detections": "$state.detections"
-      },
-      "run": {
-        "agent": "visual_detector",
-        "binding": "detect_visual_targets"
-      }
-    },
-    {
-      "goal": "Merge the latest observation into cumulative JSON and Markdown review reports.",
-      "id": "write_cctv_report",
-      "in": {
-        "detections": "$state.detections"
-      },
-      "kind": "stage",
-      "label": "Write CCTV Report",
-      "out": {
-        "final_report": "$state.final_report"
-      },
-      "run": {
-        "agent": "report_writer",
-        "binding": "write_cctv_report"
-      }
-    }
-  ],
-  "workflow_id": "cctv_operator_v2",
-  "defaults": {
-    "step": {
-      "control": {
-        "failure_policy": "fail_workflow",
-        "required": true,
+        "timeout_seconds": 86400,
         "retry": {
-          "backoff_multiplier": 2,
-          "backoff_seconds": 1,
-          "jitter": 0,
-          "max_attempts": 2
-        },
-        "timeout_seconds": 300,
-        "uncertainty": {
-          "min_confidence": 0,
-          "on_low_confidence": "continue_with_warning"
+          "max_attempts": 1
         }
       }
     }
-  },
-  "policy": {
-    "human": {
-      "enabled": true,
-      "events": [
-        "human_notice",
-        "human_input_requested",
-        "human_input_received",
-        "human_input_timeout",
-        "human_decision_applied"
-      ],
-      "mode": "approval_required",
-      "blocked_actions": [
-        "deep_analysis_after_uncertain_screening"
-      ],
-      "default_action": "reject",
-      "decision_event": "human_decision_applied",
-      "request_event": "human_input_requested",
-      "response_event": "human_input_received",
-      "timeout_event": "human_input_timeout",
-      "timeout_seconds": 180,
-      "notice_event": "human_notice",
-      "reason": "An uncertain frame requires operator approval before detailed analysis; notable confirmed findings still surface as notices.",
-      "requires_ack": false
-    },
-    "on_step_failure": "fail_workflow"
+  ],
+  "defaults": {
+    "step": {
+      "control": {
+        "required": true,
+        "failure_policy": "fail_workflow",
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
   }
 }

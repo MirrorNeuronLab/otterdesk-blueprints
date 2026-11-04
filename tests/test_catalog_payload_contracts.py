@@ -2,5 +2,4 @@ from __future__ import annotations
 
 from otterdesk_blueprint_suite import (
     test_procurement_manager_final_artifact_uses_product_output_fields as test_procurement_manager_final_artifact_uses_product_output_fields,
-    test_cctv_operator_report_writer_emits_cumulative_reports as test_cctv_operator_report_writer_emits_cumulative_reports,
 )

@@ -109,7 +109,7 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     payload = ROOT / blueprint / 'payloads'
     monkeypatch.syspath_prepend(str(payload))
     if blueprint == 'cctv_operator':
-        source = payload / 'services/cctv_web_ui.py'
+        source = payload / 'domain/mcp_tools.py'
     else:
         source = payload / 'docker_compose/turtlebot-maze/mcp/robot_control_server.py'
     name = 'mcp_contract_' + blueprint
@@ -118,10 +118,10 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     monkeypatch.setitem(sys.modules, name, module)
     spec.loader.exec_module(module)
     if blueprint == 'cctv_operator':
-        service = SimpleNamespace(config={}, attach_activity_store=lambda store: None,
-            ui_state=lambda: {'metrics': {'latest finding': 'Observed scene.', 'last analyzed': 'now',
-                'last captured': 'now', 'status': 'running'}})
-        server = module.create_operator_mcp_server(service, job_id='job', run_id='run', run_dir=tmp_path)
+        service = SimpleNamespace(snapshot=lambda: {
+            'session': {'status': 'running'}, 'captions': [], 'phase': 'running',
+            'preview': {'connected': True}, 'error': None, 'limitation': 'Sampled video descriptions.'})
+        server = module.create_operator_mcp_server(service)
         read_tool = 'get_operator_status'
     else:
         module._control = SimpleNamespace(status=lambda: {'connected': True, 'navigation_status': 'idle', 'pose': None})
@@ -135,7 +135,9 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
         properties = tool.input_schema['properties']
         assert properties.keys() == expected[tool.name]['arguments'].keys()
         for argument, schema in expected[tool.name]['arguments'].items():
-            assert all(properties[argument].get(key) == value for key, value in schema.items())
+            assert all(properties[argument].get(key) == value or (
+                key == 'enum' and len(value) == 1 and properties[argument].get('const') == value[0]
+            ) for key, value in schema.items())
         assert tool.output_schema
     result = asyncio.run(server.call_tool(read_tool, {}))
     assert result.is_error is not True

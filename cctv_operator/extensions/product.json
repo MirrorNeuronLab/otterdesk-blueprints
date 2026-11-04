@@ -1,100 +1,43 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
-  "features": [
-    "Optional local reference documents",
-    "Guided analysis tools",
-    "Goal-event alerts with times and evidence frames",
-    "Past-video questions and summaries"
+  "category": "Physical AI",
+  "overview": "Review one approved RTSP camera with NVIDIA real-time video captions, a live preview, saved observations and supervised monitoring goals.",
+  "target_users": "Authorized camera operators and site reviewers.",
+  "agent_role": "Co-worker for reviewing camera activity.",
+  "capabilities": [
+    "Review an approved RTSP camera with NVIDIA video-window captions.",
+    "Show live video separately from completed analysis.",
+    "Save timestamped observations and monitoring goals.",
+    "Keep decisions and physical actions with a human supervisor."
   ],
-  "target_user": "Video operators, security reviewers, safety operations teams, and site-access coordinators.",
-  "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
+  "features": [
+    "Live video",
+    "NVIDIA streaming captions",
+    "Saved camera observations",
+    "Monitoring goals in Chat"
+  ],
+  "output": "Timestamped sampled video observations and reviewable reports.",
   "search_terms": [
     "Camera monitoring",
+    "NVIDIA",
     "Video review",
-    "Facility operations",
-    "Site safety",
-    "Live camera stream",
-    "NVIDIA video analysis",
-    "Security review"
-  ],
-  "problem_solved": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
-  "target_users": "Factory operations, hotel duty managers and authorized site reviewers.",
-  "simulation_type": "Sampled facility monitoring with qualified risk hypotheses.",
-  "runtime_features": [
-    "Live camera review",
-    "Cosmos helmet findings",
-    "Monitoring instructions in Chat",
-    "Person-gated scene understanding",
-    "Video preview",
-    "NVIDIA GPU video processing",
-    "Visual observations",
-    "Goal-event messages with times and frames",
-    "Repeat alert limits",
-    "Optional Slack alerts",
-    "Past-video questions and summaries",
-    "Saved reports"
-  ],
-  "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-  "agent_role": "Co-worker for reviewing live camera activity and preparing alerts.",
-  "category": "Physical AI",
-  "llm_agent_role": "AI assistant for reviewing live video activity and preparing visual detection reports and alerts.",
-  "intent": {
-    "problem": "Monitor a live CCTV stream without sending its native frame rate to the model.",
-    "safety": {
-      "enabled": true,
-      "events": [
-        "human_notice",
-        "human_input_requested",
-        "human_input_received",
-        "human_input_timeout",
-        "human_decision_applied"
-      ],
-      "mode": "review_only",
-      "blocked_actions": [
-        "physical_security_actions"
-      ],
-      "default_action": "reject",
-      "decision_event": "human_decision_applied",
-      "request_event": "human_input_requested",
-      "response_event": "human_input_received",
-      "timeout_event": "human_input_timeout",
-      "timeout_seconds": 180,
-      "notice_event": "human_notice",
-      "reason": "Observations and predictions require human review before safety or security action.",
-      "requires_ack": false
-    },
-    "target_users": "Video operators, security reviewers, safety operations teams, and site-access coordinators."
-  },
-  "capabilities": [
-    "Connect one approved RTSP/RTMP camera stream through the secure setup field.",
-    "Keeps camera credentials out of logs and public reports.",
-    "Reports sampled monitoring-goal events with frame times and evidence you can review.",
-    "Leaves safety, security, access, and disciplinary decisions to you.",
-    "Accepts monitoring goals and answers video questions through Chat."
+    "CCTV"
   ],
   "product": {
-    "agent_role": "Co-worker for reviewing live camera activity and preparing alerts.",
-    "benefit": "Focus your attention on the events you want to watch for, with times and frames you can review.",
-    "customizable_for": "Video monitoring, configurable visual detection, facility operations, and site safety workflows.",
-    "how_it_works": "Independent RF-DETR person sampling plus periodic scene audits feed bounded Cosmos sequences. Facility rules and forecasts bind selected frames; reports retain unexamined rules, human review actions and stage measurements.",
-    "input": "One approved RTSP/RTMP camera stream, plus what to watch for and your alert settings.",
-    "output": "Live video preview, confirmed goal-event alerts with evidence frames, and requested video answers.",
-    "problem": "Watching a continuous camera feed makes it easy to miss activity that needs review.",
+    "problem": "Reviewing a continuous camera feed takes sustained attention.",
+    "benefit": "Review concise camera observations with the original video intervals.",
+    "how_it_works": "NVIDIA DeepStream and vLLM analyze video windows; the co-worker saves completed captions and serves a separate live preview.",
+    "input": "One approved RTSP camera and an optional monitoring goal.",
+    "output": "Timestamped sampled observations, reports and a live preview.",
+    "agent_role": "Co-worker for reviewing camera activity.",
+    "target_users": "Authorized camera operators and site reviewers.",
     "runtime_features": [
-      "Live camera review",
-      "Cosmos helmet findings",
-      "Monitoring instructions in Chat",
-      "Person-gated scene understanding",
-      "Video preview",
-      "NVIDIA GPU video processing",
-      "Visual observations",
-      "Repeat alert limits",
-      "Optional Slack alerts",
-      "Past-video questions and summaries",
-      "Saved reports"
+      "Live preview",
+      "Streaming captions",
+      "Saved observations",
+      "Supervised goal changes"
     ],
-    "simulation_type": "Sampled facility monitoring with qualified risk hypotheses.",
-    "target_users": "Factory operations, hotel duty managers and authorized site reviewers."
-  },
-  "overview": "Factory or hotel camera review with frame-linked observations, qualified forecasts and an operator review queue. One camera per Job; requires NVIDIA CUDA. No autonomous safety decision or guaranteed detection."
+    "customizable_for": "Approved single-camera monitoring.",
+    "simulation_type": "Live sampled video analysis."
+  }
 }

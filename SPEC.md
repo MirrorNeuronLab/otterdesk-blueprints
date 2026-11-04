@@ -71,7 +71,7 @@ That label identifies the Markdown storage format; the service RPCs use
 `mirrorneuron.context.v2`. Active consumers require Membrane SDK >=2.1,<3.
 Shared preparation checks the authenticated v2 protocol before reporting
 readiness, including when the service container is already running.
-CCTV, Architecture, Litigation, VC and Mac security investigator enable it and
+Architecture, Litigation, VC and Mac security investigator enable it and
 declare the SDK `context` extra;
 Drug Discovery declares the context extra and enables separate `source_context`
 intelligence for complete prepared inputs, configured procedure and saved results.

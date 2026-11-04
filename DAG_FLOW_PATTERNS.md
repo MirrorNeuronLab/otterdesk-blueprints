@@ -12,7 +12,7 @@ workflow ledger, not only displayed in the UI.
 | --- | --- |
 | Computer Use | Serial local Mac batch: freeze task/rules → operate through the dedicated native helper with human help and Membrane navigation recall → publish observed result and action audit. |
 | Mac security investigator | Serial bounded batch: capture unified logs → reconcile persistent diagnostic history → evaluate available evidence → publish review. Idle between user-initiated runs; no OS file inspection. |
-| CCTV Operator | Event-driven service flow: monitor ingress, sample frames, detect, and report. |
+| CCTV Operator | Native NVIDIA Compose service with one SDK-monitored operator consuming streaming video captions until stopped. |
 | Drug Discovery Research Assistant | Bounded discovery batch: one cycle evaluates five distinct molecules, then review and reporting complete the run. |
 | Web Lab Operator | Bounded simulation batch: capture Markdown and recall job-private Membrane experience → plan typed steps → recall matching outcomes, observe and execute PyLabRobot liquid handling with declared source adaptations → save observed experience and publish evidence, memory audit and an optional replay. |
 | Financial Advisor | Ordered regulated-state pipeline: packet intake, household analysis, tax review, portfolio risk, public guidance, reconciliation, and publication. |

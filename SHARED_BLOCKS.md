@@ -39,7 +39,7 @@ copied into input artifacts.
 | CT Reader | Shared input capture before the existing native computation block; medical-research input policy retained |
 | Litigation Analyst | Input capture and paths, atomic identity-ledger storage, existing scoped checkpoints and file validation; citation checks, legal scope and archive-link layout retained |
 | Mac Security Investigator | Shared Job directory and existing stock report publication; host epoch and temporal evidence policy retained |
-| CCTV Operator | Existing monitored-service, event-processing, checkpoint and publication blocks; shared nested evidence checks and atomic image/state/endpoint publication |
+| CCTV Operator | Native NVIDIA DockerCompose service plus one SDK-monitored streaming operator, durable caption accounts and final activity publication |
 | Microduck Controller | Existing controlled-operation, event-processing and monitored-service blocks; shared atomic state publication; simulator and operator command policy retained |
 | ROS AMR Controller | Already uses stock Compose lifecycle; only robot-specific result content remains in its finalizer |
 | Web Lab Operator | Shared input capture/staging, structured assessment, managed model journals, scoped checkpoints, Membrane TextMemory/typed recall, Web UI binding/claims and verified publication; liquid-handling and experience-selection policy remain domain-owned |

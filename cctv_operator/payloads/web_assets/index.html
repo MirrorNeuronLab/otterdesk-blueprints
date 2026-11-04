@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CCTV co-worker</title><link rel="stylesheet" href="static/style.css"><script src="static/app.js" defer></script></head>
+<body>
+<main>
+  <header><div><h1 id="camera">CCTV co-worker</h1><p id="goal">Connecting to the camera…</p></div><span id="status" role="status">Preparing</span></header>
+  <section aria-label="Live video"><img id="camera-image" src="api/preview.mjpeg" alt="Current camera preview"><p id="preview-state">Connecting to live video…</p></section>
+  <div class="context"><p id="analysis-state" role="status">Waiting for the first completed video window.</p><a href="api/export" download>Export observations</a></div>
+  <p id="error" role="alert" hidden></p>
+  <section aria-labelledby="observations-title"><div class="context"><h2 id="observations-title">Recent observations</h2><span id="caption-count">0</span></div><p id="empty">No completed video observations yet.</p><ol id="captions" aria-live="polite" aria-relevant="additions"></ol></section>
+  <footer>Sampled descriptions can miss or misdescribe activity. Review the source video before acting. The live preview is separate from analyzed windows. Use Chat to change the goal and OtterDesk to pause or stop.</footer>
+</main>
+</body></html>

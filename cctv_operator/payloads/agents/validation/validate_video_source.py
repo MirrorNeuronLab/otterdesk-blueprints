@@ -1,46 +1,26 @@
-#!/usr/bin/env python3.12
-"""Standalone source check using the native monitor's validation policy."""
+#!/usr/bin/env python3
+"""Validate configuration without contacting a camera or printing its address."""
 import json
 import os
-from pathlib import Path
-import sys
-
-def _load_repo_env() -> None:
-    for parent in Path(__file__).resolve().parents:
-        if (parent / "otterdesk_blueprint_env.py").exists():
-            if str(parent) not in sys.path:
-                sys.path.insert(0, str(parent))
-            from otterdesk_blueprint_env import load_blueprint_env
-
-            load_blueprint_env(__file__)
-            return
+from urllib.parse import urlsplit
 
 
-_load_repo_env()
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-from domain.source_validation import SourceValidationError, validate_source
-
-
-def blueprint_config() -> dict:
-    raw_config = os.environ.get("MN_BLUEPRINT_CONFIG_JSON")
-    if raw_config:
-        try:
-            parsed = json.loads(raw_config)
-            return parsed if isinstance(parsed, dict) else {}
-        except json.JSONDecodeError:
-            return {}
-    return {}
-
-
-def main() -> int:
+def main():
     try:
-        print(validate_source(blueprint_config()))
-        return 0
-    except SourceValidationError as error:
-        print(json.dumps(error.report, sort_keys=True))
-        return error.status
+        config = json.loads(os.environ.get('MN_BLUEPRINT_CONFIG_JSON', '{}'))
+        uri = config.get('video_source', {}).get('uri', '')
+        if not isinstance(uri, str) or not 8 <= len(uri) <= 2048 or any(ord(c) < 32 or ord(c) == 127 for c in uri):
+            raise ValueError()
+        parts = urlsplit(uri.strip())
+        if parts.scheme not in {'rtsp', 'rtsps'} or not parts.hostname or parts.fragment:
+            raise ValueError()
+        parts.port
+    except (ValueError, TypeError, AttributeError):
+        print(json.dumps({'ok': False, 'issues': [{'code': 'camera_configuration', 'message': 'Enter an approved RTSP or RTSPS URL in the secure Video stream URL field.'}]}))
+        return 1
+    print(json.dumps({'ok': True, 'issues': [], 'message': 'Camera configuration is valid; connection is checked on the NVIDIA computer at startup.'}))
+    return 0
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     raise SystemExit(main())

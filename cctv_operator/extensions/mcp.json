@@ -4,7 +4,7 @@
   "manual": "@/knowledge/user_manual.md",
   "tools": {
     "get_operator_status": {
-      "description": "Read the latest sampled Cosmos account, frame-bound factory/hotel review queue, uncertainty and separate capture/person/caption health. Scheduled scene audits can examine empty scenes. A read never changes monitoring.",
+      "description": "Read current NVIDIA analysis health, the separate preview and latest completed video-window description. A read never starts capture.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -74,7 +74,7 @@
       }
     },
     "get_operator_activity": {
-      "description": "Read existing observations only; this does not change what the vision model looks for. after_revision must be a non-negative integer: use 0 for available history or a returned revision for subsequent updates. Never use \"latest\".",
+      "description": "Read completed goal-revision observations after a non-negative revision cursor. Routine captions stay in the workspace.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -120,14 +120,14 @@
       }
     },
     "set_monitoring_instruction": {
-      "description": "Set the ongoing Cosmos scene-understanding prompt. OtterDesk can apply an explicit goal directly without model tool calling. A Watch from now choice authorizes the selected condition; a find-if request with ambiguous time scope alone does not. Applies to an explicit future focus on a specified visible subject or attribute, even when phrased as a question: \"focus on if the person wearing the safety helmet\" specifies helmet use. A correction to the active focus, such as \"sorry, I mean when the door is NOT closed\", is also a monitoring change even without repeating \"change goal\". Keep the requested condition and negation; do not route that correction to a policy question or ask the running service to finish. No current image evidence or site policy is needed to set a prompt. Past-event questions using \"did\", \"earlier\", \"previously\" or \"what happened\" are history reads, unrelated to this tool; leave the prompt unchanged. Vague \"watch for problems\" lacks a specified visible condition and needs clarification; leave the prompt unchanged. Clearing restores the configured goal. Confirm application only from the completed command receipt, separately from a new visual result.",
+      "description": "Change the visible condition described in future NVIDIA video windows. Preserve the exact subject and negation. A monitoring correction changes the goal; a past-video question only reads saved captions. Clearing restores the configured goal. A completed receipt confirms application, separately from a completed analysis; never claim an automatic event verdict.",
       "effect": "monitoring",
       "inputSchema": {
         "type": "object",
         "properties": {
           "instruction": {
             "type": "string",
-            "maxLength": 512
+            "maxLength": 4000
           },
           "clear": {
             "type": "boolean"
@@ -181,62 +181,8 @@
         }
       }
     },
-    "acknowledge_operator_notice": {
-      "description": "Mark a specific notice reviewed only when the operator requests acknowledgement. This does not change monitoring focus.",
-      "effect": "acknowledgement",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "notice_id": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "request_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          }
-        },
-        "required": [
-          "notice_id",
-          "request_id"
-        ],
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "summary": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "command_id": {
-            "type": "string"
-          },
-          "operation_id": {
-            "type": "string"
-          },
-          "accepted": {
-            "type": "boolean"
-          }
-        }
-      },
-      "request_id_argument": "command_id",
-      "completion": {
-        "tool": "get_operation_status",
-        "id_argument": "operation_id",
-        "id_field": "command_id",
-        "poll_interval_ms": 500,
-        "timeout_seconds": 10,
-        "arguments": {
-          "kind": "command"
-        }
-      }
-    },
     "get_video_history": {
-      "description": "Read up to twelve latest matching authored Markdown camera accounts from job-scoped context memory, including previous runs. Use for what happened and predicted-risk history. after and before are optional ISO 8601 times with timezone, or empty strings. Preserve citations, camera, capture times, source_profile and prediction qualifications; the result is bounded, not exhaustive.",
+      "description": "Read up to twelve saved captions for this Job and camera across runs. Optional after/before are ISO 8601 capture times with timezone, or empty strings. Preserve times, citations, omissions and uncertainty. Missing captions do not prove absence.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -277,131 +223,8 @@
         }
       }
     },
-    "get_video_summary": {
-      "description": "Summarize this run\u2019s indexed saved image/text observations from Membrane. EmbeddingGemma 2 retrieves whole evidence groups; a bounded historical image review may support the text-model summary. This is an asynchronous read and never changes monitoring or starts capture. Report completion only after get_operation_status returns completed. Optional after/before are timezone-qualified ISO 8601 capture times or empty strings. Preserve citations, sampled coverage, original capture times, recording qualifications and omissions.",
-      "effect": "read",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "after": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "before": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "request_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          }
-        },
-        "required": [
-          "after",
-          "before",
-          "request_id"
-        ],
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "summary": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "command_id": {
-            "type": "string"
-          },
-          "operation_id": {
-            "type": "string"
-          },
-          "accepted": {
-            "type": "boolean"
-          }
-        }
-      },
-      "request_id_argument": "command_id",
-      "completion": {
-        "tool": "get_operation_status",
-        "id_argument": "operation_id",
-        "id_field": "command_id",
-        "poll_interval_ms": 1000,
-        "timeout_seconds": 90,
-        "arguments": {
-          "kind": "video"
-        }
-      }
-    },
-    "answer_video_question": {
-      "description": "Invoke this read before answering any retrospective video question or an explicit Search saved footage choice. A find-if request without a clear time scope needs a Watch from now or Search saved footage choice first. Never claim I checked, no events, or no evidence without its completed result. Search this camera/source Job history using EmbeddingGemma 2 image and text retrieval in Membrane, then review a bounded number of retrieved historical images with the declared vision model and produce a cited answer. Visible helmet status is in scope but cannot establish required PPE or compliance. Never change monitoring or start capture. Poll get_operation_status for completion. Optional after/before are timezone-qualified ISO 8601 capture times or empty strings. Preserve capture times, image hashes, citations, omissions and sampling limits. Missing history does not mean zero people, and repeated samples cannot establish unique people or total appearances.",
-      "effect": "read",
-      "inputSchema": {
-        "type": "object",
-        "properties": {
-          "question": {
-            "type": "string",
-            "maxLength": 8000
-          },
-          "after": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "before": {
-            "type": "string",
-            "maxLength": 512
-          },
-          "request_id": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          }
-        },
-        "required": [
-          "question",
-          "after",
-          "before",
-          "request_id"
-        ],
-        "additionalProperties": false
-      },
-      "outputSchema": {
-        "type": "object",
-        "properties": {
-          "summary": {
-            "type": "string"
-          },
-          "state": {
-            "type": "string"
-          },
-          "command_id": {
-            "type": "string"
-          },
-          "operation_id": {
-            "type": "string"
-          },
-          "accepted": {
-            "type": "boolean"
-          }
-        }
-      },
-      "request_id_argument": "command_id",
-      "completion": {
-        "tool": "get_operation_status",
-        "id_argument": "operation_id",
-        "id_field": "command_id",
-        "poll_interval_ms": 1000,
-        "timeout_seconds": 90,
-        "arguments": {
-          "kind": "video"
-        }
-      }
-    },
     "get_pipeline_benchmarks": {
-      "description": "Read retained per-stage timing, p50/p95, errors and skipped coverage for RF-DETR person events, Cosmos captioning, MN memory and historical Q&A. Cold starts and hardware/model cohorts are separate. Notice latency ends at SDK/MCP publication, not desktop receipt.",
+      "description": "Read NVIDIA-reported model and video-window timings for retained captions in the current run. These exclude model startup and are not event-to-notice latency.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -442,7 +265,6 @@
   },
   "preflight": {
     "required_for_effects": [
-      "acknowledgement",
       "monitoring"
     ],
     "tool": "get_operator_status",

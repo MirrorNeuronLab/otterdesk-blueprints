@@ -12,7 +12,6 @@ ROOT = Path(__file__).resolve().parents[1]
 RAG_BLUEPRINTS = {
     "drug_discovery_research_assistant",
     "procurement_manager",
-    "cctv_operator",
 }
 
 SUPPORTED_KNOWLEDGE_SUFFIXES = {".md", ".txt", ".json", ".yaml", ".yml"}

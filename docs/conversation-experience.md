@@ -15,7 +15,7 @@ All published packages expose optional app guidance at `payloads/prompts/convers
 | Drug Discovery Research Assistant | Explanation preferences | Native scientific pipeline and computational scores remain unchanged. |
 | CT reader | Explanation preferences | Native CT request unchanged; saved research report is a run-linked prepared source. |
 | Mac security investigator | Explanation preferences | Capabilities-only Chat; private evidence remains in local ledger/Membrane. |
-| CCTV Operator | Existing bounded Job memory | Camera notes, monitoring goals, secure source fields and timestamped observation evidence. |
+| CCTV Operator | Bounded Job caption history | Secure camera source, monitoring goals and completed NVIDIA video-window observations. |
 | Microduck Controller | Existing bounded Job memory | Original control requests, live preflight and observed browser receipts. |
 | ROS AMR Controller | Existing bounded Job memory | Existing zone aliases and restrictive rules; live motion and operation receipts. |
 
@@ -71,7 +71,7 @@ explicit.
 | Drug Discovery Research Assistant | Review BACE1 and synthetic seed inputs or approved targets and research profile. | Cycle, candidate identity, actual ranking basis, stage coverage and missing scientific validation. |
 | CT reader | Upload a de-identified volume and choose anatomy; no bundled scan. A format walkthrough needs no inference. | Faithful explanation of saved wording, negation, uncertainty, crop and research limits. |
 | Mac security investigator | Automatic bounded local collection; no source upload or runnable sample mode. | Report availability and generic guidance on coverage; private findings stay in the local report. |
-| CCTV Operator | Secure approved stream and facility/visible goal; no included live stream or quick sample. | Observed action, capture time, frames, sampling gaps and analysis health; forecasts stay separate. |
+| CCTV Operator | Secure approved RTSP/RTSPS camera and optional visible goal; no sample camera. | Completed NVIDIA captions, capture intervals, receipt time, omissions and separate preview/analysis health; no analyzed image or automatic event verdict. |
 | Microduck Controller | Included browser simulation; open the control view and check readiness. | Correlated command outcome; admission is not motion, and free play can continue after its first-kick receipt. |
 | ROS AMR Controller | Included warehouse simulation with approved zones and fresh status. | Requested zone, observed arrival/failure/unknown and restrictions; admission is not arrival. |
 
