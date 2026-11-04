@@ -1,0 +1,18 @@
+/* The native viewer also runs inside a narrow, resizable workspace pane. */
+#source-filename { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  body { display: flex; flex-direction: column; height: 100vh; }
+  nav.navbar, nav.navbar .container-fluid { height: auto; }
+  nav.navbar .container-fluid { flex-wrap: wrap; }
+  #toolbar-left-toggle, #toolbar-right-toggle { height: 38px; }
+  #source-filename, .navbar-divider, #navbar-lh-machine-tools:empty { display: none; }
+  #navbar-lh-machine-tools { order: 1; width: 100%; justify-content: center; }
+  .navbar-pipette-btn, .navbar-pipette-label { height: 32px; }
+  .navbar-pipette-btn img, .navbar-pipette-btn svg { max-height: 30px; }
+  nav.navbar .navbar-brand { flex: 1; min-width: 0; margin: 0 6px; overflow: hidden; white-space: normal; font-size: 13px; line-height: 1.1; }
+  nav.navbar .navbar-brand img { display: none; }
+  nav.navbar .status-box { flex-shrink: 0; gap: 4px; margin: 0 6px; }
+  #status-label { font-size: 12px; }
+  .content { position: relative; flex: 1; height: auto; min-height: 0; }
+  #sidepanel:not(.collapsed) { position: absolute; top: 0; right: 48px; z-index: 2; }
+}

@@ -20,13 +20,16 @@ from websockets.exceptions import ConnectionClosed
 ASSETS = Path(__file__).resolve().parents[1] / 'web_assets'
 VENDOR = Path('/opt/web-lab/visualizer-vendor')
 WS_CONSTRUCTOR = 'new WebSocket(`ws://${wsHost}:${wsPort}/`)'
-LOCAL_CONSTRUCTOR = 'new WebSocket(new URL("ws", window.location.href).href.replace(/^http/, "ws"))'
+# The Job proxy has a separate /ws/<upstream path> route at the port root.
+# Both forms stay on the page's origin, including when the Job runs remotely.
+LOCAL_CONSTRUCTOR = ('new WebSocket(new URL(window.__MN_JOB_UI_PROXY_BASE__ ? '
+                     '"../ws/visualizer/ws" : "ws", window.location.href).href.replace(/^http/, "ws"))')
 
 
 def visualizer_asset(path, native_root, vendor_root=VENDOR):
     if path == 'favicon.png':
         return (vendor_root / 'img/logo.png').read_bytes(), 'image/png'
-    if path == '':
+    if path == 'index.html':
         content = (native_root / 'index.html').read_text()
         manifest = json.loads((vendor_root / 'assets.json').read_text())
         for url, item in manifest.items():
@@ -34,10 +37,14 @@ def visualizer_asset(path, native_root, vendor_root=VENDOR):
         if 'https://' in content or 'http://' in content:
             raise ValueError("The pinned visualizer contains an undeclared external asset.")
         content = content.replace('/favicon.png', 'favicon.png')
+        content = content.replace('</head>', '<link rel="stylesheet" href="workspace.css"></head>')
+        content = content.replace('</body>', '<script src="workspace.js"></script></body>')
         for key, value in {'ws_port': '0', 'fs_port': '0', 'source_filename': 'Web Lab Operator', 'liquid_color': '4F9B89'}.items():
             content = content.replace('{{ ' + key + ' }}', value)
         return content.encode(), 'text/html; charset=utf-8'
-    if path.startswith(('vendor/', 'img/')):
+    if path in {'workspace.css', 'workspace.js'}:
+        source = ASSETS / path
+    elif path.startswith(('vendor/', 'img/')):
         # Build-time assets are a closed inventory, including the icon fonts.
         files = {item['file'] for item in json.loads((vendor_root / 'assets.json').read_text()).values()}
         relative = path.removeprefix('vendor/')

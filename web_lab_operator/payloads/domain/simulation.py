@@ -2,16 +2,14 @@
 
 import asyncio
 import hashlib
-import json
-from uuid import uuid4
 
 from mn_sdk.agent_events import report_activity
 from mn_sdk.context_session.contracts import digest
 from mn_sdk_common.files import atomic_write_json
-from mn_sdk_web_ui import claim_web_ui, mark_web_ui_status, resolve_web_ui_binding
 
 from .decisions import choose
 from .lab import SimulatedLab
+from .live_ui import LiveLabUi
 from .memory import LabMemory, stamp
 from .protocol import action_for, goal_results, initial_state, number, validate_plan
 
@@ -36,12 +34,9 @@ def run(block, inputs):
 
 
 async def execute(block, plan, procedure, policy, memory):
-    from .visualizer import LabVisualizer
-
-    lab, visualizer, claimed = SimulatedLab(plan), None, False
+    lab, ui = SimulatedLab(plan), None
     trace, status, reason = [], 'running', ''
     state = initial_state(plan)
-    generation = uuid4().hex
     projection = {'status': status, 'summary': plan['summary'], 'state': state,
                   'current_step': '', 'reason': '', 'steps_completed': 0, 'events': []}
     deadline = block.monotonic() + policy['max_duration_seconds']
@@ -54,28 +49,8 @@ async def execute(block, plan, procedure, policy, memory):
 
     try:
         await lab.setup()
-        visualizer = LabVisualizer(lab.lh, lambda: projection)
-        binding = resolve_web_ui_binding(block.config, environment=block.environment)
-        port = await visualizer.start(binding.host, binding.port)
-        env = block.environment or {}
-        node = env.get('MN_EXECUTION_NODE', '').rpartition('@')[2]
-        host = node if node and binding.host in {'0.0.0.0', '::'} else None
-        host = host or env.get('MN_WEB_UI_PROXY_HOST') or env.get('MN_DOCKER_WORKER_CONTAINER_NAME')
-        if not host:
-            host = '127.0.0.1' if binding.host in {'0.0.0.0', '::'} else binding.host
-        if ':' in host and not host.startswith('['):
-            host = '[' + host + ']'
-        url = env.get('MN_BLUEPRINT_WEB_UI_BASE_URL') or f'http://{host}:{port}/'
-        claimed = True
-        await asyncio.to_thread(claim_web_ui, block.job_directory, job_id=block.job_id,
-                               url=url, title='Web lab', service_name='web-lab',
-                               node_id=block.agent_id or 'lab_simulator', generation=generation,
-                               http_ports=[port], websocket_ports=[port], status='running',
-                               metadata={'simulation_only': True})
-        # Readiness is part of this required live simulation surface.
-        handle = json.loads((block.job_directory / 'web_ui.json').read_text())
-        if not handle.get('metadata', {}).get('readiness', {}).get('ready'):
-            raise RuntimeError("The web lab page or its required assets are unavailable.")
+        ui = LiveLabUi(block, lab.lh, lambda: projection)
+        await ui.start()
         state = lab.observe()
         projection['state'] = state
         for index, step in enumerate(plan['steps']):
@@ -167,16 +142,10 @@ async def execute(block, plan, procedure, policy, memory):
         raise
     finally:
         try:
-            if visualizer is not None:
-                await visualizer.close()
+            if ui is not None:
+                await ui.close(status if status in {'failed', 'cancelled'} else 'stopped')
         finally:
-            try:
-                await lab.stop()
-            finally:
-                if claimed and (block.job_directory / 'web_ui.json').is_file():
-                    await asyncio.to_thread(mark_web_ui_status, block.job_directory, job_id=block.job_id,
-                                           status='failed' if status == 'failed' else 'cancelled' if status == 'cancelled' else 'stopped',
-                                           expected_generation=generation)
+            await lab.stop()
 
 
 def save(block, plan, procedure, trace, state, status, reason, memory):

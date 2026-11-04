@@ -34,9 +34,11 @@ the result. A successful adaptive run leaves the primary well at 20 uL, reserve
 at 100 uL and destination at 100 uL, with 94 unused tips. Model interpretation
 and decisions remain live; there is no production fake-model success path.
 
-Open **Web lab** while simulation is running. The visualizer and monitor are a
-required part of that phase; missing assets or listener/readiness failure fails
-the phase. The listener closes on completion, cancellation or failure. The
+Open **Web lab** as soon as the run starts. The native deck is empty during
+intake and planning. Once the plan is validated, the simulation worker supplies
+the plates, starting volumes and live tip state. Each phase owns its listener
+and closes it on completion, cancellation or failure. The desktop follows the
+new page automatically, including in a detached window. The
 optional saved replay then becomes the run's web result. Use the existing
 co-worker controls to pause, resume or stop; asking a question never starts work.
 
@@ -146,9 +148,10 @@ failure cannot invalidate an already recorded simulation or required report.
 `capture_lab_procedure` → `plan_lab_procedure` → `simulate_lab_procedure` →
 `publish_lab_review` uses stock `domain_operation` and `structured_assessment`
 blocks. SDK input capture, managed model journals, checkpoints, publication and
-Web UI claims and Membrane persistence retain their existing owners. No runtime or desktop change is
-required. Domain policy, the PyLabRobot integration and selected presentation
-live under `payloads/domain/`.
+Web UI claims and Membrane persistence retain their existing owners. Intake and
+planning require the blocks package with paired batch resource hooks; use a
+desktop build that follows changes to the runtime UI claim. Domain policy, the
+PyLabRobot integration and selected presentation live under `payloads/domain/`.
 
 The Python 3.12 Docker image installs pinned PyLabRobot and WebSocket versions.
 Its build downloads hash-checked visualizer dependencies and serves them locally;

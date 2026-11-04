@@ -7,8 +7,9 @@ transfer/mix/wait/check instructions and final well-volume goals. Use one to fou
 a declared reserve source can resolve an insufficient primary source.
 
 Provide pasted Markdown or a .md file, clearing the other input. Start a run
-explicitly. Open Web lab while it is running to see the native PyLabRobot deck
-and recorded decisions. Use the co-worker's existing controls to pause, resume
+explicitly. Open Web lab as soon as the run starts. The native PyLabRobot deck
+is empty while the procedure is prepared and planned; the validated simulation
+then shows its plates, tips and recorded decisions. Use the co-worker's existing controls to pause, resume
 or stop. Chat questions read context; they do not start work or edit a procedure.
 
 Inspect plan.json, procedure.md, trace.json, simulation.json, memory.json and report.md.

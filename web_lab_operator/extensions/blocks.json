@@ -4,7 +4,9 @@
     "capture_lab_procedure": {
       "uses": "mn.blocks.domain_operation@1",
       "hooks": {
-        "operation": "domain.intake:capture"
+        "operation": "domain.intake:capture",
+        "start": "domain.planning_ui:prepare",
+        "stop": "domain.planning_ui:stop"
       },
       "inputs": {
         "procedure_markdown": {
@@ -331,7 +333,9 @@
         "max_tokens": 12000
       },
       "hooks": {
-        "validate": "domain.protocol:assessment_valid"
+        "validate": "domain.protocol:assessment_valid",
+        "start": "domain.planning_ui:plan",
+        "stop": "domain.planning_ui:stop"
       },
       "inputs": {
         "procedure": {

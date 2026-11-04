@@ -1,8 +1,9 @@
 # Visualizer dependencies
 
 The image installs [PyLabRobot 0.2.1](https://github.com/PyLabRobot/pylabrobot)
-under its MIT license. It serves the unmodified packaged visualizer assets,
-apart from local asset URLs, a same-origin WebSocket URL and the page title.
+under its MIT license. The blueprint serves its packaged visualizer with local
+asset URLs, a same-origin WebSocket, and a small workspace layout that fits the
+deck and collapses the native inspector when the pane is narrow.
 
 At image build, `prepare_visualizer.py` downloads the visualizer's dependencies
 at the versions and SHA-256 hashes in `visualizer-assets.json`. Their distributed

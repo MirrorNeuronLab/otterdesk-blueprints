@@ -92,9 +92,12 @@ model request journal and scoped checkpoints for its domain-specific procedure
 loop. It owns no message routing, ACK/retry logic or Core completion protocol.
 The existing Web UI binding and claim contract carries a single HTTP/WebSocket
 listener serving the native PyLabRobot visualizer and bounded monitor state.
-The listener is required only while the simulation phase is active and closes
-in cleanup, including partial startup and cancellation. No auxiliary workflow
-or always-alive wrapper is introduced. Core owns execution controls.
+Intake and planning publish the native empty deck before reading inputs or
+calling the model. No wells, volumes or remaining tip count are projected until
+the validated plan reaches simulation. Each phase owns one generation of the
+required listener, closed on success, failure, partial startup or cancellation.
+Completed block replay does not start a listener. The simulation generation
+replaces the planning view even when its port is reused. Core owns execution controls.
 
 At most 80 steps execute inside the 900-second phase budget, also bounded by the
 block deadline. Checks occur between simulator calls and animation ticks. Each

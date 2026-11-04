@@ -68,6 +68,6 @@
   "web_ui": {
     "enabled": true,
     "title": "Web lab",
-    "description": "Live PyLabRobot deck during simulation, followed by a saved run replay."
+    "description": "Open the empty PyLabRobot deck during planning, watch the simulation, then review the saved replay."
   }
 }

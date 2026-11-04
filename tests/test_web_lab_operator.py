@@ -209,10 +209,9 @@ def test_transfer_above_tip_capacity_splits_without_inventing_volume(domain, pla
 
 
 @pytest.fixture
-def simulated_io(domain, monkeypatch, tmp_path, plan):
-    module = domain('simulation')
-    visualizer = domain('visualizer')
-    calls = {'model': 0, 'closed': 0, 'claimed': 0}
+def ui_transport(domain, monkeypatch, tmp_path):
+    module = domain('live_ui')
+    calls = {'model': 0, 'closed': 0, 'claimed': 0, 'phases': []}
     job = tmp_path / 'jobs/job-a'
     job.mkdir(parents=True)
     monkeypatch.setenv('MN_JOB_ID', 'job-a')
@@ -222,13 +221,25 @@ def simulated_io(domain, monkeypatch, tmp_path, plan):
         def __init__(self, resource, projection):
             self.projection = projection
         async def start(self, host, port):
+            calls['phases'].append(copy.deepcopy(self.projection()))
             return 18000
         async def close(self):
             calls['closed'] += 1
 
     def claim(directory, **options):
         calls['claimed'] += 1
-        (directory / 'web_ui.json').write_text(json.dumps({'metadata': {'readiness': {'ready': True}}}))
+        metadata = {'generation': options['generation'], 'readiness': {'ready': True}}
+        (directory / 'web_ui.json').write_text(json.dumps({'metadata': metadata}))
+
+    monkeypatch.setattr(module, 'LabVisualizer', Monitor)
+    monkeypatch.setattr(module, 'claim_web_ui', claim)
+    monkeypatch.setattr(module, 'mark_web_ui_status', lambda *a, **k: calls.update(final_status=k['status']))
+    return calls
+
+
+@pytest.fixture
+def simulated_io(ui_transport, monkeypatch, plan):
+    calls = ui_transport
 
     def model(*args, **kwargs):
         calls['model'] += 1
@@ -239,9 +250,6 @@ def simulated_io(domain, monkeypatch, tmp_path, plan):
                  if step['kind'] == 'transfer' and prompt['allowed_sources'] else decision(step))
         return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(value)}}]}
 
-    monkeypatch.setattr(visualizer, 'LabVisualizer', Monitor)
-    monkeypatch.setattr(module, 'claim_web_ui', claim)
-    monkeypatch.setattr(module, 'mark_web_ui_status', lambda *a, **k: calls.update(final_status=k['status']))
     monkeypatch.setattr('mn_sdk.integrations.block_model_request.runtime_model_json_request', model)
     monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor',
                         lambda *a, **k: lambda request: copy.deepcopy(plan))
@@ -258,13 +266,37 @@ def test_compiled_handlers_execute_publish_and_replay_without_more_model_calls(d
     assert final['status'] == 'completed'
     assert final['steps_completed'] == 4 and final['adaptations'] == 1
     assert all(goal['met'] for goal in final['goals'])
-    assert simulated_io == {'model': 4, 'closed': 1, 'claimed': 1, 'final_status': 'stopped'}
+    phases = simulated_io['phases']
+    assert [view['status'] for view in phases] == ['preparing', 'planning', 'running']
+    assert not phases[0]['state']['wells'] and not phases[1]['state']['wells']
+    assert phases[2]['state']['wells']['source/A2']['volume_ul'] == 200
+    assert simulated_io['claimed'] == simulated_io['closed'] == 3
+    assert simulated_io['final_status'] == 'stopped'
     root = tmp_path / 'runs/lab-run'
     assert json.loads((root / 'web_ui.json').read_text())['adapter'] == 'static_html'
     assert 'replay-data' in (root / 'web/index.html').read_text()
     assert len(json.loads((root / 'trace.json').read_text())['events']) == 4
     assert run_sample('web_lab_operator', **options)['final_artifact'] == final
-    assert simulated_io['model'] == 4 and simulated_io['closed'] == 1
+    assert simulated_io['model'] == 4 and simulated_io['closed'] == 3
+
+
+def test_planner_deadline_retires_the_empty_deck_and_preserves_the_error(domain, simulated_io, monkeypatch, tmp_path):
+    from block_workflow_fixture import run_sample
+    from mn_blueprint_blocks import BlockError
+
+    def assess(request):
+        assert [phase['status'] for phase in simulated_io['phases']] == ['preparing', 'planning']
+        assert simulated_io['phases'][-1]['state']['wells'] == {}
+        assert simulated_io['claimed'] == 2 and simulated_io['closed'] == 1
+        raise BlockError('deadline_exceeded', 'Block deadline expired')
+
+    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor', lambda *args, **kwargs: assess)
+    with pytest.raises(BlockError, match='Block deadline expired') as failure:
+        run_sample('web_lab_operator', inputs={'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
+                   config={'inputs': {'payload': {'procedure_file': ''}}}, runs_root=tmp_path / 'runs', run_id='lab-timeout')
+    assert failure.value.code == 'deadline_exceeded'
+    assert simulated_io['claimed'] == simulated_io['closed'] == 2
+    assert simulated_io['final_status'] == 'failed' and simulated_io['model'] == 0
 
 
 def test_checkpoint_tampering_fails_cached_simulation(domain, simulated_io, tmp_path):
@@ -280,7 +312,7 @@ def test_checkpoint_tampering_fails_cached_simulation(domain, simulated_io, tmp_
     assert simulated_io['model'] == 4
 
 
-def test_default_markdown_file_is_staged_and_captured_by_sdk(domain, tmp_path):
+def test_default_markdown_file_is_staged_and_captured_by_sdk(domain, tmp_path, ui_transport):
     from block_workflow_fixture import run_sample
     result = run_sample('web_lab_operator', runs_root=tmp_path / 'runs', run_id='lab-file',
                         through_step='capture_lab_procedure')
@@ -326,7 +358,7 @@ def test_review_outcomes_cannot_be_reported_as_success(domain, simulated_io, tmp
     assert final['status'] == 'needs_review'
     assert final['simulation_only'] is True
     if condition == 'unsupported':
-        assert final['steps_completed'] == 0 and simulated_io['claimed'] == 0
+        assert final['steps_completed'] == 0 and simulated_io['claimed'] == 2
     elif condition == 'failed_check':
         assert final['steps_completed'] == 3 and 'volume check' in final['reason']
     elif condition == 'failed_goal':
@@ -353,7 +385,7 @@ def test_cancellation_cleans_up_and_resume_reconstructs_confirmed_actions(
                'runs_root': tmp_path / 'runs', 'run_id': 'lab-resume'}
     with pytest.raises(BlockError, match='Synthetic pause'):
         run_sample('web_lab_operator', **options)
-    assert simulated_io['model'] == 1 and simulated_io['closed'] == 1
+    assert simulated_io['model'] == 1 and simulated_io['closed'] == 3
     assert simulated_io['final_status'] == 'cancelled'
     root = tmp_path / 'runs/lab-resume'
     frozen_context = (root / 'memory/recalls/step-001.json').read_bytes()
@@ -361,7 +393,7 @@ def test_cancellation_cleans_up_and_resume_reconstructs_confirmed_actions(
     interrupt[0] = False
     final = run_sample('web_lab_operator', **options)['final_artifact']
     assert final['status'] == 'completed' and final['steps_completed'] == 4
-    assert simulated_io['model'] == 4 and simulated_io['closed'] == 2
+    assert simulated_io['model'] == 4 and simulated_io['closed'] == 4
     assert final['goals'][0]['observed_ul'] == 100
     assert (root / 'memory/recalls/step-001.json').read_bytes() == frozen_context
     outcomes = [value for value in text_memory_transport.scopes[('job-a', None)].values()
@@ -385,15 +417,18 @@ def test_optional_replay_failure_preserves_required_report(domain, simulated_io,
 
 def test_missing_required_live_ui_fails_and_cleans_up(domain, simulated_io, monkeypatch, tmp_path):
     from block_workflow_fixture import run_sample
+    original = domain('live_ui').claim_web_ui
     def fail(*args, **kwargs):
-        raise OSError('synthetic listener failure')
-    monkeypatch.setattr(domain('simulation'), 'claim_web_ui', fail)
+        if simulated_io['phases'][-1]['status'] == 'running':
+            raise OSError('synthetic listener failure')
+        return original(*args, **kwargs)
+    monkeypatch.setattr(domain('live_ui'), 'claim_web_ui', fail)
     with pytest.raises(OSError, match='listener'):
         run_sample('web_lab_operator',
             inputs={'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
             config={'inputs': {'payload': {'procedure_file': ''}}},
             runs_root=tmp_path / 'runs', run_id='lab-bad-ui')
-    assert simulated_io['closed'] == 1
+    assert simulated_io['closed'] == 3
     assert simulated_io['model'] == 0
     assert json.loads((tmp_path / 'runs/lab-bad-ui/interrupted-simulation.json').read_text())['status'] == 'failed'
 
@@ -415,7 +450,13 @@ def test_live_visualizer_uses_local_assets_and_same_origin_websocket(domain, tmp
     manifest = json.loads((ROOT / 'payloads/docker_worker/visualizer-assets.json').read_text())
     (tmp_path / 'assets.json').write_text(json.dumps(manifest))
     native_root = Path(native.__file__).parent
-    page, mime = module.visualizer_asset('', native_root, tmp_path)
+    # The Job proxy canonicalizes directory separators. The actual iframe must
+    # address a document that can be served without a trailing slash or redirect.
+    from xml.etree import ElementTree
+    line = next(line for line in (module.ASSETS / 'index.html').read_text().splitlines() if '<iframe ' in line)
+    source = ElementTree.fromstring(line.strip()).attrib['src']
+    assert source.startswith('visualizer/') and not source.endswith('/')
+    page, mime = module.visualizer_asset(source.removeprefix('visualizer/'), native_root, tmp_path)
     assert mime.startswith('text/html') and b'https://' not in page
     code, _ = module.visualizer_asset('vis.js', native_root, tmp_path)
     assert module.WS_CONSTRUCTOR.encode() not in code
@@ -553,7 +594,8 @@ def test_memory_unavailable_fails_before_models_or_simulation(domain, lab_runs, 
     monkeypatch.setattr('mn_sdk.context_session.session.runtime_client', unavailable)
     with pytest.raises(OSError, match='Membrane unavailable'):
         lab_runs('no-memory-service')
-    assert simulated_io['model'] == 0 and simulated_io['claimed'] == 0
+    assert simulated_io['model'] == 0 and simulated_io['claimed'] == 1
+    assert simulated_io['final_status'] == 'failed'
 
 
 def test_explicit_memory_disable_makes_no_membrane_calls(domain, lab_runs, monkeypatch):
@@ -589,7 +631,7 @@ def test_memory_write_failure_preserves_observation_and_cannot_report_success(
     assert (root / 'simulation/steps/000.json').is_file()
     assert (root / 'memory-interruption-error.json').is_file()
     assert not (root / 'final_artifact.json').exists()
-    assert simulated_io['model'] == 1 and simulated_io['closed'] == 1
+    assert simulated_io['model'] == 1 and simulated_io['closed'] == 3
 
 
 def test_memory_audit_tampering_fails_cached_verification(domain, lab_runs):

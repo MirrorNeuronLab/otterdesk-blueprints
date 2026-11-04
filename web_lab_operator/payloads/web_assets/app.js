@@ -6,7 +6,7 @@
   const replay = replayNode ? JSON.parse(replayNode.textContent) : null;
   let index = 0;
   let timer = null;
-  const labels = {running:'Running',completed:'Completed',needs_review:'Needs review',failed:'Failed',cancelled:'Stopped'};
+  const labels = {preparing:'Preparing',planning:'Planning',running:'Running',completed:'Completed',needs_review:'Needs review',failed:'Failed',cancelled:'Stopped'};
   const eventReason = event => event.error || (event.action && !event.outcome.passed ?
     'The volume check did not pass.' : event.decision.reason);
 
@@ -14,8 +14,8 @@
     text('status', labels[view.status] || 'Preparing');
     text('summary', view.summary);
     text('reason', view.reason || 'Waiting for the next observed step.');
-    text('tips', `${view.state.tips_remaining} unused tips`);
-    text('progress', `${view.steps_completed} steps completed`);
+    text('tips', view.state.tips_remaining === null ? '' : `${view.state.tips_remaining} unused tips`);
+    text('progress', ['preparing', 'planning'].includes(view.status) ? '' : `${view.steps_completed} steps completed`);
     const events = byId('events');
     events.replaceChildren();
     byId('empty').hidden = view.events.length > 0;
