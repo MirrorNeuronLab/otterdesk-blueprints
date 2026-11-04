@@ -11,7 +11,9 @@ class Publisher:
 
     def caption(self, caption):
         reference = caption["source_refs"][0]
-        atomic_write_json(self.run_dir / reference, caption)
+        # Published outputs must be readable by the host's synchronization user.
+        # Credentials and cleanup leases remain in private Job state.
+        atomic_write_json(self.run_dir / reference, caption, mode=0o644)
         markdown = (
             f"# {caption['camera']} — video observation\n\n"
             f"Capture interval: {caption['start_time']} to {caption['end_time']}\n\n"
@@ -23,7 +25,8 @@ class Publisher:
             "It does not establish identity, unique-person counts, compliance or safety. "
             "The separate preview is current video, not the exact analyzed evidence.\n"
         )
-        atomic_write_text(self.run_dir / "context_sources/outputs" / (Path(reference).stem + ".md"), markdown, create_parents=True)
+        atomic_write_text(self.run_dir / "context_sources/outputs" / (Path(reference).stem + ".md"), markdown,
+                          mode=0o644, create_parents=True)
         self.report()
         # Routine windows stay in the workspace. Chat receives the first completed
         # account for each applied goal, never a fabricated goal-match verdict.
@@ -41,7 +44,7 @@ class Publisher:
             self.store.set_state(marker, caption["id"])
 
     def status(self, state):
-        atomic_write_json(self.run_dir / "monitoring_state.json", state)
+        atomic_write_json(self.run_dir / "monitoring_state.json", state, mode=0o644)
         self.report(state)
 
     def report(self, state=None):
@@ -52,13 +55,13 @@ class Publisher:
                   "total_count": history["total_count"], "omitted_count": history["omitted_count"]}
         if state:
             report["session"] = state
-        atomic_write_json(self.run_dir / "cctv_report.json", report)
+        atomic_write_json(self.run_dir / "cctv_report.json", report, mode=0o644)
         entries = [f"## {item['start_time']} to {item['end_time']}\n\n{item['content']}\n\nSource: {item['source_refs'][0]}"
                    for item in observations]
         atomic_write_text(self.run_dir / "cctv_report.md", "# CCTV observations\n\n"
                     + "Sampled model descriptions require human review. Missing captions do not establish a clear scene.\n\n"
                     + ("\n\n".join(entries) if entries else "No completed video observations yet.")
-                    + f"\n\nEarlier observations omitted from this report: {history['omitted_count']}.\n")
+                    + f"\n\nEarlier observations omitted from this report: {history['omitted_count']}.\n", mode=0o644)
         summary = observations[-1]["content"] if observations else "No completed video observations yet."
         atomic_write_json(self.run_dir / "final_artifact.json", {
             "type": "cctv_observations", "executive_summary": summary,
@@ -66,4 +69,4 @@ class Publisher:
             "confidence": "Uncalibrated model description", "evidence": observations[-1:],
             "next_steps": ["Review the source video and any uncertainty."],
             "source_refs": ["cctv_report.json", "cctv_report.md"],
-        })
+        }, mode=0o644)

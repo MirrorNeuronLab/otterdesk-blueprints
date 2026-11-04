@@ -96,6 +96,9 @@ SDK run storage is authoritative; `~/Downloads/cctv-operator` is an additional
 runtime-delivered host copy. Outputs are `captions/*.json`, `cctv_report.json/md`,
 `monitoring_state.json`, `final_artifact.json`, complete
 `context_sources/outputs/*.md` accounts and `operator_activity.sqlite3`.
+Published caption/report/status files use mode 0644 so the runtime's host sync
+process can replicate container-root writes. Camera credentials and cleanup leases
+remain outside those published accounts in Job state.
 
 The declared Job state resource owns `realtime_vlm/captions.sqlite3`, source-scoped
 history, command receipts and cleanup leases. History survives runs for the same

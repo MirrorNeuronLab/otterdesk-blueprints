@@ -41,6 +41,10 @@ def test_completed_sources_reports_and_activity_survive_reopening(tmp_path):
     assert reopened.history()["observations"][0]["content"] == CHUNK["content"]
     assert reopened.history(current_run=True)["observations"] == []
     assert not list((tmp_path / "outputs").rglob("*.jpg"))
+    # Core writes as container root; host synchronization reads as another user.
+    for artifact in (tmp_path / "outputs").rglob("*"):
+        if artifact.is_file():
+            assert artifact.stat().st_mode & 0o777 == 0o644, artifact
 
 
 def test_ordinary_windows_remain_saved_without_repeated_chat_updates(tmp_path):
