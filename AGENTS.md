@@ -6,7 +6,7 @@ These instructions apply only to `otterdesk-blueprints`.
 
 ## Start Here
 
-Read repository `SPEC.md`, `README.md`, and `DAG_FLOW_PATTERNS.md`. For the
+Read repository `SPEC.md`, `README.md`, `how_to_create_blueprints.md`, and `DAG_FLOW_PATTERNS.md`. For the
 target blueprint, read its complete `README.md`, `SPEC.md`, `manifest.json`,
 configuration, payload entrypoints, and tests before editing. Check `git status`
 and preserve unrelated work.
@@ -15,6 +15,16 @@ Root `index.json` is the catalog inventory and identity source. Do not infer the
 current catalog from a README table or from folders alone. Each blueprint is a
 self-contained product contract; do not transfer domain rules between
 blueprints without an explicit shared dependency.
+
+## Scope of blueprint changes
+
+When adding a new blueprint or updating an existing one, treat the MirrorNeuron
+runtime SDK (`mn-python-sdk`), shared blocks (`mn-blueprint-blocks`), API
+(`mn-api`), and shared agents (`mn-agents`) as read-only unless the user
+explicitly requests a code change to the specific component.
+
+You may add a new skill as part of blueprint work. Modify an existing skill
+only when the user explicitly requests a change to that skill.
 
 ## Issue Fixing Policy
 

@@ -3,9 +3,9 @@ import json
 import os
 import time
 
-from mn_sdk.blueprint_support import durable_json_decision, json_decision_capacity
-from mn_sdk.context_session import ContextPolicy
-from mn_sdk.text_memory import runtime_text_memory
+from mn_sdk.blueprint.context import durable_json_decision, json_decision_capacity
+from mn_sdk.blueprint.memory import ContextPolicy
+from mn_sdk.blueprint.memory import runtime_text_memory
 
 from .app.guidance import InvestigationGuidance
 from .app.planning import validate
@@ -66,7 +66,7 @@ def complete(root, frozen, key, stage, instruction, data, schema, client=None):
     evidence_bytes = len(json.dumps(data.get('evidence', []),ensure_ascii=False).encode())
     context_bytes = frozen['config'].get('text_memory', {}).get('max_context_bytes',32768)
     memory = runtime_text_memory(decision_config(frozen["config"]), principal="round-specialists", scope=scope)
-    from mn_sdk.memory_quality import context_requirements
+    from mn_sdk.blueprint.memory import context_requirements
     try:
         value = durable_json_decision(
             root / f"case/rounds/models/{key}.json",

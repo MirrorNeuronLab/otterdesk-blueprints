@@ -2,10 +2,10 @@
 import json
 
 from jsonschema import validate
-from mn_blueprint_blocks.contracts import fingerprint
-from mn_sdk.agent_events import report_activity
-from mn_sdk.blueprint_support import source_manifest
-from mn_sdk.integrations.block_inputs import declared_inputs, save_declared_inputs
+from mn_sdk.blueprint.hooks import fingerprint
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.inputs import declared_inputs, save_declared_inputs
 
 from .configuration import settings
 from .conversation import Conversation

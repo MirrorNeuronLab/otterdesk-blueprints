@@ -1,12 +1,13 @@
 # Shared block ownership
 
-All 14 catalog packages and the two non-catalog GTM packages were reviewed for
-generic configuration, storage, evidence, and publication behavior. Blueprints compose these capabilities and retain
-their domain policy; they do not provide another runtime framework.
+The table maps common work to the SDK that owns it. Blueprints supply domain
+decisions through the v1 authoring API. The historical audit below also covers
+packages that have since left the published catalog. See the current inventory
+in [index.json](index.json) and the [authoring guide](how_to_create_blueprints.md).
 
 | Mechanic | Shared owner | Blueprint responsibility |
 | --- | --- | --- |
-| Defaults, explicit run inputs, linked path aliases, and `@/` | `mn_sdk.integrations.block_inputs.declared_inputs` and staging | Declare input contracts and local inputs |
+| Defaults, explicit run inputs, linked path aliases, and `@/` | `mn_sdk.blueprint.inputs.declared_inputs` and staging | Declare input contracts and local inputs |
 | Resolved input artifacts | `capture_declared_inputs` / `save_declared_inputs` | Normalize domain values before saving when needed |
 | Optional input path selection | `configured_input_path` | Choose which domain input is needed |
 | Runtime output and persistent Job directories | `BlockContext.output_directory` / `job_directory` | Choose domain-relative files and resources |
@@ -58,8 +59,7 @@ every indexed package and both GTM packages, and reject per-blueprint runtime-pa
 symlink boundaries, cancellation, nested tampering, publication replay and
 delivery recovery. Existing blueprint tests continue to verify domain outcomes.
 
-These payloads require the updated SDK/common/blocks source family
-(`>=1.3.61.dev38,<2`); dependency minimums are aligned with that family. Use
-matching updated packages and reprepare existing Job
-definitions before running the changed payloads. Submitted definitions and
-their component-code locks are not rewritten in place.
+The authoring API requires `mirrorneuron-python-sdk>=1.4.1.dev46,<2`.
+Common and blocks are separately versioned in each package's `dependencies.json`.
+Use matching installed components and reprepare the Job to pick up changes.
+Existing definitions retain their compiled component identities.

@@ -3,7 +3,7 @@
 import json
 from hashlib import sha256
 
-from mn_sdk.integrations.block_publication_files import publish_artifact_bundle, publish_files
+from mn_sdk.blueprint.outputs import publish_artifact_bundle, publish_files
 from mn_sdk_common.publication import ArtifactWrite
 from mn_web_report_skill import render_report_markdown
 

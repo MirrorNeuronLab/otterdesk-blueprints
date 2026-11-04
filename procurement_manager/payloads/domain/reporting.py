@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 import json
 import re
@@ -29,8 +29,8 @@ from .llm_analysis import (
 )
 from .state import read_state, save_state
 from mn_sdk_common.publication import ArtifactWrite
-from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
-from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk.blueprint.outputs import publish_artifact_bundle
+from mn_sdk.blueprint.hooks import fingerprint
 
 
 NARRATIVE_STATE_FIELDS = ("llm_generation", "llm_usage", "llm_warnings", "_llm_analysis_results")

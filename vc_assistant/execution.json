@@ -15,395 +15,311 @@
   "agents": {
     "registry": {
       "startup_folder_watcher": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Startup Folder Watcher",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.intake_blocks:startup_folder_watcher"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.intake_blocks:startup_folder_watcher"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       },
       "company_packet_grouper": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Company Packet Grouper",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.intake_blocks:company_packet_grouper"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.intake_blocks:company_packet_grouper"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       },
       "document_evidence_extractor": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Document Evidence Extractor",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.intake_blocks:document_evidence_extractor"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1200
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.intake_blocks:document_evidence_extractor"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1200
           }
         }
       },
       "claim_normalizer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Claim Normalizer",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.intake_blocks:claim_normalizer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1200
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.intake_blocks:claim_normalizer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1200
           }
         }
       },
       "research_planner": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Research Planner",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.research_planner:research_planner"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1200
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.research_planner:research_planner"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1200
           }
         }
       },
       "company_identity_researcher": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Company Identity Researcher",
         "lifecycle": {
           "public_research": true
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.public_researcher:company_identity_researcher"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 3600
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.public_researcher:company_identity_researcher"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 3600
           }
         }
       },
       "funding_researcher": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Funding Researcher",
         "lifecycle": {
           "public_research": true
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.public_researcher:funding_researcher"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 3600
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.public_researcher:funding_researcher"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 3600
           }
         }
       },
       "market_comp_researcher": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Market And Comparable Researcher",
         "lifecycle": {
           "public_research": true
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.public_researcher:market_comp_researcher"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 3600
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.public_researcher:market_comp_researcher"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 3600
           }
         }
       },
       "traction_verifier": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Traction Verifier",
         "lifecycle": {
           "public_research": true
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.public_researcher:traction_verifier"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 3600
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.public_researcher:traction_verifier"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 3600
           }
         }
       },
       "rendered_page_researcher": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Rendered Page Researcher",
         "lifecycle": {
           "public_research": true
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.public_researcher:rendered_page_researcher"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 3600
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.public_researcher:rendered_page_researcher"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 3600
           }
         }
       },
       "research_reconciler": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Research Reconciler",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.research_reconciler:research_reconciler"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.research_reconciler:research_reconciler"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       },
       "berkus_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Berkus Scorer",
         "lifecycle": {
           "method": "berkus_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:berkus_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:berkus_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "scorecard_bill_payne_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Scorecard Bill Payne Scorer",
         "lifecycle": {
           "method": "scorecard_bill_payne_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:scorecard_bill_payne_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:scorecard_bill_payne_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "risk_factor_summation_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Risk Factor Summation Scorer",
         "lifecycle": {
           "method": "risk_factor_summation_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:risk_factor_summation_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:risk_factor_summation_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "venture_capital_method_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Venture Capital Method Scorer",
         "lifecycle": {
           "method": "venture_capital_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:venture_capital_method_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:venture_capital_method_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "first_chicago_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "First Chicago Scorer",
         "lifecycle": {
           "method": "first_chicago_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:first_chicago_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:first_chicago_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "comparables_market_multiple_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Comparables Market Multiple Scorer",
         "lifecycle": {
           "method": "comparables_market_multiple_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:comparables_market_multiple_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:comparables_market_multiple_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "cost_to_duplicate_scorer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Cost To Duplicate Scorer",
         "lifecycle": {
           "method": "cost_to_duplicate_method"
         },
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.valuation_scorer:cost_to_duplicate_scorer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 1800
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.valuation_scorer:cost_to_duplicate_scorer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 1800
           }
         }
       },
       "score_consistency_auditor": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Score Consistency Auditor",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.score_consistency_auditor:score_consistency_auditor"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.score_consistency_auditor:score_consistency_auditor"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       },
       "company_report_writer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Company Report Writer",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.company_report_writer:company_report_writer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.company_report_writer:company_report_writer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       },
       "batch_index_writer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Batch Index Writer",
-        "with": {
-          "revision": "vc_assistant@5.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.batch_index_writer:batch_index_writer"
-            },
-            "limits": {
-              "max_calls": 8,
-              "timeout_seconds": 900
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.batch_index_writer:batch_index_writer"
+          },
+          "limits": {
+            "max_calls": 8,
+            "timeout_seconds": 900
           }
         }
       }

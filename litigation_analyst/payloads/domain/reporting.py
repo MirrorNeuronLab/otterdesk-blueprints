@@ -1,14 +1,14 @@
 """Verify exact evidence before writing the customer-facing draft and review index."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 
 import json
 import os
 from copy import deepcopy
 from pathlib import Path
 
-from mn_sdk.step_runtime import artifact_reference
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
+from mn_sdk.blueprint.outputs import artifact_reference
+from mn_sdk.blueprint.outputs import copy_path_to_host
 from .evidence.store import EvidenceStore
 from .intake import PreparedCorpus
 from .app.review import build_review

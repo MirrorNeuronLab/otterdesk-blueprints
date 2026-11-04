@@ -2,7 +2,7 @@
 
 import hashlib
 
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 from mn_sdk_common.committed_artifacts import (
     COMMITTED_JSON_VERSION,
     CommittedArtifactRef,

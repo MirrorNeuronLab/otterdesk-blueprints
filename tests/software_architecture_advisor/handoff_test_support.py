@@ -10,6 +10,7 @@ from workspace_paths import companion_workspace
 
 def review_task(ctx, reference, node, model):
     from dataclasses import asdict
+    from mn_sdk.blueprints import blueprint_definition, read_blueprint
     from mn_sdk.integrations.block_worker import run
     from mn_sdk.step_runtime import StepContext
     from domain.review_admission import reconcile
@@ -36,7 +37,8 @@ def review_task(ctx, reference, node, model):
          'MN_RUN_DIR':str(workspace/'local/runs'/identity['run_id']),
          'MN_SDK_COMPONENTS_JSON':'["blueprint-blocks"]'}
     source=Path(__file__).resolve().parents[2]/'software_architecture_advisor'
-    parameters=json.loads((source/'execution.json').read_text())['agents']['registry']['architecture_packet_reviewer']['with']
+    definition = blueprint_definition(read_blueprint(source))
+    parameters = definition['agents']['registry']['architecture_packet_reviewer']['with']
     with patch.dict(os.environ,env):
         result=run(StepContext(step_id=node['id'],run_id=identity['run_id'],job_id=identity['job_id'],
             agent_id='architecture_packet_reviewer',idempotency_key=identity['run_id']+'/'+node['id'],

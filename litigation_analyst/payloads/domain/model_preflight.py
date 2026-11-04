@@ -7,9 +7,9 @@ from dataclasses import replace
 from pathlib import Path
 
 from jsonschema import ValidationError
-from mn_sdk.blueprint_support import durable_json_decision
-from mn_sdk.context_session import ContextPolicy
-from mn_sdk.llm import LLMClient
+from mn_sdk.blueprint.context import durable_json_decision
+from mn_sdk.blueprint.memory import ContextPolicy
+from mn_sdk.blueprint.models import LLMClient
 
 from .app.planning import object_schema, validate
 

@@ -201,3 +201,10 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
                 for key, value in payloads.items()
                 if key.endswith("Dockerfile")
             )
+
+
+@pytest.mark.parametrize("blueprint_id", BLUEPRINTS + ["gtm_planner", "gtm_executor"])
+def test_every_blueprint_opts_into_the_checked_authoring_boundary(blueprint_id):
+    package = read_blueprint(ROOT / blueprint_id)
+    assert package.manifest.get("payload_api") == "mn.blueprint.v1"
+    assert compile_blueprint(package).manifest

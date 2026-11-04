@@ -1,4 +1,4 @@
-from mn_sdk.step_graph import InputSpec, OutputSpec, StepSpec, agent, flow_output
+from mn_sdk.blueprint.steps import InputSpec, OutputSpec, StepSpec, agent, flow_output
 
 from ._shared import step_inputs
 

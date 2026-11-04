@@ -3,7 +3,7 @@ from pathlib import Path
 import re
 from collections import Counter
 
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint.outputs import artifact_reference
 from mn_static_code_analysis_skill import analyze_sources, analyze_history
 from mn_static_code_analysis_skill.history import HistoryLimitError
 from .catalog_contract import load_snapshot

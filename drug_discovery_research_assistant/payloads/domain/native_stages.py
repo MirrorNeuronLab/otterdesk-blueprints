@@ -1,8 +1,8 @@
 """Native scientific operations consuming immutable predecessor state."""
 import re
 from pathlib import Path
-from mn_sdk.agent_events import report_activity
-from mn_sdk.blueprint_support import write_json
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.context import write_json
 from biotarget.stages.stage_a_discovery import stage_a_target_discovery
 from biotarget.stages.stage_b_structure import stage_b_structure_generation
 from service.scripts.continuous_service import fake_fold, is_fake

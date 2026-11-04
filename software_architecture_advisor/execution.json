@@ -5,25 +5,21 @@
   "agents": {
     "registry": {
       "architecture_packet_reviewer": {
-        "handler": "mn_sdk.integrations.block_worker",
         "role": "Architecture Packet Reviewer",
-        "with": {
-          "revision": "software_architecture_advisor@7.1.0",
-          "instance": {
-            "uses": "mn.blocks.domain_operation@1",
-            "hooks": {
-              "operation": "domain.sandbox_review:review_admitted"
-            },
-            "input_schema": {
-              "type": "object",
-              "required": [
-                "review_input"
-              ]
-            },
-            "limits": {
-              "max_calls": 1,
-              "timeout_seconds": 720
-            }
+        "block": {
+          "uses": "mn.blocks.domain_operation@1",
+          "hooks": {
+            "operation": "domain.sandbox_review:review_admitted"
+          },
+          "input_schema": {
+            "type": "object",
+            "required": [
+              "review_input"
+            ]
+          },
+          "limits": {
+            "max_calls": 1,
+            "timeout_seconds": 720
           }
         }
       }
@@ -114,15 +110,10 @@
         ],
         "uses": "mn-agents.worker.python_host@1",
         "with": {
-          "command": [
-            "python3",
-            "-m",
-            "mn_sdk.step_runtime"
-          ],
           "upload_path": "runtime",
           "upload_as": "runtime",
           "workdir": "/sandbox/job",
-          "runner_module": "MirrorNeuron.Runner.OpenShell",
+          "runner": "openshell",
           "from": "openshell_worker",
           "policy": "openshell_worker/policy.yaml",
           "policy_config_bindings": true,

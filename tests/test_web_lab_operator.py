@@ -40,6 +40,8 @@ def test_canonical_package_compiles_to_stock_blocks(domain):
     workers = [node for node in compiled['agents']['nodes']
                if node.get('config', {}).get('environment', {}).get('MN_WORKFLOW_STEP_HANDLER')]
     assert len(workers) == 4
+    # The Job UI proxy resolves the bound visualizer on the runtime Docker network.
+    assert all(node["config"].get("network_mode") is None for node in workers)
     assert all(node['config']['environment']['MN_WORKFLOW_STEP_HANDLER'] == 'mn_sdk.integrations.block_worker'
                for node in workers)
     assert {item['uses'] for item in package.extension('mn.blocks')['steps'].values()} == {

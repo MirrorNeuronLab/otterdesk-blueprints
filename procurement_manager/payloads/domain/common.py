@@ -7,10 +7,10 @@ import json
 from typing import Any
 
 
-from mn_sdk.blueprint_support import DeterministicFallbackLLM
+from mn_sdk.blueprint.context import DeterministicFallbackLLM
 from mn_sdk_common.prompts import PromptLibrary
 from mn_prototype_actor_review_agent.actors import get_actor_llm_client
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import source_manifest
 
 
 _SOURCE_MANIFEST = source_manifest(__file__)

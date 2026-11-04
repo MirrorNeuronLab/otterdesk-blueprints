@@ -57,7 +57,7 @@ def test_compiled_contract_and_docker_handlers(modules):
     groups = json.loads((BLUEPRINT/'execution.json').read_text())['workers']['groups']
     assert groups[0]['uses'] == 'mn-agents.worker.python_docker@1'
     review = next(g for g in groups if 'review_architecture_packet' in g['steps'])
-    assert review['with']['runner_module'] == 'MirrorNeuron.Runner.OpenShell'
+    assert review['with']['runner'] == 'openshell'
     assert review['with']['artifact_handoff']['version'] == 'mn.artifact_handoff/v1'
     assert not review['with'].get('sync_shared_storage')
     child = compiled['flow']['child_workflows']['investigate_architecture']

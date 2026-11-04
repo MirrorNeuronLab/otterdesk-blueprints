@@ -1,5 +1,5 @@
 """Fence a single Mac task; interrupted desktop work is never replayed."""
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 from .configuration import read_value, settings
 

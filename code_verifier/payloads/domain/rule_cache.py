@@ -2,7 +2,7 @@
 from hashlib import sha256
 import json
 
-from mn_sdk.blueprint_support import write_json
+from mn_sdk.blueprint.context import write_json
 from .document_policy import policy_identity
 
 

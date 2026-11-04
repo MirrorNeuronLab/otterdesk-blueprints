@@ -97,7 +97,10 @@ calling the model. No wells, volumes or remaining tip count are projected until
 the validated plan reaches simulation. Each phase owns one generation of the
 required listener, closed on success, failure, partial startup or cancellation.
 Completed block replay does not start a listener. The simulation generation
-replaces the planning view even when its port is reused. Core owns execution controls.
+replaces the planning view even when its port is reused. The Web UI companion
+registers the bound listener on the worker's runtime Docker network. The
+visualizer can use an ephemeral port without publishing it on the host. Core
+owns execution controls.
 
 At most 80 steps execute inside the 900-second phase budget, also bounded by the
 block deadline. Checks occur between simulator calls and animation ticks. Each

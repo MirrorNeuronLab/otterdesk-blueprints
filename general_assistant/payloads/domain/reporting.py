@@ -1,9 +1,9 @@
 """Publish the observed outcome and a content-free action audit."""
 import hashlib
 
-from mn_sdk.agent_events import report_activity
-from mn_sdk.context_engine import context_memory_section_enabled
-from mn_sdk.integrations.block_publication_files import publish_files
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.memory import context_memory_section_enabled
+from mn_sdk.blueprint.outputs import publish_files
 from mn_sdk_common.publication import ArtifactWrite
 
 from .configuration import read_value

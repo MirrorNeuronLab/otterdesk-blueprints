@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 import json
 
-from mn_sdk.context_session.contracts import digest
+from mn_sdk.blueprint.memory import digest
 
 
 def event_timestamp(value):
@@ -75,9 +75,7 @@ def authored_record(record, published_at):
 
 def publication_clock(memory, snapshot_id):
     key = ["vc-runtime-publication", snapshot_id]
-    saved = memory.restore_checkpoint(key)
-    if saved is None:
-        saved = {"published_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
-        # Persist before upload so retry does not author a different event body.
-        memory.checkpoint(key, saved)
+    saved = memory.get_or_create_checkpoint(key, {
+        "published_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    })
     return saved["published_at"]

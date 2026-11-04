@@ -3,7 +3,7 @@ from dataclasses import asdict
 import hashlib
 from pathlib import PurePosixPath
 
-from mn_sdk.source_query import source_text_query
+from mn_sdk.blueprint.memory import source_text_query
 from .round_state import read, save
 from .matter_intake import load as load_matter
 from .handling import review_flags
@@ -71,7 +71,7 @@ def search(case, corpus, config, scope, query, top_k, *, source_names=()):
         raise ValueError('Original source query requires the enabled context engine')
     try:
         session.restore(manifest['catalog'], adapters=_adapters(documents))
-        from mn_sdk.memory_quality import context_requirements
+        from mn_sdk.blueprint.memory import context_requirements
         result = session.corpus.search(query, limit=top_k, source_names=source_names,
             requirements=context_requirements(config,required_checks=('source_binding','support_complete')))
         mapping = {ref['source_id']: (d, ref) for d in documents if d.source_id in manifest['source_records']

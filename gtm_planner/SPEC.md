@@ -34,7 +34,7 @@ the delivery boundary. Campaign revision or sender changes cannot reuse approval
 
 ## Data and failures
 
-Persistent state belongs under the SDK-provided Job data directory. Public status
+Persistent state belongs under the SDK-provided Job data directory. Each cycle publishes the declared JSON status to the run store and the configured output folder through the blueprint service API. Public status
 is the bounded `marketing_status.json` artifact, with generic errors rather than
 private text or transport bodies. Missing models, browser evidence, runtime,
 credentials, or peers must not fabricate successful work. Missing peers are

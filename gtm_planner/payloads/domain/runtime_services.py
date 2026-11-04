@@ -1,6 +1,6 @@
 """Runtime context only; secrets stay in the process environment."""
-from mn_sdk.blueprint_support import create_blueprint_run_context
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import create_blueprint_run_context
+from mn_sdk.blueprint.context import source_manifest
 
 def runtime_context_for_step(inputs=None, config=None, **options):
     blueprint_id = source_manifest(__file__)["identity"]["id"]

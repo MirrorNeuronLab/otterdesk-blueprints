@@ -1,7 +1,7 @@
 """Optional specialist review policy on the native block context."""
 
-from mn_sdk.blueprint_support import write_workflow_state
-from mn_sdk.integrations.block_llm import DurableJsonModel
+from mn_sdk.blueprint.context import write_workflow_state
+from mn_sdk.blueprint.models import DurableJsonModel
 
 from .common import BLUEPRINT_ID, OUTPUT_TYPE
 from .knowledge import (

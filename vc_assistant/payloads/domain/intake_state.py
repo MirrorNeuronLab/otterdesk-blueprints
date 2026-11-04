@@ -2,8 +2,8 @@
 
 from pathlib import Path, PurePosixPath
 
-from mn_sdk.blueprint_support import write_workflow_state
-from mn_sdk.integrations.block_files import capture_file, materialize_file
+from mn_sdk.blueprint.context import write_workflow_state
+from mn_sdk.blueprint.outputs import capture_file, materialize_file
 
 from .intake import _document_paths
 

@@ -1,6 +1,6 @@
 """Computer-use admission and bounded execution settings."""
 from mn_computer_use_skill import require_mac
-from mn_sdk.execution_mode import fake_llm_mode_enabled, fake_skills_mode_enabled
+from mn_sdk.blueprint.context import fake_llm_mode_enabled, fake_skills_mode_enabled
 
 
 def settings(block):

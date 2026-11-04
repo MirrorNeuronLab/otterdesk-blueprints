@@ -3,7 +3,7 @@ import hashlib
 import json
 import time
 from pathlib import Path
-from mn_sdk.blueprint_support import WorkflowStateStore
+from mn_sdk.blueprint.context import WorkflowStateStore
 from .research import study
 from .model import generate
 from .approval import approval

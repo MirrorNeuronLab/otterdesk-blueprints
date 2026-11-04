@@ -2,7 +2,7 @@
 
 import json
 import time
-from mn_sdk.agent_events import emit_agent_event
+from mn_sdk.blueprint.hooks import emit_agent_event
 
 
 def observe_action(action, state, execute):

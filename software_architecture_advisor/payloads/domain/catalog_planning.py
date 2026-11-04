@@ -1,6 +1,6 @@
 """Domain policy for hundreds of Core-managed bounded architecture tasks."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 
 import math
 import os

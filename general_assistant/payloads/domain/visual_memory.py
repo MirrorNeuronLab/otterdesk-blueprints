@@ -4,12 +4,12 @@ import hashlib
 import json
 import math
 
-from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk.blueprint.hooks import fingerprint
 from mn_context_engine_sdk import MediaInput, MediaReference
 from mn_context_engine_sdk.intelligent_system import SourceCorpus
 from mn_context_engine_sdk.intelligent_system.media import parse_media_document
-from mn_sdk.context_embeddings import RuntimeEmbeddings
-from mn_sdk.source_query import source_text_query
+from mn_sdk.blueprint.memory import RuntimeEmbeddings
+from mn_sdk.blueprint.memory import source_text_query
 
 from .visual_store import PRINCIPAL, VisualStore
 

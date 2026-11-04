@@ -3,8 +3,8 @@
 import asyncio
 import hashlib
 
-from mn_sdk.agent_events import report_activity
-from mn_sdk.context_session.contracts import digest
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.memory import digest
 from mn_sdk_common.files import atomic_write_json
 
 from .decisions import choose

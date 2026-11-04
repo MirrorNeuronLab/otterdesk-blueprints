@@ -1,6 +1,6 @@
 """Deterministic materialization and verification of frozen evidence indexes."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 
 import hashlib
 import json

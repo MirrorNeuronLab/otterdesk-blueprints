@@ -4,8 +4,8 @@ from pathlib import Path
 
 from mn_code_search_skill import TextSearchIndex
 from mn_static_code_analysis_skill import SUPPORTED_EXTENSIONS, analyze_sources
-from mn_sdk.agent_events import report_activity
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 
 from .artifacts import read
 from .configuration import BLUEPRINT_ID, settings

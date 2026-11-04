@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 import json
 import re

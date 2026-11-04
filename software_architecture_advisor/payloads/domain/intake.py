@@ -1,6 +1,6 @@
 """Select and capture the repository for this architecture investigation."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 from mn_sdk_common.files import atomic_write_json
 import json
 from pathlib import Path

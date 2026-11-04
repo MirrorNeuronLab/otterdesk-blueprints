@@ -9,7 +9,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from mn_sdk.blueprint_support import expand_runtime_path, runtime_user_home
+from mn_sdk.blueprint.context import expand_runtime_path, runtime_user_home
 
 from mn_docs_to_markdown_skill import DocumentIntakeOptions, read_packet_document, scan_document_packet
 

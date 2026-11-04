@@ -1,6 +1,6 @@
 """Complete qualified source inputs for deterministic VC claim extraction."""
 
-from mn_sdk.source_query import source_text_query
+from mn_sdk.blueprint.memory import source_text_query
 
 
 def local_source_text(record, terms, *, scope=None):

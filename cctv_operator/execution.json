@@ -7,7 +7,7 @@
     "enabled": true,
     "run_until": "manual_stop",
     "state_artifact": "monitoring_state.json",
-    "manual_close": "Pause or stop the co-worker in OtterDesk. Core releases this run\u2019s NVIDIA Compose project and camera operator."
+    "manual_close": "Pause or stop the co-worker in OtterDesk. Core releases this run’s NVIDIA Compose project and camera operator."
   },
   "requirements": {
     "cpu": {
@@ -72,7 +72,7 @@
           ]
         },
         "config": {
-          "runner_module": "MirrorNeuron.Runner.DockerCompose",
+          "runner": "docker_compose",
           "compose": {
             "context": "vss",
             "file": "compose.yaml",
@@ -104,7 +104,7 @@
         "type": "stream",
         "config": {
           "from": "base",
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "runner": "host_local",
           "no_keep": true,
           "no_auto_providers": true,
           "output_message_type": null,

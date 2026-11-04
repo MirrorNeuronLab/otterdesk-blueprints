@@ -2,7 +2,7 @@
 import json
 from collections import Counter
 
-from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
+from mn_sdk.blueprint.memory import runtime_text_memory, retrieve_memory_context
 from .catalog_store import fingerprint
 from .graph import QuerySession
 from .catalog import LayerUnavailable
@@ -129,7 +129,7 @@ def retrieve(store, saved, snapshot, task, catalog):
                     raise ValueError('Runtime memory replay context changed')
                 notes = cached['packet']
             else:
-                from mn_sdk.memory_quality import context_requirements
+                from mn_sdk.blueprint.memory import context_requirements
                 notes, receipt = retrieve_memory_context(memory, focus, stages=stages,
                     max_results=settings['max_results'], max_context_bytes=settings['max_context_bytes'],
                     hydrate_runtime_records=True,requirements=context_requirements(config,'optional'))

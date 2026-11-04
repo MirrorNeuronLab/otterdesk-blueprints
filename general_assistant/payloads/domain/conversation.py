@@ -3,8 +3,8 @@ import time
 import threading
 import json
 
-from mn_blueprint_blocks.contracts import fingerprint
-from mn_sdk import human_interactions
+from mn_sdk.blueprint.hooks import fingerprint
+from mn_sdk.blueprint import approvals as human_interactions
 
 
 class Conversation:

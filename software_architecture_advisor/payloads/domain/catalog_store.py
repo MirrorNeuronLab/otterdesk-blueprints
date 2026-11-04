@@ -5,7 +5,7 @@ import json
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from mn_sdk.committed_artifacts import (
+from mn_sdk.blueprint.storage import (
     CommittedJsonStore,
     CommittedArtifactRef,
     COMMITTED_JSON_VERSION,

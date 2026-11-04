@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 import time
 
-from mn_sdk.agent_events import report_activity
-from mn_sdk.llm import LLMError
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.models import LLMError
 from mn_code_search_skill import SyntaxIndex, TextSearchIndex
 
 from .artifacts import read, save

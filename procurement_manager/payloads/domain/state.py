@@ -1,6 +1,6 @@
 """Immutable procurement evidence handoffs between the two Core branches."""
-from mn_sdk.blueprint_support import BlueprintBundleLayout
-from mn_sdk.integrations.block_inputs import declared_inputs
+from mn_sdk.blueprint.context import BlueprintBundleLayout
+from mn_sdk.blueprint.inputs import declared_inputs
 from .inputs import normalize_inputs
 
 

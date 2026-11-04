@@ -1,6 +1,6 @@
 """Case evidence authority across native source and index phases."""
 
-from mn_sdk.artifacts import file_sha256
+from mn_sdk.blueprint.storage import file_sha256
 from mn_sdk_common.committed_artifacts import COMMITTED_JSON_VERSION
 
 
@@ -101,7 +101,7 @@ def terminal(block, indexed, inputs, state, summary, **extra):
         if any(existing.get(key) != value for key, value in expected.items()):
             raise ValueError("Case terminal decision changed")
         return terminal_result(reference, existing)
-    from mn_sdk.blueprint_support import write_json
+    from mn_sdk.blueprint.context import write_json
     from .evidence.store import EvidenceStore
     from .models import DraftReport
     EvidenceStore(block.store.path("case/evidence.sqlite3")).save_agent_review(

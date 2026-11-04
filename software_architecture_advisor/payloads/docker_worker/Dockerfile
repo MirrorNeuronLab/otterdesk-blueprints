@@ -5,7 +5,6 @@ COPY requirements.txt /tmp/mn-skill-runtime/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/mn-skill-runtime/requirements.txt
 COPY domain/ /app/domain/
 COPY agents/ /app/agents/
-COPY steps/ /app/steps/
 COPY runtime/ /app/runtime/
 COPY knowledge/ /app/knowledge/
 COPY report_specs/ /app/report_specs/

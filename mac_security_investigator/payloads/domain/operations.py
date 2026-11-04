@@ -1,5 +1,5 @@
 """Native block operations for bounded local evidence and temporal policy."""
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 from .acquisition import acquire_mac
 from .configuration import BLUEPRINT_ID, investigation_policy

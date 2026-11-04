@@ -20,15 +20,7 @@ class LiveLabUi:
         block = self.block
         binding = resolve_web_ui_binding(block.config, environment=block.environment)
         port = await self.visualizer.start(binding.host, binding.port)
-        env = block.environment or {}
-        node = env.get('MN_EXECUTION_NODE', '').rpartition('@')[2]
-        host = node if node and binding.host in {'0.0.0.0', '::'} else None
-        host = host or env.get('MN_WEB_UI_PROXY_HOST') or env.get('MN_DOCKER_WORKER_CONTAINER_NAME')
-        if not host:
-            host = '127.0.0.1' if binding.host in {'0.0.0.0', '::'} else binding.host
-        if ':' in host and not host.startswith('['):
-            host = '[' + host + ']'
-        url = env.get('MN_BLUEPRINT_WEB_UI_BASE_URL') or f'http://{host}:{port}/'
+        url = binding.advertised_url(port, environment=block.environment)
         self.claimed = True
         await asyncio.to_thread(claim_web_ui, block.job_directory, job_id=block.job_id,
                                url=url, title='Web lab', service_name='web-lab',

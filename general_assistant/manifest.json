@@ -2,6 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "general_assistant",
   "name": "Computer Use",
+  "payload_api": "mn.blueprint.v1",
   "version": "3.0.0",
   "description": "Operate apps and websites on your Mac from a general prompt. A separate mn computer use app owns Accessibility and Screen Recording permissions. Ask for sign-in or other help in Chat, verify results on screen, and reuse Job-private navigation memory.",
   "workflow": "workflow.json",

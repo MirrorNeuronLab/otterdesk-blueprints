@@ -1,5 +1,5 @@
 """Editable rules and investigation checkpoints in the contained run workspace."""
-from mn_sdk.blueprint_support import write_json
+from mn_sdk.blueprint.context import write_json
 from mn_sdk_common.files import atomic_write_text
 
 

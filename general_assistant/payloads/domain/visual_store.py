@@ -4,9 +4,9 @@ import json
 import math
 import re
 
-from mn_blueprint_blocks.contracts import fingerprint
+from mn_sdk.blueprint.hooks import fingerprint
 from mn_context_engine_sdk import MediaReference
-from mn_sdk.file_transactions import file_transaction
+from mn_sdk.blueprint.storage import file_transaction
 from mn_sdk_common.files import atomic_write_bytes, atomic_write_json
 
 PRINCIPAL = "computer-use-visual"

@@ -4,7 +4,7 @@ import os
 import socket
 import time
 
-from mn_sdk.integrations.service_web_ui import claim_service_web_ui
+from mn_sdk.blueprint.services import claim_service_web_ui
 from mn_sdk_web_ui import resolve_web_ui_binding
 from mn_sdk_mcp.cli import container_loopback_proxy_enabled
 

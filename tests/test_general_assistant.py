@@ -21,7 +21,7 @@ TASK = "Using Gmail, send the email I specified. Ask me to sign in if necessary.
 
 @pytest.fixture
 def conversation_events(monkeypatch):
-    from mn_sdk import human_interactions
+    from mn_sdk.blueprint import approvals as human_interactions
     events = []
     monkeypatch.setattr(human_interactions, "publish_human_interaction_event",
                         lambda run, kind, payload: events.append({"type": kind, "payload": payload, "run_id": run}))

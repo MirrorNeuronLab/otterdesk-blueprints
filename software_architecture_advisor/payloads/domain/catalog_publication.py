@@ -1,12 +1,12 @@
 """Render and publish verified architecture catalog artifacts."""
 
-from mn_sdk.agent_events import activity_operation
-from mn_sdk.integrations.block_publication_files import deliver_files, publish_files
+from mn_sdk.blueprint.hooks import activity_operation
+from mn_sdk.blueprint.outputs import deliver_files, publish_files
 from mn_sdk_common.publication import ArtifactWrite
 
 import json
 from pathlib import Path
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint.outputs import artifact_reference
 from .state import bound_structure, catalog_reference, freeze_files, save_state, read_state
 from mn_sdk_common.committed_artifacts import COMMITTED_JSON_VERSION
 from .catalog_store import CatalogStore

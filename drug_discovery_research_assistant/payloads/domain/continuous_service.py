@@ -1,6 +1,6 @@
 """One scientific cycle per run, with explicit interrupted-cycle reconciliation."""
-from mn_blueprint_blocks.contracts import BlockError, fingerprint
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import BlockError, fingerprint
+from mn_sdk.blueprint.hooks import report_activity
 from service.scripts.continuous_service import run_service, is_fake
 
 from .configuration import BLUEPRINT_ID, cycle_configuration

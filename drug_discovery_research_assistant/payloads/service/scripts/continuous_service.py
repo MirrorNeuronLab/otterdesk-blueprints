@@ -7,7 +7,7 @@ is retained solely for smoke tests and emits explicit synthetic provenance.
 from __future__ import annotations
 
 from functools import partial
-from mn_sdk.blueprint_support import read_json_file as load_json
+from mn_sdk.blueprint.context import read_json_file as load_json
 from mn_sdk_common.files import atomic_write_json as json_dump, atomic_write_text
 
 import argparse

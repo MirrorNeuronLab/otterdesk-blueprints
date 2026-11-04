@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 import json
 from typing import Any
 
-from mn_sdk.llm import LLMClient, LLMError
+from mn_sdk.blueprint.models import LLMClient, LLMError
 
 
 class InvestigationModelError(RuntimeError):

@@ -1,8 +1,8 @@
 """Native public-research specialists over one verified planning snapshot."""
 
-from mn_blueprint_blocks.context import Capability
-from mn_sdk.agent_events import activity_operation
-from mn_sdk.blueprint_support import slugify
+from mn_sdk.blueprint.hooks import Capability
+from mn_sdk.blueprint.hooks import activity_operation
+from mn_sdk.blueprint.context import slugify
 from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
 
 from .execution_policy import company_worker_count

@@ -1,8 +1,8 @@
 """Five-candidate scientific ranking and required review qualifications."""
 import json
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 from mn_sdk_common.publication import ArtifactWrite
-from mn_sdk.integrations.block_publication_files import publish_artifact_bundle, publish_files, merge_publications
+from mn_sdk.blueprint.outputs import publish_artifact_bundle, publish_files, merge_publications
 
 from .configuration import BLUEPRINT_ID
 from .native_stages import read_discovery_state, write_discovery_state

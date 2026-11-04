@@ -3,9 +3,9 @@ from hashlib import sha256
 import json
 import time
 
-from mn_sdk import human_interactions
-from mn_sdk.agent_events import report_activity
-from mn_sdk.interactions import InteractionError
+from mn_sdk.blueprint import approvals as human_interactions
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.approvals import InteractionError
 
 from .artifacts import read, save, text
 from . import rule_document

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mn_sdk.blueprint_support import bounded_int
+from mn_sdk.blueprint.context import bounded_int
 
 from .common import FUND_PROFILE_WEIGHTS, METHOD_IDS
 

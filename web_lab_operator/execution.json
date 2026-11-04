@@ -47,8 +47,7 @@
             "source": "web_assets",
             "target": "web_assets"
           }
-        ],
-        "network_mode": "host"
+        ]
       }
     }
   }

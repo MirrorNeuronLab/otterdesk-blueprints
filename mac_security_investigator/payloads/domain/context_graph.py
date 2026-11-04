@@ -3,7 +3,7 @@ import ipaddress
 import json
 import os
 
-from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
+from mn_sdk.blueprint.memory import runtime_text_memory, retrieve_memory_context
 from mn_temporal_graph_skill import fingerprint
 
 from .configuration import investigation_policy

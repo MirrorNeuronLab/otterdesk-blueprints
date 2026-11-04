@@ -3,8 +3,8 @@
 from pathlib import Path
 
 from mn_docs_to_markdown_skill import SUPPORTED_SUFFIXES, convert_documents
-from mn_sdk.blueprint_support import write_json
-from mn_sdk.source_query import source_text_query
+from mn_sdk.blueprint.context import write_json
+from mn_sdk.blueprint.memory import source_text_query
 
 
 def index_output_artifacts(block, output_files):

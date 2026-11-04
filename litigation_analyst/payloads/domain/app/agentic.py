@@ -2,8 +2,8 @@
 
 import json
 import os
-from mn_sdk.context_session import ContextSession, ContextPolicy, NeedsPartition, ContextBudgetExceeded
-from mn_sdk.llm import LLMClient
+from mn_sdk.blueprint.memory import ContextSession, ContextPolicy, NeedsPartition, ContextBudgetExceeded
+from mn_sdk.blueprint.models import LLMClient
 from mn_prototype_bounded_tool_loop_agent.checkpoint import CheckpointLoop, fingerprint
 from .instructions import SYSTEM, GRAPH_SCHEMA
 from .guidance import InvestigationGuidance
@@ -11,7 +11,7 @@ from .planning import PLAN, OUTCOME, HYPOTHESIS, PHASE_INSTRUCTIONS
 from .findings import REPORT, REVIEW
 from .actions import InvestigationActions
 from mn_prototype_bounded_tool_loop_agent.phases import PhaseCycle
-from mn_sdk.agent_events import emit_agent_event
+from mn_sdk.blueprint.hooks import emit_agent_event
 from .local_llm import SDKInvestigationModel
 from .skill_bindings import bind_skills
 from .activity import observe_action

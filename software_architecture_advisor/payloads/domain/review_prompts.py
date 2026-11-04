@@ -329,7 +329,7 @@ def build_prompt(task, catalog, snapshot, packets, results, budget, omitted, *, 
             base["omissions"]["packet_targets"] -= 1
     prompt = encode()
     from mn_context_engine_sdk.evidence import assess_context
-    from mn_sdk.memory_quality import context_requirements
+    from mn_sdk.blueprint.memory import context_requirements
     # Synthesis already owns its prior results. Source review needs current
     # citable evidence; optional history can never fill that obligation.
     source_task = kind not in {'section_synthesis','executive_synthesis'}

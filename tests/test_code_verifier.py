@@ -1387,7 +1387,7 @@ def test_real_sdk_adapter_publishes_a_bound_conversation_request(modules, contex
                               list_runs=lambda *args, **kwargs: json.dumps({'job_id': 'stable-job', 'items': [record], 'next_page_token': None})), Interactions()
 
     monkeypatch.setenv('MN_JOB_ID', 'stable-job')
-    monkeypatch.setattr(modules['rule_review'].human_interactions, 'runtime_interactions', connected)
+    monkeypatch.setattr('mn_sdk.human_interactions.runtime_interactions', connected)
     receipt = modules['rule_review'].review(context, phase_inputs(context))["approval"]
     assert receipt['status'] == 'approved'
     record, = records.values()

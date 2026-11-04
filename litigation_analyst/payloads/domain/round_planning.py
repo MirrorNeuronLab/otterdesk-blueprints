@@ -1,6 +1,6 @@
 """LLM-directed litigation enquiries compiled into admitted child tasks."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 import time
 from copy import deepcopy
 from .app.planning import object_schema

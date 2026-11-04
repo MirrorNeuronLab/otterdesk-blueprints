@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import re
 from urllib.parse import urlsplit
 
-from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
+from mn_sdk.blueprint.memory import runtime_text_memory, retrieve_memory_context
 
 PRINCIPAL = "computer-use"
 
@@ -31,7 +31,7 @@ class NavigationMemory:
         # Analytical queries need these authored fields even before the first
         # successful navigation exists. Keep schema declarations out of recall.
         from mn_context_engine_sdk.intelligent_system import RuntimeRecord
-        from mn_blueprint_blocks.contracts import fingerprint
+        from mn_sdk.blueprint.hooks import fingerprint
         identity = "computer-navigation-schema-v1-" + fingerprint(self.session.scope)
         clock = self.session.restore_checkpoint(identity)
         if clock is None:
@@ -55,7 +55,7 @@ class NavigationMemory:
 
     def remember(self, request, routes):
         from mn_context_engine_sdk.intelligent_system import RuntimeRecord
-        from mn_blueprint_blocks.contracts import fingerprint
+        from mn_sdk.blueprint.hooks import fingerprint
 
         receipts = []
         for bundle_id, hints in sorted(routes.items()):

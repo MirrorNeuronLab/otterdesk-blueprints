@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 import hashlib
 import json
 
-from mn_sdk.context_session.contracts import digest
-from mn_sdk.source_query import source_text_query
-from mn_sdk.text_memory import runtime_text_memory
+from mn_sdk.blueprint.memory import digest
+from mn_sdk.blueprint.memory import source_text_query
+from mn_sdk.blueprint.memory import runtime_text_memory
 from .round_state import read, save
 from .evidence.store import EvidenceStore
 

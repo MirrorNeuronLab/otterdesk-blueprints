@@ -3,8 +3,8 @@ import json
 
 
 def measure(root):
-    from mn_sdk.resource_usage_ledger import merge_model_measurements
-    from mn_sdk.job_analysis import usage_totals
+    from mn_sdk.blueprint.usage import merge_model_measurements
+    from mn_sdk.blueprint.usage import usage_totals
     samples, ledger = merge_model_measurements(root, [])
     provider_usage = usage_totals([{'type':'llm_usage', 'event_id':str(i), 'payload':s['llm']}
         for i,s in enumerate(samples) if 'llm' in s]) if ledger else None

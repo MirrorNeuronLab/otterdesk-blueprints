@@ -1,8 +1,8 @@
 """Native intake specialists over verified, explicit VC evidence snapshots."""
 
-from mn_sdk.agent_events import activity_operation
-from mn_sdk.blueprint_support import slugify, write_json
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.hooks import activity_operation
+from mn_sdk.blueprint.context import slugify, write_json
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 
 from .common import utc_now_iso
 from .composition import hydrate_cached_companies

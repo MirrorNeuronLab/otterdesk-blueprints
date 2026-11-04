@@ -1,8 +1,8 @@
 """Strict model access; no invented successful work on model failure."""
 import json
 from pathlib import Path
-from mn_sdk.llm import LLMClient
-from mn_sdk.blueprint_support.runtime import configured_llm_environment_scope
+from mn_sdk.blueprint.models import LLMClient
+from mn_sdk.blueprint.models import configured_llm_environment_scope
 
 
 def generate(context, prompt_name, data):

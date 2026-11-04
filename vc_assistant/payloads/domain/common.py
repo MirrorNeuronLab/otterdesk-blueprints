@@ -22,8 +22,8 @@ from functools import partial
 
 from pathlib import Path
 
-from mn_sdk import resolve_blueprint_path, resolve_bundle_path
-from mn_sdk.blueprint_support import BlueprintBundleLayout
+from mn_sdk.blueprint.inputs import resolve_blueprint_path, resolve_bundle_path
+from mn_sdk.blueprint.context import BlueprintBundleLayout
 
 from typing import Any
 
@@ -31,7 +31,7 @@ from urllib.parse import urlparse
 
 from mn_sdk_common.prompts import PromptLibrary
 from mn_sdk_common.events import append_event_jsonl
-from mn_sdk.blueprint_support import (
+from mn_sdk.blueprint.context import (
     env_flag_enabled,
     fake_llm_mode_enabled,
     fake_skills_mode_enabled,
@@ -40,12 +40,12 @@ from mn_prototype_actor_review_agent.actors import (
     get_actor_llm_client,
     resolve_actor_specs,
 )
-from mn_sdk.integrations.rag import (
+from mn_sdk.blueprint.knowledge import (
     build_runtime_embedder,
     prepare_blueprint_knowledge_rag as sdk_prepare_blueprint_knowledge_rag,
 )
 
-from mn_sdk.blueprint_support import (
+from mn_sdk.blueprint.context import (
     ActionBudget,
     BudgetedLlmClient,
     LlmCallLimiter,

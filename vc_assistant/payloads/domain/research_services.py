@@ -2,8 +2,8 @@
 
 from dataclasses import dataclass
 
-from mn_sdk.blueprint_support import BlueprintBundleLayout, LlmCallLimiter
-from mn_sdk.integrations.run_budget import RunActionBudget
+from mn_sdk.blueprint.context import BlueprintBundleLayout, LlmCallLimiter
+from mn_sdk.blueprint.hooks import RunActionBudget
 from mn_prototype_actor_review_agent.actors import get_actor_llm_client
 
 from .common import build_llm_call_limiter

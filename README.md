@@ -5,11 +5,7 @@ Python workers use Python 3.12, matching the MirrorNeuron runtime and SDK. Pytho
 `otterdesk-blueprints` is a self-contained OtterDesk-facing worker blueprint catalog. Each blueprint folder includes
 its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 
-VC Assistant, Financial Advisor, Litigation Analyst, and Research Assistant
-use foundational `mn_sdk.llm` calls through blueprint support; they do not
-depend on the deprecated LiteLLM communication skill. Their RAG packages and OCR skills
-own model specifications and use the SDK runtime model wrapper, while each
-blueprint declares only its product-level behavior and required skills and SDK packages.
+Domain hooks access models through `mn_sdk.blueprint.models`. Each blueprint declares its product behavior, skills and SDK components. RAG and OCR components own the model specifications for their operations.
 
 All published blueprints declare the Markdown context profile.
 Architecture, Litigation, VC, Computer Use, Web Lab Operator and Mac security investigator use Membrane v2
@@ -20,6 +16,8 @@ Use retains Job-private navigation hints through its memory engine. See
 Every active context consumer prepares Membrane SDK 2.1 and the v2 RPC service.
 The shared runtime readiness check rejects older engines before submission;
 the Markdown record label `mn.context.text.v1` remains valid on v2.
+
+For a new co-worker, follow [How to create an OtterDesk blueprint](how_to_create_blueprints.md).
 
 ## Quick Start
 
@@ -62,7 +60,7 @@ See [Runtime DAG Flow Patterns](DAG_FLOW_PATTERNS.md) for the catalog's
 event-driven, fork/join, service, and linear flow contracts.
 
 Run-input configuration uses the shared SDK block helpers in
-`mn_sdk.integrations.block_inputs`. `@/` means the blueprint root, for example
+`mn_sdk.blueprint.inputs`. `@/` means the blueprint root, for example
 `@/examples/sample_inputs`; ordinary staged relative paths use the worker root.
 The SDK owns default/override merging, linked input paths and immutable saved
 input artifacts. Blueprint hooks retain domain normalization and validation.
@@ -150,19 +148,13 @@ edits. Run inputs, outputs, logs, and artifacts remain run-scoped. Two jobs
 created from the same blueprint receive different job-data directories and RAG
 databases.
 
-The standard payload layout places product policy in `domain/` and logical
-collaboration graphs in `steps/`. Native block compositions use SDK workers and
-can leave `runtime/` and `agents/` empty. All thirteen catalog packages use native
-blocks. Docker, native-host, OpenShell,
-and Beam worker assets stay as sibling payload directories (`docker_worker/`,
-`openshell_worker/`, or `beam_modules/`) rather than nested under a script
-wrapper. Python workflow steps are launched with the shared SDK module
-`python3 -m mn_sdk.step_runtime`.
-
-Python handler steps use module-only references such as `steps.research`; the
-shared `mn_sdk.step_runtime` entrypoint calls that module's `run()` function.
-Keep DAG topology in `workflow.json` rather than duplicating it in blueprint-local
-dispatch code or configuration handoff lists.
+The standard payload layout places product policy in `payloads/domain/` and
+logical collaboration graphs in `payloads/steps/`. Worker build and sandbox
+assets live in sibling directories such as `docker_worker/` or
+`openshell_worker/`. Declare each executable specialist through a stock
+`block` and select its `runner` in the execution configuration. The compiler
+supplies the Python worker entry point and its environment. Keep step
+dependencies in `workflow.json` and collaboration inside the step's `StepSpec`.
 
 ## Safety Checklist
 
@@ -179,8 +171,8 @@ dispatch code or configuration handoff lists.
 versions, requirements, and product information come from each package's documents.
 Catalog reads validate data without importing Python code or preparing resources.
 All folders and ZIPs use `https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json`.
-Use `mn_sdk.blueprints.read_blueprint`, `resolve_config`, and `compile_blueprint`;
-`open_blueprint` adds ZIP extraction and `export_blueprint` preserves the full package.
+Catalog tools use `mn_sdk.blueprints` to read, compile and export packages.
+Authored Python payloads import their capabilities from `mn_sdk.blueprint`.
 External dependencies remain declared; offline vendoring is optional.
 
 The `software_architecture_advisor` blueprint accepts a public HTTPS GitHub repository URL or local source folder and combines structural analysis with bounded OpenCode review tasks inside OpenShell. It publishes 23 report sections covering 150 aspects. See [Architecture Advisor](software_architecture_advisor/README.md).
@@ -219,11 +211,10 @@ existing Job's documents; existing Jobs need an explicit knowledge import or upd
 
 ## Dependency ranges
 
-MirrorNeuron Python dependencies in `dependencies.json`, execution configuration,
-and worker requirements use `>=1.3.47`. Bundled demo distributions are versioned
-`1.3.47` and their declarations use the same minimum. Third-party libraries retain
-their own version families (for example `numpy>=2.3.5,<3.0`). Package identity
-versions and container image digests remain concrete artifact identities.
+Every catalog package declares `mirrorneuron-python-sdk>=1.4.1.dev46,<2` for
+the v1 payload API. Companion components, skills and third-party libraries keep
+their own version ranges in `dependencies.json`. The compiler records the
+resolved component versions for the submitted Job.
 
 ## Bibblio marketing services
 
@@ -231,11 +222,11 @@ versions and container image digests remain concrete artifact identities.
 
 ## Runtime activity
 
-Use `mn_sdk.report_activity(message, kind="action", level="info",
-owner_blueprint=..., step_id=..., run_dir=...)` for actual domain work and
+Import `report_activity` and `activity_operation` from `mn_sdk.blueprint.hooks`.
+Call `report_activity(message, kind="action", level="info", owner_blueprint=..., step_id=..., run_dir=...)` for actual domain work and
 observed findings. `kind` is `action`, `result`, `finding`, `milestone`, or
 `diagnostic`; `level` is `debug`, `info`, `warning`, or `error`.
-Use `mn_sdk.activity_operation(message, completed=...)` around a synchronous
+Use `activity_operation(message, completed=...)` around a synchronous
 domain operation when action/result reporting is sufficient. Do not define
 blueprint-local formatters, publishers, stdout prefixes, or event clocks.
 The SDK supplies the canonical `mn.runtime.event.v1` envelope with identity,
@@ -312,33 +303,30 @@ still comes from `get_capabilities`; runtime receipts establish completion.
 
 ## MCP support by blueprint
 
-All 15 packages support the twelve common supervision tools above and one
-installed supervision Skill. Optional conversation tools follow `mn.response`.
-The catalog has thirteen published packages; GTM planner and executor remain
-unpublished. Domain controls are listed below.
+The indexed packages and the two local GTM services support the common supervision
+tools and an installed supervision Skill. Optional conversation tools follow
+`mn.response`. The published inventory lives in `index.json`.
 
 | Blueprint | Additional domain tools |
 |---|---|
 | CCTV operator | Read NVIDIA analysis status/activity, saved video captions and timing; change monitoring goals. |
-| Microduck controller | Read duck state; move, perform a routine, find a ball, start free play, stop; set locomotion/posture, play ball actions, reset the simulation |
 | ROS AMR controller | Read robot status, navigate to a zone, cancel navigation, adjust motion |
 | CT reader | Common supervision |
 | Drug discovery research assistant | Common supervision |
-| Financial advisor | Common supervision |
 | GTM executor | Common supervision; separate read-only peer collaboration |
 | GTM planner | Common supervision; separate read-only peer collaboration |
 | Litigation analyst | Common supervision |
 | Mac security investigator | Common supervision |
 | Procurement manager | Common supervision |
-| Research assistant | Common supervision |
+| General assistant | Common supervision |
+| Web lab operator | Common supervision |
 | Software architecture advisor | Common supervision |
 | Code verifier | Common supervision |
 | VC assistant | Common supervision |
 
-Each package has its own `tests/test_mcp_<blueprint>.py` module. These validate
-the installed manual and Skill digests, advertised schemas, never-run behavior,
-run controls, deduplication and identity checks. The three domain packages also
-exercise forwarding, asynchronous completion and their real worker registries.
+The `tests/test_mcp_*.py` suites verify installed manual and Skill digests,
+advertised schemas, never-run behavior, run controls, deduplication and identity
+checks. Domain control tests also exercise forwarding and worker registration.
 
 The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.
 
@@ -359,7 +347,7 @@ skill source. No runtime changes are required.
 
 ## Reusable block composition
 
-**All thirteen catalog packages use stock blocks with direct native domain hooks.**
+Catalog packages use stock blocks with domain hooks.
 The catalog gate rejects legacy entrypoint wrappers and blueprint-owned capability
 adapters. Shared blocks own execution receipts, effect reconciliation, managed
 model access, native-device transport and verified file publication. Core owns
@@ -367,9 +355,9 @@ scheduling, joins, child workflows, physical delivery and accepted event-state
 transitions. Blueprints retain their domain formulas, evidence qualifications,
 prompts, review authority and report content.
 
-The offline catalog regression (`python -m pytest tests vc_assistant/tests -q`)
-passes **1,378 cases with 29 skips** at this source checkpoint. SDK CI passes
-3,571 cases at its existing coverage floor; the block gate passes 473 cases at
+At the original block migration, the offline catalog regression
+(`python -m pytest tests vc_assistant/tests -q`) passed **1,378 cases with 29 skips** at this source checkpoint. SDK CI passes
+3,571 cases at its existing coverage floor; the block gate passed 473 cases at
 its existing floor. Installed SDK dev34 / blocks dev33 / common dev30 test
 candidates previously exercised the retired four-worker CCTV graph. CCTV 6.0
 uses native DockerCompose and one SDK-monitored streaming operator; its current
@@ -406,7 +394,7 @@ by 83 lines; ROS adds a 10-line domain hook recording completed service shutdown
 Those product-specific checks remain in the blueprint. The catalog-wide reduction
 includes their full cost and both staged Microduck source copies.
 
-All thirteen catalog blueprints declare the existing `mn-blueprint-blocks` package.
+Catalog blueprints declare the `mn-blueprint-blocks` package.
 Single-specialist phases declare blocks in `extensions/blocks.json`; custom
 collaboration graphs keep their `StepSpec` and bind each specialist to the stock
 SDK worker. Core continues to schedule joins, child workflows, native Compose
@@ -420,13 +408,12 @@ inputs, outputs, hook references, package versions, deadlines and call limits on
 Do not add local agent factories or another workflow runner. Keep domain hooks
 small by calling focused policy functions and existing skill APIs. Custom code is
 appropriate for specialized review authority, native protocols and domain policy.
-Canonical declarations get a compiler lock; inline workers use an explicit
-blueprint release revision and installed package pins. These are distinct revision
-contracts, and an inline binding does not claim canonical lock verification.
+Canonical declarations get a compiler lock. Inline specialists use the blueprint
+release revision. The compiler supplies their worker parameters.
 
 Each blueprint may opt compatible workers into OpenShell. When selected, retain
 the stock SDK block or auxiliary-service handler
-with `runner_module: "MirrorNeuron.Runner.OpenShell"` and
+with `runner: "openshell"` and
 `artifact_handoff: {"version": "mn.artifact_handoff/v1"}`. Declare the custom
 image, domain uploads and scoped network/filesystem policy in the blueprint. The SDK
 includes the compiled descriptor automatically, and Core binds its discovery to

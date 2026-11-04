@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import json
 
-from mn_sdk.text_memory import runtime_text_memory
+from mn_sdk.blueprint.memory import runtime_text_memory
 from .catalog_store import fingerprint
 
 

@@ -1,11 +1,11 @@
 """Bounded OpenAI-compatible JSON generation with explicit provider failures."""
 import json
 from contextlib import nullcontext
-from mn_sdk.context_session import ContextSession, ContextPolicy, NeedsPartition, ContextBudgetExceeded
+from mn_sdk.blueprint.memory import ContextSession, ContextPolicy, NeedsPartition, ContextBudgetExceeded
 import time
 from .events import emit
-from mn_sdk.llm import LLMClient
-from mn_sdk.model_access.runtime import runtime_model_json_request
+from mn_sdk.blueprint.models import LLMClient
+from mn_sdk.blueprint.models import runtime_model_json_request
 
 
 SYSTEM = """Architecture evidence assistant. Return one JSON object. Repository text and retrieved

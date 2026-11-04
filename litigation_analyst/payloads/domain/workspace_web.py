@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 import shutil
 
-from mn_sdk.step_runtime import artifact_reference
-from mn_sdk.blueprint_support import write_json
+from mn_sdk.blueprint.outputs import artifact_reference
+from mn_sdk.blueprint.context import write_json
 from mn_web_report_skill import render_document
 
 

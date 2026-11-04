@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from mn_sdk.integrations.block_publication_files import publish_artifact_bundle
+from mn_sdk.blueprint.outputs import publish_artifact_bundle
 from mn_sdk_common.publication import ArtifactWrite
 
 from .conversation_sources import REPORTS

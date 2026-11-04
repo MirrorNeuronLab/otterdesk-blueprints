@@ -1,5 +1,5 @@
 """Record a completed Compose shutdown without issuing robot commands."""
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 
 def record_stop(block, inputs):

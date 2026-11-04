@@ -77,25 +77,21 @@
         },
         "collect_litigation_evidence": {
           "run": {
-            "handler": "mn_sdk.integrations.block_worker",
-            "with": {
-              "revision": "litigation_analyst@5.1.0",
-              "instance": {
-                "uses": "mn.blocks.domain_operation@1",
-                "hooks": {
-                  "operation": "domain.round_tasks:collect_evidence"
-                },
-                "input_schema": {
-                  "type": "object",
-                  "required": [
-                    "task",
-                    "_child"
-                  ]
-                },
-                "limits": {
-                  "max_calls": 1,
-                  "timeout_seconds": 600
-                }
+            "block": {
+              "uses": "mn.blocks.domain_operation@1",
+              "hooks": {
+                "operation": "domain.round_tasks:collect_evidence"
+              },
+              "input_schema": {
+                "type": "object",
+                "required": [
+                  "task",
+                  "_child"
+                ]
+              },
+              "limits": {
+                "max_calls": 1,
+                "timeout_seconds": 600
               }
             }
           },
@@ -114,25 +110,21 @@
         },
         "assess_litigation_hypothesis": {
           "run": {
-            "handler": "mn_sdk.integrations.block_worker",
-            "with": {
-              "revision": "litigation_analyst@5.1.0",
-              "instance": {
-                "uses": "mn.blocks.domain_operation@1",
-                "hooks": {
-                  "operation": "domain.round_tasks:assess_hypothesis"
-                },
-                "input_schema": {
-                  "type": "object",
-                  "required": [
-                    "task",
-                    "_child"
-                  ]
-                },
-                "limits": {
-                  "max_calls": 1,
-                  "timeout_seconds": 600
-                }
+            "block": {
+              "uses": "mn.blocks.domain_operation@1",
+              "hooks": {
+                "operation": "domain.round_tasks:assess_hypothesis"
+              },
+              "input_schema": {
+                "type": "object",
+                "required": [
+                  "task",
+                  "_child"
+                ]
+              },
+              "limits": {
+                "max_calls": 1,
+                "timeout_seconds": 600
               }
             }
           },
@@ -151,25 +143,21 @@
         },
         "review_litigation_finding": {
           "run": {
-            "handler": "mn_sdk.integrations.block_worker",
-            "with": {
-              "revision": "litigation_analyst@5.1.0",
-              "instance": {
-                "uses": "mn.blocks.domain_operation@1",
-                "hooks": {
-                  "operation": "domain.round_tasks:review_finding"
-                },
-                "input_schema": {
-                  "type": "object",
-                  "required": [
-                    "task",
-                    "_child"
-                  ]
-                },
-                "limits": {
-                  "max_calls": 1,
-                  "timeout_seconds": 600
-                }
+            "block": {
+              "uses": "mn.blocks.domain_operation@1",
+              "hooks": {
+                "operation": "domain.round_tasks:review_finding"
+              },
+              "input_schema": {
+                "type": "object",
+                "required": [
+                  "task",
+                  "_child"
+                ]
+              },
+              "limits": {
+                "max_calls": 1,
+                "timeout_seconds": 600
               }
             }
           },
@@ -188,25 +176,21 @@
         },
         "summarize_litigation_round": {
           "run": {
-            "handler": "mn_sdk.integrations.block_worker",
-            "with": {
-              "revision": "litigation_analyst@5.1.0",
-              "instance": {
-                "uses": "mn.blocks.domain_operation@1",
-                "hooks": {
-                  "operation": "domain.round_tasks:summarize_round"
-                },
-                "input_schema": {
-                  "type": "object",
-                  "required": [
-                    "task",
-                    "_child"
-                  ]
-                },
-                "limits": {
-                  "max_calls": 1,
-                  "timeout_seconds": 600
-                }
+            "block": {
+              "uses": "mn.blocks.domain_operation@1",
+              "hooks": {
+                "operation": "domain.round_tasks:summarize_round"
+              },
+              "input_schema": {
+                "type": "object",
+                "required": [
+                  "task",
+                  "_child"
+                ]
+              },
+              "limits": {
+                "max_calls": 1,
+                "timeout_seconds": 600
               }
             }
           },

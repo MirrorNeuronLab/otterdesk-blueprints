@@ -3,7 +3,7 @@
 import hashlib
 from pathlib import Path
 
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 
 from .memory import LabMemory
 from .protocol import numbered_instructions

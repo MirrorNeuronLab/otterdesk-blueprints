@@ -1,6 +1,6 @@
 """Retry allowances layered over immutable architecture evidence and requests."""
 import time
-from mn_sdk.run_retry import effective_configuration, remaining_seconds, retry_context
+from mn_sdk.blueprint.context import effective_configuration, remaining_seconds, retry_context
 
 
 def effective_config(original, *, paths=None):

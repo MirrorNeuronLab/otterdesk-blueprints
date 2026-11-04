@@ -77,24 +77,20 @@
         },
         "review_architecture_packet": {
           "run": {
-            "handler": "mn_sdk.integrations.block_worker",
-            "with": {
-              "revision": "software_architecture_advisor@7.1.0",
-              "instance": {
-                "uses": "mn.blocks.domain_operation@1",
-                "hooks": {
-                  "operation": "domain.sandbox_review:review_admitted"
-                },
-                "input_schema": {
-                  "type": "object",
-                  "required": [
-                    "review_input"
-                  ]
-                },
-                "limits": {
-                  "max_calls": 1,
-                  "timeout_seconds": 720
-                }
+            "block": {
+              "uses": "mn.blocks.domain_operation@1",
+              "hooks": {
+                "operation": "domain.sandbox_review:review_admitted"
+              },
+              "input_schema": {
+                "type": "object",
+                "required": [
+                  "review_input"
+                ]
+              },
+              "limits": {
+                "max_calls": 1,
+                "timeout_seconds": 720
               }
             }
           },

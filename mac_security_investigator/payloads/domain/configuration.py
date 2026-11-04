@@ -1,6 +1,6 @@
 """Fixed investigation budgets; the output folder is the only operator setting."""
 
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import source_manifest
 
 BLUEPRINT_ID = source_manifest(__file__)["metadata"]["blueprint_id"]
 

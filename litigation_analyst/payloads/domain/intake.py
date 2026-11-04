@@ -1,6 +1,6 @@
 """Source-selection policy, coverage accounting, and immutable review inventory."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 
 from dataclasses import asdict
 import hashlib
@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path
 
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 from .ingestion.corpus import CaseCorpus
 from .sample_data import prepare_emc2, EMC2_DOCUMENTATION, attribution
 

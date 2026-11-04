@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from mn_sdk.context_engine import context_memory_section_enabled
+from mn_sdk.blueprint.memory import context_memory_section_enabled
 from mn_sdk_common.files import atomic_write_text
 
 MAX_SOURCE_BYTES = 4 * 1024 * 1024

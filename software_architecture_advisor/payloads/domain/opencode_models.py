@@ -2,8 +2,8 @@
 import os
 import re
 from mn_opencode_skill import OpenCodeGateway
-from mn_sdk.model_access import ensure_runtime_model, remote_model_api_base
-from mn_sdk.model_runtime import load_model_catalog, resolve_model_entry
+from mn_sdk.blueprint.models import ensure_runtime_model, remote_model_api_base
+from mn_sdk.blueprint.models import load_model_catalog, resolve_model_entry
 
 DEFAULT_MODEL = "mn/default"
 MODEL_LABELS = {

@@ -1,6 +1,6 @@
 """Bound operator tunables before any source/model work."""
 
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import source_manifest
 
 BLUEPRINT_ID = source_manifest(__file__)["metadata"]["blueprint_id"]
 

@@ -7,7 +7,7 @@ blueprint.  Dependencies must be installed on the worker that receives the job.
 """
 from __future__ import annotations
 
-from mn_sdk.blueprint_support import read_json_file as load_json
+from mn_sdk.blueprint.context import read_json_file as load_json
 from mn_sdk_common.files import atomic_write_json as dump_json
 
 import argparse

@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import shutil
 
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint.outputs import artifact_reference
 from .workspace_projection import project
 from .workspace_history import atomic, json_bytes, retain, storage
 from .improvement_prompts import markdown as prompts_markdown

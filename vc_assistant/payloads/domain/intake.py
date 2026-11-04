@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .common import *
-from mn_sdk.blueprint_support import slugify
+from mn_sdk.blueprint.context import slugify
 from mn_docs_to_markdown_skill import DocumentExtractionError, extract_folder_records, convert_documents, MarkdownConversionError
 
 def redactor(text: str) -> str:
@@ -136,7 +136,7 @@ def scan_documents(folder: Path, config: dict[str, Any] | None = None, *, source
                 'sha256': processed['markdown_sha256']}
         records_by_company.setdefault(company, []).append(record)
         indexed_records.append(record)
-    from mn_sdk.source_query import source_text_query
+    from mn_sdk.blueprint.memory import source_text_query
     sources = source_text_query(config or {}, principal='vc-inputs', scope=source_scope)
     receipts, catalog = [], None
     if sources is not None:

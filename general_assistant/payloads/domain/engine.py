@@ -9,11 +9,11 @@ from urllib.parse import urlsplit
 
 import grpc
 
-from mn_blueprint_blocks.context import Capability
+from mn_sdk.blueprint.hooks import Capability
 from mn_computer_use_skill import ComputerSession, ComputerUseError
-from mn_sdk.agent_events import report_activity
-from mn_sdk.integrations.block_model_request import model_request
-from mn_sdk.model_access.runtime import RuntimeModelError
+from mn_sdk.blueprint.hooks import report_activity
+from mn_sdk.blueprint.models import model_request
+from mn_sdk.blueprint.models import RuntimeModelError
 
 from .conversation import Conversation
 from .memory import NavigationMemory, navigation_hint

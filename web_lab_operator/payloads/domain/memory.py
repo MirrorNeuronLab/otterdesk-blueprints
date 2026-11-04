@@ -3,8 +3,8 @@
 from datetime import datetime, timezone
 import json
 
-from mn_sdk.context_session.contracts import digest
-from mn_sdk.text_memory import retrieve_memory_context, runtime_text_memory
+from mn_sdk.blueprint.memory import digest
+from mn_sdk.blueprint.memory import retrieve_memory_context, runtime_text_memory
 
 PRINCIPAL = 'web-lab-operator'
 POLICY_REVISION = 'plr-0.2.1-liquid-policy-v1'

@@ -33,7 +33,7 @@
       "type": "pip",
       "source": "gar",
       "name": "mirrorneuron-python-sdk",
-      "version": ">=1.4.1.dev10,<2"
+      "version": ">=1.4.1.dev46,<2"
     },
     {
       "type": "pip",

@@ -1,4 +1,4 @@
-from mn_sdk.step_graph import (
+from mn_sdk.blueprint.steps import (
     InputSpec,
     OutputSpec,
     StepSpec,

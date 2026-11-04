@@ -3,8 +3,8 @@ import json
 from pathlib import Path
 import re
 
-from mn_sdk.llm import LLMClient
-from mn_sdk.model_access.errors import ModelAccessError
+from mn_sdk.blueprint.models import LLMClient
+from mn_sdk.blueprint.models import ModelAccessError
 
 from .model_contracts import response_schema
 

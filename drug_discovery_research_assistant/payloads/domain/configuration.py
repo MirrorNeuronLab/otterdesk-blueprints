@@ -1,7 +1,7 @@
 """Scientific input precedence and runtime-provided output destinations."""
 import copy
-from mn_sdk.blueprint_support import source_manifest
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 
 SOURCE = source_manifest(__file__)
 BLUEPRINT_ID = SOURCE["metadata"]["blueprint_id"]

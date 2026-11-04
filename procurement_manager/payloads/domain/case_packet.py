@@ -1,14 +1,14 @@
 """Versioned procurement case evaluation from a selected local case document."""
 from __future__ import annotations
 
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 
 import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from mn_sdk.blueprint_support import append_human_event, read_human_events
+from mn_sdk.blueprint.context import append_human_event, read_human_events
 
 from .procurement_decision import evaluate_case
 from .state import read_state

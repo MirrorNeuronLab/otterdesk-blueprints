@@ -1,12 +1,12 @@
 """Deterministic, source-linked dependency baseline for a frozen snapshot."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 
 import csv
 import json
 from pathlib import Path
 
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint.outputs import artifact_reference
 
 from .config import validate_config, offline_config
 from .lazy import LayerManager

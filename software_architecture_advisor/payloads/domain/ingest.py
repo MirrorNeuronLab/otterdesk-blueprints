@@ -12,7 +12,7 @@ import os
 from pathlib import Path
 import sqlite3
 from mn_static_code_analysis_skill import SUPPORTED_EXTENSIONS
-from mn_sdk.integrations.rag import build_runtime_embedder
+from mn_sdk.blueprint.knowledge import build_runtime_embedder
 from mn_sdk_rag import HashingEmbedder, RagConfig, SingleTextEmbedder
 
 

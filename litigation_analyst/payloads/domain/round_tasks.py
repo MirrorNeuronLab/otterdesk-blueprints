@@ -1,11 +1,11 @@
 """Bounded evidence collection and separate hypothesis/review specialists."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 from dataclasses import asdict
 from copy import deepcopy
 import json
 from itertools import zip_longest
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import source_manifest
 from mn_graph_analysis_skill import ensure_bounded_readonly_rgql
 from .round_state import task_input, read, save, checkpoint
 from .round_model import complete, evidence_room
@@ -186,7 +186,7 @@ def assess_hypothesis(context, work):
     for item in data["search_coverage"]:
         item["evidence_ids"] = [e for e in item["evidence_ids"] if e in visible]
     schema = assessment_schema(task, visible)
-    from mn_sdk.memory_quality import context_requirements
+    from mn_sdk.blueprint.memory import context_requirements
     requirement = context_requirements(frozen['config'])
     quality = assess_admitted(data, collected['records']) if requirement else None
     if quality:

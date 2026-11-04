@@ -3,7 +3,7 @@ import os
 import json
 from pathlib import Path
 
-from mn_sdk.text_memory import runtime_text_memory
+from mn_sdk.blueprint.memory import runtime_text_memory
 from mn_context_engine_sdk.intelligent_system import RuntimeRecord
 from mn_temporal_graph_skill import fingerprint
 

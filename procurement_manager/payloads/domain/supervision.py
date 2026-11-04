@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from mn_blueprint_blocks.contracts import fingerprint
-from mn_sdk.blueprint_support import append_human_event, read_human_events
+from mn_sdk.blueprint.hooks import fingerprint
+from mn_sdk.blueprint.context import append_human_event, read_human_events
 
 from .common import BLUEPRINT_ID
 

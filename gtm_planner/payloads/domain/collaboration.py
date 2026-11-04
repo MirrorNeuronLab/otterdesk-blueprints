@@ -1,10 +1,6 @@
 """Narrow adapters over the SDK exchange and authenticated runtime discovery."""
 from mn_sdk_collaboration.work_packets import build_goal_work_packet, publish_goal_work_packet
-from mn_sdk.integrations.job_peers import read_group_work_packets, read_peer_work_packets, resolve_stable_job_id
-
-
-def stable_identity(context):
-    return resolve_stable_job_id(context["job_id"])
+from mn_sdk.blueprint.services import read_group_work_packets, read_peer_work_packets
 
 
 def publish(context, packet_id, stage, analysis, summary):

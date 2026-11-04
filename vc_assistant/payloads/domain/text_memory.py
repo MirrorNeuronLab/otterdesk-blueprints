@@ -1,8 +1,8 @@
 """VC input privacy and actor navigation policy over Markdown memory."""
 
 
-from mn_sdk.context_session.contracts import digest
-from mn_sdk.text_memory import runtime_text_memory, retrieve_memory_context
+from mn_sdk.blueprint.memory import digest
+from mn_sdk.blueprint.memory import runtime_text_memory, retrieve_memory_context
 
 
 def actor_query_stages(agent_id, snapshot_id, limit, sources):

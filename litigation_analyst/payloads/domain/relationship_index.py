@@ -45,7 +45,7 @@ def _schema():
 
 
 def _model(context, client):
-    from mn_sdk.llm import LLMClient
+    from mn_sdk.blueprint.models import LLMClient
     settings = context.config.get('source_relationships', {})
     if client is not None:
         return client, str(getattr(client, 'model', 'injected')), getattr(client, 'model_revision', None)
@@ -111,8 +111,8 @@ def build(context, documents, *, llm_client=None):
     flagged = review_flags(documents, load_matter(root)["exclusions"])
     calls = 0
     if mode == 'hybrid' and units:
-        from mn_sdk.blueprint_support import durable_json_decision
-        from mn_sdk.context_session import ContextPolicy
+        from mn_sdk.blueprint.context import durable_json_decision
+        from mn_sdk.blueprint.memory import ContextPolicy
 
         from .app.planning import validate
         client, model, model_revision = _model(context, llm_client)

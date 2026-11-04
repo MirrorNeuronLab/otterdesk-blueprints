@@ -1,4 +1,4 @@
-from mn_sdk.step_graph import upstream
+from mn_sdk.blueprint.steps import upstream
 
 
 def inputs(previous_step, previous_field):

@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from mn_sdk.integrations.block_model_request import model_request
+from mn_sdk.blueprint.models import model_request
 
 from .protocol import candidates
 

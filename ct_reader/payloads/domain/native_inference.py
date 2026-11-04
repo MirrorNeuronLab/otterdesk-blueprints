@@ -3,8 +3,8 @@
 from pathlib import Path
 import json
 from jsonschema import validate
-from mn_sdk.blueprint_support import source_manifest
-from mn_sdk.integrations.block_inputs import capture_declared_inputs
+from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.inputs import capture_declared_inputs
 
 MAX_CT_BYTES = 64 * 1024 * 1024
 

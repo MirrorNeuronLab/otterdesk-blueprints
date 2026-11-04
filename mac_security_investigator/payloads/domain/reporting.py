@@ -1,7 +1,7 @@
 """Sealed domain assessments projected as data for stock report publication."""
 import json
 
-from mn_sdk.agent_events import report_activity
+from mn_sdk.blueprint.hooks import report_activity
 from mn_sdk_common.reports import ReportDocument
 from mn_temporal_graph_skill import fingerprint
 

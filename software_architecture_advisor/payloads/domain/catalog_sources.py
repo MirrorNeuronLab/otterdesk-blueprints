@@ -1,7 +1,7 @@
 """Original code publication and whole revision-bound source query evidence."""
 import hashlib
 
-from mn_sdk.source_query import source_text_query
+from mn_sdk.blueprint.memory import source_text_query
 from .catalog_store import fingerprint
 from .review_prompts import evidence_record
 
@@ -125,7 +125,7 @@ def source_context(store, request, snapshot, task, focus):
             from .source_embeddings import SourceEmbeddings
             encoder = SourceEmbeddings(request['retrieval_config'], store.path('catalog/source-vectors.sqlite3'))
         try:
-            from mn_sdk.memory_quality import context_requirements
+            from mn_sdk.blueprint.memory import context_requirements
             compiled = sources.corpus.search(focus, mode=mode, embeddings=encoder,
                 limit=settings['max_results'], candidate_limit=max(32, settings['max_results']),
                 requirements=context_requirements(request['retrieval_config'],

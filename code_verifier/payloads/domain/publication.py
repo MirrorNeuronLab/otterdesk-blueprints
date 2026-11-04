@@ -1,7 +1,7 @@
 """Select declared review artifacts; SDK owns atomic output delivery."""
 import os
-from mn_sdk.blueprint_support import source_manifest
-from mn_sdk.blueprint_support.shared_outputs import copy_path_to_host
+from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.outputs import copy_path_to_host
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 

@@ -1,8 +1,8 @@
 """Verify the seven declared score branches and audit their domain results."""
 
-from mn_sdk.agent_events import activity_operation
-from mn_sdk.blueprint_support import slugify
-from mn_sdk.step_runtime import artifact_reference
+from mn_sdk.blueprint.hooks import activity_operation
+from mn_sdk.blueprint.context import slugify
+from mn_sdk.blueprint.outputs import artifact_reference
 from mn_prototype_entity_queue_agent import EntityQueueSpec, create_agent as create_entity_queue
 
 from .common import SCORER_AGENT_BY_METHOD

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from mn_sdk.step_graph import run_input, upstream
+from mn_sdk.blueprint.steps import run_input, upstream
 
 
 def step_inputs(previous_step: str = "", previous_field: str = "", *, result_ref=False):

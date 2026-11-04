@@ -86,6 +86,8 @@ witnesses stay in sidecars. Verified model dispatch requires a serving counter;
 missing counting remains an explicit failure. See [the catalog audit](CONTEXT_ENGINE.md)
 for the complete inventory, runtime prerequisites and verification limits.
 
+Published payloads declare `mn.blueprint.v1`. Domain code uses the named Python authoring facade and declared companion components. Explicit nodes select a named runner, and specialist blocks declare their stock instance and domain hooks. MirrorNeuron owns their executable bindings and Job lifecycle. See [How to create an OtterDesk blueprint](how_to_create_blueprints.md).
+
 ## Blueprint Ownership
 
 A blueprint owns product/domain composition:

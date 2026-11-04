@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-from mn_sdk.context_session.contracts import digest
+from mn_sdk.blueprint.memory import digest
 from .runtime_knowledge import authored_record, event_timestamp, latest_source_timestamp, publication_clock
 
 

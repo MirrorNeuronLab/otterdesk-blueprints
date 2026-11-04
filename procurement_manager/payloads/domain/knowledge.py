@@ -9,7 +9,7 @@ from mn_sdk_rag import (
     retrieve_local_context,
     retrieve_optional_knowledge_context,
 )
-from mn_sdk.integrations.rag import build_rag_context, prepare_blueprint_knowledge_rag
+from mn_sdk.blueprint.knowledge import build_rag_context, prepare_blueprint_knowledge_rag
 
 from .common import BLUEPRINT_ID, quick_test_enabled
 

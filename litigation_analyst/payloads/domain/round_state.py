@@ -1,13 +1,13 @@
 """Immutable litigation round artifacts and the existing review projection."""
 
-from mn_sdk.agent_events import activity_operation
+from mn_sdk.blueprint.hooks import activity_operation
 import json
 import os
 import time
 from pathlib import Path
 
-from mn_sdk.blueprint_support import source_manifest
-from mn_sdk.committed_artifacts import (
+from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.storage import (
     CommittedArtifactConflict,
     CommittedArtifactError,
     CommittedJsonStore,

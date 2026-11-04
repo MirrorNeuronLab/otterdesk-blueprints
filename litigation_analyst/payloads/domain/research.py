@@ -1,6 +1,6 @@
 """Run the agent only after validated deterministic ingestion."""
 
-from mn_sdk.blueprint_support import source_manifest
+from mn_sdk.blueprint.context import source_manifest
 from .indexing import validate_indexes
 from .app.agentic import run_investigation
 from .app.review import build_review

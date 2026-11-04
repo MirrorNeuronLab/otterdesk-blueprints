@@ -83,7 +83,7 @@
           "output_message_type": null,
           "pool": "default",
           "pool_slots": 1,
-          "runner_module": "MirrorNeuron.Runner.HostLocal",
+          "runner": "host_local",
           "tty": false,
           "upload_as": ".",
           "upload_path": "services",
@@ -118,11 +118,7 @@
         ],
         "upload_path": "runtime",
         "upload_as": "runtime",
-        "command": [
-          "python3.12",
-          "-m",
-          "mn_sdk.step_runtime"
-        ],
+        "python_executable": "python3.12",
         "workdir": "/sandbox/job/runtime"
       }
     }
