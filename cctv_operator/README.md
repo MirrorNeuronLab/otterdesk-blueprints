@@ -37,8 +37,17 @@ docker volume create otterdesk-cctv-hf-cache
 docker volume create otterdesk-cctv-model-cache
 ```
 
-The operator checks NVIDIA readiness through its host-network connection. Camera credentials never enter
-Compose. The operator has no Docker socket or container-management shell access.
+The CPU operator runs in Core's prepared Python 3.12 environment through
+HostLocal. NVIDIA joins the private runtime network at `otterdesk-cctv-vlm:8000`;
+its host-loopback port is reserved for native Compose health checks. MCP and the
+workspace use Core-assigned internal ports. Camera credentials never enter
+Compose. The operator has no container-management capability.
+
+The pinned NVIDIA image contains serialized compilation artifacts that fail
+PyTorch's metrics-context check on Spark. The recipe uses vLLM's supported
+`VLLM_DISABLE_COMPILE_CACHE=1` setting to compile fresh at startup while keeping
+GPU inference and CUDA graphs enabled. Model weights remain cached. See
+[vLLM's compilation documentation](https://docs.vllm.ai/en/v0.17.1/design/debug_vllm_compile/).
 
 The SDK `mn.blocks.monitored_service@1` owns the Python operator's lifecycle,
 health and checkpoints. Domain hooks own listeners, the streaming request,

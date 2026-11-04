@@ -25,9 +25,8 @@ def start(block, inputs):
         time.sleep(.05)
     port = operator.web_socket.getsockname()[1]
     host = binding.host
-    node = os.environ.get("MN_EXECUTION_NODE", "")
     if host == "0.0.0.0":
-        host = node.rpartition("@")[2] if "@" in node else "127.0.0.1"
+        host = "127.0.0.1"
     url = os.environ.get("MN_BLUEPRINT_WEB_UI_BASE_URL") or f"http://{host}:{port}"
     claim_service_web_ui(block, title="CCTV co-worker", url=url, service_name="cctv-operator-web-ui",
                          node_id="camera_operator", http_ports=[port],

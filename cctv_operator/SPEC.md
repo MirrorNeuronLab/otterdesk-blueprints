@@ -20,9 +20,13 @@ inference provider exists.
 Core owns native Compose preparation, selected-node placement, health and project
 cleanup. Reserve loopback port 8019 and hard-require NVIDIA CUDA with 49,152 MB
 GPU/unified memory. One VSS stack per node; pre-provisioned external model-cache
-volumes persist independently of Compose cleanup. The host-network operator
-checks NVIDIA readiness; Compose owns container liveness.
-The operator cannot manage Docker. SDK monitored-service hooks supervise its
+volumes persist independently of Compose cleanup. The Python 3.12 HostLocal
+operator connects through the private runtime network; native Compose health
+checks use the host-loopback endpoint. Internal MCP/workspace listeners use
+Core-assigned ports. Recompile vLLM graphs at startup because the pinned image's
+serialized compilation cache fails PyTorch's metrics-context check on Spark;
+model weights remain cached and GPU inference stays compiled.
+SDK monitored-service hooks supervise the operator's
 listeners, streaming task, preview and publication. Startup is bounded to 1,200
 seconds; health checkpoints to 64 MiB/1,000,000 cycles, five seconds apart.
 

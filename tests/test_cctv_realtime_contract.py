@@ -17,13 +17,17 @@ def test_replacement_compiles_with_native_ownership_and_secure_setup():
     assert set(nodes) == {"realtime_vlm", "camera_operator"}
     assert nodes["realtime_vlm"]["config"]["runner_module"] == "MirrorNeuron.Runner.DockerCompose"
     assert nodes["camera_operator"]["config"]["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_auxiliary"
-    assert nodes["camera_operator"]["config"]["network_mode"] == "host"
+    operator = nodes["camera_operator"]
+    assert operator["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
+    assert "network_mode" not in operator["config"]
+    assert operator["config"]["python_environment"]["python_version"] == "3.12"
+    assert {port["label"] for port in operator["resources"]["ports"]} == {"web_ui", "cctv_operator_mcp"}
     assert source["requirements"]["gpu"]["enforcement"] == "hard"
     assert source["requirements"]["gpu"]["min_memory_mb"] == 49152
     assert compiled["metadata"]["mn_blocks_lock"]["services"]["camera_operator"]["uses"] == "mn.blocks.monitored_service@1"
     config = resolve_config(package).data
     assert config["video_source"]["uri"] == ""
-    assert config["vlm"]["base_url"] == "http://127.0.0.1:8019"
+    assert config["vlm"]["base_url"] == "http://otterdesk-cctv-vlm:8000"
     for guide in [source["metadata"]["setup_guide"], source["metadata"]["init_config_review"]]:
         field = next(field for field in guide["fields"] if field["path"] == "video_source.uri")
         assert field["required"] is field["secret"] is True
@@ -43,15 +47,15 @@ def test_vss_recipe_matches_the_sample_and_has_persistent_local_model_caches():
     assert vlm["ports"] == ["127.0.0.1:8019:8000"]
     env = vlm["environment"]
     assert env["VLLM_USE_AOT_COMPILE"] == "0"
+    assert env["VLLM_DISABLE_COMPILE_CACHE"] == "1"
     assert env["VLLM_MAX_NUM_SEQS"] == "1"
     assert env["ENABLE_OTEL_MONITORING"] == "false"
     assert env["KAFKA_ENABLED"] == "false"
     assert not {"HF_TOKEN", "NGC_API_KEY", "RTSP_URL"} & env.keys()
     assert compose["volumes"]["hf-cache"]["name"] == "otterdesk-cctv-hf-cache"
     assert all(volume["external"] for volume in compose["volumes"].values())
-    worker = (ROOT / "payloads/docker_worker/Dockerfile").read_text()
-    assert "FROM python:3.12" in worker
-    assert "rfdetr" not in worker.lower()
+    assert compose["networks"]["runtime"]["external"] is True
+    assert vlm["networks"]["runtime"]["aliases"] == ["otterdesk-cctv-vlm"]
 
 
 def test_retired_pipeline_and_inapplicable_tools_are_removed():

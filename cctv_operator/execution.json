@@ -103,15 +103,8 @@
         "agent_type": "executor",
         "type": "stream",
         "config": {
-          "docker_worker_image": "docker_worker",
-          "build_context": ".",
-          "dockerfile": "docker_worker/Dockerfile",
-          "image": "mirror-neuron/cctv-operator:local",
-          "network_mode": "host",
           "from": "base",
-          "runner_module": "MirrorNeuron.Runner.DockerWorker",
-          "shared_container": true,
-          "reuse_shared_container": true,
+          "runner_module": "MirrorNeuron.Runner.HostLocal",
           "no_keep": true,
           "no_auto_providers": true,
           "output_message_type": null,
@@ -126,14 +119,30 @@
             }
           ],
           "environment": {},
-          "workdir": "/mn/job",
+          "workdir": "/sandbox/job",
           "pool": "default",
-          "pool_slots": 1
+          "pool_slots": 1,
+          "python_environment": {
+            "python_version": "3.12",
+            "packages": [
+              "fastapi>=0.115,<1",
+              "uvicorn>=0.34,<1",
+              "httpx>=0.28,<1",
+              "pydantic>=2.10,<3",
+              "av>=16,<19",
+              "Pillow>=11,<13"
+            ]
+          }
         },
         "resources": {
           "ports": [
             {
               "label": "cctv_operator_mcp",
+              "port": "auto",
+              "protocol": "http"
+            },
+            {
+              "label": "web_ui",
               "port": "auto",
               "protocol": "http"
             }

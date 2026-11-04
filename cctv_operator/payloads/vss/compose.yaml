@@ -7,6 +7,10 @@ services:
     ipc: host
     ports:
     - 127.0.0.1:8019:8000
+    networks:
+      runtime:
+        aliases:
+        - otterdesk-cctv-vlm
     tmpfs:
     - /tmp/assets:size=4g,mode=1777
     - /tmp/rtvi:size=2g,mode=1777
@@ -27,6 +31,9 @@ services:
       VLLM_ENFORCE_EAGER: 'false'
       VLLM_USE_STANDALONE_COMPILE: '0'
       VLLM_USE_AOT_COMPILE: '0'
+      # This image's saved vLLM graphs fail PyTorch's metrics-context check.
+      # Compile on startup instead of loading those serialized graphs.
+      VLLM_DISABLE_COMPILE_CACHE: '1'
       VLLM_WORKER_MULTIPROC_METHOD: spawn
       VLLM_MM_PROCESSOR_VIDEO_NUM_FRAMES: '16'
       VLM_MAX_GENERATION_TOKENS: '1024'
@@ -60,6 +67,10 @@ services:
       timeout: 5s
       retries: 3
       start_period: 600s
+networks:
+  runtime:
+    name: ${MN_DOCKER_NETWORK_NAME:-mirror-neuron-runtime}
+    external: true
 volumes:
   hf-cache:
     name: otterdesk-cctv-hf-cache
