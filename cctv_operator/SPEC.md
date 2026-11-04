@@ -41,6 +41,12 @@ five bounded retries. One caption request is active per operator. Stop and goal
 changes await registration/cancellation/cleanup before replacement. Retain unknown
 registration outcomes and failed cleanup in Job state; block further registration
 until reconciled. Inference failure is explicit, never silently retried.
+The pinned NVIDIA AssetManager reports an absent resource with HTTP 400,
+`BadParameter`, and an exact resource-specific message. Its `No such resource
+<stream-id>` and `<stream-id> already deleted because of age out policy` receipts
+prove a saved stream is gone after restart/expiry and complete cleanup. Other
+400 responses, wrong identities, transport failures, and unknown registration
+outcomes retain the ownership fence.
 
 ## Evidence and persistence
 

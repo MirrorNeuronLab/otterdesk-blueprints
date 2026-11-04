@@ -75,16 +75,34 @@ class VLMClient:
             f"v1/generate_captions/{path_id}",
             params={"request_id": request_id} if request_id else {}, timeout=10,
         )
+        if self._stream_absent(response, stream_id):
+            return
         if response.status_code not in {200, 202, 204, 404}:
             response.raise_for_status()
         # NVIDIA can retain the resource briefly after caption cancellation.
         for attempt in range(5):
             response = await self.http.delete(f"v1/streams/delete/{path_id}", timeout=10)
-            if response.status_code in {200, 202, 204, 404}:
+            if response.status_code in {200, 202, 204, 404} or self._stream_absent(response, stream_id):
                 return
             if response.status_code != 409 or attempt == 4:
                 response.raise_for_status()
             await asyncio.sleep(0.5 * (attempt + 1))
+
+    @staticmethod
+    def _stream_absent(response, stream_id):
+        # The pinned NVIDIA AssetManager reports absence as BadParameter/400,
+        # including after a server restart. Only its exact resource-specific
+        # absence receipts prove this saved live stream no longer exists.
+        if response.status_code != 400:
+            return False
+        try:
+            body = response.json()
+        except ValueError:
+            return False
+        return isinstance(body, dict) and body.get("code") == "BadParameter" and body.get("message") in {
+            f"No such resource {stream_id}",
+            f"{stream_id} already deleted because of age out policy",
+        }
 
 
 def safe_error(error):

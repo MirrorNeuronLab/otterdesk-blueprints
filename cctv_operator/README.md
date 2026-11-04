@@ -69,6 +69,9 @@ Stop waits for registration to return its stream ID. Failed cleanup retains a
 durable ownership lease and blocks another registration. An unknown registration
 outcome after a process crash requires reconciliation in NVIDIA; no alternate
 camera or inference path is opened. Only resource-in-use cleanup is retried.
+After a VSS restart, NVIDIA's exact `BadParameter`/HTTP 400 receipt naming the
+missing stream reconciles its saved lease. Other errors still require verified
+cleanup before another registration.
 
 ## Observations and controls
 

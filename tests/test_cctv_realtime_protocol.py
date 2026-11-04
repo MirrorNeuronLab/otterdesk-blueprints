@@ -182,6 +182,46 @@ async def test_failed_cleanup_is_durable_and_fences_new_registration(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("message", ["No such resource stream-1", "stream-1 already deleted because of age out policy"])
+@pytest.mark.parametrize("phase", ["caption", "stream"])
+async def test_nvidia_missing_stream_after_server_restart_reconciles_saved_lease(tmp_path, message, phase):
+    async def handler(request):
+        path = "/v1/generate_captions/stream-1" if phase == "caption" else "/v1/streams/delete/stream-1"
+        if request.method == "DELETE" and request.url.path == path:
+            return httpx.Response(400, json={"code": "BadParameter", "message": message})
+    analysis, calls, _, published = make_analysis(tmp_path, handler)
+    analysis.store.set_state("active_request", {"stream_id": "stream-1", "request_id": "old-request", "origin": "http://vlm"})
+    await analysis.start()
+    await wait_for(lambda: bool(published))
+    assert calls[0] == ("DELETE", "/v1/generate_captions/stream-1", {"request_id": "old-request"})
+    assert calls[1 if phase == "caption" else 2][1] == "/v1/ready"
+    await analysis.stop()
+    assert analysis.store.state("active_request") is None
+    await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    {"code": "BadParameter", "message": "Invalid request"},
+    {"code": "BadParameter", "message": "No such resource another-stream"},
+    {"code": "InternalError", "message": "No such resource stream-1"},
+    {"code": "BadParameter", "message": "No such live-stream stream-1"},
+])
+async def test_other_nvidia_400_errors_keep_the_ownership_fence(tmp_path, body):
+    async def handler(request):
+        if request.method == "DELETE":
+            return httpx.Response(400, json=body)
+    analysis, calls, _, _ = make_analysis(tmp_path, handler)
+    lease = {"stream_id": "stream-1", "request_id": "old-request", "origin": "http://vlm"}
+    analysis.store.set_state("active_request", lease)
+    with pytest.raises(httpx.HTTPStatusError):
+        await analysis.start()
+    assert analysis.store.state("active_request") == lease
+    assert not any(path == "/v1/streams/add" for _, path, _ in calls)
+    await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
 async def test_unknown_registration_after_crash_cannot_open_another_stream(tmp_path):
     analysis, calls, _, _ = make_analysis(tmp_path)
     analysis.store.set_state("active_request", {"registration_pending": True})
