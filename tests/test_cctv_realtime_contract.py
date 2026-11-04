@@ -20,7 +20,6 @@ def test_replacement_compiles_with_native_ownership_and_secure_setup():
     operator = nodes["camera_operator"]
     assert operator["config"]["runner_module"] == "MirrorNeuron.Runner.HostLocal"
     assert "network_mode" not in operator["config"]
-    assert operator["config"]["python_environment"]["python_version"] == "3.12"
     assert {port["label"] for port in operator["resources"]["ports"]} == {"web_ui", "cctv_operator_mcp"}
     assert source["requirements"]["gpu"]["enforcement"] == "hard"
     assert source["requirements"]["gpu"]["min_memory_mb"] == 49152

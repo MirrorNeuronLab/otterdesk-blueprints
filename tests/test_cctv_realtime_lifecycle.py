@@ -27,10 +27,14 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     config = json.loads((bundle / "config/default.json").read_text())
     config["video_source"]["uri"] = "rtsp://camera/stream"
     config["web_ui"]["service"]["host"] = "127.0.0.1"
+    if failure == "proxy":
+        config["web_ui"]["service"]["host"] = "0.0.0.0"
     monkeypatch.syspath_prepend(str(bundle / "payloads"))
     native = importlib.import_module("domain.operator_service")
     lifecycle = importlib.import_module("domain.service_lifecycle")
     client_module = importlib.import_module("domain.realtime_client")
+    if failure == "proxy":
+        monkeypatch.setattr(lifecycle.socket, "gethostbyname", lambda host: "127.0.0.2")
     calls, operators, previews, control_hosts = [], [], [], []
 
     async def handler(request):
@@ -102,6 +106,9 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
         assert run(context, **parameters) == result
         assert len(operators) == 1
         assert control_hosts == ["0.0.0.0" if failure == "proxy" else "127.0.0.1"]
+        if failure == "proxy":
+            handle = json.loads((job_data / "web_ui.json").read_text())
+            assert handle["url"].startswith("http://127.0.0.2:")
         report = json.loads((output / "cctv_report.json").read_text())
         assert report["observations"][0]["model"] == "Cosmos3-Edge"
         assert ("DELETE", "/v1/streams/delete/camera-1") in calls

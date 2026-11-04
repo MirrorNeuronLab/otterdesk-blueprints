@@ -30,6 +30,11 @@ SDK monitored-service hooks supervise the operator's
 listeners, streaming task, preview and publication. Startup is bounded to 1,200
 seconds; health checkpoints to 64 MiB/1,000,000 cycles, five seconds apart.
 
+Current platform limitation: delivery-v2 pause interrupts the long-running native
+invocations. Core fences their replay as `invocation_outcome_unconfirmed`; automatic
+resume is not supported by this qualification. Preserve that guard. Stop releases
+the project; an explicitly new run can continue using the Job's saved captions.
+
 Register the stream, consume /v1/generate_captions SSE, cancel its request, then
 delete the stream using its request ID when available. Only 409 cleanup receives
 five bounded retries. One caption request is active per operator. Stop and goal

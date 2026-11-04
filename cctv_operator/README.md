@@ -40,7 +40,9 @@ docker volume create otterdesk-cctv-model-cache
 The CPU operator runs in Core's prepared Python 3.12 environment through
 HostLocal. NVIDIA joins the private runtime network at `otterdesk-cctv-vlm:8000`;
 its host-loopback port is reserved for native Compose health checks. MCP and the
-workspace use Core-assigned internal ports. Camera credentials never enter
+workspace use Core-assigned internal ports. The workspace registration advertises
+Core's private container interface so the separate UI proxy can reach it.
+Camera credentials never enter
 Compose. The operator has no container-management capability.
 
 The pinned NVIDIA image contains serialized compilation artifacts that fail
@@ -55,6 +57,11 @@ preview and publication. First startup can download/compile the model; readiness
 waits up to 20 minutes. Use main SDK 1.4.1.dev44 or newer on both submitter and owner for durable inline
 Compose activation. Core owns pause/resume/stop and removes only the run's
 owned Compose project. No runtime reset is required.
+
+Core's current delivery-v2 contract fences an interrupted long-running invocation
+as `invocation_outcome_unconfirmed`. Pausing releases this stack, but resuming that
+interrupted run is not qualified; the live test reproduced the fence. Use a new
+run after stopping. This rewrite does not bypass Core's uncertain-effect guard.
 
 The direct protocol is `/v1/ready`, `/v1/models`, stream registration,
 `/v1/generate_captions` SSE, caption-request cancellation, then stream deletion.

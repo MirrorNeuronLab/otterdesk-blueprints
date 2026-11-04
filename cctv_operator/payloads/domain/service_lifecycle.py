@@ -1,10 +1,12 @@
 """Direct hooks for the SDK monitored-service block."""
 
 import os
+import socket
 import time
 
 from mn_sdk.integrations.service_web_ui import claim_service_web_ui
 from mn_sdk_web_ui import resolve_web_ui_binding
+from mn_sdk_mcp.cli import container_loopback_proxy_enabled
 
 from .operator_service import Operator
 
@@ -25,7 +27,11 @@ def start(block, inputs):
         time.sleep(.05)
     port = operator.web_socket.getsockname()[1]
     host = binding.host
-    if host == "0.0.0.0":
+    if host in {"0.0.0.0", "127.0.0.1"} and container_loopback_proxy_enabled():
+        # The UI proxy is a separate container. Publish this Core interface,
+        # whose listener remains behind the runtime's private port policy.
+        host = socket.gethostbyname(socket.gethostname())
+    elif host == "0.0.0.0":
         host = "127.0.0.1"
     url = os.environ.get("MN_BLUEPRINT_WEB_UI_BASE_URL") or f"http://{host}:{port}"
     claim_service_web_ui(block, title="CCTV co-worker", url=url, service_name="cctv-operator-web-ui",
