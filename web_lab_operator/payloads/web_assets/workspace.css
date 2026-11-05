@@ -1,5 +1,0 @@
-/* Keep the native tracked canvas; omit its authoring chrome in the supervised view. */
-html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
-nav.navbar, #toolbar-left, #toolbar, #sidepanel, #axis-legend, #scale-bar { display: none !important; }
-.content { height: 100vh; width: 100%; min-width: 0; }
-#kanvas { min-width: 0; }

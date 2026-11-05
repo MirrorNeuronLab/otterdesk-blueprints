@@ -19,6 +19,48 @@ the Markdown record label `mn.context.text.v1` remains valid on v2.
 
 For a new co-worker, follow [How to create an OtterDesk blueprint](how_to_create_blueprints.md).
 
+## Blueprint repositories
+
+Each blueprint has a public repository named
+`MirrorNeuronLab/mn-blueprint-<folder_name>` and is pinned here as a Git
+submodule. This includes the two GTM packages; `index.json` still controls which
+packages are published in the catalog.
+
+Clone the catalog and its pinned blueprints:
+
+```bash
+git clone --recurse-submodules git@github.com:MirrorNeuronLab/otterdesk-blueprints.git
+```
+
+After pulling an existing checkout, load the commits recorded by the catalog:
+
+```bash
+git submodule update --init --recursive
+```
+
+Commit and push changes in every blueprint, then the catalog:
+
+```bash
+./git-push-all.sh "Describe the changes"
+```
+
+The script stages all non-ignored changes, including new files and deletions.
+It pushes each submodule before committing its updated pin in the parent, also
+pushes existing unpushed commits, and stops on an error. It uses each checked-out
+branch; a detached submodule uses its branch declared in `.gitmodules` (`main`).
+Missing submodules, conflicts, and unfinished Git operations must be resolved
+before it stages anything. Ordinary blueprint folders are committed with their
+containing repository.
+
+Submodule download URLs use public HTTPS so catalog consumers need no SSH keys.
+This development checkout uses SSH origins for the separate repositories.
+MirrorNeuron's GitHub source loads submodules at their recorded commits, never
+the latest branch tip. Local development (`MN_BLUEPRINT_SOURCE=local` and
+`MN_BLUEPRINT_LOCAL` pointing here) reads the existing folders directly without
+fetching or changing their checked-out state. Plain blueprint folders remain
+supported in both modes. GitHub's source ZIP archives omit submodule contents;
+use a recursive clone for a complete checkout.
+
 ## Quick Start
 
 List available blueprints:

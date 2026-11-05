@@ -45,6 +45,15 @@ Root `index.json` is an ordered inventory of published package paths.
 information comes from each package, including its semantic release version.
 A package omitted from the inventory remains unpublished.
 
+Blueprint source can be an ordinary folder or a Git submodule. This catalog pins
+each submodule to a commit in its public
+`MirrorNeuronLab/mn-blueprint-<folder_name>` repository. GitHub source preparation
+must materialize that recorded commit, including nested submodules, rather than
+following a branch tip. Local development reads folders as they exist without
+Git updates or checkout changes. The inventory and package contracts are the
+same for either storage form. Publication pushes child repositories before the
+catalog commit that references them.
+
 Every package uses the same canonical blueprint/v1 manifest in development,
 installed folders, generated folders, and ZIP distributions. `manifest.json`
 owns identity and role-document references. `workflow.json` owns logical

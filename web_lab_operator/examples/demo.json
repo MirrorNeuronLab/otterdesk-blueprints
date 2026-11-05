@@ -1,8 +1,0 @@
-{
-  "inputs": {
-    "payload": {
-      "procedure_markdown": "",
-      "procedure_file": "@/examples/sample_inputs/procedure.md"
-    }
-  }
-}

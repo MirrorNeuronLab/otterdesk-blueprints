@@ -1,0 +1,56 @@
+[submodule "cctv_operator"]
+	path = cctv_operator
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-cctv_operator.git
+	branch = main
+[submodule "code_verifier"]
+	path = code_verifier
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-code_verifier.git
+	branch = main
+[submodule "ct_reader"]
+	path = ct_reader
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-ct_reader.git
+	branch = main
+[submodule "drug_discovery_research_assistant"]
+	path = drug_discovery_research_assistant
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-drug_discovery_research_assistant.git
+	branch = main
+[submodule "general_assistant"]
+	path = general_assistant
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-general_assistant.git
+	branch = main
+[submodule "gtm_executor"]
+	path = gtm_executor
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-gtm_executor.git
+	branch = main
+[submodule "gtm_planner"]
+	path = gtm_planner
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-gtm_planner.git
+	branch = main
+[submodule "litigation_analyst"]
+	path = litigation_analyst
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-litigation_analyst.git
+	branch = main
+[submodule "mac_security_investigator"]
+	path = mac_security_investigator
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-mac_security_investigator.git
+	branch = main
+[submodule "procurement_manager"]
+	path = procurement_manager
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-procurement_manager.git
+	branch = main
+[submodule "ros_amr_controller"]
+	path = ros_amr_controller
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-ros_amr_controller.git
+	branch = main
+[submodule "software_architecture_advisor"]
+	path = software_architecture_advisor
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-software_architecture_advisor.git
+	branch = main
+[submodule "vc_assistant"]
+	path = vc_assistant
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-vc_assistant.git
+	branch = main
+[submodule "web_lab_operator"]
+	path = web_lab_operator
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-web_lab_operator.git
+	branch = main

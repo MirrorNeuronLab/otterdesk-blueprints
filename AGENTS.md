@@ -16,6 +16,20 @@ current catalog from a README table or from folders alone. Each blueprint is a
 self-contained product contract; do not transfer domain rules between
 blueprints without an explicit shared dependency.
 
+## Blueprint repositories
+
+Blueprint packages are Git submodules backed by public
+`MirrorNeuronLab/mn-blueprint-<folder_name>` repositories. `.gitmodules` records
+their locations and default branches; `index.json` alone controls catalog
+publication. Initialize a fresh checkout with
+`git submodule update --init --recursive` before editing packages. Commit and
+push a package before recording its updated pin in the catalog. The root
+`git-push-all.sh "Commit message"` performs that sequence for all repositories;
+it intentionally includes all non-ignored changes, so do not run it over
+unrelated work without authorization. Keep ordinary blueprint folders supported.
+Local development reads the filesystem directly and must not fetch or reset
+submodules. Remote catalog preparation uses the recorded commits.
+
 ## Scope of blueprint changes
 
 When adding a new blueprint or updating an existing one, treat the MirrorNeuron

@@ -1,1 +1,0 @@
-This service prepares marketing communications for human review. Verify claims, recipients, sender identity, and subscription eligibility before approving. It does not guarantee sales, delivery, or compliance.
