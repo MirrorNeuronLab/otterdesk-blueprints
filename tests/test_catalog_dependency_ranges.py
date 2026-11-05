@@ -18,19 +18,9 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = companion_workspace(ROOT)
 ROOTS = [ROOT]
 PACKAGES = sorted(path.parent for path in ROOT.glob("*/manifest.json"))
-CURRENT_FAMILY_BLUEPRINTS = {
-    "financial_advisor",
-    "research_assistant",
-    "ros_amr_controller",
-    "vc_assistant",
-    "demo_context_memory_acl",
-    "demo_context_compression",
-}
 
 
 def requires_current_family(root, name):
-    if root.parent != ROOT and root.name not in CURRENT_FAMILY_BLUEPRINTS:
-        return False
     if name == "mirrorneuron-python-sdk":
         return True
     if name == "mn-python-sdk-rag":
@@ -38,10 +28,8 @@ def requires_current_family(root, name):
         return root.name not in {"litigation_analyst", "software_architecture_advisor"}
     if name == "mirrorneuron-docs-to-markdown-skill":
         return root.name in {
-            "financial_advisor",
             "vc_assistant",
             "procurement_manager",
-            "research_assistant",
             "drug_discovery_research_assistant",
         }
     return name == "mn-python-sdk-mcp" and root.name in {"gtm_planner", "gtm_executor"}

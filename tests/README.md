@@ -8,6 +8,7 @@ Use the shared development environment with the SDK, API, CLI, Membrane benchmar
 package and `mn-system-tests` test utilities installed:
 
 ```sh
+uv pip install --python ../mirror-neuron-set/mn-system-tests/.venv/bin/python -r tests/requirements.txt
 ../mirror-neuron-set/mn-system-tests/.venv/bin/python -m pytest tests -q
 ```
 
@@ -32,3 +33,13 @@ RUN_OTTERDESK_TASK_BENCHMARK=1 MN_ENABLE_TWO_BOX=1 MN_ENABLE_GPU_TESTS=1 ../mirr
 Set `MN_CLUSTER_REMOTE_SSH`, `MN_CLUSTER_REMOTE_MN_SET_FOLDER` and, optionally,
 `OTTERDESK_TEST_RESULTS_DIR` for the remote command. Frozen benchmark sources
 must match the reviewed fixture before any SSH or staging takes place.
+
+The Litigation/public-source quality diagnostic is also owned here:
+
+```sh
+../mirror-neuron-set/mn-system-tests/.venv/bin/python tests/diagnostics/source_context_quality.py --help
+```
+
+It requires explicit `--live`, workspace/catalog paths, a fresh output directory,
+an endpoint, model and installed digest. Runtime-only fault controls remain in
+`mn_system_tests.benchmarks.runtime_quality`; no model run is part of the default gate.

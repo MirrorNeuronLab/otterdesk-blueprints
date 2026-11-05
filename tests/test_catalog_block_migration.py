@@ -1,18 +1,22 @@
-"""Catalog-wide composition contracts for the migration to stock blocks."""
+"""Reviewed stock-block migrations for products still published in the catalog."""
 import importlib
 import json
 from pathlib import Path
 
 import pytest
 from mn_blueprint_blocks import validate_instance
-from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint
+from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint, read_catalog
 from mn_sdk.blueprints.block_lock import block_revision
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLDEN = json.loads((Path(__file__).parent / 'fixtures/block_migration_topology.json').read_text())
+MIGRATED_CATALOG = [
+    entry['path'] for entry in read_catalog(ROOT / 'index.json')
+    if entry['path'] in GOLDEN
+]
 
 
-@pytest.mark.parametrize('blueprint_id', list(GOLDEN))
+@pytest.mark.parametrize('blueprint_id', MIGRATED_CATALOG)
 def test_catalog_uses_stock_blocks_and_preserves_product_composition(blueprint_id, monkeypatch):
     root = ROOT / blueprint_id
     monkeypatch.syspath_prepend(str(root / 'payloads'))
