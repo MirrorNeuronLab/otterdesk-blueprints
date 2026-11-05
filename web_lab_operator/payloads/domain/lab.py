@@ -49,12 +49,21 @@ class SimulatedLab:
         return value
 
     async def fresh_tip(self):
-        await self.lh.pick_up_tips([self.tips.get_item(self.tip_index)], use_channels=[0])
+        tip = self.tips.get_item(self.tip_index)
+        await self.lh.pick_up_tips([tip], use_channels=[0])
         self.tip_index += 1
+        return tip
 
     async def perform(self, action, check, tick):
         """Execute one checked step. No model text is interpreted as Python or a URL."""
         kind = action['kind']
+
+        async def observed(label, resource=None):
+            # Publish only after a tracker-confirmed command, and yield before
+            # the next command so native state batching cannot erase a mix.
+            await tick({'label': label, 'resource': resource.name if resource is not None else ''})
+            check()
+
         check()
         if kind == 'transfer':
             remaining = action['volume_ul']
@@ -62,32 +71,37 @@ class SimulatedLab:
             while remaining > 1e-6:
                 check()
                 amount = min(TIP_CAPACITY, remaining)
-                await self.fresh_tip()
-                await tick()
-                check()
+                tip = await self.fresh_tip()
+                await observed('Picked up a fresh tip', tip)
                 await self.lh.aspirate([source], vols=[amount], use_channels=[0])
-                await tick()
-                check()
+                await observed(f"Aspirated {amount:g} uL from {action['source']}", source)
                 await self.lh.dispense([destination], vols=[amount], use_channels=[0])
+                labels = self.labels['wells']
+                labels[action['destination']]['liquids'] = sorted(set(
+                    labels[action['destination']]['liquids'] + labels[action['source']]['liquids']))
+                await observed(f"Dispensed {amount:g} uL into {action['destination']}", destination)
                 await self.lh.discard_tips(use_channels=[0], allow_nonzero_volume=False)
+                await observed('Discarded the used tip')
                 remaining -= amount
-            labels = self.labels['wells']
-            labels[action['destination']]['liquids'] = sorted(set(
-                labels[action['destination']]['liquids'] + labels[action['source']]['liquids']))
         elif kind == 'mix':
             well = self.well(action['well'])
-            await self.fresh_tip()
-            for _ in range(action['cycles']):
+            tip = await self.fresh_tip()
+            await observed('Picked up a fresh tip', tip)
+            for cycle in range(1, action['cycles'] + 1):
                 check()
                 await self.lh.aspirate([well], vols=[action['volume_ul']], use_channels=[0])
+                await observed(f"Mix {cycle}/{action['cycles']}: aspirated {action['volume_ul']:g} uL from {action['well']}", well)
                 await self.lh.dispense([well], vols=[action['volume_ul']], use_channels=[0])
-                await tick()
+                await observed(f"Mix {cycle}/{action['cycles']}: dispensed {action['volume_ul']:g} uL into {action['well']}", well)
             await self.lh.discard_tips(use_channels=[0], allow_nonzero_volume=False)
+            await observed('Discarded the used tip')
         elif kind == 'wait':
             # Time advances in the procedure ledger; no physical process is inferred.
-            await tick()
+            await observed(f"Advanced {action['seconds']:g} virtual seconds")
         elif kind == 'check_volume':
-            volume = self.well(action['well']).tracker.get_used_volume()
+            well = self.well(action['well'])
+            volume = well.tracker.get_used_volume()
+            await observed(f"Checked {action['well']}: {volume:g} uL", well)
             if not action['minimum_ul'] - 1e-6 <= volume <= action['maximum_ul'] + 1e-6:
                 return {'passed': False, 'observed_ul': volume}
             return {'passed': True, 'observed_ul': volume}

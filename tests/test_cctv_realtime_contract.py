@@ -27,6 +27,8 @@ def test_replacement_compiles_with_native_ownership_and_secure_setup():
     config = resolve_config(package).data
     assert config["video_source"]["uri"] == ""
     assert config["vlm"]["base_url"] == "http://otterdesk-cctv-vlm:8000"
+    assert config["source_context"]["enabled"] is True
+    assert any(package.startswith("sentence-transformers") for package in operator["config"]["python_environment"]["packages"])
     for guide in [source["metadata"]["setup_guide"], source["metadata"]["init_config_review"]]:
         field = next(field for field in guide["fields"] if field["path"] == "video_source.uri")
         assert field["required"] is field["secret"] is True
@@ -61,7 +63,7 @@ def test_retired_pipeline_and_inapplicable_tools_are_removed():
     for filename in ["person_detector.py", "live_monitor.py", "vision_model.py", "mobileclip.py", "sampling.py"]:
         assert not (ROOT / "payloads/domain" / filename).exists()
     tools = json.loads((ROOT / "extensions/mcp.json").read_text())["tools"]
-    assert set(tools) == {"get_operator_status", "get_operator_activity", "set_monitoring_instruction", "get_video_history", "get_pipeline_benchmarks"}
+    assert set(tools) == {"get_operator_status", "get_operator_activity", "set_monitoring_instruction", "get_video_history", "answer_video_question", "get_pipeline_benchmarks"}
     assert not (ROOT / "payloads/services/cctv_operator_mcp.py").exists()
     preflight = json.loads((ROOT / "extensions/mcp.json").read_text())["preflight"]
     assert preflight["required_for_effects"] == ["monitoring"]

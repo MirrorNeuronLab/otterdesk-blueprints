@@ -12,8 +12,9 @@ import pytest
 from mn_sdk.blueprints import compile_blueprint, export_blueprint, read_blueprint, resolve_config
 
 ROOT = Path(__file__).resolve().parents[1] / 'web_lab_operator'
-PROCEDURE = ROOT / 'examples/sample_inputs/procedure.md'
+SAMPLE_PROCEDURE = ROOT / 'examples/sample_inputs/procedure.md'
 FIXTURES = Path(__file__).parent / 'fixtures/web_lab_operator'
+PROCEDURE = FIXTURES / 'procedure.md'
 
 
 @pytest.fixture
@@ -89,12 +90,14 @@ def test_export_preserves_sample_metadata_and_excludes_expected_model_fixture(tm
         names = set(bundle.namelist())
         assert {'examples/sample_inputs/procedure.md', 'examples/sample_inputs/README.md',
                 'examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json'} <= names
-        assert bundle.read('examples/sample_inputs/procedure.md') == PROCEDURE.read_bytes()
+        assert bundle.read('examples/sample_inputs/procedure.md') == SAMPLE_PROCEDURE.read_bytes()
         assert not any(name.endswith('expected_plan.json') for name in names)
 
 
 def test_output_presentation_declares_its_source_and_remains_optional():
-    artifacts = {item['artifact_id']: item for item in read_blueprint(ROOT).document('contracts')['outputs']['artifacts']}
+    package = read_blueprint(ROOT)
+    artifacts = {item['artifact_id']: item for item in package.document('contracts')['outputs']['artifacts']}
+    assert package.extension('mn.ui')['web_ui']['adapter'] == 'static_html'
     assert artifacts['web_ui']['source_refs'] == [artifacts['web_report']['path']]
     assert artifacts['web_ui']['required'] is False
     assert artifacts['web_report']['required'] is False
@@ -182,13 +185,42 @@ def test_real_chatterbox_tracks_transfer_mix_and_tip_consumption(domain, plan):
             for step in plan['steps']:
                 choose = decision(step, 'source/A2', 'adapt') if step['kind'] == 'transfer' else decision(step)
                 action = protocol.action_for(step, lab.observe(), choose)
-                assert (await lab.perform(action, lambda: None, lambda: asyncio.sleep(0)))['passed']
+                assert (await lab.perform(action, lambda: None, lambda _operation: asyncio.sleep(0)))['passed']
             state = lab.observe()
             assert state['tips_remaining'] == 94
             assert all(goal['met'] for goal in protocol.goal_results(plan, state))
         finally:
             await lab.stop()
     asyncio.run(exercise())
+
+
+@pytest.mark.parametrize('index', range(4))
+def test_model_decision_scopes_current_state_without_changing_policy_evidence(domain, plan, monkeypatch, index):
+    from types import SimpleNamespace
+
+    module = domain('decisions')
+    observed = domain('protocol').initial_state(plan)
+    original = copy.deepcopy(observed)
+    step = plan['steps'][index]
+    expected = ({'source/A1', 'source/A2', 'destination/A1'} if index == 0
+                else {'destination/A1'} if index in {1, 3} else set())
+
+    def request(_block, value, *, key):
+        packet = json.loads(value['payload']['messages'][1]['content'])
+        assert packet['observed']['scope'] == 'current_step_wells'
+        assert set(packet['observed']['wells']) == expected
+        assert packet['observed']['wells'] == {well: original['wells'][well] for well in sorted(expected)}
+        assert packet['observed']['tips_remaining'] == 96
+        assert packet['allowed_sources'] == (['source/A2'] if index == 0 else [])
+        assert value['options']['timeout_seconds'] == 180
+        assert len(json.dumps(packet['observed'])) < 500
+        assert key == 'decision:' + step['id']
+        return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(decision(step))}}]}
+
+    monkeypatch.setattr(module, 'model_request', request)
+    block = SimpleNamespace(config={'llm': {'model': 'default', 'provider': 'docker_model_runner'}})
+    assert module.choose(block, step, observed, None, {}) == decision(step)
+    assert observed == original and len(observed['wells']) == 192
 
 
 def test_transfer_above_tip_capacity_splits_without_inventing_volume(domain, plan):
@@ -200,7 +232,7 @@ def test_transfer_above_tip_capacity_splits_without_inventing_volume(domain, pla
         await lab.setup()
         try:
             action = domain('protocol').action_for(step, lab.observe(), decision(step, 'source/A2', 'adapt'))
-            await lab.perform(action, lambda: None, lambda: asyncio.sleep(0))
+            await lab.perform(action, lambda: None, lambda _operation: asyncio.sleep(0))
             state = lab.observe()
             assert state['wells']['destination/A1']['volume_ul'] == 350
             assert state['wells']['source/A2']['volume_ul'] == 0
@@ -225,6 +257,8 @@ def ui_transport(domain, monkeypatch, tmp_path):
         async def start(self, host, port):
             calls['phases'].append(copy.deepcopy(self.projection()))
             return 18000
+        async def publish(self):
+            calls.setdefault('updates', []).append(copy.deepcopy(self.projection()))
         async def close(self):
             calls['closed'] += 1
 
@@ -274,6 +308,8 @@ def test_compiled_handlers_execute_publish_and_replay_without_more_model_calls(d
     assert phases[2]['state']['wells']['source/A2']['volume_ul'] == 200
     assert simulated_io['claimed'] == simulated_io['closed'] == 3
     assert simulated_io['final_status'] == 'stopped'
+    assert [view['status'] for view in simulated_io['updates']
+            if not view['state']['wells']] == ['transitioning', 'transitioning']
     root = tmp_path / 'runs/lab-run'
     assert json.loads((root / 'web_ui.json').read_text())['adapter'] == 'static_html'
     assert 'replay-data' in (root / 'web/index.html').read_text()
@@ -301,6 +337,61 @@ def test_planner_deadline_retires_the_empty_deck_and_preserves_the_error(domain,
     assert simulated_io['final_status'] == 'failed' and simulated_io['model'] == 0
 
 
+def test_compiled_planner_budget_covers_cold_preparation_and_inference():
+    from mn_sdk.model_access import DEFAULT_RUNTIME_MODEL_PREPARE_TIMEOUT_SECONDS
+
+    package = read_blueprint(ROOT)
+    planning = package.extension('mn.blocks')['steps']['plan_lab_procedure']
+    inference = package.extension('mn.llm')['configs']['primary']
+    assert planning['limits']['max_calls'] == 1 and inference['num_retries'] == 0
+    assert inference['structured_output_options']['temperature'] == 0
+    assert planning['limits']['timeout_seconds'] >= (
+        DEFAULT_RUNTIME_MODEL_PREPARE_TIMEOUT_SECONDS + inference['timeout_seconds'] + 30)
+    compiled = compile_blueprint(package).manifest
+    worker = next(node for node in compiled['agents']['nodes']
+                  if node['node_id'] == 'plan_lab_procedure__block_plan_lab_procedure_specialist')
+    assert worker['config']['timeout_seconds'] >= planning['limits']['timeout_seconds'] + 90
+
+
+@pytest.mark.parametrize('elapsed', [300, 1500, 1530])
+def test_cold_planner_obeys_real_deadline_and_completes_the_workflow(
+        domain, simulated_io, monkeypatch, tmp_path, plan, elapsed):
+    from block_workflow_fixture import run_sample
+    from mn_blueprint_blocks import BlockError
+
+    calls = []
+
+    def assessor(context, *_args, **_kwargs):
+        clock = [0]
+        context.monotonic = lambda: clock[0]
+
+        def assess(_request):
+            calls.append(elapsed)
+            clock[0] += elapsed  # Model preparation plus inference, without sleeping.
+            return copy.deepcopy(plan)
+
+        return assess
+
+    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor', assessor)
+    options = {'inputs': {'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
+               'config': {'inputs': {'payload': {'procedure_file': ''}},
+                          'simulation': {'action_delay_seconds': 0}},
+               'runs_root': tmp_path / 'runs', 'run_id': 'cold-planning'}
+    if elapsed == 1530:
+        with pytest.raises(BlockError, match='Block deadline expired'):
+            run_sample('web_lab_operator', **options)
+        assert simulated_io['claimed'] == simulated_io['closed'] == 2
+        assert simulated_io['final_status'] == 'failed'
+        assert not (tmp_path / 'runs/cold-planning/final_artifact.json').exists()
+    else:
+        result = run_sample('web_lab_operator', **options)['final_artifact']
+        assert result['status'] == 'completed' and result['steps_completed'] == 4
+        assert result['adaptations'] == 1 and all(goal['met'] for goal in result['goals'])
+        assert simulated_io['claimed'] == simulated_io['closed'] == 3
+        assert run_sample('web_lab_operator', **options)['final_artifact'] == result
+    assert calls == [elapsed]
+
+
 def test_checkpoint_tampering_fails_cached_simulation(domain, simulated_io, tmp_path):
     from block_workflow_fixture import run_sample
     options = {'inputs': {'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
@@ -318,11 +409,11 @@ def test_default_markdown_file_is_staged_and_captured_by_sdk(domain, tmp_path, u
     from block_workflow_fixture import run_sample
     result = run_sample('web_lab_operator', runs_root=tmp_path / 'runs', run_id='lab-file',
                         through_step='capture_lab_procedure')
-    assert result['markdown'] == PROCEDURE.read_text()
+    assert result['markdown'] == SAMPLE_PROCEDURE.read_text()
     assert (tmp_path / 'runs/lab-file/procedure.md').read_text() == result['markdown']
     assert result['numbered_instructions'] == [
-        {'line': number, 'text': PROCEDURE.read_text().splitlines()[number - 1]}
-        for number in (14, 15, 16, 17)]
+        {'line': number, 'text': SAMPLE_PROCEDURE.read_text().splitlines()[number - 1]}
+        for number in range(20, 38)]
 
 
 def test_instruction_annotations_share_the_plan_coverage_boundary(domain, plan):
@@ -667,3 +758,85 @@ def test_untrusted_memory_cannot_authorize_a_source_outside_current_policy(domai
     assert final['status'] == 'needs_review' and final['steps_completed'] == 0
     state = json.loads((root / 'simulation.json').read_text())['state']
     assert state['wells']['destination/A1']['volume_ul'] == 0
+
+
+def test_live_operations_preserve_mix_half_cycles_before_step_completion(domain, simulated_io, tmp_path):
+    from block_workflow_fixture import run_sample
+    run_sample('web_lab_operator',
+        inputs={'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
+        config={'inputs': {'payload': {'procedure_file': ''}}, 'simulation': {'action_delay_seconds': 0}},
+        runs_root=tmp_path / 'runs', run_id='live-operations')
+    views = simulated_io['updates']
+    operations = [view for view in views if view.get('operation')]
+    transfer = [view for view in operations if view['current_step'] == 'transfer_water']
+    assert [view['operation']['label'] for view in transfer] == [
+        'Reviewing the next step', 'Picked up a fresh tip',
+        'Aspirated 100 uL from source/A2', 'Dispensed 100 uL into destination/A1',
+        'Discarded the used tip']
+    assert all(view['steps_completed'] == 0 for view in transfer)
+    mixing = [view for view in operations if view['operation']['label'].startswith('Mix ')]
+    assert [view['state']['wells']['destination/A1']['volume_ul'] for view in mixing] == [50, 100, 50, 100]
+    assert all(view['steps_completed'] == 1 for view in mixing)
+    assert all(view['operation']['resource'] for view in mixing)
+    assert views[-1]['status'] == 'completed' and views[-1]['steps_completed'] == 4
+    assert views[-1]['operation'] is None
+
+
+def test_rich_bundled_sample_executes_all_instructions_and_final_goals(domain, simulated_io, plan, tmp_path):
+    from block_workflow_fixture import run_sample
+    plan.clear()
+    plan.update(json.loads((FIXTURES / 'expected_sample_plan.json').read_text()))
+    domain('protocol').validate_plan(plan, SAMPLE_PROCEDURE.read_text())
+    result = run_sample('web_lab_operator', config={'simulation': {'action_delay_seconds': 0}},
+                        runs_root=tmp_path / 'runs', run_id='rich-sample')['final_artifact']
+    assert result['status'] == 'completed' and result['steps_completed'] == 18
+    assert result['adaptations'] == 1 and len(result['goals']) == 10
+    assert all(goal['met'] for goal in result['goals'])
+    state = json.loads((tmp_path / 'runs/rich-sample/simulation.json').read_text())['state']
+    assert state['tips_remaining'] == 84
+    assert sum(well['volume_ul'] for well in state['wells'].values()) == 1090
+    labels = [view['operation']['label'] for view in simulated_io['updates'] if view.get('operation')]
+    assert 'Aspirated 300 uL from source/A2' in labels and 'Aspirated 20 uL from source/A2' in labels
+    assert sum(label.startswith('Mix ') for label in labels) == 18
+    assert simulated_io['model'] == 18
+
+
+def test_monitor_socket_streams_current_snapshot_and_recovers_after_disconnect(domain, plan):
+    from websockets.asyncio.client import connect
+
+    async def exercise():
+        lab = domain('lab').SimulatedLab(plan)
+        await lab.setup()
+        projection = {'status': 'running', 'state': lab.observe(), 'steps_completed': 0, 'operation': None}
+        viewer = domain('visualizer').LabVisualizer(lab.lh, lambda: projection)
+        port = await viewer.start('127.0.0.1', 0)
+        try:
+            async with connect(f'ws://127.0.0.1:{port}/monitor/ws') as socket:
+                assert json.loads(await socket.recv()) == projection
+
+                async def tick(operation):
+                    projection.update(operation=operation, state=lab.observe())
+                    await viewer.publish()
+                    received = json.loads(await asyncio.wait_for(socket.recv(), timeout=2))
+                    assert received == projection and received['steps_completed'] == 0
+                    observed.append(received)
+                    await asyncio.sleep(0)
+
+                observed = []
+                action = domain('protocol').action_for(plan['steps'][0], lab.observe(),
+                                                      decision(plan['steps'][0], 'source/A2', 'adapt'))
+                await lab.perform(action, lambda: None, tick)
+                assert observed[1]['state']['wells']['source/A2']['volume_ul'] == 100
+                assert observed[1]['state']['wells']['destination/A1']['volume_ul'] == 0
+                assert observed[2]['state']['wells']['destination/A1']['volume_ul'] == 100
+            await viewer.publish()  # A closed viewer cannot interrupt an operation.
+            async with connect(f'ws://127.0.0.1:{port}/monitor/ws') as socket:
+                assert json.loads(await socket.recv())['state']['wells']['destination/A1']['volume_ul'] == 100
+                projection.update(status='completed', steps_completed=1, operation=None)
+                await viewer.publish()
+                assert json.loads(await socket.recv())['status'] == 'completed'
+        finally:
+            await viewer.close()
+            await lab.stop()
+        assert not viewer.monitors
+    asyncio.run(exercise())

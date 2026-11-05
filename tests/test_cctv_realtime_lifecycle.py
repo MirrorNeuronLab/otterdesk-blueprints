@@ -61,6 +61,8 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
             pass
         def status(self):
             return {"connected": False}
+        def window_frame(self, start, end):
+            return None
         def stop(self):
             self.stopped = True
 
@@ -72,6 +74,7 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     monkeypatch.setattr(native.Operator, "__init__", construct)
     monkeypatch.setattr(native, "VLMClient", client)
     monkeypatch.setattr(native, "Preview", Preview)
+    monkeypatch.setattr(native.VisualHistory, "index_next", lambda self: False)
     if failure == "health":
         original_health = lifecycle.health
         checks = []

@@ -3,7 +3,7 @@
   "id": "web_lab_operator",
   "name": "Web Lab Operator",
   "payload_api": "mn.blueprint.v1",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Turn Markdown procedures into a supervised PyLabRobot liquid-handling simulation. Recall prior outcomes with Membrane, observe the deck, make bounded adaptations and review the saved evidence.",
   "workflow": "workflow.json",
   "execution": "execution.json",

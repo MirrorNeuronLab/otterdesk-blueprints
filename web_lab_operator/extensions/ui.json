@@ -1,19 +1,19 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
   "starter_questions": [
-    "How can I try the included simulated transfer?",
+    "How can I try the included dilution series?",
     "What should my Markdown procedure include?",
     "Why did the last procedure adapt or stop?",
     "What does this simulation verify?"
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "I'll turn your Markdown lab procedure into a PyLabRobot simulation, watch the tracked deck after each step and explain any adjustment. Start with the included synthetic transfer, then provide your own procedure. This co-worker operates simulated liquid handling only.",
+    "introduction": "I'll turn your Markdown lab procedure into a PyLabRobot simulation and explain each tracked operation. Start with the included synthetic dilution series, then provide your own procedure. This co-worker operates simulated liquid handling only.",
     "sample": {
       "available": true,
-      "title": "Synthetic transfer with an alternate source",
-      "description": "The primary source has too little liquid. Observe a bounded switch to an explicitly allowed well with the same simulated liquid.",
-      "expected_output": "A live deck, a transfer decision, final volume checks and a saved replay.",
+      "title": "Synthetic dilution series with reserve-source recovery",
+      "description": "Watch an 18-step, three-plate procedure with reserve-source recovery, split transfers, serial mixing and readout aliquots.",
+      "expected_output": "Live operations on the deck, six volume checks, ten final goals and a saved replay.",
       "values": {
         "inputs.payload.procedure_markdown": "",
         "inputs.payload.procedure_file": "@/examples/sample_inputs/procedure.md"
@@ -67,6 +67,7 @@
   },
   "web_ui": {
     "enabled": true,
+    "adapter": "static_html",
     "title": "Web lab",
     "description": "Open the empty PyLabRobot deck during planning, watch the simulation, then review the saved replay."
   }

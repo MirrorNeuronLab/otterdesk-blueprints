@@ -11,13 +11,16 @@ import httpx
 from .caption_store import now, timestamp
 from .errors import CameraStateError
 from .realtime_client import safe_error, sse_data
+from .settings import DEFAULT_PROMPT
+from .window_evidence import assessment, box_coordinates
 
 
 class Analysis:
-    def __init__(self, client, settings, store, publish, save_status):
+    def __init__(self, client, settings, store, publish, save_status, preview=None):
         self.client, self.settings, self.store = client, settings, store
         self.configured_prompt = settings.prompt
         self.publish, self.save_status = publish, save_status
+        self.preview = preview
         self.task = None
         self.lock = asyncio.Lock()
         self.seen = set()
@@ -28,7 +31,10 @@ class Analysis:
 
     def snapshot(self):
         result = self.store.history(current_run=True)
+        matches = self.store.history(current_run=True, goal_revision=self.revision)
         return {"session": dict(self.state), "captions": result["observations"],
+                "goal_matches": matches["observations"], "match_count": matches["total_count"],
+                "has_target": self.settings.prompt != DEFAULT_PROMPT,
                 "omitted_count": result["omitted_count"]}
 
     def update(self, **values):
@@ -61,6 +67,7 @@ class Analysis:
         self.session_id = uuid.uuid4().hex
         self.update(status="starting", model=model, started_at=now(), error=None,
                     instruction=self.settings.prompt, instruction_revision=self.revision,
+                    last_caption_at=None, inference_ms=None,
                     total_captions=self.store.history(current_run=True)["total_count"])
         for caption in self.store.pending():
             self.publish(caption)
@@ -97,7 +104,6 @@ class Analysis:
             previous = self.store.command(identity, request)
             if previous:
                 return previous
-            from .settings import DEFAULT_PROMPT
             selected = self.configured_prompt if clear else instruction.strip()
             # Retain the accepted intent and one revision across interrupted replies.
             saved = self.store.state("goal:" + self.store.run_id)
@@ -160,7 +166,7 @@ class Analysis:
                     if not isinstance(chunks, list) or len(chunks) > 64:
                         raise ValueError("Unexpected NVIDIA caption response.")
                     for chunk in chunks:
-                        self.caption(chunk)
+                        await self.caption(chunk)
         except asyncio.CancelledError:
             pass
         except Exception as error:
@@ -182,7 +188,7 @@ class Analysis:
         self.store.set_state("active_request", {"stream_id": stream_id, "request_id": request_id or lease.get("request_id"),
                                                 "origin": self.client.base_url})
 
-    def caption(self, chunk):
+    async def caption(self, chunk):
         if not isinstance(chunk, dict) or not isinstance(chunk.get("content"), str):
             raise ValueError("Unexpected NVIDIA caption content.")
         content = chunk["content"].strip()
@@ -203,16 +209,43 @@ class Analysis:
                                       or not math.isfinite(value) or value < 0):
                 raise ValueError("Invalid NVIDIA timing.")
             latencies[field] = value
+        verdict, content, _ = assessment(content)
         caption = {"id": self.session_id + ":" + key, "run_id": self.store.run_id,
                    "camera": self.settings.name, "source_id": self.settings.source_id,
                    "content": content, "summary": content, "scene_understanding": content,
                    "start_time": start, "end_time": end, "received_at": now(),
                    "instruction": self.settings.prompt, "instruction_revision": self.revision,
+                   "goal_match": verdict if self.settings.prompt != DEFAULT_PROMPT else "no_target",
                    "model": self.state["model"], "evidence_kind": "nvidia_video_window_caption",
                    "source_refs": ["captions/" + self.session_id + "-" + key + ".json"],
                    **latencies}
-        if not self.store.append(caption):
-            caption = self.store.saved(caption["id"])
+        interrupted = False
+        saved = self.store.saved(caption["id"])
+        if saved:
+            if any(caption[k] != saved.get(k) for k in ("content", "start_time", "end_time", "instruction_revision", "model")):
+                raise ValueError("A caption identity was reused with different content.")
+            caption = saved
+        else:
+            jpeg = None
+            frame = self.preview.window_frame(start, end) if self.preview else None
+            if frame:
+                received, jpeg = frame
+                reference = f"snapshots/{self.session_id}-{key}.jpg"
+                snapshot = {"received_at": received, "sha256": hashlib.sha256(jpeg).hexdigest(), "source_ref": reference}
+                caption["source_refs"].append(reference)
+                if caption["goal_match"] == "matched":
+                    # Only a localization of these exact JPEG bytes may be drawn on them.
+                    try:
+                        async with asyncio.timeout(min(2, self.settings.chunk_duration / 2)):
+                            decision, _, box = await self.client.review(caption["model"], self.settings.prompt, jpeg=jpeg)
+                        if decision == "matched" and (coords := box_coordinates(box)):
+                            snapshot["bbox_2d"] = coords
+                    except (TimeoutError, httpx.HTTPError, ValueError, KeyError, IndexError, TypeError):
+                        pass  # A completed window and its original snapshot still stand on their own.
+                    except asyncio.CancelledError:
+                        interrupted = True
+                caption["snapshot"] = snapshot
+            self.store.append(caption, jpeg)
         # Publication follows the durable source, never acceptance of an SSE packet.
         self.publish(caption)
         self.store.published(caption["id"])
@@ -221,3 +254,5 @@ class Analysis:
             self.seen = {key}
         self.update(total_captions=self.store.history(current_run=True)["total_count"],
                     last_caption_at=caption["received_at"], inference_ms=caption["vlm_latency_ms"])
+        if interrupted:
+            raise asyncio.CancelledError()

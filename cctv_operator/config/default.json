@@ -49,6 +49,9 @@
     "backend": "duckdb",
     "index_on_startup": true
   },
+  "source_context": {
+    "enabled": true
+  },
   "text_memory": {
     "enabled": false
   }

@@ -96,6 +96,15 @@
         "source_refs": []
       },
       {
+        "artifact_id": "window_snapshots",
+        "path": "snapshots",
+        "mime_type": "image/jpeg",
+        "type": "artifact_collection",
+        "producer": "camera_operator",
+        "schema_version": "otterdesk.cctv.v6",
+        "source_refs": []
+      },
+      {
         "artifact_id": "camera_context_markdown",
         "path": "context_sources/outputs",
         "mime_type": "text/markdown",
@@ -268,6 +277,15 @@
         "artifact_id": "caption_accounts",
         "path": "captions",
         "mime_type": "application/json",
+        "type": "artifact_collection",
+        "producer": "camera_operator",
+        "schema_version": "otterdesk.cctv.v6",
+        "source_refs": []
+      },
+      {
+        "artifact_id": "window_snapshots",
+        "path": "snapshots",
+        "mime_type": "image/jpeg",
         "type": "artifact_collection",
         "producer": "camera_operator",
         "schema_version": "otterdesk.cctv.v6",

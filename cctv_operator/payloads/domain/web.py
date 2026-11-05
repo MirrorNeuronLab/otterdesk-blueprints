@@ -3,10 +3,13 @@
 import asyncio
 from pathlib import Path
 import time
+from typing import Literal
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
+
+from .window_evidence import display_frame
 
 
 def create_app(operator):
@@ -36,6 +39,17 @@ def create_app(operator):
     async def status():
         return operator.snapshot()
 
+    @app.get("/api/observations")
+    def observations(view: Literal["all", "goal"], before_id: str = Query(min_length=1, max_length=160),
+                     revision: int = 0):
+        if view == "goal" and revision != operator.analysis.revision:
+            raise HTTPException(409, "The monitoring goal changed.")
+        try:
+            return operator.store.history(current_run=True, goal_revision=revision if view == "goal" else None,
+                                          older_than=before_id)
+        except ValueError:
+            raise HTTPException(404, "The observation is outside this view.") from None
+
     @app.get("/api/export")
     async def export():
         import json
@@ -58,5 +72,13 @@ def create_app(operator):
         if not operator.preview.jpeg or time.time() - operator.preview.last_frame_at > 8:
             raise HTTPException(503, "No recent preview frame is available.")
         return Response(operator.preview.jpeg, media_type="image/jpeg")
+
+    @app.get("/api/windows/{identity}/snapshot.jpg")
+    def window_snapshot(identity: str):
+        caption = operator.store.saved(identity) if len(identity) <= 160 else None
+        if not caption or not caption.get("snapshot"):
+            raise HTTPException(404, "This window has no saved snapshot.")
+        jpeg = operator.store.frame(identity)
+        return Response(display_frame(jpeg, caption["snapshot"].get("bbox_2d")), media_type="image/jpeg")
 
     return app

@@ -8,6 +8,7 @@
     "Review an approved RTSP camera with NVIDIA video-window captions.",
     "Show live video separately from completed analysis.",
     "Save timestamped observations and monitoring goals.",
+    "Search saved images and captions by subject and capture time.",
     "Keep decisions and physical actions with a human supervisor."
   ],
   "features": [

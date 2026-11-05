@@ -4,12 +4,16 @@ Web Lab Operator turns Markdown procedures into a simulation-only PyLabRobot
 run. Supply exact starting plate/well volumes and liquid labels, numbered
 transfer/mix/wait/check instructions and final well-volume goals. Use one to four
 96-well plates and fresh 300 uL tips. The included synthetic example shows how
-a declared reserve source can resolve an insufficient primary source.
+a declared reserve source can resolve an insufficient primary source in an
+18-step, three-plate dilution series with split transfers and readout aliquots.
 
 Provide pasted Markdown or a .md file, clearing the other input. Start a run
 explicitly. Open Web lab as soon as the run starts. The native PyLabRobot deck
 is empty while the procedure is prepared and planned; the validated simulation
-then shows its plates, tips and recorded decisions. Use the co-worker's existing controls to pause, resume
+then shows its plates, tips and recorded decisions. During execution, Web lab
+names each confirmed operation and highlights its tip or well. Aspirations and
+dispenses remain separately visible during mixing. Completed-step counts and
+the saved replay use whole-step observations. Use the co-worker's existing controls to pause, resume
 or stop. Chat questions read context; they do not start work or edit a procedure.
 
 Inspect plan.json, procedure.md, trace.json, simulation.json, memory.json and report.md.

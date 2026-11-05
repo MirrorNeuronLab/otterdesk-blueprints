@@ -13,6 +13,10 @@ liquid volumes and tips; they do not establish experimental or physical results.
 
 ## Start with the included example
 
+Use a runtime node with at least one GPU and 48 GB of GPU memory. The GPU
+vendor is unrestricted. The Job's allocation is shared by its Docker worker
+and model requests.
+
 Prepare a MirrorNeuron Docker worker, the runtime's configured text model and
 its matching authenticated Membrane v2 context service,
 then hire **Web Lab Operator** in OtterDesk and select the included sample. From
@@ -22,24 +26,52 @@ a checkout you can also run:
 mn blueprint run ./web_lab_operator
 ```
 
+First use can download and load the selected model. Planning allows 1,200
+seconds for the runtime's normal model preparation, a 300-second planning request
+and 30 seconds for phase startup and validation (1,530 seconds total). Its
+Docker worker allows 1,620 seconds, including cleanup. Adaptive decisions use
+a 180-second request timeout inside the existing 900-second simulation budget.
+Their model packet includes the current step's wells, declared alternates and
+tip count; full deck snapshots remain in the trace and deterministic policy.
+A notice that Docker
+Model Runner has not supplied byte progress is a preparation heartbeat; it
+does not establish a stalled download. Model errors and exhausted deadlines
+still fail the run, with no automatic repeat model call. Existing hired
+co-workers need their prepared Job definition refreshed to use this budget.
+
 For your own file:
 
 ```bash
 mn blueprint run ./web_lab_operator --set inputs.payload.procedure_file=/absolute/path/procedure.md
 ```
 
-The synthetic Markdown example requests a 100 uL transfer from a well holding
-20 uL, explicitly permits a reserve holding 200 uL, then mixes, waits and checks
-the result. A successful adaptive run leaves the primary well at 20 uL, reserve
-at 100 uL and destination at 100 uL, with 94 unused tips. Model interpretation
-and decisions remain live; there is no production fake-model success path.
+The synthetic Markdown example runs an 18-step dilution series across source,
+dilution and readout plates. A 320 uL transfer uses the declared reserve and
+splits into 300 + 20 uL chunks. Three mixing steps, serial transfers, three
+readout aliquots and six volume checks follow. A successful run meets ten final
+volume goals, records one adaptation and leaves 84 unused tips. Model
+interpretation and decisions remain live; there is no production fake-model
+success path.
 
 Open **Web lab** as soon as the run starts. The native deck is empty during
 intake and planning. Once the plan is validated, the simulation worker supplies
-the plates, starting volumes and live tip state. Each phase owns its listener
+the plates, starting volumes and live tip state. The current operation names
+each confirmed tip pickup, aspiration, dispense, mix half-cycle, virtual wait
+and volume check, highlighting its resource on the native deck. A pushed
+snapshot follows every command before the configured animation delay; a mix
+therefore stays visible even though its net volume is unchanged. Reconnecting
+viewers receive the current snapshot, not a replay of missed operations.
+Live operation highlights are transient; saved step evidence retains its existing
+authority. Each phase owns its listener
 and closes it on completion, cancellation or failure. The desktop follows the
 new page automatically, including in a detached window. The
-optional saved replay then becomes the run's web result. Use the existing
+optional saved replay then becomes the run's web result. The Web UI descriptor
+declares its static HTML adapter so the desktop can open the replay after the
+live listener retires. During phase handoffs, the desktop keeps the open page
+while checking the next claim and updates the original Web UI ready notice.
+The retiring phase sends a final snapshot so its page shows the phase change
+or final outcome instead of repeatedly reconnecting to a closed listener.
+Use the existing
 co-worker controls to pause, resume or stop; asking a question never starts work.
 
 ## Write a procedure
@@ -66,6 +98,10 @@ Include:
 
 The plan retains the primary source and allowed reserves. A short primary source
 can still produce a ready plan when an allowed reserve holds the full transfer.
+The planner checks final goals against that feasible conditional branch and
+keeps starting inventory separate from expected final volumes.
+Planning and adaptive requests use temperature zero; model interpretation still
+requires the schema, policy and observed-result checks described below.
 The simulator selects the reserve after observing the deck, takes the complete
 amount from it and leaves the short primary unchanged.
 
@@ -183,6 +219,19 @@ Unit and compiled-handler tests inject deterministic model responses and never
 contact a provider. PyLabRobot tracker tests use its real Chatterbox backend.
 Live model, Docker build, cross-node UI proxy and Core pause/resume acceptance
 are separate opt-in checks; offline tests do not qualify those integrations.
+
+For a real Chromium check through the local Job UI proxy, build the pinned
+visualizer assets with `payloads/docker_worker/prepare_visualizer.py`, then run:
+
+```bash
+WEB_LAB_VISUALIZER_VENDOR=/path/to/visualizer-vendor python tests/e2e/web-lab-operations.py
+```
+
+This opt-in check uses the desktop checkout's Playwright installation (override
+with `OTTERDESK_APP_ROOT`), the sibling API proxy and real Chatterbox trackers.
+It verifies intermediate volumes, live resource highlights, reconnect,
+wide/narrow resizing and normal listener cleanup without model calls. Screenshots go to
+`/private/tmp/web-lab-live-operations` or `WEB_LAB_E2E_OUTPUT`.
 
 Reference: [PyLabRobot](https://github.com/PyLabRobot/pylabrobot) and its
 [Visualizer guide](https://docs.pylabrobot.org/stable/user_guide/machine-agnostic-features/using-the-visualizer.html).

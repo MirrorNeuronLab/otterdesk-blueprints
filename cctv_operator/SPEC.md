@@ -1,4 +1,4 @@
-# CCTV co-worker 6.0.0
+# CCTV co-worker 6.1.0
 
 ## Product and compatibility
 
@@ -63,12 +63,15 @@ invalid records and cleanup failures remain visible. Preview health is separate.
 Save immutable caption JSON, complete source Markdown, cumulative JSON/Markdown
 reports, monitoring state and the standard final artifact. Reports/export/workspace
 are bounded to 300 current-run accounts with omissions. Source-scoped Job history
-stops at its explicit 10,000-account capacity without automatic deletion. A history
-read returns twelve accounts and omissions with optional timezone-qualified capture
-bounds. It never starts capture, changes the goal or reviews historical images.
+stops at its explicit 10,000-account capacity without automatic deletion. A chronological history read returns up to twelve accounts and omissions. The separate
+question tool searches acknowledged Membrane text and image units across this Job and
+camera, constrained by the requested capture interval. It resolves relative intervals
+once at dispatch and preserves them through polling and retries. Old caption-only
+accounts remain searchable. Report pending indexing and sampled coverage.
 
 NVIDIA's caption protocol does not return selected image evidence. Preview and
-snapshot are current video, never substituted as analyzed frames. Captions remain
+window snapshots use the independently decoded preview. Save only a JPEG received inside
+the window. A localization must come from a separate review of that exact JPEG. Captions remain
 fallible sampled descriptions. Do not infer exhaustive coverage, unique people,
 identity, compliance, calibrated confidence, verified incidents or safety. No
 external messaging or physical action occurs. A human reviews original video.
@@ -79,9 +82,13 @@ Use standard Job MCP supervision. Domain tools read status, final activity, save
 history and retained NVIDIA timing, or set the monitoring prompt. Durable caller
 IDs reject conflicting reuse. Preserve arbitrary visible subject/condition/negation.
 An applied prompt is separate from a later completed window; clear restores the
-configured goal. Retrospective questions never change monitoring. The first
-completed caption per goal revision enters Chat; routine windows stay in the
-workspace. SDK/Core retain lifecycle controls, public authentication and envelopes.
+configured goal. Retrospective questions never change monitoring. Chat shows the first completed window per goal revision and the start of each
+possible sighting. The read-only workspace provides newest-first all-message and
+current-goal timelines with inspectable saved images in both views. Keep the video
+at the top with run status over its upper-left corner; only the event stream below
+scrolls. Omit the camera heading, monitoring prompt and routine diagnostics from
+the page. Camera identity remains accessible through the preview label and tooltip;
+monitoring details remain available through Chat and export. History answers include a reviewed still when available, preserving its verdict and any image-grounded box. A positive structured verdict is required for the goal view. SDK/Core retain lifecycle controls, public authentication and envelopes.
 
 The read-only workspace polls saved state every two seconds and restores after
 reload. Render model text as text. Keep credentials, action endpoints and raw

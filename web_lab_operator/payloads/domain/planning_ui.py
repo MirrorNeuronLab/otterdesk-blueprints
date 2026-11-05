@@ -59,6 +59,9 @@ class PlanningUi:
             await ui.start()
             self.ready.set_result(True)
             status = await asyncio.wrap_future(self.stop_reason)
+            projection.update(status='transitioning' if status == 'stopped' else status,
+                              reason='Preparing the next phase.' if status == 'stopped' else 'This phase has stopped.')
+            await ui.publish()
         finally:
             await ui.close(status)
 

@@ -15,6 +15,8 @@ from .publication import Publisher
 from .realtime_client import VLMClient, safe_error
 from .settings import camera_settings, service_url
 from .web import create_app
+from .video_questions import VideoQuestions
+from .visual_history import VisualHistory
 
 
 def listener(host, port):
@@ -58,6 +60,8 @@ class Operator:
             self.exchange = JobExchangeStore(self.run_dir / "operator_activity.sqlite3", allowed_root=self.run_dir,
                                              job_id=job_id, blueprint_id="cctv_operator", run_id=run_id)
             self.publisher = Publisher(self.run_dir, self.store, self.exchange)
+            self.history = VisualHistory(config, self.store)
+            self.index_error = False
             self.preview = Preview()
             self.web_socket = listener(host, port)
             # Core's published internal range forwards to its container interface.
@@ -70,7 +74,12 @@ class Operator:
 
     def snapshot(self):
         result = self.analysis.snapshot() if hasattr(self, "analysis") else {"session": {"status": "starting"}, "captions": []}
-        return {**result, "preview": self.preview.status(), "phase": self.phase, "error": self.failure,
+        total, indexed = self.store.index_counts(self.history.model)
+        summary = f"Saved footage search · {indexed} of {total} windows indexed."
+        if self.index_error:
+            summary += " Indexing is unavailable. Check Membrane and the model cache. Retrying."
+        return {**result, "run_id": self.run_id, "preview": self.preview.status(), "phase": self.phase, "error": self.failure,
+                "history": {"total": total, "indexed": indexed, "summary": summary},
                 "service": "NVIDIA vss-rt-vlm", "camera": self.settings.name,
                 "limitation": "Sampled video descriptions require human review. The live preview is separate from analyzed windows."}
 
@@ -117,12 +126,31 @@ class Operator:
             self.analysis.update(status="error", error=self.failure)
             self.phase = "error"
 
+    async def _index(self):
+        while not self.shutdown.is_set():
+            try:
+                indexed = await asyncio.to_thread(self.history.index_next)
+                if indexed:
+                    self.index_error = False
+                    continue
+                delay = 1
+            except Exception:
+                # Captions and original JPEGs are durable. Retry the same unacknowledged source.
+                self.index_error = True
+                delay = 10
+            try:
+                await asyncio.wait_for(self.shutdown.wait(), delay)
+            except TimeoutError:
+                pass
+
     async def _main(self):
         from .mcp_tools import create_operator_mcp_server
         self.loop = asyncio.get_running_loop()
         self.shutdown = asyncio.Event()
         self.client = VLMClient(self.base_url)
-        self.analysis = Analysis(self.client, self.settings, self.store, self.publisher.caption, self.publisher.status)
+        self.analysis = Analysis(self.client, self.settings, self.store, self.publisher.caption, self.publisher.status,
+                                 preview=self.preview)
+        self.questions = VideoQuestions(self.history, self.client, lambda: self.analysis.state["model"])
         self.analysis.configured_prompt = self.settings.prompt
         mcp = create_operator_mcp_server(self)
         options = dict(getattr(mcp, "_mn_http_options", {}))
@@ -140,6 +168,7 @@ class Operator:
         web = self.web_task = asyncio.create_task(self.web_server.serve(sockets=[self.web_socket]))
         controls = self.mcp_task = asyncio.create_task(self.mcp_server.serve(sockets=[self.mcp_socket]))
         capture = None
+        indexer = asyncio.create_task(self._index())
         errors = []
         try:
             await asyncio.to_thread(self.preview.start, self.settings.uri)
@@ -148,9 +177,12 @@ class Operator:
             await self.shutdown.wait()
         finally:
             self.phase = "stopping"
+            self.shutdown.set()
             if capture:
                 capture.cancel()
                 await asyncio.gather(capture, return_exceptions=True)
+            await self.questions.close()
+            await indexer
             for operation in (self.analysis.close, self.client.http.aclose):
                 try:
                     await operation()

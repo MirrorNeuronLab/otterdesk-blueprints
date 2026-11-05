@@ -1,11 +1,10 @@
 # CCTV co-worker
 
-Version 6.0.0 is a complete replacement based on the working sample at
+The CCTV workspace follows the working sample at
 `spark:/home/homer/Sandbox/rt_vlm`. NVIDIA `vss-rt-vlm` 3.3.0 owns DeepStream
 video decoding, window sampling and Cosmos3 Edge inference. The co-worker saves
 completed streaming captions and supplies a separate, read-only live preview.
-The previous detector, CUDA relay, semantic decision model and visual-history
-pipeline are removed. Old private databases are not migrated.
+Version 6.1 adds goal timelines, window snapshots and image-backed history to the 6.0 NVIDIA streaming blueprint.
 
 ## Start
 
@@ -18,7 +17,7 @@ mn blueprint run ./cctv_operator --node mirror_neuron@10.0.4.32 --web-ui \
   --set video_source.uri=rtsp://camera.example/approved-stream
 ```
 
-Refresh an idle prepared Job to adopt this major version. Existing runs retain
+Refresh the prepared Job when it is idle, then start a new run to use this version. Existing runs retain
 their original bundles. The NVIDIA computer needs Docker Compose, the NVIDIA
 Container Toolkit, camera connectivity, 48 GiB GPU/unified memory and 25 GB free
 disk. The digest in `payloads/vss/compose.yaml` is the sample's ARM64/SBSA image,
@@ -80,23 +79,49 @@ tokens, temperature 0.2, no reasoning and no audio. The independent CPU/PyAV
 preview updates up to four times per second. Preview success does not prove
 analysis success. Model/window latency and capture/receipt times remain distinct.
 
-The browser restores saved observations and polls every two seconds. It has no
-action endpoints. Use Chat to change the goal and OtterDesk to pause/stop. A goal
-change releases the prior request before opening the next one and retains the
-transcript. An applied receipt is separate from a new analyzed window. The first
-completed caption for each goal revision appears in Chat; routine windows stay
-in the workspace. Clearing restores the configured goal.
+**Everything** shows the newest completed window first. **Goal matches** shows
+only explicit matches for the current monitoring goal and revision, including
+matches older than the most recent routine windows. Scroll down to read earlier
+entries. The video stays at the top with its run status in the upper-left corner;
+only the event stream below scrolls. Both views show saved frames; select a frame
+to inspect it with any image-grounded highlight. Monitoring details, timings and
+indexing coverage remain available through Chat and **Export**. **Show earlier** pages through all retained entries for this run, 300 at
+a time. **Back to latest** resumes following new windows.
 
-NVIDIA does not return the exact selected images through this protocol. The live
-preview and snapshot are never labeled analyzed evidence. Captions are fallible
-model descriptions, not verified event verdicts, calibrated confidence, exhaustive
-coverage, unique-person counts, compliance assessments or safety guarantees.
-Review original video before acting. No external alerts or physical actions occur.
+Chat records the first observation for each goal and the beginning of each
+subsequent possible sighting. Use Chat to change the goal and OtterDesk to
+pause or stop. An applied goal takes effect on future video windows.
+
+The NVIDIA stream supplies caption intervals. The co-worker independently
+buffers preview JPEGs and saves the one received nearest the midpoint, only
+if its receipt time falls inside the interval. The thumbnail is labeled with
+that time. A box is shown only when a second assessment of those exact JPEG
+bytes locates a target. An observation can have no snapshot or no box.
+
+## Search saved footage
+
+Ask **“Did you find anyone wearing a red coat in the past hour?”** Chat searches
+the current camera across runs of this Job. Search results include index coverage.
+A background task indexes the caption and available
+original JPEG as distinct Membrane source units. Earlier 6.0 observations are
+indexed from their captions. Their images were never saved.
+
+The blueprint's CPU operator loads Google's pinned EmbeddingGemma 2 weights
+with Sentence Transformers. First use needs access to download the model or an
+existing Hugging Face cache. Image, document, and query vectors share a
+768-dimensional space. [Google's image encoder guide](https://ai.google.dev/gemma/docs/embeddinggemma/multimodal-embeddinggemma-with-sentence-transformers).
+
+Membrane acknowledges the vectors before a window
+counts as indexed. It ranks images by semantic similarity and captions by
+hybrid search inside the requested capture interval. The existing NVIDIA
+service reviews up to four candidates. Chat shows capture times, citations,
+index coverage and the best reviewed snapshot when available, including uncertain or negative results with their verdict. Sampled observations
+can miss activity.
 
 ## Saved state
 
 SDK run storage is authoritative; `~/Downloads/cctv-operator` is an additional
-runtime-delivered host copy. Outputs are `captions/*.json`, `cctv_report.json/md`,
+runtime-delivered host copy. Outputs are `captions/*.json`, available `snapshots/*.jpg`, `cctv_report.json/md`,
 `monitoring_state.json`, `final_artifact.json`, complete
 `context_sources/outputs/*.md` accounts and `operator_activity.sqlite3`.
 Published caption/report/status files use mode 0644 so the runtime's host sync
@@ -113,8 +138,7 @@ optionally filtered by timezone-qualified capture bounds. It never reruns vision
 
 Other domain tools read status, completed activity and NVIDIA timings, or change
 the goal. Public authenticated Job controls and operation wrapping remain SDK-owned.
-No separate vision-model recipe, secondary semantic model or CPU inference
-fallback exists. Service checkpoints are bounded to 64 MiB/1,000,000 five-second
+Service checkpoints are bounded to 64 MiB/1,000,000 five-second
 health cycles; rotate explicitly before capacity exhaustion.
 
 ## Verification
@@ -122,8 +146,19 @@ health cycles; rotate explicitly before capacity exhaustion.
 ```bash
 python -m pytest tests/test_cctv_realtime_*.py tests/test_mcp_cctv_operator.py -q
 python -m pytest tests/test_manifest_contracts.py tests/test_catalog_native_blocks.py -q
+node tests/e2e/cctv-workspace.cjs /tmp/cctv-workspace-review
 git diff --check
 ```
+
+The offline browser gate uses the sibling desktop checkout's declared Playwright
+dependency (or `OTTERDESK_APP_ROOT`). It checks filtering, image expansion, text
+escaping, scroll anchoring, empty/error states, pinned video, timeline-only scrolling
+and resizing from 320 to 1440 pixels, including short windows.
+
+To repeat the native index and retrieval gate, set `CCTV_TEST_MEMBRANE_BINARY`
+to a built Membrane engine and run `tests/test_cctv_realtime_history.py` with
+the operator's encoder dependencies installed. The test starts an isolated
+temporary corpus. It uses real model weights and synthetic clothing images.
 
 The opt-in Spark gate exercises the same compiled SDK hooks with an explicitly
 supplied camera, real captions, preview, goal changes, saved reports, browser

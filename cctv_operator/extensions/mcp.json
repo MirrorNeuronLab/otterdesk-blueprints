@@ -74,7 +74,7 @@
       }
     },
     "get_operator_activity": {
-      "description": "Read completed goal-revision observations after a non-negative revision cursor. Routine captions stay in the workspace.",
+      "description": "Read the first observation for each goal and the start of each possible goal sighting.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -120,7 +120,7 @@
       }
     },
     "set_monitoring_instruction": {
-      "description": "Change the visible condition described in future NVIDIA video windows. Preserve the exact subject and negation. A monitoring correction changes the goal; a past-video question only reads saved captions. Clearing restores the configured goal. A completed receipt confirms application, separately from a completed analysis; never claim an automatic event verdict.",
+      "description": "Change the visible condition in future NVIDIA video windows. Preserve the exact subject and negation. For a past-video question use answer_video_question. Clearing restores the configured goal. A completed receipt confirms the goal was applied. A matching observation arrives separately.",
       "effect": "monitoring",
       "inputSchema": {
         "type": "object",
@@ -182,7 +182,7 @@
       }
     },
     "get_video_history": {
-      "description": "Read up to twelve saved captions for this Job and camera across runs. Optional after/before are ISO 8601 capture times with timezone, or empty strings. Preserve times, citations, omissions and uncertainty. Missing captions do not prove absence.",
+      "description": "List up to twelve recent sampled windows by capture interval. For questions about a person, color, object or condition use answer_video_question.",
       "effect": "read",
       "inputSchema": {
         "type": "object",
@@ -251,6 +251,70 @@
             "type": "boolean"
           }
         }
+      }
+    },
+    "answer_video_question": {
+      "description": "Search saved footage for a retrospective question. Rank indexed images and captions in Membrane, then inspect candidates. Preserve the original question. For relative times such as past hour, leave after and before empty so the co-worker resolves them at request time. Explicit bounds are timezone-qualified ISO capture times. Return the completed answer, citations and coverage. Reads never change monitoring.",
+      "effect": "read",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 8000
+          },
+          "after": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "before": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "request_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "question",
+          "after",
+          "before",
+          "request_id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "summary": {
+            "type": "string"
+          },
+          "command_id": {
+            "type": "string"
+          },
+          "citations": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "request_id_argument": "command_id",
+      "completion": {
+        "tool": "get_operation_status",
+        "id_argument": "operation_id",
+        "id_field": "command_id",
+        "arguments": {
+          "kind": "video"
+        },
+        "poll_interval_ms": 500,
+        "timeout_seconds": 90
       }
     }
   },

@@ -1,0 +1,275 @@
+{
+  "status": "ready",
+  "summary": "Simulate a three-point dilution series with reserve recovery and readout aliquots.",
+  "assumptions": [],
+  "unresolved": [],
+  "plates": [
+    "source",
+    "dilution",
+    "readout"
+  ],
+  "liquids": [
+    {
+      "well": "source/A1",
+      "volume_ul": 20,
+      "liquid": "training dye"
+    },
+    {
+      "well": "source/A2",
+      "volume_ul": 350,
+      "liquid": "training dye"
+    },
+    {
+      "well": "source/B1",
+      "volume_ul": 360,
+      "liquid": "diluent"
+    },
+    {
+      "well": "source/B2",
+      "volume_ul": 360,
+      "liquid": "diluent"
+    }
+  ],
+  "steps": [
+    {
+      "id": "load_dye",
+      "kind": "transfer",
+      "instruction_lines": [
+        20
+      ],
+      "source": "source/A1",
+      "destination": "dilution/A1",
+      "volume_ul": 320,
+      "alternate_sources": [
+        "source/A2"
+      ]
+    },
+    {
+      "id": "load_diluent_two",
+      "kind": "transfer",
+      "instruction_lines": [
+        21
+      ],
+      "source": "source/B1",
+      "destination": "dilution/A2",
+      "volume_ul": 180,
+      "alternate_sources": []
+    },
+    {
+      "id": "load_diluent_three",
+      "kind": "transfer",
+      "instruction_lines": [
+        22
+      ],
+      "source": "source/B2",
+      "destination": "dilution/A3",
+      "volume_ul": 180,
+      "alternate_sources": []
+    },
+    {
+      "id": "mix_stock",
+      "kind": "mix",
+      "instruction_lines": [
+        23
+      ],
+      "well": "dilution/A1",
+      "volume_ul": 200,
+      "cycles": 3
+    },
+    {
+      "id": "dilute_two",
+      "kind": "transfer",
+      "instruction_lines": [
+        24
+      ],
+      "source": "dilution/A1",
+      "destination": "dilution/A2",
+      "volume_ul": 60,
+      "alternate_sources": []
+    },
+    {
+      "id": "mix_two",
+      "kind": "mix",
+      "instruction_lines": [
+        25
+      ],
+      "well": "dilution/A2",
+      "volume_ul": 120,
+      "cycles": 3
+    },
+    {
+      "id": "dilute_three",
+      "kind": "transfer",
+      "instruction_lines": [
+        26
+      ],
+      "source": "dilution/A2",
+      "destination": "dilution/A3",
+      "volume_ul": 60,
+      "alternate_sources": []
+    },
+    {
+      "id": "mix_three",
+      "kind": "mix",
+      "instruction_lines": [
+        27
+      ],
+      "well": "dilution/A3",
+      "volume_ul": 120,
+      "cycles": 3
+    },
+    {
+      "id": "aliquot_1",
+      "kind": "transfer",
+      "instruction_lines": [
+        28
+      ],
+      "source": "dilution/A1",
+      "destination": "readout/A1",
+      "volume_ul": 40,
+      "alternate_sources": []
+    },
+    {
+      "id": "aliquot_2",
+      "kind": "transfer",
+      "instruction_lines": [
+        29
+      ],
+      "source": "dilution/A2",
+      "destination": "readout/A2",
+      "volume_ul": 40,
+      "alternate_sources": []
+    },
+    {
+      "id": "aliquot_3",
+      "kind": "transfer",
+      "instruction_lines": [
+        30
+      ],
+      "source": "dilution/A3",
+      "destination": "readout/A3",
+      "volume_ul": 40,
+      "alternate_sources": []
+    },
+    {
+      "id": "wait_briefly",
+      "kind": "wait",
+      "instruction_lines": [
+        31
+      ],
+      "seconds": 5
+    },
+    {
+      "id": "check_dilution_1",
+      "kind": "check_volume",
+      "instruction_lines": [
+        32
+      ],
+      "well": "dilution/A1",
+      "minimum_ul": 219.9,
+      "maximum_ul": 220.1
+    },
+    {
+      "id": "check_dilution_2",
+      "kind": "check_volume",
+      "instruction_lines": [
+        33
+      ],
+      "well": "dilution/A2",
+      "minimum_ul": 139.9,
+      "maximum_ul": 140.1
+    },
+    {
+      "id": "check_dilution_3",
+      "kind": "check_volume",
+      "instruction_lines": [
+        34
+      ],
+      "well": "dilution/A3",
+      "minimum_ul": 199.9,
+      "maximum_ul": 200.1
+    },
+    {
+      "id": "check_readout_1",
+      "kind": "check_volume",
+      "instruction_lines": [
+        35
+      ],
+      "well": "readout/A1",
+      "minimum_ul": 39.9,
+      "maximum_ul": 40.1
+    },
+    {
+      "id": "check_readout_2",
+      "kind": "check_volume",
+      "instruction_lines": [
+        36
+      ],
+      "well": "readout/A2",
+      "minimum_ul": 39.9,
+      "maximum_ul": 40.1
+    },
+    {
+      "id": "check_readout_3",
+      "kind": "check_volume",
+      "instruction_lines": [
+        37
+      ],
+      "well": "readout/A3",
+      "minimum_ul": 39.9,
+      "maximum_ul": 40.1
+    }
+  ],
+  "goals": [
+    {
+      "well": "source/A1",
+      "volume_ul": 20,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "source/A2",
+      "volume_ul": 30,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "source/B1",
+      "volume_ul": 180,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "source/B2",
+      "volume_ul": 180,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "dilution/A1",
+      "volume_ul": 220,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "dilution/A2",
+      "volume_ul": 140,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "dilution/A3",
+      "volume_ul": 200,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "readout/A1",
+      "volume_ul": 40,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "readout/A2",
+      "volume_ul": 40,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "readout/A3",
+      "volume_ul": 40,
+      "tolerance_ul": 0.1
+    }
+  ]
+}

@@ -6,11 +6,19 @@ uses concise scene activity. No sample camera is included. NVIDIA describes
 sampled four-second video windows; a separate live preview shows current video.
 Model loading can take several minutes. Preview success is not analysis success.
 
-Use get_operator_status for current work and get_video_history for past
-observations. History returns at most twelve complete camera/Job-scoped captions
-with omissions; optional ISO capture times need timezone. Retain their original
-times, account references, uncertainty and sampled limits. Missing captions do
-not establish absence. No image search or unique-person count is provided.
+Use get_operator_status for current work. For a past question such as “Did you
+find anyone wearing a red coat in the past hour?”, use answer_video_question.
+Pass the full question with empty time bounds for relative intervals. It searches
+indexed images and captions, reviews candidates and returns capture times,
+citations, coverage and a reviewed still when available. A still can accompany an
+uncertain or negative answer; its review verdict remains explicit. Check the indexed count in the Web UI if older windows
+are pending. get_video_history lists recent windows in capture order.
+
+In the Web UI, select Everything or Goal matches. Both views show saved window
+snapshots where available; select a frame to expand it. A box is an estimate on
+that specific image. Camera status overlays the live video, with monitoring
+details beneath it.
+Older 6.0 windows have captions only.
 
 Use set_monitoring_instruction only for an explicit future visible condition or
 correction; preserve the exact subject and negation. Clarify whether ambiguous

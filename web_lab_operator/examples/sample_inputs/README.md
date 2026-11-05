@@ -1,32 +1,26 @@
-# Web lab sample inputs
+# Synthetic dilution series
 
-`procedure.md` is a synthetic, simulation-only liquid-handling procedure. It
-defines two plates, the starting water inventory, four numbered instructions
-and three final volume goals. No physical samples or instruments are involved.
+This fictional, simulation-only procedure exercises three plates and 18 ordered
+steps: reserve-source recovery, a transfer split across two fresh tips, a
+three-point dilution sequence, nine mixing cycles, three readout aliquots, a
+virtual wait and six tracked-volume checks. It predicts no chemistry or assay
+results. All inventory, operations and final goals are explicit in `procedure.md`.
 
-The primary source has 20 uL, less than the requested 100 uL transfer. The
-procedure explicitly permits `source/A2`, which starts with 200 uL, as its only
-alternate. A successful run uses that reserve, mixes the destination, advances
-five virtual seconds and checks the tracked volume.
+The 20 uL primary source cannot supply the requested 320 uL. The sole declared
+reserve has 350 uL and supplies the complete transfer as 300 + 20 uL chunks.
+The primary stays unchanged. Each transfer chunk and each mix uses a fresh tip.
 
 Expected final state:
 
-| Well | Tracked volume (uL) |
+| Wells | Volume (uL each) |
 | --- | --- |
-| source/A1 | 20 |
-| source/A2 | 100 |
-| destination/A1 | 100 |
+| source/A1, source/A2 | 20, 30 |
+| source/B1, source/B2 | 180, 180 |
+| dilution/A1, dilution/A2, dilution/A3 | 220, 140, 200 |
+| readout/A1, readout/A2, readout/A3 | 40, 40, 40 |
 
-The run uses two fresh tips, leaving 94 unused tips. Model planning and adaptive
-decisions remain live; this sample does not select a fake model or a prewritten
-plan. The test suite keeps its expected plan in `tests/fixtures/`, outside the
-published blueprint.
-
-The default configuration and setup sample select
-`@/examples/sample_inputs/procedure.md`. Edit a copy to try another procedure,
-or provide your own Markdown text or file as described in the
-[blueprint README](../../README.md). Review `plan.json`, `trace.json`,
-`simulation.json`, `memory.json` and `report.md` after a run. Run the same hired
-co-worker again to inspect how prior simulated outcomes enter its bounded
-Membrane recall. The dataset inventory is recorded
-in `SAMPLE_DATASET_MANIFEST.json`.
+A successful run has one adaptation, all ten goals met and 84 unused tips.
+Watch each pickup, aspiration, dispense, mixing half-cycle and check in Web lab.
+After completion, review the saved step observations with the replay controls.
+The planner and next-step decisions use the configured live model; expected
+model responses live only in repository tests, outside the distributed package.

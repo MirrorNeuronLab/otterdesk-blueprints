@@ -39,3 +39,6 @@ class LiveLabUi:
                 await asyncio.to_thread(mark_web_ui_status, self.block.job_directory,
                                        job_id=self.block.job_id, status=status,
                                        expected_generation=self.generation)
+
+    async def publish(self):
+        await self.visualizer.publish()

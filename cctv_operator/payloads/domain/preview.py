@@ -3,6 +3,8 @@
 import io
 import threading
 import time
+from collections import deque
+from datetime import datetime, timezone
 
 
 class Preview:
@@ -14,6 +16,18 @@ class Preview:
         self.metadata = {}
         self._stop = threading.Event()
         self._thread = None
+        self._frames = deque(maxlen=256)
+        self._frames_lock = threading.Lock()
+
+    def window_frame(self, start, end):
+        """Pair by receiver wall clock. NVIDIA does not return its selected frame."""
+        lower, upper = (datetime.fromisoformat(value).timestamp() for value in (start, end))
+        middle = (lower + upper) / 2
+        with self._frames_lock:
+            sample = min((row for row in self._frames if lower <= row[0] <= upper),
+                         key=lambda row: abs(row[0] - middle), default=None)
+        if sample:
+            return datetime.fromtimestamp(sample[0], timezone.utc).isoformat(), sample[1]
 
     def start(self, uri):
         self.stop()
@@ -47,12 +61,15 @@ class Preview:
                             return
                         if time.monotonic() - last_encoded < 0.25:
                             continue
+                        received = time.time()
                         image = frame.to_image()
                         image.thumbnail((960, 540))
                         output = io.BytesIO()
                         image.save(output, format="JPEG", quality=78)
                         self.jpeg = output.getvalue()
-                        self.last_frame_at = time.time()
+                        self.last_frame_at = received
+                        with self._frames_lock:
+                            self._frames.append((received, self.jpeg))
                         self.frame_number += 1
                         self.error = None
                         last_encoded = time.monotonic()

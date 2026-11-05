@@ -3,11 +3,33 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CCTV co-worker</title><link rel="stylesheet" href="static/style.css"><script src="static/app.js" defer></script></head>
 <body>
 <main>
-  <header><div><h1 id="camera">CCTV co-worker</h1><p id="goal">Connecting to the camera…</p></div><span id="status" role="status">Preparing</span></header>
-  <section aria-label="Live video"><img id="camera-image" src="api/preview.mjpeg" alt="Current camera preview"><p id="preview-state">Connecting to live video…</p></section>
-  <div class="context"><p id="analysis-state" role="status">Waiting for the first completed video window.</p><a href="api/export" download>Export observations</a></div>
+  <section id="camera" class="video-stage" aria-label="Live video">
+    <img id="camera-image" src="api/preview.mjpeg" alt="Current camera preview">
+    <div class="video-overlay"><span id="status" role="status">Preparing</span></div>
+    <p id="preview-state" role="status">Connecting to live video…</p>
+  </section>
   <p id="error" role="alert" hidden></p>
-  <section aria-labelledby="observations-title"><div class="context"><h2 id="observations-title">Recent observations</h2><span id="caption-count">0</span></div><p id="empty">No completed video observations yet.</p><ol id="captions" aria-live="polite" aria-relevant="additions"></ol></section>
-  <footer>Sampled descriptions can miss or misdescribe activity. Review the source video before acting. The live preview is separate from analyzed windows. Use Chat to change the goal and OtterDesk to pause or stop.</footer>
+  <section class="event-stream" aria-labelledby="observations-title">
+    <div class="timeline-heading">
+      <h2 id="observations-title">Event stream <span id="caption-count">0</span></h2>
+      <div class="timeline-actions">
+        <fieldset id="filters"><legend>Show observations</legend>
+          <label><input type="radio" name="view" value="all" checked><span>Everything</span></label>
+          <label><input type="radio" name="view" value="goal"><span>Goal matches</span></label>
+        </fieldset>
+        <a href="api/export" aria-label="Export observations" download>Export</a>
+      </div>
+    </div>
+    <p id="empty">No completed video observations yet.</p>
+    <div id="transcript" role="region" aria-label="Observation timeline, newest first" tabindex="0">
+      <ol id="captions"></ol>
+    </div>
+    <div class="timeline-navigation"><button id="latest" type="button" hidden>Back to latest</button><button id="earlier" type="button" hidden>Show earlier</button></div>
+  </section>
+  <dialog id="evidence-dialog" aria-labelledby="evidence-title">
+    <div class="evidence-heading"><h2 id="evidence-title">Window snapshot</h2><button id="close-evidence" type="button" autofocus>Close</button></div>
+    <figure><img id="evidence-image" alt=""><figcaption id="evidence-caption"></figcaption></figure>
+    <p id="evidence-description"></p>
+  </dialog>
 </main>
 </body></html>

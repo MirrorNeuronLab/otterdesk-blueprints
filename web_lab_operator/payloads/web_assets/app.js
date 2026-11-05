@@ -6,16 +6,23 @@
   const replay = replayNode ? JSON.parse(replayNode.textContent) : null;
   let index = 0;
   let timer = null;
-  const labels = {preparing:'Preparing',planning:'Planning',running:'Running',completed:'Completed',needs_review:'Needs review',failed:'Failed',cancelled:'Stopped'};
+  let currentView = null;
+  const labels = {preparing:'Preparing',planning:'Planning',transitioning:'Preparing next phase',running:'Running',completed:'Completed',needs_review:'Needs review',failed:'Failed',cancelled:'Stopped'};
   const eventReason = event => event.error || (event.action && !event.outcome.passed ?
     'The volume check did not pass.' : event.decision.reason);
 
   function renderState(view) {
+    currentView = view;
     text('status', labels[view.status] || 'Preparing');
     text('summary', view.summary);
     text('reason', view.reason || 'Waiting for the next observed step.');
     text('tips', view.state.tips_remaining === null ? '' : `${view.state.tips_remaining} unused tips`);
-    text('progress', ['preparing', 'planning'].includes(view.status) ? '' : `${view.steps_completed} steps completed`);
+    text('progress', ['preparing', 'planning', 'transitioning'].includes(view.status) ? '' :
+      `${view.steps_completed} / ${view.steps_total ?? replay?.trace.events.length ?? 0} steps completed`);
+    byId('operation').hidden = !view.operation;
+    text('current-step', view.current_step?.replaceAll('_', ' ') || '');
+    text('operation-label', view.operation?.label || '');
+    byId('visualizer')?.contentWindow.postMessage({type:'web-lab-operation', operation:view.operation, status:view.status}, location.origin);
     const events = byId('events');
     events.replaceChildren();
     byId('empty').hidden = view.events.length > 0;
@@ -98,14 +105,24 @@
     }
     frame();
   } else {
-    async function refresh() {
-      try {
-        const response = await fetch('state', {cache:'no-store', signal:AbortSignal.timeout(3000)});
-        if (!response.ok) throw new Error('unavailable');
-        renderState(await response.json()); byId('connection').hidden = true;
-      } catch { byId('connection').hidden = false; }
-      setTimeout(refresh, 1000);
+    byId('visualizer').addEventListener('load', () => {
+      if (currentView) byId('visualizer').contentWindow.postMessage(
+        {type:'web-lab-operation', operation:currentView.operation, status:currentView.status}, location.origin);
+    });
+    function connect() {
+      const url = new URL(window.__MN_JOB_UI_PROXY_BASE__ ? 'ws/monitor/ws' : 'monitor/ws', location.href);
+      url.protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const socket = new WebSocket(url);
+      socket.onmessage = event => {
+        renderState(JSON.parse(event.data));
+        byId('connection').hidden = true;
+      };
+      socket.onclose = () => {
+        if (currentView && ['transitioning', 'completed', 'needs_review', 'failed', 'cancelled'].includes(currentView.status)) return;
+        byId('connection').hidden = false;
+        setTimeout(connect, 1000);
+      };
     }
-    refresh();
+    connect();
   }
 })();

@@ -73,6 +73,7 @@ class LabVisualizer(Visualizer):
         self.vendor_root = vendor_root
         self.projection = projection
         self.server = None
+        self.monitors = set()
 
     async def start(self, host, port):
         self._loop = asyncio.get_running_loop()
@@ -83,8 +84,22 @@ class LabVisualizer(Visualizer):
         return self.server.sockets[0].getsockname()[1]
 
     async def _socket_handler(self, connection):
+        if urlsplit(connection.request.path).path == '/monitor/ws':
+            if len(self.monitors) >= 8:
+                await connection.close(code=1013, reason='Too many viewers')
+                return
+            self.monitors.add(connection)
+            try:
+                await connection.send(json.dumps(self.projection(), allow_nan=False))
+                await connection.wait_closed()
+            finally:
+                self.monitors.discard(connection)
+            return
         try:
             await super()._socket_handler(connection)
+        except ConnectionClosed:
+            # Reload may close a viewer between its ping and the native pong.
+            pass
         finally:
             if self._websocket is connection:
                 self._websocket = None
@@ -102,10 +117,22 @@ class LabVisualizer(Visualizer):
             # A new viewer receives the complete current deck on its handshake.
             return None
 
+    async def publish(self):
+        content = json.dumps(self.projection(), allow_nan=False)
+
+        async def send(connection):
+            try:
+                await asyncio.wait_for(connection.send(content), timeout=1)
+            except (ConnectionClosed, TimeoutError):
+                self.monitors.discard(connection)
+                await connection.close()
+
+        await asyncio.gather(*(send(connection) for connection in tuple(self.monitors)))
+
     async def http(self, connection, request):
         path = urlsplit(request.path).path
         if request.headers.get('Upgrade', '').lower() == 'websocket':
-            return None if path == '/visualizer/ws' else Response(403, 'Forbidden', Headers(), b'')
+            return None if path in {'/visualizer/ws', '/monitor/ws'} else Response(403, 'Forbidden', Headers(), b'')
         try:
             if path == '/state':
                 content, mime = json.dumps(self.projection(), allow_nan=False).encode(), 'application/json'

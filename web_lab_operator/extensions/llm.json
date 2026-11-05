@@ -12,8 +12,11 @@
       "provider": "docker_model_runner",
       "backend": "llama.cpp",
       "api_base": "auto",
-      "timeout_seconds": 120,
+      "timeout_seconds": 300,
       "max_tokens": 12000,
+      "structured_output_options": {
+        "temperature": 0
+      },
       "num_retries": 0,
       "mode": "live",
       "required": true

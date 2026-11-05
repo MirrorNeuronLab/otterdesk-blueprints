@@ -3,7 +3,7 @@
   "id": "cctv_operator",
   "name": "CCTV Operator",
   "payload_api": "mn.blueprint.v1",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "Review one approved RTSP camera with NVIDIA real-time video captions, a live preview, saved observations and supervised monitoring goals.",
   "workflow": "workflow.json",
   "execution": "execution.json",

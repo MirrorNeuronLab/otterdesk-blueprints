@@ -26,6 +26,11 @@ async def verify(url, output, timeout):
                 await page.reload(wait_until="domcontentloaded")
                 await page.wait_for_function("() => document.querySelectorAll('.caption').length >= 3")
                 await page.wait_for_function(f"() => Number(document.getElementById('caption-count').textContent) > {count}", timeout=timeout * 1000)
+                times = await page.locator(".caption time").evaluate_all("(rows) => rows.map(row => Date.parse(row.dateTime))")
+                assert times == sorted(times, reverse=True)
+                await page.get_by_role("radio", name="Goal matches").check()
+                await page.wait_for_function("""() => Array.from(document.querySelectorAll('.caption')).every(
+                    row => row.querySelector('.snapshot, small'))""")
                 for width in [1440, 320, 1000, 320, 1440]:
                     await page.set_viewport_size({"width": width, "height": 1000})
                     assert not await page.evaluate("document.documentElement.scrollWidth > innerWidth"), width
@@ -33,6 +38,7 @@ async def verify(url, output, timeout):
                 await page.screenshot(path=str(output / "workspace-wide.png"), full_page=True)
                 await page.set_viewport_size({"width": 320, "height": 900})
                 await page.screenshot(path=str(output / "workspace-narrow.png"), full_page=True)
+                await page.get_by_role("radio", name="Everything").check()
                 final = (await client.get("api/export")).json()
                 assert final["session"]["status"] == "running", final["session"].get("error")
                 assert len(final["captions"]) >= 3

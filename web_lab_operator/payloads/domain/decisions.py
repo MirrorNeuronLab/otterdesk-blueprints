@@ -20,7 +20,14 @@ DECISION_SCHEMA = {
 
 def choose(block, step, observed, previous, history):
     llm = block.config['llm']
-    user = {'step': step, 'observed': observed, 'allowed_sources': candidates(step, observed),
+    # A decision can affect only these wells. Full deck snapshots remain in
+    # the trace and deterministic policy; hundreds of unrelated empty wells
+    # needlessly consume the local model's input and inference budget.
+    wells = {step[key] for key in ('source', 'destination', 'well') if key in step}
+    wells.update(step.get('alternate_sources', []))
+    scoped = {'scope': 'current_step_wells', 'tips_remaining': observed['tips_remaining'],
+              'wells': {well: observed['wells'][well] for well in sorted(wells)}}
+    user = {'step': step, 'observed': scoped, 'allowed_sources': candidates(step, observed),
             'previous_outcome': previous, 'runtime_memory': history}
     response = model_request(block, {
         'purpose': 'web_lab_operator', 'model': llm['model'], 'path': '/chat/completions',
@@ -31,7 +38,7 @@ def choose(block, step, observed, previous, history):
             'response_format': {'type': 'json_schema', 'json_schema': {
                 'name': 'lab_decision', 'strict': True, 'schema': DECISION_SCHEMA}}},
         'options': {'provider': llm.get('provider', 'docker_model_runner'),
-                    'timeout_seconds': 60, 'structured_output': True},
+                    'timeout_seconds': 180, 'structured_output': True},
     }, key='decision:' + step['id'])
     choices = response.get('choices')
     if not isinstance(choices, list) or not choices or choices[0].get('finish_reason') != 'stop':

@@ -1,6 +1,7 @@
 """Live domain supervision; SDK owns public Job controls and operation envelopes."""
 
 import asyncio
+import json
 import time
 from typing import Literal
 
@@ -21,20 +22,32 @@ def create_operator_mcp_server(operator, *, server_factory=None):
     def get_operator_status(question: str = "") -> dict:
         snapshot = operator.snapshot()
         session = snapshot["session"]
-        latest = snapshot["captions"][-1] if snapshot["captions"] else None
+        latest = next((c for c in reversed(snapshot["captions"])
+                       if c.get("instruction_revision", 0) == session.get("instruction_revision", 0)), None)
         return {"ready": snapshot["phase"] == "running" and session["status"] == "running", "connected": snapshot["preview"]["connected"],
                 "status": session["status"], "state": session["status"],
                 "summary": (snapshot["error"] or (latest["content"] if latest else "No completed video observations yet.")),
                 "instruction": session.get("instruction"), "instruction_revision": session.get("instruction_revision", 0),
                 "observed_at": latest["end_time"] if latest else None,
-                "understanding": latest, "pipeline": {"analysis": session, "preview": snapshot["preview"]},
+                "understanding": latest, "pipeline": {"analysis": session, "preview": snapshot["preview"],
+                                                      "history": snapshot.get("history")},
                 "warning": snapshot["limitation"]}
 
     @domain_tool(server, name="get_operator_activity", structured_output=True)
     def get_operator_activity(after_revision: int = 0) -> dict:
         if isinstance(after_revision, bool) or after_revision < 0:
             raise ValueError("after_revision must be a non-negative integer.")
-        return operator.exchange.updates(after_revision=after_revision, kinds=["result"], include_staged=False, limit=20)
+        page = operator.exchange.updates(after_revision=after_revision, kinds=["result"], include_staged=False, limit=20)
+        # Keep image-bearing pages inside the desktop's bounded MCP envelope.
+        size = 0
+        for index, row in enumerate(page["updates"]):
+            size += len(json.dumps(row, ensure_ascii=False).encode())
+            if index and size > 160 * 1024:
+                page["updates"] = page["updates"][:index]
+                page["next_revision"] = page["updates"][-1]["revision"]
+                page["has_more"] = True
+                break
+        return page
 
     @domain_tool(server, name="get_video_history", structured_output=True)
     def get_video_history(after: str = "", before: str = "") -> dict:
@@ -52,13 +65,19 @@ def create_operator_mcp_server(operator, *, server_factory=None):
         return {"state": "completed", "summary": "NVIDIA-reported retained window timings; camera startup and model loading are excluded.",
                 "vlm_inference": timing("vlm_latency_ms"), "video_window": timing("chunk_latency_ms")}
 
+    @domain_tool(server, name="answer_video_question", structured_output=True)
+    async def answer_video_question(command_id: str, question: str, after: str = "", before: str = "") -> dict:
+        return operator.questions.submit(command_id, question, after, before)
+
     @domain_tool(server, name="set_monitoring_instruction", structured_output=True)
     async def set_monitoring_instruction(command_id: str, instruction: str = "", clear: bool = False,
                                          analyze_now: bool = True) -> dict:
         return await operator.analysis.change_goal(command_id, instruction, clear)
 
     @domain_tool(server, name="get_operation_status", structured_output=True)
-    def get_operation_status(operation_id: str, kind: Literal["command"] = "command") -> dict:
+    async def get_operation_status(operation_id: str, kind: Literal["command", "video"] = "command") -> dict:
+        if kind == "video":
+            return operator.questions.status(operation_id)
         result = operator.store.command(operation_id)
         if result is None:
             raise ValueError("No monitoring change has this request ID.")

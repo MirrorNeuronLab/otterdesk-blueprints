@@ -2,7 +2,9 @@
 
 from pathlib import Path
 
-from mn_sdk_common.files import atomic_write_json, atomic_write_text
+from mn_sdk_common.files import atomic_write_bytes, atomic_write_json, atomic_write_text
+
+from .window_evidence import chat_frame
 
 
 class Publisher:
@@ -11,15 +13,22 @@ class Publisher:
 
     def caption(self, caption):
         reference = caption["source_refs"][0]
+        snapshot = caption.get("snapshot")
+        jpeg = self.store.frame(caption["id"]) if snapshot else None
         # Published outputs must be readable by the host's synchronization user.
         # Credentials and cleanup leases remain in private Job state.
+        if snapshot:
+            atomic_write_bytes(self.run_dir / snapshot["source_ref"], jpeg, create_parents=True, mode=0o644)
         atomic_write_json(self.run_dir / reference, caption, mode=0o644)
+        snapshot_note = (f"Window snapshot: {snapshot['source_ref']} (preview received {snapshot['received_at']}).\n\n"
+                         if snapshot else "")
         markdown = (
             f"# {caption['camera']} — video observation\n\n"
             f"Capture interval: {caption['start_time']} to {caption['end_time']}\n\n"
             f"Analysis received: {caption['received_at']}\n\n"
             f"Monitoring goal: {caption['instruction']}\n\n"
             f"{caption['content']}\n\n"
+            f"{snapshot_note}"
             f"Source: {reference}\n\n"
             "This is a model description of a sampled video window. It can miss or misdescribe activity. "
             "It does not establish identity, unique-person counts, compliance or safety. "
@@ -28,20 +37,23 @@ class Publisher:
         atomic_write_text(self.run_dir / "context_sources/outputs" / (Path(reference).stem + ".md"), markdown,
                           mode=0o644, create_parents=True)
         self.report()
-        # Routine windows stay in the workspace. Chat receives the first completed
-        # account for each applied goal, never a fabricated goal-match verdict.
         marker = f"activity:{self.store.run_id}:{caption['instruction_revision']}"
-        if not self.store.state(marker):
+        previous = self.store.state(marker)
+        matched = caption.get("goal_match") == "matched"
+        # Chat gets the first window and the beginning of each distinct sighting.
+        if not previous or (matched and not (isinstance(previous, dict) and previous.get("matched"))):
             activity = {"schema_version": "mn.mcp.job_activity.v1", "event_id": caption["id"],
-                        "title": "Video observation", "message": caption["content"],
-                        "occurred_at": caption["received_at"], "source": "cctv_operator",
+                        "title": "Possible goal match" if matched else "Video observation", "message": caption["content"],
+                        "occurred_at": caption["end_time"], "source": "cctv_operator",
                         "requires_review": False,
-                        "details": [f"Captured {caption['start_time']} to {caption['end_time']}",
-                                    "Sampled NVIDIA video description; human review required for decisions."]}
+                        "details": [{"label": "Capture interval", "value": f"{caption['start_time']} to {caption['end_time']}"},
+                                    {"label": "Monitoring goal", "value": caption["instruction"]}]}
+            if jpeg and (image := chat_frame(caption, jpeg, snapshot.get("bbox_2d"))):
+                activity["image"] = image
             self.exchange.publish_result(caption["id"], activity, stage="live_activity",
                                          summary=caption["content"][:2000], publication_state="final",
                                          idempotency_key="caption:" + caption["id"])
-            self.store.set_state(marker, caption["id"])
+        self.store.set_state(marker, {"matched": matched})
 
     def status(self, state):
         atomic_write_json(self.run_dir / "monitoring_state.json", state, mode=0o644)

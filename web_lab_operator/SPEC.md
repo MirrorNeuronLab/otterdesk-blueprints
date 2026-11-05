@@ -76,6 +76,9 @@ shortage alone does not require review when one allowed same-liquid alternate
 can supply the complete transfer. "Use the alternate instead" means the entire
 amount comes from that alternate, without combining sources. Source selection
 remains an execution-time decision against observed state.
+Planning checks final goals against feasible branches of the declared condition;
+an impossible primary-source branch cannot invalidate a consistent reserve-source
+outcome. Starting inventory remains distinct from final goals.
 
 No successful step is inferred from a model statement. The executor reads
 PyLabRobot tracker state after operations. Completion requires every planned
@@ -85,6 +88,11 @@ artifact-integrity failures remain observable failures; they are not replaced
 with deterministic production success.
 
 ## Composition and lifecycle
+
+Admission requires at least one GPU and 48 GB of GPU memory (49,152 MB in the
+runtime resource contract), without a GPU vendor or driver restriction. Nodes
+below this memory requirement cannot host the Job. Docker worker and model
+execution reuse the Job's allocation.
 
 Four logical steps compose existing SDK blocks. The shared structured-assessment
 block owns initial model execution. The simulation hook uses the existing managed
@@ -101,14 +109,49 @@ replaces the planning view even when its port is reused. The Web UI companion
 registers the bound listener on the worker's runtime Docker network. The
 visualizer can use an ephemeral port without publishing it on the host. Core
 owns execution controls.
+The UI descriptor also declares `static_html` for the optional saved replay.
+After live cleanup, the desktop resolves that replay from this execution's
+published output folder rather than reopening the retired listener.
+Intake and planning send a `transitioning` snapshot before normal cleanup.
+The page retains that transition or a terminal outcome when its listener
+closes; only an unexpected disconnect triggers its reconnect loop.
 
-At most 80 steps execute inside the 900-second phase budget, also bounded by the
-block deadline. Checks occur between simulator calls and animation ticks. Each
-model request has a maximum 60-second transport timeout and zero retries. A
+Planning has a 1,530-second block budget: the runtime's 1,200-second first-use
+model preparation budget, a 300-second inference timeout and 30 seconds for
+startup and validation. Its enclosing Docker command has a 1,620-second budget
+so the block owns deadline failure and cleanup. Preparation heartbeats without
+byte counts do not by themselves establish a failure. Planning makes one model
+call with zero retries.
+
+At most 80 steps execute inside the 900-second simulation-phase budget, also
+bounded by the block deadline. Checks occur between simulator calls and animation
+ticks. Each adaptive model request has a maximum 180-second transport timeout and
+zero retries. Its current-state packet contains only the step's referenced wells,
+all declared alternates and the remaining tip count. Full deck observations
+remain authoritative in policy checks, checkpoints, memory and replay. A
 cancelled or timed-out model outcome is not redispatched without reconciliation.
 A resumed attempt starts a fresh Chatterbox simulation, reconstructs confirmed
 steps and verifies restored observations before advancing. A partly failed
 command cannot resume. No replay can target a physical backend.
+
+## Live operation view
+
+Each confirmed Chatterbox command publishes a fresh tracker observation and a
+transient operation label/resource before its animation delay. Aspiration and
+dispense have separate ticks, including every mix half-cycle and transfer chunk.
+The native canvas highlights that resource; current step and completed/total
+counts stay distinct. No in-progress operation counts as a completed step.
+One bounded monitor WebSocket per page uses the existing authenticated Job UI
+proxy. At most eight monitor viewers receive snapshots; slow/disconnected viewers
+cannot authorize or retry operations. Reconnect sends the current snapshot.
+The listener closes with its phase; a terminal snapshot precedes normal cleanup.
+Step checkpoints, memory and static replay retain confirmed whole-step evidence.
+
+The default sample is an 18-step, three-plate synthetic dilution series with a
+320 uL reserve-source transfer (300 + 20 uL chunks), three mixes, serial transfers,
+three readout aliquots, one virtual wait and six volume checks. Success requires
+one adaptation, ten final goals met and 84 unused tips. This demonstrates volume
+bookkeeping only; no concentration or assay outcome is inferred.
 
 ## Evidence and presentation
 

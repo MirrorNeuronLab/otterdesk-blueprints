@@ -38,13 +38,16 @@ async def execute(block, plan, procedure, policy, memory):
     trace, status, reason = [], 'running', ''
     state = initial_state(plan)
     projection = {'status': status, 'summary': plan['summary'], 'state': state,
-                  'current_step': '', 'reason': '', 'steps_completed': 0, 'events': []}
+                  'current_step': '', 'operation': None, 'reason': '',
+                  'steps_completed': 0, 'steps_total': len(plan['steps']), 'events': []}
     deadline = block.monotonic() + policy['max_duration_seconds']
     block.deadline = min(block.deadline, deadline) if block.deadline is not None else deadline
     check = block.check
 
-    async def tick():
+    async def tick(operation):
         check()
+        projection.update(state=lab.observe(), operation=operation)
+        await ui.publish()
         await asyncio.sleep(policy['action_delay_seconds'])
 
     try:
@@ -56,6 +59,8 @@ async def execute(block, plan, procedure, policy, memory):
         for index, step in enumerate(plan['steps']):
             check()
             projection['current_step'] = step['id']
+            projection['operation'] = {'label': 'Reviewing the next step', 'resource': ''}
+            await ui.publish()
             path = f'simulation/steps/{index:03}.json'
             history, memory_ref = await asyncio.to_thread(memory.recall, f'step-{index:03}', step)
             if block.store.path(path).exists():
@@ -68,7 +73,7 @@ async def execute(block, plan, procedure, policy, memory):
                 if event['action'] is not None:
                     if event['error']:
                         raise ValueError("A partly failed simulation cannot resume. Review its evidence and start a new run.")
-                    await lab.perform(event['action'], check, lambda: asyncio.sleep(0))
+                    await lab.perform(event['action'], check, lambda _operation: asyncio.sleep(0))
                     if lab.observe() != event['after']:
                         raise ValueError("Replayed simulator state differs from the saved observation.")
             else:
@@ -100,14 +105,16 @@ async def execute(block, plan, procedure, policy, memory):
                 reference = block.freeze_checkpoint(path, lambda: event)
             trace.append(event)
             state = event['after']
-            await asyncio.to_thread(memory.remember_step, index, event, reference.to_dict(), plan)
             projection.update(state=state, steps_completed=sum(e['outcome']['passed'] for e in trace),
+                              operation=None,
                               reason=event['error'] or ('The volume check did not pass.'
                                      if event['action'] is not None and not event['outcome']['passed'] else event['decision']['reason']),
                               events=[{'step': e['step']['id'], 'decision': e['decision']['decision'],
                                        'reason': e['error'] or ('The volume check did not pass.'
                                        if e['action'] is not None and not e['outcome']['passed'] else e['decision']['reason'])}
                                       for e in trace])
+            await ui.publish()
+            await asyncio.to_thread(memory.remember_step, index, event, reference.to_dict(), plan)
             if event['error'] or event['action'] is None or not event['outcome']['passed']:
                 status, reason = 'needs_review', projection['reason'] or 'A volume check did not pass.'
                 break
@@ -119,10 +126,14 @@ async def execute(block, plan, procedure, policy, memory):
             met = all(goal['met'] for goal in goal_results(plan, state))
             status = 'completed' if met else 'needs_review'
             reason = 'All simulated steps and final volume goals passed.' if met else 'One or more final volume goals did not pass.'
-        projection.update(status=status, reason=reason)
+        projection.update(status=status, reason=reason, operation=None)
+        await ui.publish()
         return await asyncio.to_thread(save, block, plan, procedure, trace, state, status, reason, memory)
     except BaseException as error:
         status = 'cancelled' if getattr(error, 'code', '') == 'cancelled' else 'failed'
+        projection.update(status=status, state=lab.observe(), operation=None)
+        if ui is not None:
+            await ui.publish()
         # Failure observations are qualified; they do not become successful steps.
         interruption = {
             'status': status, 'state': lab.observe(), 'completed_records': len(trace),

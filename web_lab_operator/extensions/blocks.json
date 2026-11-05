@@ -348,7 +348,7 @@
       },
       "limits": {
         "max_calls": 1,
-        "timeout_seconds": 180
+        "timeout_seconds": 1530
       }
     },
     "simulate_lab_procedure": {

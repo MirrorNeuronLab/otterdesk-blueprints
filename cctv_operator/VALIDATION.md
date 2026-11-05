@@ -1,4 +1,25 @@
-# CCTV 6.0 validation — 2026-11-04
+# CCTV 6.1 validation
+
+On November 4, 2026 the native Membrane gate indexed 17 synthetic windows,
+including four original JPEGs, with the pinned Google EmbeddingGemma 2
+encoder. All captions described the same scene without a clothing color.
+From a second run of the same Job, the past-hour red-coat question ranked the
+red image first among 16 in-range windows. A separate red image from before
+the interval was excluded. The in-range red image was older than the twelve
+most recent captions.
+
+The installed Docker Model Runner rejected the GGUF architecture
+`gemma-embedding2` during a real embedding request. The verified write and
+read paths used the blueprint's Sentence Transformers encoder and Membrane's
+native source-unit index.
+
+Chromium exercised both log filters with 310 saved windows through a prefixed
+workspace URL. An older goal match remained visible, earlier pages were
+reachable and snapshots decoded. Resizing between 320 and 1440 pixels produced
+no horizontal overflow. The 6.1 checks used synthetic camera data. The live
+NVIDIA measurements below were taken on 6.0.
+
+## CCTV 6.0 validation — 2026-11-04
 
 The implementation replaces the old CCTV pipeline using Spark's rt_vlm sample
 and its pinned NVIDIA vss-rt-vlm 3.3.0 image. The original demo containers were

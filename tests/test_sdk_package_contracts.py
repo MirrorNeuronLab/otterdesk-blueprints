@@ -133,7 +133,7 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
     if not requirements:
         # Compose, host and OpenShell workers prepare dependencies outside the
         # ordinary Python Docker worker build context.
-        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'code_verifier', 'general_assistant'}
+        assert blueprint_id in {'ros_amr_controller', 'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'code_verifier', 'general_assistant', 'cctv_operator'}
         assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
         if local:
             sources = prepared['metadata']['mn_local_skill_dependencies']['sources']

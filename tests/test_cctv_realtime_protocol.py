@@ -94,6 +94,25 @@ async def test_multiline_sse_comments_final_record_and_capacity():
 
 
 @pytest.mark.asyncio
+async def test_candidate_review_uses_original_jpeg_and_the_existing_nvidia_model():
+    import base64
+    from test_cctv_realtime_history import coat
+    jpeg = coat("red")
+    def transport(request):
+        assert request.url.path == "/v1/chat/completions"
+        body = json.loads(request.content)
+        assert body["model"] == "camera-model"
+        text, image = body["messages"][-1]["content"]
+        assert "red coat" in text["text"]
+        assert base64.b64decode(image["image_url"]["url"].split(",", 1)[1]) == jpeg
+        return httpx.Response(200, json={"choices":[{"finish_reason":"stop", "message":{"content":
+            '{"verdict":"matched","summary":"A red coat is visible.","bbox_2d":[12,34,400,840]}'}}]})
+    async with httpx.AsyncClient(base_url="http://vlm/", transport=httpx.MockTransport(transport)) as http:
+        assert await VLMClient("http://vlm", http).review("camera-model", "red coat", jpeg=jpeg) == (
+            "matched", "A red coat is visible.", [12,34,400,840])
+
+
+@pytest.mark.asyncio
 async def test_real_payload_deduplication_and_ordered_request_cleanup(tmp_path):
     payloads = []
     async def handler(request):
