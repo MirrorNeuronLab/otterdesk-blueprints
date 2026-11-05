@@ -13,7 +13,7 @@ def action(query):
     return {
         "name": "invoke_skill",
         "arguments": {
-            "skill": "mirrorneuron.graph.analysis",
+            "skill": "mirrorneuron-graph-analysis",
             "operation": "query",
             "arguments": {"rgql": query},
         },

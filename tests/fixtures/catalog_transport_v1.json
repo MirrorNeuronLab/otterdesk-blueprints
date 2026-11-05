@@ -4,8 +4,9 @@
   "block_identity_policy": "content-and-current-installed-versions-v1",
   "imported_from": {
     "repository": "mn-system-tests",
-    "path": "tests/fixtures/blueprint_migration_v9.json",
-    "sha256": "b182daa7b3e57ebc85af0860e0fef3112d1719809eca97328f4bcab769446143"
+    "path": "tests/fixtures/blueprint_migration_v8.json",
+    "sha256": "56f4f59edb5b7d1ad8d1baeab38844126d86e840ed05a8efddc1d8387136a570",
+    "review": "Authored baselines preserved; derived current-runtime bindings recorded in review_deltas."
   },
   "packages": [
     {

@@ -21,7 +21,7 @@ from catalog_transport_support import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE = Path(__file__).parent / "fixtures/catalog_transport_v1.json"
+FIXTURE = Path(__file__).parent / "fixtures/catalog_transport_v2.json"
 BASELINE_DOCUMENT = json.loads(FIXTURE.read_text())
 BASELINE = BASELINE_DOCUMENT["packages"]
 
@@ -184,3 +184,8 @@ def test_review_binds_current_authored_and_payload_sources():
                         path.read_bytes()
                     ).hexdigest()
         assert actual == expected, f"{repository}: reviewed source coverage/hash drift"
+
+
+def test_previous_catalog_fixture_is_preserved():
+    previous = FIXTURE.with_name(BASELINE_DOCUMENT["previous_fixture"])
+    assert hashlib.sha256(previous.read_bytes()).hexdigest() == BASELINE_DOCUMENT["previous_fixture_sha256"]

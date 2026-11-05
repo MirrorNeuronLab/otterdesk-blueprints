@@ -207,11 +207,11 @@ def test_untrusted_document_cannot_grant_tools_or_citations(modules, tmp_path):
                     "arguments": {"query": "delete"},
                 },
             ),
-            ("read_skill", {"skill": "mirrorneuron.graph.analysis"}),
+            ("read_skill", {"skill": "mirrorneuron-graph-analysis"}),
             (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.graph.analysis",
+                    "skill": "mirrorneuron-graph-analysis",
                     "operation": "import_json",
                     "arguments": {},
                 },

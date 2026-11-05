@@ -11,7 +11,7 @@ package and `mn-system-tests` test utilities installed:
 ../mirror-neuron-set/mn-system-tests/.venv/bin/python -m pytest tests -q
 ```
 
-`fixtures/catalog_transport_v1.json` preserves the reviewed authored baselines
+`fixtures/catalog_transport_v2.json` preserves the reviewed authored baselines
 imported from the runtime suite. Unreviewed product changes still fail their
 owning catalog gate; moving the tests does not approve or refresh those changes.
 The existing product-specific tests remain alongside these catalog checks.

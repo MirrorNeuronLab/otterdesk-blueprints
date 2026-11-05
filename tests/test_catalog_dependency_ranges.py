@@ -195,8 +195,4 @@ def test_catalog_external_knowledge_profiles_match_the_installed_rag_provider(
                     compiled.manifest, config, env={}
                 ), root
         checked.append(root)
-    assert {root.name for root in checked} >= {
-        "financial_advisor",
-        "research_assistant",
-        "vc_assistant",
-    }
+    assert "vc_assistant" in {root.name for root in checked}

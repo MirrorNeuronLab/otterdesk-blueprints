@@ -32,12 +32,12 @@ class Model:
         history = state["history"]
         i = len(history)
         if i == 0:
-            name, args = "read_skill", {"skill": "mirrorneuron.graph.analysis"}
+            name, args = "read_skill", {"skill": "mirrorneuron-graph-analysis"}
         elif i == 1:
             name, args = (
                 "invoke_skill",
                 {
-                    "skill": "mirrorneuron.graph.analysis",
+                    "skill": "mirrorneuron-graph-analysis",
                     "operation": "query",
                     "arguments": {"rgql": "MATCH (e:Email) RETURN e.source_id LIMIT 5"},
                 },
