@@ -8,29 +8,31 @@
   let timer = null;
   let currentView = null;
   const labels = {preparing:'Preparing',planning:'Planning',transitioning:'Preparing next phase',running:'Running',completed:'Completed',needs_review:'Needs review',failed:'Failed',cancelled:'Stopped'};
-  const eventReason = event => event.error || (event.action && !event.outcome.passed ?
-    'The volume check did not pass.' : event.decision.reason);
+  const terminal = ['completed', 'needs_review', 'failed', 'cancelled'];
 
   function renderState(view) {
     currentView = view;
     text('status', labels[view.status] || 'Preparing');
-    text('summary', view.summary);
-    text('reason', view.reason || 'Waiting for the next observed step.');
-    text('tips', view.state.tips_remaining === null ? '' : `${view.state.tips_remaining} unused tips`);
+    byId('reason').hidden = !terminal.includes(view.status) || !view.reason;
+    text('reason', view.reason || '');
+    byId('status').title = view.state.tips_remaining === null ? '' : `${view.state.tips_remaining} unused tips`;
     text('progress', ['preparing', 'planning', 'transitioning'].includes(view.status) ? '' :
-      `${view.steps_completed} / ${view.steps_total ?? replay?.trace.events.length ?? 0} steps completed`);
+      `${view.steps_completed} / ${view.steps_total ?? replay?.result.steps_total ?? 0}`);
     byId('operation').hidden = !view.operation;
     text('current-step', view.current_step?.replaceAll('_', ' ') || '');
+    byId('current-step').title = byId('current-step').textContent;
     text('operation-label', view.operation?.label || '');
     byId('visualizer')?.contentWindow.postMessage({type:'web-lab-operation', operation:view.operation, status:view.status}, location.origin);
     const events = byId('events');
     events.replaceChildren();
-    byId('empty').hidden = view.events.length > 0;
-    for (const event of view.events) {
+    byId('empty').hidden = view.events.length > 0 || Boolean(view.operation) || terminal.includes(view.status);
+    for (const event of [...view.events].reverse()) {
       const row = document.createElement('li');
+      row.className = event.decision === 'warning' ? 'warning' : event.decision === 'needs_review' ? 'needs_review' : '';
       const name = document.createElement('span');
-      name.className = 'step'; name.textContent = `${event.step.replaceAll('_', ' ')} · ${event.decision}`;
+      name.className = 'step'; name.textContent = event.decision === 'warning' ? 'Risk' : event.decision === 'needs_review' ? 'Needs review' : event.step.replaceAll('_', ' ');
       name.title = name.textContent;
+      name.setAttribute('aria-label', `${name.textContent}: ${event.step.replaceAll('_', ' ')}`);
       const reason = document.createElement('span');
       reason.className = 'reason'; reason.textContent = event.reason;
       row.append(name, reason); events.append(row);
@@ -51,7 +53,7 @@
         button.textContent = address.split('/')[1];
         button.title = `${address}: ${value.volume_ul} uL; ${value.liquids.join(', ') || 'empty'}`;
         button.setAttribute('aria-label', button.title);
-        button.addEventListener('click', () => text('reason', button.title));
+        button.addEventListener('click', () => { text('well-detail', button.title); byId('well-detail').hidden = false; });
         wells.append(button);
       }
       section.append(title, wells); deck.append(section);
@@ -59,15 +61,14 @@
   }
 
   function frame() {
+    byId('well-detail').hidden = true;
     const events = replay.trace.events.slice(0, index);
     const last = events.at(-1);
     renderState({status: index === replay.trace.events.length ? replay.result.status : 'running',
-      summary: replay.result.summary,
-      reason: index === replay.trace.events.length && replay.result.reason ? replay.result.reason :
-        (last ? eventReason(last) : 'Initial simulated deck.'),
+      reason: index === replay.trace.events.length ? replay.result.reason : '',
       steps_completed: events.filter(event => event.outcome.passed).length,
       state: last ? last.after : replay.trace.initial,
-      events: events.map(event => ({step:event.step.id,decision:event.decision.decision,reason:eventReason(event)}))});
+      events: events.flatMap(event => event.rows)});
     byId('frame').value = String(index);
     text('position', `${index} / ${replay.trace.events.length}`);
     byId('previous').disabled = index === 0;
@@ -90,19 +91,6 @@
       timer = setInterval(() => { index = Math.min(index + 1, replay.trace.events.length); frame();
         if (index === replay.trace.events.length) pause(); }, 850);
     };
-    byId('limits').hidden = false;
-    const issues = [...(replay.result.assumptions || []), ...(replay.result.unresolved || [])];
-    byId('review').hidden = issues.length === 0;
-    for (const issue of issues) { const li = document.createElement('li'); li.textContent = issue; byId('review-items').append(li); }
-    for (const limit of replay.result.limitations) { const li = document.createElement('li'); li.textContent = limit; byId('limit-list').append(li); }
-    byId('goals').hidden = false;
-    for (const goal of replay.result.goals) {
-      const row = document.createElement('tr');
-      for (const value of [goal.well, goal.volume_ul, goal.observed_ul, goal.met ? 'Met' : 'Needs review']) {
-        const cell = document.createElement('td'); cell.textContent = String(value); row.append(cell);
-      }
-      byId('goal-rows').append(row);
-    }
     frame();
   } else {
     byId('visualizer').addEventListener('load', () => {

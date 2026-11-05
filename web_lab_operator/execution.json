@@ -45,7 +45,7 @@
           "internal_write_worker"
         ],
         "docker_worker_image": "docker_worker",
-        "image": "mirror-neuron/web-lab-operator:1.3.0",
+        "image": "mirror-neuron/web-lab-operator:1.4.0",
         "dockerfile": "docker_worker/Dockerfile",
         "build_context": ".",
         "workdir": "/app",

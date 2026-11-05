@@ -1,6 +1,6 @@
 {
   "status": "ready",
-  "summary": "Simulate a three-point dilution series with reserve recovery and readout aliquots.",
+  "summary": "Simulate a three-point dilution series, readout aliquots and a blank control with two source-shortage recoveries.",
   "assumptions": [],
   "unresolved": [],
   "plates": [
@@ -21,7 +21,7 @@
     },
     {
       "well": "source/B1",
-      "volume_ul": 360,
+      "volume_ul": 200,
       "liquid": "diluent"
     },
     {
@@ -152,10 +152,33 @@
       "alternate_sources": []
     },
     {
+      "id": "prepare_blank",
+      "kind": "transfer",
+      "instruction_lines": [
+        31
+      ],
+      "source": "source/B1",
+      "destination": "readout/B1",
+      "volume_ul": 40,
+      "alternate_sources": [
+        "source/B2"
+      ]
+    },
+    {
+      "id": "check_blank",
+      "kind": "check_volume",
+      "instruction_lines": [
+        32
+      ],
+      "well": "readout/B1",
+      "minimum_ul": 39.9,
+      "maximum_ul": 40.1
+    },
+    {
       "id": "wait_briefly",
       "kind": "wait",
       "instruction_lines": [
-        31
+        33
       ],
       "seconds": 5
     },
@@ -163,7 +186,7 @@
       "id": "check_dilution_1",
       "kind": "check_volume",
       "instruction_lines": [
-        32
+        34
       ],
       "well": "dilution/A1",
       "minimum_ul": 219.9,
@@ -173,7 +196,7 @@
       "id": "check_dilution_2",
       "kind": "check_volume",
       "instruction_lines": [
-        33
+        35
       ],
       "well": "dilution/A2",
       "minimum_ul": 139.9,
@@ -183,7 +206,7 @@
       "id": "check_dilution_3",
       "kind": "check_volume",
       "instruction_lines": [
-        34
+        36
       ],
       "well": "dilution/A3",
       "minimum_ul": 199.9,
@@ -193,7 +216,7 @@
       "id": "check_readout_1",
       "kind": "check_volume",
       "instruction_lines": [
-        35
+        37
       ],
       "well": "readout/A1",
       "minimum_ul": 39.9,
@@ -203,7 +226,7 @@
       "id": "check_readout_2",
       "kind": "check_volume",
       "instruction_lines": [
-        36
+        38
       ],
       "well": "readout/A2",
       "minimum_ul": 39.9,
@@ -213,7 +236,7 @@
       "id": "check_readout_3",
       "kind": "check_volume",
       "instruction_lines": [
-        37
+        39
       ],
       "well": "readout/A3",
       "minimum_ul": 39.9,
@@ -233,12 +256,12 @@
     },
     {
       "well": "source/B1",
-      "volume_ul": 180,
+      "volume_ul": 20,
       "tolerance_ul": 0.1
     },
     {
       "well": "source/B2",
-      "volume_ul": 180,
+      "volume_ul": 140,
       "tolerance_ul": 0.1
     },
     {
@@ -268,6 +291,11 @@
     },
     {
       "well": "readout/A3",
+      "volume_ul": 40,
+      "tolerance_ul": 0.1
+    },
+    {
+      "well": "readout/B1",
       "volume_ul": 40,
       "tolerance_ul": 0.1
     }

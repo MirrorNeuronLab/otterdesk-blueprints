@@ -5,7 +5,8 @@ run. Supply exact starting plate/well volumes and liquid labels, numbered
 transfer/mix/wait/check instructions and final well-volume goals. Use one to four
 96-well plates and fresh 300 uL tips. The included synthetic example shows how
 a declared reserve source can resolve an insufficient primary source in an
-18-step, three-plate dilution series with split transfers and readout aliquots.
+20-step, three-plate dilution series with split transfers, readout aliquots and a
+blank control. The blank encounters a second source shortage after earlier work.
 
 Provide pasted Markdown or a .md file, clearing the other input. Start a run
 explicitly. Open Web lab as soon as the run starts. The native PyLabRobot deck
@@ -15,6 +16,12 @@ names each confirmed operation and highlights its tip or well. Aspirations and
 dispenses remain separately visible during mixing. Completed-step counts and
 the saved replay use whole-step observations. Use the co-worker's existing controls to pause, resume
 or stop. Chat questions read context; they do not start work or edit a procedure.
+
+Chat reports tracked shortages and predicted volume/tip violations before the
+next operation, confirms successful reserve transfers, and explains stopped
+procedures. These are simulation facts, not physical accidents. The web page
+shows the deck with a newest-first event stream below; detailed goals and
+limitations remain in the report.
 
 Inspect plan.json, procedure.md, trace.json, simulation.json, memory.json and report.md.
 After completion, the web result is an optional read-only deck replay with

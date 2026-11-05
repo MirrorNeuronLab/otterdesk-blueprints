@@ -87,6 +87,24 @@ tolerance. Model failures, timeouts, cancellation, required UI failures and
 artifact-integrity failures remain observable failures; they are not replaced
 with deterministic production success.
 
+## Supervisor notices
+
+Version 1.4 adds deterministic, next-step risk notices from tracked volumes and
+tip availability: source shortage, destination overflow, unsupported mixing
+volume and exhausted tips. Publish a nonblocking `human_notice` through the
+existing SDK approval facade before model dispatch for the affected step.
+Only confirmed source adaptations get recovery notices; rejected decisions,
+failed checks, unresolved plans and failed final goals get review notices.
+No physical spill, contamination or collision is inferred. No extra approval
+or runtime mutation tool is introduced.
+
+Freeze notice publication receipts using run/step/condition identities. Core
+owns delivery and deduplication across interrupted publication; completed
+checkpoints skip repeat notices on resume. A publication failure remains a
+phase failure and never permits an unannounced subsequent action. Persist
+risk observations in the step trace and final report; confirmed step evidence
+is committed before a recovery notice can be sent.
+
 ## Composition and lifecycle
 
 Admission requires at least one GPU and 48 GB of GPU memory (49,152 MB in the
@@ -147,11 +165,20 @@ cannot authorize or retry operations. Reconnect sends the current snapshot.
 The listener closes with its phase; a terminal snapshot precedes normal cleanup.
 Step checkpoints, memory and static replay retain confirmed whole-step evidence.
 
-The default sample is an 18-step, three-plate synthetic dilution series with a
+The default sample is a 20-step, three-plate synthetic dilution series with a
 320 uL reserve-source transfer (300 + 20 uL chunks), three mixes, serial transfers,
-three readout aliquots, one virtual wait and six volume checks. Success requires
-one adaptation, ten final goals met and 84 unused tips. This demonstrates volume
+three readout aliquots, a diluent-only blank, one virtual wait and seven volume
+checks. The blank uses a source depleted by earlier work and needs a second
+declared reserve. Success requires two adaptations, eleven final goals met and
+83 unused tips. This demonstrates volume
 bookkeeping only; no concentration or assay outcome is inferred.
+
+The live and replay pages show only the deck and an event stream beneath it.
+The stream has compact status/progress, the current operation and newest-first
+confirmed steps and risk messages. Replay controls and well details appear only
+where applicable. Remove duplicate headings, mission prose, authoring toolbars,
+goal tables and report qualifications from this page; those details remain in
+the required report. Keep native volume tooltips, pan/zoom and fit-to-view.
 
 ## Evidence and presentation
 

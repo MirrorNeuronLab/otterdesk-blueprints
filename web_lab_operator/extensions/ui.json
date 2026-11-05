@@ -11,9 +11,9 @@
     "introduction": "I'll turn your Markdown lab procedure into a PyLabRobot simulation and explain each tracked operation. Start with the included synthetic dilution series, then provide your own procedure. This co-worker operates simulated liquid handling only.",
     "sample": {
       "available": true,
-      "title": "Synthetic dilution series with reserve-source recovery",
-      "description": "Watch an 18-step, three-plate procedure with reserve-source recovery, split transfers, serial mixing and readout aliquots.",
-      "expected_output": "Live operations on the deck, six volume checks, ten final goals and a saved replay.",
+      "title": "Synthetic dilution series with two shortage recoveries",
+      "description": "Watch a 20-step dilution series with mixing, readout aliquots, a blank control and two reserve-source recoveries.",
+      "expected_output": "Live simulation, Chat risk notices, seven volume checks, eleven final goals and a saved replay.",
       "values": {
         "inputs.payload.procedure_markdown": "",
         "inputs.payload.procedure_file": "@/examples/sample_inputs/procedure.md"

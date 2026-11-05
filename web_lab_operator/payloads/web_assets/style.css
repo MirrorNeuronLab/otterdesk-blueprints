@@ -1,5 +1,40 @@
-:root{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#22342f;background:#f4f6f5;color-scheme:light;font-size:14px}
-*{box-sizing:border-box}body{margin:0}header,main{max-width:1440px;margin:auto;padding:20px 24px}header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #dce4e0}h1{font-size:24px;margin:4px 0}h2{font-size:16px;margin:0 0 12px}.eyebrow,.hint{font-size:12px;color:#62746b;margin:0}.eyebrow{letter-spacing:.03em}#status{font-size:13px;padding:6px 10px;background:#e4eee9;border-radius:6px;white-space:nowrap}.mission{padding-bottom:16px}.mission p{margin:0;color:#52665d;overflow-wrap:anywhere}.workspace{display:grid;grid-template-columns:minmax(0,3fr) minmax(0,1fr);gap:16px}section,details{min-width:0}.deck-panel,.activity,#goals,details{border:1px solid #dce4e0;border-radius:8px;background:#fff;padding:16px}.identity{display:flex;justify-content:space-between;gap:12px;align-items:baseline;min-width:0}.identity>span{font-size:12px;color:#62746b;text-align:right}iframe{width:100%;height:540px;border:1px solid #e3e9e5;border-radius:4px;background:white}.hint{margin-top:10px}.activity{max-height:630px;overflow:auto}ol{padding-left:24px;margin:0}li{padding:4px 0 12px;overflow-wrap:anywhere}.step{font-weight:600;display:block}.reason{display:block;color:#62746b;font-size:13px;margin-top:4px}.active{color:#26705c}#empty{color:#62746b}#replay{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:0 0 16px}#replay[hidden],[hidden]{display:none!important}button{border:1px solid #cbd8d0;background:white;color:#22342f;padding:7px 12px;border-radius:5px;font:inherit;cursor:pointer}button:disabled{opacity:.45;cursor:default}button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #86baa9;outline-offset:2px}input[type=range]{flex:1;min-width:80px;accent-color:#377d69}output{font-variant-numeric:tabular-nums;min-width:54px}.plate{margin-bottom:18px}.plate h3{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wells{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:5px}.well{padding:0;aspect-ratio:1;border-radius:50%;font-size:10px;min-width:0;background:color-mix(in srgb,#5b9e8a var(--fill),white);border:1px solid #bed2c8}.well:focus,.well:hover{border:2px solid #235f4b}#goals,details{margin-top:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}th,td{text-align:left;border-bottom:1px solid #e3e9e5;padding:10px 8px;overflow-wrap:anywhere}th{font-size:12px;color:#62746b}.table-scroll{overflow:auto}summary{cursor:pointer;font-weight:600}details li{padding-bottom:5px}#connection{padding:12px;background:#fff4dd;border-radius:6px}
-@media(max-width:850px){.workspace{grid-template-columns:minmax(0,1fr)}.activity{max-height:300px}iframe{height:460px}}
-@media(max-width:500px){header,main{padding:16px 12px}header{align-items:flex-start}.identity{flex-wrap:wrap}.identity>span{margin-left:auto}#status{white-space:normal}.deck-panel,.activity{padding:12px}.wells{gap:3px}.well{font-size:8px}iframe{height:380px}h1{font-size:22px}}
-#operation{padding:10px 12px;margin:0 0 12px;border-left:3px solid #377d69;background:#eef5f1;overflow-wrap:anywhere}#operation-label{display:block;margin-top:4px;color:#52665d;font-size:13px}
+:root { font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #22342f; background: #fff; color-scheme: light; font-size: 13px; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main, section { min-width: 0; }
+main { max-width: 1440px; margin: auto; }
+[hidden] { display: none !important; }
+iframe { display: block; width: 100%; height: clamp(280px, 60vh, 620px); border: 0; background: #fff; }
+.deck-panel { position: relative; }
+.activity { padding: 16px 20px; border-top: 1px solid #e3e9e5; }
+.identity, .state { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.identity { justify-content: space-between; margin-bottom: 10px; }
+h2 { font-size: 13px; font-weight: 600; margin: 0; }
+.state { justify-content: flex-end; flex-wrap: wrap; color: #62746b; text-align: right; font-size: 12px; }
+#progress, #position { font-variant-numeric: tabular-nums; }
+ol { list-style: none; padding: 0; margin: 0; }
+li, #operation { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid #edf0ee; overflow-wrap: anywhere; }
+.step { color: #62746b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.warning, .needs_review { color: #855009; }
+.warning .step, .needs_review .step { color: inherit; }
+#operation { color: #26705c; }
+#empty, #reason, #connection { margin: 12px 0 0; color: #62746b; overflow-wrap: anywhere; }
+#connection { color: #855009; }
+#replay { display: flex; gap: 8px; align-items: center; padding: 12px 20px; flex-wrap: wrap; }
+button { border: 1px solid #dce4e0; background: #fff; color: inherit; padding: 6px 10px; border-radius: 5px; font: inherit; cursor: pointer; }
+button:disabled { opacity: .45; cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid #377d69; outline-offset: 2px; }
+input[type=range] { flex: 1; min-width: 0; width: 80px; accent-color: #377d69; }
+#position { min-width: 44px; text-align: center; }
+#deck { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px; padding: 20px; }
+.plate h3 { font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0 0 12px; }
+.wells { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; }
+.well { padding: 0; aspect-ratio: 1; border-radius: 50%; font-size: 9px; min-width: 0; background: color-mix(in srgb, #5b9e8a var(--fill), white); border: 1px solid #bed2c8; }
+.well:hover { border-color: #235f4b; }
+#well-detail { display: block; padding: 0 20px 12px; overflow-wrap: anywhere; color: #62746b; }
+@media (max-width: 500px) {
+  iframe { height: clamp(260px, 75vw, 380px); }
+  .activity, #replay, #deck { padding: 12px; }
+  li, #operation { grid-template-columns: minmax(0, 90px) minmax(0, 1fr); gap: 8px; }
+  .state { gap: 6px; }
+}

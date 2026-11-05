@@ -1,7 +1,7 @@
 {
   "schema": "otterdesk.sample_dataset.v1",
   "blueprint_id": "web_lab_operator",
-  "description": "Synthetic three-plate, 18-step dilution series demonstrating reserve-source adaptation, split transfers, mixing, aliquots and tracked-volume checks in a PyLabRobot simulation.",
+  "description": "Synthetic three-plate, 20-step dilution series with split transfers, mixing, readout aliquots, a blank control, two source-shortage recoveries and Chat risk notices.",
   "files": [
     {
       "path": "procedure.md",

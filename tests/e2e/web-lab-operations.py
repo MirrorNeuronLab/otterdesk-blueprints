@@ -20,6 +20,9 @@ sys.path.insert(0, str(conftest.WORKSPACE / 'mn-api'))
 sys.path.insert(0, str(ROOT / 'web_lab_operator/payloads'))
 from domain.lab import SimulatedLab  # noqa: E402
 from domain.visualizer import LabVisualizer  # noqa: E402
+from domain.protocol import action_for, candidates, goal_results, initial_state  # noqa: E402
+from domain.supervision import event_rows, risks_for  # noqa: E402
+from domain.presentation import render  # noqa: E402
 from mn_api.web_ui_server import create_app  # noqa: E402
 import uvicorn  # noqa: E402
 
@@ -27,12 +30,12 @@ import uvicorn  # noqa: E402
 async def main():
     output = Path(os.environ.get('WEB_LAB_E2E_OUTPUT', '/private/tmp/web-lab-live-operations'))
     output.mkdir(parents=True, exist_ok=True)
-    plan = json.loads((ROOT / 'tests/fixtures/web_lab_operator/expected_plan.json').read_text())
+    plan = json.loads((ROOT / 'tests/fixtures/web_lab_operator/expected_sample_plan.json').read_text())
     lab = SimulatedLab(plan)
     await lab.setup()
     projection = {'status':'running', 'summary':'Synthetic live operation acceptance',
-                  'reason':'Tracker observations only.', 'current_step':'transfer_water',
-                  'steps_completed':0, 'steps_total':2, 'events':[], 'state':lab.observe(), 'operation':None}
+                  'reason':'', 'current_step':'',
+                  'steps_completed':0, 'steps_total':len(plan['steps']), 'events':[], 'state':lab.observe(), 'operation':None}
     viewer = LabVisualizer(lab.lh, lambda: projection,
                            vendor_root=Path(os.environ['WEB_LAB_VISUALIZER_VENDOR']))
     port = await viewer.start('127.0.0.1', 0)
@@ -87,18 +90,42 @@ async def main():
                 projection.update(operation=operation, state=lab.observe())
                 await viewer.publish()
                 wells = {lab.well(name).name: state['volume_ul'] for name,state in lab.observe()['wells'].items()
-                         if name in {'source/A2','destination/A1'}}
+                         if name in {step.get('source'), step.get('destination'), step.get('well'),
+                                     *step.get('alternate_sources', [])}}
                 process.stdin.write((json.dumps({'operation':operation,'wells':wells,
-                                                'steps_completed':projection['steps_completed']})+'\n').encode())
+                                                'steps_completed':projection['steps_completed'],
+                                                'steps_total':len(plan['steps'])})+'\n').encode())
                 await process.stdin.drain()
                 await receipt('observed')
 
-            transfer = {**plan['steps'][0], 'source':'source/A2'}
-            await lab.perform(transfer, lambda:None, tick)
-            projection['steps_completed'] = 1
-            projection['current_step'] = 'mix_water'
-            await lab.perform(plan['steps'][1], lambda:None, tick)
-            projection.update(status='completed', steps_completed=2, operation=None)
+            trace = []
+            for step in plan['steps']:
+                before = lab.observe()
+                risks = risks_for(step, before)
+                projection.update(current_step=step['id'], operation=None, events=event_rows(trace) + [
+                    {'step':step['id'], 'decision':'warning', 'reason':risk['message']} for risk in risks])
+                await viewer.publish()
+                if risks:
+                    process.stdin.write((json.dumps({'risks':risks})+'\n').encode())
+                    await process.stdin.drain()
+                    await receipt('warned')
+                source = candidates(step, before)[0] if step['kind'] == 'transfer' else ''
+                decision = {'step_id':step['id'], 'source':source, 'reason':'Synthetic model choice for browser acceptance.',
+                            'decision':'adapt' if source and source != step['source'] else 'execute'}
+                action = action_for(step, before, decision)
+                outcome = await lab.perform(action, lambda:None, tick)
+                assert outcome['passed']
+                trace.append({'step':step, 'action':action, 'decision':decision, 'before':before,
+                              'after':lab.observe(), 'outcome':outcome, 'error':'', 'risks':risks})
+                projection.update(steps_completed=len(trace), state=lab.observe(), events=event_rows(trace))
+            assert all(goal['met'] for goal in goal_results(plan, lab.observe()))
+            final = {'status':'completed', 'steps_total':len(plan['steps']), 'summary':plan['summary'],
+                     'reason':'All simulated steps and final volume goals passed.'}
+            (output / 'replay.html').write_text(render(final, {'initial':initial_state(plan), 'events':trace}))
+            (output / 'empty.html').write_text(render({'status':'needs_review', 'steps_total':0,
+                'reason':'Clarify the procedure before starting.'},
+                {'initial':{'wells':{}, 'tips_remaining':None}, 'events':[]}))
+            projection.update(**final, operation=None)
             await viewer.publish()
             process.stdin.write(b'{"done":true}\n')
             await process.stdin.drain()
@@ -108,7 +135,7 @@ async def main():
             await process.stdin.drain()
             await receipt('verified')
             assert await asyncio.wait_for(process.wait(), timeout=10) == 0
-            print('Verified live transfer, separate mix half-cycles, deck highlights, reconnect, resize and terminal cleanup through the Job UI proxy.')
+            print('Verified all 20 sample steps, two shortage warnings, live volumes, mix half-cycles, replay, resizing, reconnect and terminal cleanup through the Job UI proxy.')
         finally:
             if process is not None and process.returncode is None:
                 process.kill()

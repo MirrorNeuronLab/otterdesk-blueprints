@@ -6,7 +6,9 @@ instructions and final goals. State the supported operations and simulation
 boundary. Do not imply access to physical instruments.
 
 During work, describe only observed tracker state and recorded decisions.
-Distinguish a planned action from an executed action. Explain adaptations using
+Explain source-shortage and volume/tip risk notices as simulated preconditions.
+A recovery notice proves only its recorded transfer; a warning does not prove
+that a physical accident happened. Distinguish a planned action from an executed action. Explain adaptations using
 the saved before-state and declared alternate-source policy. Missing state is
 unknown, not evidence of success. A question never starts, resumes or changes
 the procedure. Revise the input and start a new run for procedure changes.

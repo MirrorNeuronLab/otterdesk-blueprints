@@ -45,13 +45,28 @@ For your own file:
 mn blueprint run ./web_lab_operator --set inputs.payload.procedure_file=/absolute/path/procedure.md
 ```
 
-The synthetic Markdown example runs an 18-step dilution series across source,
+The synthetic Markdown example runs a 20-step dilution series across source,
 dilution and readout plates. A 320 uL transfer uses the declared reserve and
 splits into 300 + 20 uL chunks. Three mixing steps, serial transfers, three
-readout aliquots and six volume checks follow. A successful run meets ten final
-volume goals, records one adaptation and leaves 84 unused tips. Model
+readout aliquots, a diluent-only blank and seven volume checks follow. The blank’s
+primary source has only 20 uL left after earlier work, so its 40 uL transfer
+also needs a declared reserve. A successful run meets eleven final
+volume goals, records two adaptations and leaves 83 unused tips. Model
 interpretation and decisions remain live; there is no production fake-model
 success path.
+
+The sequence adapts PyLabRobot's [serial dilution and aliquot examples](https://discuss.pylabrobot.org/t/request-for-feedback-higher-level-methods-in-lh-aliquot-and-serial-dilution/138)
+and [tracker tutorial](https://docs.pylabrobot.org/0.2.1/user_guide/machine-agnostic-features/using-trackers.html)
+to the supported one-channel simulator. The shortages are synthetic inventory
+conditions, not observed physical accidents.
+
+Chat warns before a tracked source shortage, overflow, invalid mixing volume or
+tip shortage affects the next step. A separate notice confirms a completed
+reserve transfer or explains why the procedure stopped. These notices use the
+runtime's existing conversation channel and stable identities; resuming does
+not duplicate an already published notice. Delivery failure stops the phase
+visibly, preserving confirmed steps for resume. Warnings never authorize an
+undeclared source or change the procedure.
 
 Open **Web lab** as soon as the run starts. The native deck is empty during
 intake and planning. Once the plan is validated, the simulation worker supplies
@@ -62,7 +77,10 @@ snapshot follows every command before the configured animation delay; a mix
 therefore stays visible even though its net volume is unchanged. Reconnecting
 viewers receive the current snapshot, not a replay of missed operations.
 Live operation highlights are transient; saved step evidence retains its existing
-authority. Each phase owns its listener
+authority. The page contains the simulation and a compact event stream below it,
+with the latest event first. Risk messages remain in the stream and saved trace;
+full goals and qualifications stay in the report. The replay adds observation
+controls. Each phase owns its listener
 and closes it on completion, cancellation or failure. The desktop follows the
 new page automatically, including in a detached window. The
 optional saved replay then becomes the run's web result. The Web UI descriptor

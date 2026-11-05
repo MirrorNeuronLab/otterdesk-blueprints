@@ -164,6 +164,13 @@ def test_native_local_mac_24gb_default_model_and_memory_contract():
     assert 0 < solve["timeout_seconds"] <= 3600
     assert solve["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_worker"
     assert {s["name"] for s in package.document("dependencies")["skills"]} == {"mirrorneuron-computer-use-skill"}
+    from mn_sdk.version_constraints import version_satisfies
+    skill = package.document("dependencies")["skills"][0]
+    assert skill["setup"] == "on_install"
+    assert not version_satisfies("1.4.1.dev7", skill["version"])
+    assert version_satisfies("1.4.1.dev8", skill["version"])
+    assert version_satisfies("1.4.1", skill["version"])
+    assert not version_satisfies("2.0.0", skill["version"])
     config = resolve_config(package).data
     assert config["inputs"]["payload"]["task"] == ""
     assert "input_folder" not in config["inputs"]["payload"] and "local_inputs" not in config

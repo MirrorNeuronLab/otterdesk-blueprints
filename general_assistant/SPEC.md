@@ -15,7 +15,8 @@ io.mirrorneuron.computer-use, Accessibility/Screen Recording grants, and a stop
 control. LaunchServices opens it independently. OtterDesk and Python never
 capture screens or inject input. A permission window and CU menu are its only UI.
 Reusable build and IPC mechanics belong to the computer-use skill.
-Its dependency declares `setup: on_install`. API hiring and `mn blueprint add`
+Its dependency requires `mirrorneuron-computer-use-skill>=1.4.1.dev8,<2`,
+the signed-distribution implementation, and declares `setup: on_install`. API hiring and `mn blueprint add`
 prepare the signed, notarized GAR app before recording the co-worker as added.
 OtterDesk/runtime installation, catalog reads and task actions do not install it.
 The skill owns checksum/signature verification and atomic replacement; no client

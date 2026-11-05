@@ -27,6 +27,8 @@ def publish(block, inputs):
                                         'reason', 'steps_completed', 'steps_total', 'adaptations', 'goals',
                                         'assumptions', 'unresolved']}
     final.update(schema_version='mn.web_lab.review.v1', limitations=LIMITATIONS,
+                 risks=[{'step': event['step']['id'], **risk} for event in trace['events']
+                        for risk in event.get('risks', [])],
                  memory={'enabled': memory['enabled'], 'scope': memory['scope'], 'artifact': 'memory.json',
                          'records_saved': len(memory['records']),
                          'evidence_supplied': sum(len(item['packet']['evidence']) for item in memory['recalls'])},
@@ -49,6 +51,8 @@ def publish(block, inputs):
                       for e in trace['events']]}]},
         {'id': 'review', 'title': 'Review before another run', 'blocks': [
             {'type': 'paragraph', 'text': text} for text in value['assumptions'] + value['unresolved']]},
+        {'id': 'risks', 'title': 'Tracked risks', 'blocks': [
+            {'type': 'warning', 'text': risk['message']} for risk in final['risks']]},
         {'id': 'memory', 'title': 'Memory supplied to decisions', 'blocks': [
             {'type': 'paragraph', 'text': ('Job-private Membrane history was enabled. Inspect memory.json for complete '
                 'query witnesses, source citations and saved outcome receipts.' if memory['enabled'] else

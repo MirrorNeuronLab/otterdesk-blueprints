@@ -3,11 +3,14 @@
 import json
 from pathlib import Path
 
+from .supervision import event_rows
+
 ASSETS = Path(__file__).resolve().parents[1] / 'web_assets'
 
 
 def render(final, trace):
     page = (ASSETS / 'index.html').read_text()
+    trace = {**trace, 'events': [{**event, 'rows': event_rows([event])} for event in trace['events']]}
     data = json.dumps({'result': final, 'trace': trace}, ensure_ascii=True, allow_nan=False)
     data = data.replace('&', '\\u0026').replace('<', '\\u003c').replace('>', '\\u003e')
     page = page.replace('<link rel="stylesheet" href="style.css">', '<style>' + (ASSETS / 'style.css').read_text() + '</style>')

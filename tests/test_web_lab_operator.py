@@ -154,6 +154,35 @@ def test_source_shortage_adapts_within_declared_same_liquid_sources(domain, plan
         protocol.action_for(step, state, decision(step, 'source/A2', 'adapt'))
 
 
+def test_risk_notices_use_observed_volumes_and_only_qualified_reserves(domain, plan):
+    state = domain('protocol').initial_state(plan)
+    original = copy.deepcopy(state)
+    risks = domain('supervision').risks_for(plan['steps'][0], state)
+    assert [risk['code'] for risk in risks] == ['source_shortage']
+    assert 'source/A1 has 20 uL' in risks[0]['message']
+    assert 'source/A2 has 200 uL' in risks[0]['message']
+    assert state == original
+    state['wells']['source/A2']['liquids'] = ['other reagent']
+    assert 'No declared source' in domain('supervision').risks_for(plan['steps'][0], state)[0]['message']
+    state['wells']['source/A1']['volume_ul'] = 100
+    assert domain('supervision').risks_for(plan['steps'][0], state) == []
+
+
+@pytest.mark.parametrize('condition,code', [('overflow', 'overflow'), ('tips', 'tips'), ('mix', 'mix_volume')])
+def test_risk_warnings_match_enforced_preconditions(domain, plan, condition, code):
+    state = domain('protocol').initial_state(plan)
+    step = plan['steps'][1] if condition == 'mix' else plan['steps'][0]
+    if condition == 'overflow':
+        state['wells']['destination/A1']['volume_ul'] = 300
+    elif condition == 'tips':
+        state['tips_remaining'] = 0
+    risks = domain('supervision').risks_for(step, state)
+    assert code in [risk['code'] for risk in risks]
+    selected = decision(step) if condition == 'mix' else decision(step, 'source/A2', 'adapt')
+    with pytest.raises(ValueError):
+        domain('protocol').action_for(step, state, selected)
+
+
 @pytest.mark.parametrize('violation', ['overflow', 'tips', 'undeclared', 'unnecessary_adaptation', 'changed_amount'])
 def test_action_policy_rejects_unsafe_adjustments(domain, plan, violation):
     protocol = domain('protocol')
@@ -270,6 +299,10 @@ def ui_transport(domain, monkeypatch, tmp_path):
     monkeypatch.setattr(module, 'LabVisualizer', Monitor)
     monkeypatch.setattr(module, 'claim_web_ui', claim)
     monkeypatch.setattr(module, 'mark_web_ui_status', lambda *a, **k: calls.update(final_status=k['status']))
+    def notice(run_id, event_type, payload):
+        calls.setdefault('notices', []).append({'run_id': run_id, 'type': event_type, **payload,
+            'view': copy.deepcopy(calls.get('updates', [{}])[-1])})
+    monkeypatch.setattr(domain('supervision'), 'publish_human_interaction_event', notice)
     return calls
 
 
@@ -413,7 +446,7 @@ def test_default_markdown_file_is_staged_and_captured_by_sdk(domain, tmp_path, u
     assert (tmp_path / 'runs/lab-file/procedure.md').read_text() == result['markdown']
     assert result['numbered_instructions'] == [
         {'line': number, 'text': SAMPLE_PROCEDURE.read_text().splitlines()[number - 1]}
-        for number in range(20, 38)]
+        for number in range(20, 40)]
 
 
 def test_instruction_annotations_share_the_plan_coverage_boundary(domain, plan):
@@ -450,6 +483,9 @@ def test_review_outcomes_cannot_be_reported_as_success(domain, simulated_io, tmp
     final = result['final_artifact']
     assert final['status'] == 'needs_review'
     assert final['simulation_only'] is True
+    assert simulated_io['notices'][-1]['title'] == (
+        'Procedure needs review' if condition == 'unsupported' else
+        'Final volumes need review' if condition == 'failed_goal' else 'Needs review')
     if condition == 'unsupported':
         assert final['steps_completed'] == 0 and simulated_io['claimed'] == 2
     elif condition == 'failed_check':
@@ -492,6 +528,41 @@ def test_cancellation_cleans_up_and_resume_reconstructs_confirmed_actions(
     outcomes = [value for value in text_memory_transport.scopes[('job-a', None)].values()
                 if '# Observed web lab step outcome' in value]
     assert len(outcomes) == 4
+    assert len(simulated_io['notices']) == 2
+
+
+@pytest.mark.parametrize('title', ['Source shortage', 'Reserve transfer completed'])
+def test_notice_failure_preserves_evidence_and_resume_does_not_transfer_twice(
+        domain, simulated_io, tmp_path, monkeypatch, title):
+    from block_workflow_fixture import run_sample
+    module = domain('supervision')
+    original, attempts = module.publish_human_interaction_event, []
+
+    def fail_once(run_id, event_type, payload):
+        if payload['title'] == title:
+            attempts.append(payload['request_id'])
+            if len(attempts) == 1:
+                raise OSError('Synthetic notice delivery failure')
+        return original(run_id, event_type, payload)
+
+    monkeypatch.setattr(module, 'publish_human_interaction_event', fail_once)
+    options = {'inputs': {'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
+               'config': {'inputs': {'payload': {'procedure_file': ''}}, 'simulation': {'action_delay_seconds': 0}},
+               'runs_root': tmp_path / 'runs', 'run_id': 'notice-resume'}
+    with pytest.raises(OSError, match='notice delivery'):
+        run_sample('web_lab_operator', **options)
+    checkpoint = tmp_path / 'runs/notice-resume/simulation/steps/000.json'
+    if title == 'Source shortage':
+        assert not checkpoint.exists() and simulated_io['model'] == 0
+    else:
+        saved = json.loads(checkpoint.read_text())['data']
+        assert saved['outcome']['passed'] and saved['after']['wells']['destination/A1']['volume_ul'] == 100
+        assert simulated_io['model'] == 1
+    final = run_sample('web_lab_operator', **options)['final_artifact']
+    assert final['status'] == 'completed' and final['steps_completed'] == 4
+    assert final['goals'][0]['observed_ul'] == 100 and simulated_io['model'] == 4
+    assert attempts[0] == attempts[1]
+    assert [notice['title'] for notice in simulated_io['notices']] == ['Source shortage', 'Reserve transfer completed']
 
 
 def test_optional_replay_failure_preserves_required_report(domain, simulated_io, tmp_path, monkeypatch):
@@ -789,16 +860,28 @@ def test_rich_bundled_sample_executes_all_instructions_and_final_goals(domain, s
     domain('protocol').validate_plan(plan, SAMPLE_PROCEDURE.read_text())
     result = run_sample('web_lab_operator', config={'simulation': {'action_delay_seconds': 0}},
                         runs_root=tmp_path / 'runs', run_id='rich-sample')['final_artifact']
-    assert result['status'] == 'completed' and result['steps_completed'] == 18
-    assert result['adaptations'] == 1 and len(result['goals']) == 10
+    assert result['status'] == 'completed' and result['steps_completed'] == 20
+    assert result['adaptations'] == 2 and len(result['goals']) == 11
     assert all(goal['met'] for goal in result['goals'])
     state = json.loads((tmp_path / 'runs/rich-sample/simulation.json').read_text())['state']
-    assert state['tips_remaining'] == 84
-    assert sum(well['volume_ul'] for well in state['wells'].values()) == 1090
+    assert state['tips_remaining'] == 83
+    assert sum(well['volume_ul'] for well in state['wells'].values()) == 930
     labels = [view['operation']['label'] for view in simulated_io['updates'] if view.get('operation')]
     assert 'Aspirated 300 uL from source/A2' in labels and 'Aspirated 20 uL from source/A2' in labels
     assert sum(label.startswith('Mix ') for label in labels) == 18
-    assert simulated_io['model'] == 18
+    assert simulated_io['model'] == 20
+    notices = simulated_io['notices']
+    assert [notice['title'] for notice in notices] == [
+        'Source shortage', 'Reserve transfer completed', 'Source shortage', 'Reserve transfer completed']
+    assert all(notice['type'] == 'human_notice' and notice['blocking'] is False for notice in notices)
+    assert [notice['view']['steps_completed'] for notice in notices] == [0, 1, 11, 12]
+    assert 'source/B1 has 20 uL' in notices[2]['message'] and 'needs 40 uL' in notices[2]['message']
+    assert 'source/B2 to readout/B1' in notices[3]['message']
+    assert len(result['risks']) == 2
+    assert simulated_io['updates'][-1]['events'][-1]['reason'] == 'Checked readout/A3: 40 uL.'
+    assert run_sample('web_lab_operator', config={'simulation': {'action_delay_seconds': 0}},
+                      runs_root=tmp_path / 'runs', run_id='rich-sample')['final_artifact'] == result
+    assert len(simulated_io['notices']) == 4
 
 
 def test_monitor_socket_streams_current_snapshot_and_recovers_after_disconnect(domain, plan):

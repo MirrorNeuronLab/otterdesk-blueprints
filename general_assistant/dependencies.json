@@ -6,7 +6,7 @@
       "source": "gar",
       "name": "mirrorneuron-computer-use-skill",
       "setup": "on_install",
-      "version": ">=1.4.2,<2"
+      "version": ">=1.4.1.dev8,<2"
     }
   ],
   "agents": [
