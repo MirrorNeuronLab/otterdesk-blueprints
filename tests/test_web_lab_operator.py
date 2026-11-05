@@ -33,6 +33,16 @@ def decision(step, source='', kind='execute'):
             'reason': 'Observed the current tracker state before selecting this action.'}
 
 
+def planner_response(plan):
+    value = copy.deepcopy(plan)
+    for step in value['steps']:
+        common = {key: step[key] for key in ('id', 'instruction_lines', 'kind')}
+        common['parameters'] = {key: item for key, item in step.items() if key not in common}
+        step.clear()
+        step.update(common)
+    return value
+
+
 def test_canonical_package_compiles_to_stock_blocks(domain):
     package = read_blueprint(ROOT)
     compiled = compile_blueprint(package).manifest
@@ -314,7 +324,7 @@ def simulated_io(ui_transport, monkeypatch, plan):
         prompt = json.loads(args[3]['messages'][1]['content'])
         if 'procedure' in prompt:
             calls['planning'] = calls.get('planning', 0) + 1
-            value = copy.deepcopy(plan)
+            value = planner_response(plan)
         else:
             calls['model'] += 1
             step = prompt['step']
@@ -404,6 +414,7 @@ def test_planning_uses_journaled_sdk_model_settings_and_declared_schema(domain, 
     module = domain('planning')
     package = read_blueprint(ROOT)
     schema = package.extension('mn.blocks')['steps']['plan_lab_procedure']['output_schema']
+    model_schema = domain('planning_schema').response_schema(schema)
     inputs = {'procedure': {'markdown': PROCEDURE.read_text(), 'runtime_memory': {}}}
     block = SimpleNamespace(config=resolve_config(package).data)
 
@@ -414,15 +425,113 @@ def test_planning_uses_journaled_sdk_model_settings_and_declared_schema(domain, 
                                      'timeout_seconds': 300, 'structured_output': True}
         payload = value['payload']
         assert (ROOT / 'payloads/prompts/plan.md').read_text() in payload['messages'][0]['content']
-        assert json.dumps(schema, separators=(',', ':')) in payload['messages'][0]['content']
+        assert json.dumps(model_schema, separators=(',', ':')) in payload['messages'][0]['content']
         assert json.loads(payload['messages'][1]['content']) == inputs
         assert payload['max_tokens'] == 12000 and payload['temperature'] == 0
         declaration = payload['response_format']['json_schema']
-        assert declaration['strict'] is True and declaration['schema'] == schema
-        return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(plan)}}]}
+        assert declaration['strict'] is True and declaration['schema'] == model_schema
+        return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(planner_response(plan))}}]}
 
     monkeypatch.setattr(module, 'model_request', request)
     assert module._plan(block, inputs, schema) == plan
+
+
+@pytest.mark.parametrize('fixture', ['expected_plan.json', 'expected_sample_plan.json'])
+def test_planning_schema_keeps_kind_before_operation_parameters_after_key_sorting(domain, fixture):
+    from jsonschema import Draft202012Validator
+
+    module = domain('planning_schema')
+    schema = read_blueprint(ROOT).extension('mn.blocks')['steps']['plan_lab_procedure']['output_schema']
+    original = copy.deepcopy(schema)
+    model_schema = module.response_schema(schema)
+    # Model transport canonicalization must not put alternate_sources or cycles
+    # before kind and force the decoder to choose a shape before the operation.
+    model_schema = json.loads(json.dumps(model_schema, sort_keys=True))
+    variants = model_schema['properties']['steps']['items']['oneOf']
+    assert {variant['properties']['kind']['const'] for variant in variants} == {
+        'transfer', 'mix', 'wait', 'check_volume'}
+    for variant in variants:
+        assert list(variant['properties']) == ['id', 'instruction_lines', 'kind', 'parameters']
+        assert variant['additionalProperties'] is False
+        assert variant['properties']['parameters']['additionalProperties'] is False
+    Draft202012Validator.check_schema(model_schema)
+    plan = json.loads((FIXTURES / fixture).read_text())
+    response = planner_response(plan)
+    before = copy.deepcopy(response)
+    Draft202012Validator(model_schema).validate(response)
+    assert module.protocol_plan(response) == plan
+    assert response == before and schema == original
+
+
+@pytest.mark.parametrize('change', [
+    lambda p: p['steps'][1]['parameters'].update(source='source/A1'),
+    lambda p: p['steps'][1]['parameters'].update(cycles=True),
+    lambda p: p['steps'][2]['parameters'].update(seconds=31),
+    lambda p: p['steps'][0]['parameters'].update(volume_ul=361),
+    lambda p: p['steps'][0].pop('parameters'),
+    lambda p: p['steps'][0].update(kind='execute_python'),
+])
+def test_planning_response_rejects_wrong_or_extra_operation_parameters(domain, plan, monkeypatch, change):
+    from jsonschema import ValidationError
+    from types import SimpleNamespace
+
+    module = domain('planning')
+    package = read_blueprint(ROOT)
+    schema = package.extension('mn.blocks')['steps']['plan_lab_procedure']['output_schema']
+    response = planner_response(plan)
+    change(response)
+    monkeypatch.setattr(module, 'model_request', lambda *_args, **_options: {
+        'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(response)}}]})
+    with pytest.raises(ValidationError):
+        module._plan(SimpleNamespace(config=resolve_config(package).data), {}, schema)
+
+
+@pytest.mark.parametrize('finish,content,message', [
+    ('length', '{"steps":[', 'output token limit'),
+    ('length', '{}', 'output token limit'),
+    ('stop', '{"steps":[', 'invalid JSON'),
+    ('content_filter', '', 'complete lab plan'),
+])
+def test_planning_distinguishes_truncated_and_invalid_json_without_retrying(
+        domain, monkeypatch, finish, content, message):
+    from types import SimpleNamespace
+
+    module = domain('planning')
+    package = read_blueprint(ROOT)
+    schema = package.extension('mn.blocks')['steps']['plan_lab_procedure']['output_schema']
+    calls = []
+
+    def request(*_args, **_options):
+        calls.append(finish)
+        return {'choices': [{'finish_reason': finish, 'message': {'content': content}}]}
+
+    monkeypatch.setattr(module, 'model_request', request)
+    with pytest.raises(ValueError, match=message):
+        module._plan(SimpleNamespace(config=resolve_config(package).data), {}, schema)
+    assert calls == [finish]
+
+
+@pytest.mark.parametrize('invalid', ['self_transfer', 'destination_as_reserve', 'missing_instruction'])
+def test_invalid_planning_response_stops_before_simulation(
+        domain, simulated_io, plan, tmp_path, invalid):
+    from block_workflow_fixture import run_sample
+
+    if invalid == 'self_transfer':
+        plan['steps'][0]['source'] = plan['steps'][0]['destination']
+    elif invalid == 'destination_as_reserve':
+        plan['steps'][0]['alternate_sources'].append(plan['steps'][0]['destination'])
+    else:
+        plan['steps'].pop()
+    expected = 'Every numbered' if invalid == 'missing_instruction' else 'different source and destination'
+    with pytest.raises(ValueError, match=expected):
+        run_sample('web_lab_operator',
+                   inputs={'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
+                   config={'inputs': {'payload': {'procedure_file': ''}}},
+                   runs_root=tmp_path / 'runs', run_id='invalid-planning')
+    assert simulated_io['planning'] == 1 and simulated_io['model'] == 0
+    assert simulated_io['closed'] == simulated_io['claimed'] == 2
+    assert simulated_io['final_status'] == 'failed'
+    assert not (tmp_path / 'runs/invalid-planning/plan.json').exists()
 
 
 def test_planning_cleanup_failure_preserves_the_original_error(domain, monkeypatch):

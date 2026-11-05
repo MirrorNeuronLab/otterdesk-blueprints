@@ -27,6 +27,14 @@ def runtime_node(name, vendor, memory_mb, *, local):
     }
 
 
+def test_lab_compiles_a_hard_48_gb_job_requirement():
+    package = read_blueprint(ROOT)
+    required = {'min_count': 1, 'min_memory_mb': 48 * 1024,
+                'memory_operator': '>=', 'enforcement': 'hard'}
+    assert package.document('execution')['requirements']['gpu'] == required
+    assert compile_blueprint(package).manifest['requirements']['gpu'] == required
+
+
 @pytest.mark.parametrize('vendor', ['nvidia', 'amd', 'apple'])
 @pytest.mark.parametrize('memory_mb', [48 * 1024, 128 * 1024])
 def test_lab_places_on_qualifying_gpu_of_any_vendor(tmp_path, monkeypatch, vendor, memory_mb):
@@ -55,3 +63,15 @@ def test_lab_rejects_gpu_below_48_gb(tmp_path, monkeypatch, memory_mb):
     with pytest.raises(RuntimeError, match='gpu_memory'):
         resolve_and_apply_workflow_placement(
             manifest, resource_report={'nodes': nodes}, system_summary={'nodes': nodes}, env={})
+
+
+def test_lab_cannot_force_24_gb_mini_when_spark_is_available(tmp_path, monkeypatch):
+    monkeypatch.setenv('MN_HOME', str(tmp_path / 'mn'))
+    manifest = compile_blueprint(read_blueprint(ROOT)).manifest
+    nodes = [runtime_node('mini', 'apple', 24 * 1024, local=True),
+             runtime_node('spark', 'nvidia', 128 * 1024, local=False)]
+
+    with pytest.raises(RuntimeError, match='gpu_memory'):
+        resolve_and_apply_workflow_placement(
+            manifest, resource_report={'nodes': nodes}, system_summary={'nodes': nodes},
+            env={'MN_SELECTED_RUNTIME_NODE': 'mini'})
