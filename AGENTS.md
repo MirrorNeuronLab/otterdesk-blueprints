@@ -23,12 +23,19 @@ Blueprint packages are Git submodules backed by public
 their locations and default branches; `index.json` alone controls catalog
 publication. Initialize a fresh checkout with
 `git submodule update --init --recursive` before editing packages. Commit and
-push a package before recording its updated pin in the catalog. The root
-`git-push-all.sh "Commit message"` performs that sequence for all repositories;
+push a package before recording its updated pin in the catalog.
+`scripts/git-push-all.sh "Commit message"` performs that sequence for all repositories;
 it intentionally includes all non-ignored changes, so do not run it over
 unrelated work without authorization. Keep ordinary blueprint folders supported.
 Local development reads the filesystem directly and must not fetch or reset
 submodules. Remote catalog preparation uses the recorded commits.
+
+Keep catalog scripts under `scripts/`. Use
+`scripts/create_blueprint.sh -n <name>` for a new public blueprint repository
+and pinned submodule. Its canonical no-op starter is owned by
+`templates/blueprint/`; keep that template runnable and validate its compiled
+stock worker when changing it. Creation does not add packages to `index.json`
+or commit unrelated catalog work.
 
 ## Scope of blueprint changes
 

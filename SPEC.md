@@ -54,6 +54,17 @@ Git updates or checkout changes. The inventory and package contracts are the
 same for either storage form. Publication pushes child repositories before the
 catalog commit that references them.
 
+Catalog development scripts live in `scripts/`.
+`scripts/create_blueprint.sh -n <name>` requires a name and creates a public
+`MirrorNeuronLab/mn-blueprint-<name>` repository on `main`, with an MIT-licensed
+starter from `templates/blueprint/`. The canonical starter has one bounded
+stock HostLocal domain-operation step returning an empty object. It requires
+no GPU, inputs or domain actions and makes no workflow model calls. Standard
+Chat/MCP supervision is declared separately; memory and RAG start disabled.
+Creation pushes the initial blueprint commit and stages its submodule pin,
+preserving unrelated work and leaving `index.json` and the parent commit
+unchanged. Existing folders and repositories must not be overwritten.
+
 Every package uses the same canonical blueprint/v1 manifest in development,
 installed folders, generated folders, and ZIP distributions. `manifest.json`
 owns identity and role-document references. `workflow.json` owns logical
@@ -346,3 +357,12 @@ fixtures, artifact integrity and replay/failure cases. Keep live/native acceptan
 separate. Count all new production hooks and staged copies when reporting size;
 report test and documentation changes separately. Reducing code cannot remove
 domain checks, approval authority, evidence qualifications or observable failures.
+
+## Test ownership
+
+This catalog owns tests of its authored manifests, resolved configuration,
+source snapshots, dependency ranges, activity and blueprint-specific consumers.
+They are collected with the existing tests in `tests/`. Live native-context and
+remote benchmark checks remain explicitly gated. Runtime and demo-blueprint
+contracts are maintained in `mn-system-tests`. Moving frozen expectations does
+not approve unrelated authored changes.

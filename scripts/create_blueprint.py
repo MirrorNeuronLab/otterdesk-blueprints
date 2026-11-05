@@ -24,10 +24,16 @@ class CreationError(Exception):
 def run(*command, cwd=ROOT):
     try:
         result = subprocess.run(
-            command, cwd=cwd, text=True, capture_output=True, timeout=120,
+            command,
+            cwd=cwd,
+            text=True,
+            capture_output=True,
+            timeout=120,
         )
     except subprocess.TimeoutExpired as error:
-        raise CreationError(f"Timed out running {command[0]}. Check its status before retrying.") from error
+        raise CreationError(
+            f"Timed out running {command[0]}. Check its status before retrying."
+        ) from error
     if result.returncode:
         detail = result.stderr.strip() or result.stdout.strip()
         raise CreationError(detail or f"{command[0]} failed.")
@@ -36,8 +42,17 @@ def run(*command, cwd=ROOT):
 
 def validate_name(name):
     if not re.fullmatch(r"[a-z][a-z0-9_-]{0,63}", name):
-        raise CreationError("Use 1–64 lowercase letters, numbers, underscores or hyphens, starting with a letter.")
-    if name in {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)), *(f"lpt{i}" for i in range(1, 10))}:
+        raise CreationError(
+            "Use 1–64 lowercase letters, numbers, underscores or hyphens, starting with a letter."
+        )
+    if name in {
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        *(f"com{i}" for i in range(1, 10)),
+        *(f"lpt{i}" for i in range(1, 10)),
+    }:
         raise CreationError("Choose a name that is also a valid folder on Windows.")
 
 
@@ -46,38 +61,79 @@ def preflight(name):
         if shutil.which(executable) is None:
             raise CreationError(f"Install {executable} before creating a blueprint.")
     if Path(run("git", "rev-parse", "--show-toplevel")).resolve() != ROOT:
-        raise CreationError("Run this script from an otterdesk-blueprints Git checkout.")
+        raise CreationError(
+            "Run this script from an otterdesk-blueprints Git checkout."
+        )
     target = ROOT / name
     if target.exists() or target.is_symlink():
         raise CreationError(f"The blueprint folder already exists: {target}")
     try:
         inventory = json.loads((ROOT / "index.json").read_text(encoding="utf-8"))
     except (OSError, ValueError) as error:
-        raise CreationError("Couldn't read the catalog index.json. Fix it before creating a blueprint.") from error
-    if not isinstance(inventory, list) or not all(isinstance(item, str) for item in inventory):
-        raise CreationError("The catalog index.json must be an ordered list of package paths.")
+        raise CreationError(
+            "Couldn't read the catalog index.json. Fix it before creating a blueprint."
+        ) from error
+    if not isinstance(inventory, list) or not all(
+        isinstance(item, str) for item in inventory
+    ):
+        raise CreationError(
+            "The catalog index.json must be an ordered list of package paths."
+        )
     if name in inventory:
         raise CreationError(f"The catalog already contains {name}.")
+    for entry in inventory:
+        bundle = (ROOT / entry).resolve()
+        if not bundle.is_relative_to(ROOT):
+            raise CreationError("A catalog package path escapes this checkout.")
+        try:
+            manifest = json.loads(
+                (bundle / "manifest.json").read_text(encoding="utf-8")
+            )
+        except (OSError, ValueError) as error:
+            raise CreationError(
+                f"Couldn't read {entry}/manifest.json. Initialize catalog submodules before creating a blueprint."
+            ) from error
+        if manifest.get("id") == name:
+            raise CreationError(f"Blueprint ID {name} already belongs to {entry}.")
     if run("git", "ls-files", "--", name):
         raise CreationError(f"The Git index already contains {name}.")
     metadata = Path(run("git", "rev-parse", "--git-path", f"modules/{name}"))
     if not metadata.is_absolute():
         metadata = ROOT / metadata
     if metadata.exists():
-        raise CreationError(f"Submodule Git metadata already exists for {name}. Resolve it before retrying.")
+        raise CreationError(
+            f"Submodule Git metadata already exists for {name}. Resolve it before retrying."
+        )
     if run("git", "status", "--porcelain", "--", ".gitmodules"):
-        raise CreationError("Commit or resolve the existing .gitmodules changes before creating a blueprint.")
+        raise CreationError(
+            "Commit or resolve the existing .gitmodules changes before creating a blueprint."
+        )
     if run("git", "ls-files", "--unmerged"):
-        raise CreationError("Resolve the catalog's Git conflicts before creating a blueprint.")
+        raise CreationError(
+            "Resolve the catalog's Git conflicts before creating a blueprint."
+        )
     git_directory = Path(run("git", "rev-parse", "--absolute-git-dir"))
-    if any((git_directory / state).exists() for state in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply")):
-        raise CreationError("Finish the catalog's in-progress Git operation before creating a blueprint.")
+    if any(
+        (git_directory / state).exists()
+        for state in (
+            "MERGE_HEAD",
+            "CHERRY_PICK_HEAD",
+            "REVERT_HEAD",
+            "rebase-merge",
+            "rebase-apply",
+        )
+    ):
+        raise CreationError(
+            "Finish the catalog's in-progress Git operation before creating a blueprint."
+        )
     if not TEMPLATE.is_dir():
         raise CreationError(f"The blueprint template is missing: {TEMPLATE}")
     try:
         run("gh", "auth", "status", "--hostname", "github.com")
     except CreationError as error:
-        raise CreationError("Log in first: gh auth login --hostname github.com --git-protocol ssh") from error
+        raise CreationError(
+            "Log in first: gh auth login --hostname github.com --git-protocol ssh"
+        ) from error
 
 
 def render(destination, name):
@@ -119,11 +175,26 @@ def create(name):
             render(prepared, name)
             run("git", "init", "--initial-branch=main", cwd=prepared)
             run("git", "add", "--all", cwd=prepared)
-            run("git", "commit", "--quiet", "-m", f"Initialize {name} blueprint", cwd=prepared)
+            run(
+                "git",
+                "commit",
+                "--quiet",
+                "-m",
+                f"Initialize {name} blueprint",
+                cwd=prepared,
+            )
             run("git", "remote", "add", "origin", ssh_url, cwd=prepared)
             print(f"Creating public repository {repository}...", flush=True)
             # Creation rejects existing repositories; they are never reused or overwritten.
-            run("gh", "repo", "create", repository, "--public", "--description", f"OtterDesk blueprint: {name}. No-op starter.")
+            run(
+                "gh",
+                "repo",
+                "create",
+                repository,
+                "--public",
+                "--description",
+                f"OtterDesk blueprint: {name}. No-op starter.",
+            )
             remote_created = True
             shutil.copytree(prepared, target)
         print("Pushing the starter to main...", flush=True)
@@ -134,23 +205,39 @@ def create(name):
         run("git", "submodule", "absorbgitdirs", "--", name)
     except (CreationError, OSError, ValueError) as error:
         if remote_created:
-            print(f"Repository created: https://github.com/{repository}", file=sys.stderr)
+            print(
+                f"Repository created: https://github.com/{repository}", file=sys.stderr
+            )
             if target.exists():
-                print(f"Starter preserved at {target}. Check the push and submodule status before retrying.", file=sys.stderr)
+                print(
+                    f"Starter preserved at {target}. Check the push and submodule status before retrying.",
+                    file=sys.stderr,
+                )
         raise CreationError(str(error)) from error
     print(f"Created https://github.com/{repository}")
     print(f"Folder: {target}")
-    print("The submodule pin is staged. index.json and the catalog commit are unchanged.")
-    print(f"Run: mn blueprint run {shlex.quote(str(target))} --detached --follow-seconds 0")
-    print(f'Commit and push the catalog: ./scripts/git-push-all.sh "Add {name} blueprint"')
+    print(
+        "The submodule pin is staged. index.json and the catalog commit are unchanged."
+    )
+    print(
+        f"Run: mn blueprint run {shlex.quote(str(target))} --detached --follow-seconds 0"
+    )
+    print(
+        f'Commit and push the catalog: ./scripts/git-push-all.sh "Add {name} blueprint"'
+    )
 
 
 def main():
+    if sys.version_info < (3, 9):
+        print("Error: Python 3.9 or newer is required.", file=sys.stderr)
+        return 1
     parser = argparse.ArgumentParser(
         prog="create_blueprint.sh",
         description="Create a public MirrorNeuronLab blueprint repo with a runnable no-op starter and pin it as a submodule.",
     )
-    parser.add_argument("-n", "--name", required=True, help="Blueprint folder and ID, e.g. my_blueprint")
+    parser.add_argument(
+        "-n", "--name", required=True, help="Blueprint folder and ID, e.g. my_blueprint"
+    )
     arguments = parser.parse_args()
     try:
         create(arguments.name)

@@ -41,7 +41,7 @@ git submodule update --init --recursive
 Commit and push changes in every blueprint, then the catalog:
 
 ```bash
-./git-push-all.sh "Describe the changes"
+./scripts/git-push-all.sh "Describe the changes"
 ```
 
 The script stages all non-ignored changes, including new files and deletions.
@@ -60,6 +60,34 @@ the latest branch tip. Local development (`MN_BLUEPRINT_SOURCE=local` and
 fetching or changing their checked-out state. Plain blueprint folders remain
 supported in both modes. GitHub's source ZIP archives omit submodule contents;
 use a recursive clone for a complete checkout.
+
+Create a new blueprint and its public repository:
+
+```bash
+./scripts/create_blueprint.sh -n my_blueprint
+```
+
+The name is required: use 1–64 lowercase letters, numbers, underscores or
+hyphens, starting with a letter. The script requires Git, Python 3.9 or newer,
+and an authenticated `gh` with permission to create repositories in
+`MirrorNeuronLab`. SSH push access to GitHub is also required.
+
+It creates `MirrorNeuronLab/mn-blueprint-my_blueprint`, commits and pushes a
+starter on `main`, and adds `my_blueprint/` as a pinned submodule. The starter
+includes an MIT license, ignore rules, Python 3.12 configuration, canonical
+workflow documents, a domain package, a reserved steps folder, a user manual,
+and an offline test. Its one stock HostLocal step returns an empty result;
+it performs no domain actions or model calls. Standard Chat and MCP supervision
+are declared; conversation uses the runtime's configured response model when
+asked. Worker memory and RAG are disabled in the starter.
+
+Creation stages the new submodule pin and `.gitmodules`, leaving the catalog
+commit and `index.json` unchanged. Existing folders and GitHub repositories
+are never overwritten. Finish the mission, behavior and tests before adding
+the folder name to `index.json` for catalog publication. Use
+`./scripts/git-push-all.sh "Add my_blueprint blueprint"` to commit and push the
+catalog pin when ready. All catalog maintenance scripts live in `scripts/`;
+their starter files live in `templates/blueprint/`.
 
 ## Quick Start
 
@@ -483,3 +511,10 @@ The opt-in [conversation experience E2E suite](tests/e2e/README.md) exercises ev
 published blueprint through the desktop GUI with real CPU conversation replies
 and synthetic workflow inputs. Its [experience review](docs/conversation-e2e-review.md)
 distinguishes completed journeys, observed defects and missing evidence.
+
+## Test ownership
+
+OtterDesk blueprint contracts, package transport, dependency/activity checks and
+current native context integrations live in this repository’s existing test
+suite. Runtime contracts and the `mn-blueprints` demo catalog stay in
+`mn-system-tests`. See [test commands and opt-in integration gates](tests/README.md).

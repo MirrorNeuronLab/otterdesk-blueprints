@@ -102,3 +102,27 @@ def test_published_sources_have_no_retired_memory_imports_or_settings(name):
             symbol in path.read_text()
             for symbol in ("MemoryItem", "WorkingMemory", "FileMemory")
         ), path
+
+def test_task_fixture_binds_current_catalog_contracts():
+    from mn_context_benchmark.tasks.dataset import load_suite, profile_cases, validate_sources
+    from mn_context_benchmark.tasks.prompts import request, visible_records
+    suite = load_suite()
+    assert (
+        validate_sources(
+            suite,
+            ROOT,
+        )["case_count"]
+        == 60
+    )
+    assert len(profile_cases(suite, "smoke")[0]) == 12
+    assert {c["path"] for c in suite["cases"]} == {
+        "graph",
+        "working",
+        "files",
+        "prompt",
+    }
+    for case in suite["cases"]:
+        value = json.dumps(request(case, visible_records(case), "test"))
+        assert "grading" not in value and "required_citations" not in value
+        assert case["private_canary"] not in value
+        assert all(r["source_refs"] for r in case["records"])

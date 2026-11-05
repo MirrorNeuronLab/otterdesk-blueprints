@@ -2,12 +2,33 @@
 
 Use one folder per co-worker. The folder and manifest own its mission, inputs, domain decisions and deliverables. MirrorNeuron prepares the Job, starts an admitted Run, executes its steps and publishes their results. Begin with a published package whose work resembles yours. VC Assistant is a batch example with several specialists. ROS AMR Controller is a supervised Compose service.
 
+Start with a runnable empty blueprint:
+
+```bash
+./scripts/create_blueprint.sh -n my_blueprint
+```
+
+This creates and pushes the public
+`MirrorNeuronLab/mn-blueprint-my_blueprint` repository, then stages its pinned
+submodule in this catalog. It includes an MIT license, a canonical package,
+standard supervision, an empty domain hook and an offline test. The workflow
+does no domain work or model inference. The parent is not committed and
+`index.json` is unchanged. The command requires Git, Python 3.9+, authenticated
+`gh`, organization repository-creation permission and SSH push access.
+The generated blueprint runs with the normal Python 3.12 MirrorNeuron runtime.
+
 ## Define the package
 
 1. Write the product contract in the package’s `SPEC.md`. Name the input, the evidence the supervisor will see, any decisions that require approval, and what counts as completion or readiness.
 2. Create a v1 `manifest.json` with a unique ID, name, version, and the role files `workflow.json`, `execution.json`, `contracts.json`, `dependencies.json` and `config/default.json`. Set `"payload_api": "mn.blueprint.v1"`. Add the required product, setup, conversation and other extension files for the chosen experience. Record only operator-tunable defaults in config.
 3. Declare required inputs, types, linked config fields, output paths and optional artifacts in the contracts. Use `@/examples/sample_inputs` for a bundled sample and include that sample. Declare skills, agents and SDK components in dependencies. A stock block needs the `mn-blueprint-blocks` distribution. Use matching SDK builds with the v1 payload API on the controller and execution nodes. The catalog requires `mirrorneuron-python-sdk>=1.4.1.dev46,<2` for released packages.
-4. Give the package a public `MirrorNeuronLab/mn-blueprint-<folder_name>` repository, then add it here with `git submodule add --branch main https://github.com/MirrorNeuronLab/mn-blueprint-<folder_name>.git <folder_name>`. Add the folder ID to `index.json` when publishing. Keep its README, setup guide and tests aligned with the actual inputs and output receipts. Commit and push the package before updating the catalog pin; `./git-push-all.sh "Commit message"` publishes every changed package and then the catalog. Ordinary folders remain valid for local authoring.
+4. The creation script sets up the public repository and pinned submodule.
+   Add the folder ID to `index.json` when the implemented co-worker is ready
+   for catalog publication. Keep its README, setup guide and tests aligned
+   with the actual inputs and output receipts. Commit and push the package
+   before updating the catalog pin;
+   `./scripts/git-push-all.sh "Commit message"` publishes every changed package
+   and then the catalog. Ordinary folders remain valid for local authoring.
 
 ## Compose the work
 
