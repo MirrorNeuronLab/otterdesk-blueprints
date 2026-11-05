@@ -1,0 +1,12 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "do_nothing": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": { "operation": "domain.noop:run" },
+      "inputs": {},
+      "outputs": { "result": { "$ref": "flow_output", "path": ["result"] } },
+      "limits": { "max_calls": 1, "timeout_seconds": 30 }
+    }
+  }
+}

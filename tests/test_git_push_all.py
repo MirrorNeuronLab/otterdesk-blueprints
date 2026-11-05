@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 
-SCRIPT = Path(__file__).resolve().parents[1] / "git-push-all.sh"
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "git-push-all.sh"
 
 
 @pytest.fixture
@@ -51,7 +51,8 @@ def catalog(tmp_path, git_env):
     source = tmp_path / "blueprint source"
     child_remote = repository(source, git_env)
     git(parent, "submodule", "add", "--branch", "main", str(child_remote), "example blueprint", env=git_env)
-    shutil.copy2(SCRIPT, parent / SCRIPT.name)
+    (parent / "scripts").mkdir()
+    shutil.copy2(SCRIPT, parent / "scripts" / SCRIPT.name)
     git(parent, "add", ".", env=git_env)
     git(parent, "commit", "-m", "Add blueprint", env=git_env)
     git(parent, "push", env=git_env)
@@ -60,7 +61,7 @@ def catalog(tmp_path, git_env):
 
 def publish(parent, env, message="Update all blueprints"):
     return subprocess.run(
-        ["bash", str(parent / SCRIPT.name), message], cwd=parent.parent,
+        ["bash", str(parent / "scripts" / SCRIPT.name), message], cwd=parent.parent,
         env=env, text=True, capture_output=True,
     )
 

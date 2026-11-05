@@ -22,7 +22,7 @@ if [[ $# -ne 1 || -z "${1//[[:space:]]/}" ]]; then
 fi
 
 message=$1
-root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
+root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
 repositories=()
 branches=()
 

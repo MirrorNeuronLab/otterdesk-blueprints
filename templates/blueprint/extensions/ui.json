@@ -1,0 +1,15 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "What does this co-worker do?",
+    "How do I run the starter?",
+    "What should I implement next?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "This starter has no domain behavior. Start a run to complete one empty step.",
+    "sample": { "available": true, "values": {}, "expected_output": "One completed step with an empty result." },
+    "real": { "values": {} },
+    "fields": []
+  }
+}

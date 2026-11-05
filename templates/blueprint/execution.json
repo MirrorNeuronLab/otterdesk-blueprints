@@ -1,0 +1,23 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "mode": "compiled",
+  "job_name": "{{JOB_NAME}}",
+  "requirements": {
+    "cpu": { "min_cores": 1 },
+    "memory": { "min_gb": 1 },
+    "disk": { "min_gb": 1 }
+  },
+  "agents": { "registry": {} },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_host@1",
+      "with": {
+        "stereotype": ["blueprint_host_worker", "internal_write_worker"],
+        "upload_paths": [{ "source": "domain", "target": "domain" }],
+        "upload_path": "domain",
+        "upload_as": "domain"
+      }
+    }
+  }
+}

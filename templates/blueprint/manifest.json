@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "id": "{{BLUEPRINT_ID}}",
+  "name": "{{BLUEPRINT_NAME}}",
+  "version": "0.1.0",
+  "payload_api": "mn.blueprint.v1",
+  "description": "A no-op co-worker starter. Runs one empty step without domain actions or model calls.",
+  "workflow": "workflow.json",
+  "execution": "execution.json",
+  "contracts": "contracts.json",
+  "config": "config/default.json",
+  "dependencies": "dependencies.json",
+  "license": "LICENSE.md",
+  "terms": "TERM.md",
+  "extensions": {
+    "mn.blocks": { "file": "extensions/blocks.json", "required": true },
+    "mn.product": { "file": "extensions/product.json", "required": false },
+    "mn.context": { "file": "extensions/context.json", "required": true },
+    "mn.response": { "file": "extensions/response.json", "required": true },
+    "mn.mcp": { "file": "extensions/mcp.json", "required": true },
+    "mn.rag": { "file": "extensions/rag.json", "required": true },
+    "mn.ui": { "file": "extensions/ui.json", "required": false }
+  }
+}

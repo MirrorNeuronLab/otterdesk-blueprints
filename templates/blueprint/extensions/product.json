@@ -1,0 +1,10 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Other",
+  "product": {
+    "agent_role": "Co-worker starter",
+    "input": "No input required.",
+    "output": "An empty step result with normal runtime receipts.",
+    "how_it_works": "Runs one empty domain-operation hook. Add a real mission and behavior before catalog publication."
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "{{BLUEPRINT_ID}}_v1",
+  "mode": "static_dag",
+  "execution": { "strategy": "serial", "max_parallel_steps": 1 },
+  "steps": [
+    {
+      "id": "do_nothing",
+      "kind": "stage",
+      "label": "Do nothing",
+      "goal": "Complete the empty starter step without performing domain actions.",
+      "needs": [],
+      "control": { "retry": { "max_attempts": 1 } }
+    }
+  ]
+}

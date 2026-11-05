@@ -46,7 +46,7 @@ def test_canonical_package_compiles_to_stock_blocks(domain):
     assert all(node['config']['environment']['MN_WORKFLOW_STEP_HANDLER'] == 'mn_sdk.integrations.block_worker'
                for node in workers)
     assert {item['uses'] for item in package.extension('mn.blocks')['steps'].values()} == {
-        'mn.blocks.domain_operation@1', 'mn.blocks.structured_assessment@1'}
+        'mn.blocks.domain_operation@1'}
     assert not (ROOT / 'payloads/runtime').exists()
     assert not (ROOT / 'payloads/agents').exists()
     for item in package.extension('mn.blocks')['steps'].values():
@@ -311,17 +311,19 @@ def simulated_io(ui_transport, monkeypatch, plan):
     calls = ui_transport
 
     def model(*args, **kwargs):
-        calls['model'] += 1
         prompt = json.loads(args[3]['messages'][1]['content'])
-        step = prompt['step']
-        value = (decision(step, prompt['allowed_sources'][0],
-                          'execute' if prompt['allowed_sources'][0] == step['source'] else 'adapt')
-                 if step['kind'] == 'transfer' and prompt['allowed_sources'] else decision(step))
+        if 'procedure' in prompt:
+            calls['planning'] = calls.get('planning', 0) + 1
+            value = copy.deepcopy(plan)
+        else:
+            calls['model'] += 1
+            step = prompt['step']
+            value = (decision(step, prompt['allowed_sources'][0],
+                              'execute' if prompt['allowed_sources'][0] == step['source'] else 'adapt')
+                     if step['kind'] == 'transfer' and prompt['allowed_sources'] else decision(step))
         return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(value)}}]}
 
     monkeypatch.setattr('mn_sdk.integrations.block_model_request.runtime_model_json_request', model)
-    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor',
-                        lambda *a, **k: lambda request: copy.deepcopy(plan))
     return calls
 
 
@@ -349,19 +351,122 @@ def test_compiled_handlers_execute_publish_and_replay_without_more_model_calls(d
     assert len(json.loads((root / 'trace.json').read_text())['events']) == 4
     assert run_sample('web_lab_operator', **options)['final_artifact'] == final
     assert simulated_io['model'] == 4 and simulated_io['closed'] == 3
+    assert simulated_io['planning'] == 1
+
+
+@pytest.mark.parametrize('phase', ['preparing', 'planning'])
+def test_empty_deck_startup_failure_closes_the_listener_before_model_dispatch(
+        domain, simulated_io, monkeypatch, tmp_path, phase):
+    from block_workflow_fixture import run_sample
+
+    claim = domain('live_ui').claim_web_ui
+
+    def fail(directory, **options):
+        if simulated_io['phases'][-1]['status'] == phase:
+            raise OSError('Synthetic planning deck startup failure')
+        return claim(directory, **options)
+
+    monkeypatch.setattr(domain('live_ui'), 'claim_web_ui', fail)
+    with pytest.raises(OSError, match='planning deck startup'):
+        run_sample('web_lab_operator', runs_root=tmp_path / 'runs', run_id='startup-failure')
+    assert simulated_io['closed'] == len(simulated_io['phases']) == (1 if phase == 'preparing' else 2)
+    assert simulated_io['claimed'] == simulated_io['closed'] - 1
+    assert simulated_io.get('planning', 0) == simulated_io['model'] == 0
+    assert simulated_io.get('final_status') == (None if phase == 'preparing' else 'failed')
+
+
+@pytest.mark.parametrize('failure', ['cancelled', 'provider', 'invalid_plan'])
+def test_planning_failure_closes_the_empty_deck_without_simulating(
+        domain, simulated_io, monkeypatch, tmp_path, plan, failure):
+    from block_workflow_fixture import run_sample
+    from mn_blueprint_blocks import BlockError
+
+    def assess(*_args):
+        if failure == 'invalid_plan':
+            return {**plan, 'unexpected_hardware': 'physical robot'}
+        if failure == 'cancelled':
+            raise BlockError('cancelled', 'Synthetic planning cancellation')
+        raise OSError('Synthetic planning provider failure')
+
+    monkeypatch.setattr(domain('planning'), '_plan', assess)
+    from jsonschema import ValidationError
+    expected = BlockError if failure == 'cancelled' else OSError if failure == 'provider' else ValidationError
+    with pytest.raises(expected):
+        run_sample('web_lab_operator', runs_root=tmp_path / 'runs', run_id='planning-failure')
+    assert simulated_io['claimed'] == simulated_io['closed'] == 2
+    assert simulated_io['model'] == 0
+    assert simulated_io['final_status'] == ('cancelled' if failure == 'cancelled' else 'failed')
+
+
+def test_planning_uses_journaled_sdk_model_settings_and_declared_schema(domain, plan, monkeypatch):
+    from types import SimpleNamespace
+
+    module = domain('planning')
+    package = read_blueprint(ROOT)
+    schema = package.extension('mn.blocks')['steps']['plan_lab_procedure']['output_schema']
+    inputs = {'procedure': {'markdown': PROCEDURE.read_text(), 'runtime_memory': {}}}
+    block = SimpleNamespace(config=resolve_config(package).data)
+
+    def request(context, value, *, key):
+        assert context is block and key == 'procedure-plan'
+        assert value['model'] == 'default' and value['path'] == '/chat/completions'
+        assert value['options'] == {'provider': 'docker_model_runner', 'backend': 'llama.cpp',
+                                     'timeout_seconds': 300, 'structured_output': True}
+        payload = value['payload']
+        assert (ROOT / 'payloads/prompts/plan.md').read_text() in payload['messages'][0]['content']
+        assert json.dumps(schema, separators=(',', ':')) in payload['messages'][0]['content']
+        assert json.loads(payload['messages'][1]['content']) == inputs
+        assert payload['max_tokens'] == 12000 and payload['temperature'] == 0
+        declaration = payload['response_format']['json_schema']
+        assert declaration['strict'] is True and declaration['schema'] == schema
+        return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(plan)}}]}
+
+    monkeypatch.setattr(module, 'model_request', request)
+    assert module._plan(block, inputs, schema) == plan
+
+
+def test_planning_cleanup_failure_preserves_the_original_error(domain, monkeypatch):
+    from types import SimpleNamespace
+
+    module = domain('planning_ui')
+    statuses = []
+
+    class BrokenView:
+        def __init__(self, *_args):
+            pass
+
+        def start(self):
+            pass
+
+        def stop(self, status):
+            statuses.append(status)
+            raise OSError('Synthetic cleanup failure')
+
+    monkeypatch.setattr(module, 'PlanningUi', BrokenView)
+    original = ValueError('Synthetic invalid procedure')
+    with pytest.raises(ValueError) as error:
+        with module.planning_view(SimpleNamespace(check=lambda: None), 'preparing'):
+            raise original
+    assert error.value is original and statuses == ['failed']
+    assert 'failed to close' in original.__notes__[0]
+
+    with pytest.raises(OSError, match='cleanup failure'):
+        with module.planning_view(SimpleNamespace(check=lambda: None), 'preparing'):
+            pass
+    assert statuses == ['failed', 'stopped']
 
 
 def test_planner_deadline_retires_the_empty_deck_and_preserves_the_error(domain, simulated_io, monkeypatch, tmp_path):
     from block_workflow_fixture import run_sample
     from mn_blueprint_blocks import BlockError
 
-    def assess(request):
+    def assess(*_args):
         assert [phase['status'] for phase in simulated_io['phases']] == ['preparing', 'planning']
         assert simulated_io['phases'][-1]['state']['wells'] == {}
         assert simulated_io['claimed'] == 2 and simulated_io['closed'] == 1
         raise BlockError('deadline_exceeded', 'Block deadline expired')
 
-    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor', lambda *args, **kwargs: assess)
+    monkeypatch.setattr(domain('planning'), '_plan', assess)
     with pytest.raises(BlockError, match='Block deadline expired') as failure:
         run_sample('web_lab_operator', inputs={'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
                    config={'inputs': {'payload': {'procedure_file': ''}}}, runs_root=tmp_path / 'runs', run_id='lab-timeout')
@@ -394,18 +499,13 @@ def test_cold_planner_obeys_real_deadline_and_completes_the_workflow(
 
     calls = []
 
-    def assessor(context, *_args, **_kwargs):
-        clock = [0]
-        context.monotonic = lambda: clock[0]
+    def assess(context, *_args):
+        calls.append(elapsed)
+        current = context.monotonic()
+        context.monotonic = lambda: current + elapsed
+        return copy.deepcopy(plan)
 
-        def assess(_request):
-            calls.append(elapsed)
-            clock[0] += elapsed  # Model preparation plus inference, without sleeping.
-            return copy.deepcopy(plan)
-
-        return assess
-
-    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor', assessor)
+    monkeypatch.setattr(domain('planning'), '_plan', assess)
     options = {'inputs': {'procedure_markdown': PROCEDURE.read_text(), 'procedure_file': ''},
                'config': {'inputs': {'payload': {'procedure_file': ''}},
                           'simulation': {'action_delay_seconds': 0}},
@@ -672,6 +772,9 @@ def test_memory_supplies_observed_failures_and_successes_to_later_plans_and_deci
 
     def model(*args, **kwargs):
         prompt = json.loads(args[3]['messages'][1]['content'])
+        if 'procedure' in prompt:
+            assessments.append(prompt)
+            return normal(*args, **kwargs)
         prompts.append(prompt)
         if reject[0]:
             reject[0] = False
@@ -679,14 +782,7 @@ def test_memory_supplies_observed_failures_and_successes_to_later_plans_and_deci
             return {'choices': [{'finish_reason': 'stop', 'message': {'content': json.dumps(value)}}]}
         return normal(*args, **kwargs)
 
-    def assessor(*_args, **_kwargs):
-        def assess(request):
-            assessments.append(request.data['input'])
-            return copy.deepcopy(plan)
-        return assess
-
     monkeypatch.setattr(requests, 'runtime_model_json_request', model)
-    monkeypatch.setattr('mn_sdk.integrations.block_assessment.assessor', assessor)
     first, _ = lab_runs('failed-choice')
     assert first['status'] == 'needs_review' and first['steps_completed'] == 0
     second, _ = lab_runs('working-choice')
@@ -813,6 +909,8 @@ def test_untrusted_memory_cannot_authorize_a_source_outside_current_policy(domai
     def model(*args, **kwargs):
         prompt = json.loads(args[3]['messages'][1]['content'])
         response = original(*args, **kwargs)
+        if 'procedure' in prompt:
+            return response
         value = json.loads(response['choices'][0]['message']['content'])
         if not poisoned[0]:
             value['reason'] = instruction

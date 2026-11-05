@@ -1,0 +1,6 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/mcp.schema.json",
+  "profile": "mn.mcp.supervision.v1",
+  "manual": "@/knowledge/user_manual.md",
+  "tools": {}
+}
