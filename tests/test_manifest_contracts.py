@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from blueprint_modernization_support import blueprint_path
 from mn_sdk.blueprints import (
     blueprint_definition,
+    catalog_record,
     read_blueprint,
     read_catalog,
 )
@@ -53,6 +55,18 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
                     for field in guide.get("fields", []):
                         if field.get("path") == "outputs.folder_path" and field.get("default"):
                             assert field["default"] == folder_path, name
+
+
+@pytest.mark.parametrize("name", ["nvidia_transcribe", "nvidia_ocr"])
+def test_nvidia_setup_exposes_default_output_folder(name):
+    package = read_blueprint(blueprint_path(name))
+    guide = catalog_record(package, name)["setup_guide"]
+    field = next(field for field in guide["fields"] if field["path"] == "outputs.folder_path")
+
+    assert field["role"] == "output"
+    assert field["type"] == "local_path"
+    assert field["path_kind"] == "directory"
+    assert field["default"] == package.document("config")["outputs"]["folder_path"]
 
 
 def test_catalog_blueprints_declare_job_response_service():

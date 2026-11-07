@@ -30,6 +30,15 @@
         "path": "inputs.payload.merge_level",
         "required": false,
         "type": "text"
+      },
+      {
+        "description": "Save a copy of each run's extracted text and page data here.",
+        "label": "Output folder",
+        "path": "outputs.folder_path",
+        "path_kind": "directory",
+        "required": false,
+        "role": "output",
+        "type": "local_path"
       }
     ],
     "introduction": "Select an image or PDF. Requires an NVIDIA CUDA GPU with at least 48 GiB memory on Linux amd64.",

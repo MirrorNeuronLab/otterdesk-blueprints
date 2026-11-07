@@ -5,6 +5,8 @@ Nested folders are supported. Or select the bundled Bdb001.interaction.wav sampl
 about 50 minutes of audio. Start a run with normal Job controls; Chat never starts
 work by itself. The coworker writes one `transcripts/<relative filename>.md` per
 recording and an authoritative `transcription_result.json` inventory.
+The default output folder is `~/Downloads/nvidia-transcribe`. Each delivered
+batch has its own `run_<timestamp>/` subfolder.
 
 It processes files one at a time in sorted relative-path order, including nested
 WAV and MP3 files. It finishes each recording before transcribing the next,

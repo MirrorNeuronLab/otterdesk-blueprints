@@ -5,6 +5,8 @@ the bundled synthetic sample. Start the run through the normal Job controls.
 The coworker extracts all pages and publishes `ocr_result.json`, `text.txt` and
 `document.md`. JSON retains page numbers, normalized bounding boxes, confidence
 scores, source SHA-256, pinned model revision and empty-page warnings.
+The default output folder is `~/Downloads/nvidia-ocr`. Each delivered batch
+has its own `run_<timestamp>/` subfolder.
 
 Requires Linux amd64, Docker with NVIDIA GPU access and one GPU with at least
 48 GiB memory. The first run builds the CUDA image and downloads multilingual

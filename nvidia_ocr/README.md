@@ -9,6 +9,9 @@ calls the SDK-managed OCR service, validates provenance and writes `ocr_result.j
 `text.txt` and `document.md` before returning bounded artifact references.
 The SDK handles admission, model preparation, routing, caching and result delivery.
 
+The default **Output folder** in setup is `~/Downloads/nvidia-ocr`.
+MirrorNeuron delivers each batch to a `run_<timestamp>/` subfolder there.
+
 From the catalog root:
 
 ```bash

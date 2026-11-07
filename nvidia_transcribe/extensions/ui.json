@@ -9,6 +9,15 @@
         "required": true,
         "role": "input",
         "type": "local_path"
+      },
+      {
+        "description": "Save a copy of each run's transcripts and coverage report here.",
+        "label": "Output folder",
+        "path": "outputs.folder_path",
+        "path_kind": "directory",
+        "required": false,
+        "role": "output",
+        "type": "local_path"
       }
     ],
     "introduction": "Choose an audio folder. Requires NVIDIA Blackwell; the default profile uses 96 GiB GPU memory.",

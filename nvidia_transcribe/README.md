@@ -15,6 +15,9 @@ ordered 300-second chunk through the SDK model journal and saves one
 times, empty-response flags and durable transcript references. A failed or
 truncated response fails the batch; saved responses are not dispatched twice.
 
+The default **Output folder** in setup is `~/Downloads/nvidia-transcribe`.
+MirrorNeuron delivers each batch to a `run_<timestamp>/` subfolder there.
+
 ```bash
 mn blueprint run ./nvidia_transcribe --set inputs.payload.input_folder=/absolute/path/audio
 ```
