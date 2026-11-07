@@ -1,0 +1,104 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "agents": {
+    "registry": {}
+  },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_docker@1",
+      "with": {
+        "build_context": ".",
+        "docker_worker_image": "docker_worker",
+        "dockerfile": "docker_worker/Dockerfile",
+        "image": "mirror-neuron/nvidia-ocr-worker:0.1.0",
+        "stereotype": [
+          "blueprint_docker_worker",
+          "internal_write_worker"
+        ],
+        "timeout_seconds": 3600,
+        "upload_paths": [
+          {
+            "source": "domain",
+            "target": "domain"
+          }
+        ],
+        "workdir": "/app"
+      }
+    }
+  },
+  "job_name": "nvidia-ocr",
+  "mode": "compiled",
+  "requirements": {
+    "cpu": {
+      "min_cores": 4
+    },
+    "disk": {
+      "min_gb": 40
+    },
+    "gpu": {
+      "driver": "cuda",
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_count": 1,
+      "min_memory_mb": 49152,
+      "vendor": "nvidia"
+    },
+    "memory": {
+      "min_gb": 8
+    },
+    "network": {
+      "egress": "NVIDIA registry, Python indexes and Hugging Face for image preparation and lazy weights; inference on the admitted node."
+    },
+    "os": "linux"
+  },
+  "runtime": {
+    "models": {
+      "ocr": {
+        "backend": "docker",
+        "model": "nvidia-nemotron-ocr-v2:0.1.0",
+        "model_spec": {
+          "backend": "docker",
+          "backends": [
+            "docker"
+          ],
+          "docker": {
+            "api_path": "/v1",
+            "cache_path": "/cache",
+            "container_port": 8000,
+            "environment": {
+              "DO_NOT_TRACK": "1",
+              "HF_HOME": "/cache",
+              "HF_HUB_DISABLE_TELEMETRY": "1"
+            },
+            "gpus": "all",
+            "image": "docker.io/homerquan/nvidia-ocr@sha256:3ea113f619ce8ba7c13d7213ca258fcb6dba0b8c9914bcca627ebab349041064",
+            "port": 30084,
+            "ready_path": "/health",
+            "ready_timeout": 3600,
+            "shm_size": "8g"
+          },
+          "id": "nvidia-nemotron-ocr-v2:0.1.0",
+          "input_modalities": [
+            "image"
+          ],
+          "model": "nvidia-nemotron-ocr-v2:0.1.0",
+          "model_type": "ocr",
+          "name": "NVIDIA Nemotron OCR v2",
+          "protocol": "http_json",
+          "provider": "docker_model_runner",
+          "requirements": {
+            "min_vram_gb": 48,
+            "required_capabilities": [
+              "cuda"
+            ]
+          },
+          "source": "docker"
+        },
+        "provider": "docker_model_runner",
+        "required": true,
+        "type": "ocr"
+      }
+    }
+  },
+  "type": "batch"
+}

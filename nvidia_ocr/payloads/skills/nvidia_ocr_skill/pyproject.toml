@@ -1,0 +1,28 @@
+[project]
+name = "mirrorneuron-nvidia-ocr-skill"
+dynamic = ["version"]
+description = "Bounded Nemotron OCR v2 document extraction with lazy SDK-managed CUDA preparation."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["mirrorneuron-python-sdk>=1.4.1.dev46,<2", "jsonschema>=4.23,<5"]
+
+[project.optional-dependencies]
+server = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1", "Pillow>=12,<13", "pypdfium2>=4.30,<6", "huggingface-hub>=0.34,<2"]
+
+[build-system]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]
+root = ".."
+fallback_version = "0.0.0"
+local_scheme = "no-local-version"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+markers = ["e2e: opt-in live model tests"]

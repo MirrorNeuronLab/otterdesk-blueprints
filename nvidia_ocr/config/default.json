@@ -1,0 +1,20 @@
+{
+  "inputs": {
+    "payload": {
+      "document_file": "@/examples/sample.pdf",
+      "merge_level": "paragraph"
+    }
+  },
+  "local_inputs": {
+    "files": [
+      {
+        "config_path": "inputs.payload.document_file",
+        "payload_path": "mn_local_inputs/ocr/document.pdf",
+        "runtime_path": "mn_local_inputs/ocr/document.pdf"
+      }
+    ]
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/nvidia-ocr"
+  }
+}

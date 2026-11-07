@@ -1,0 +1,13 @@
+{
+  "catalog_hash": "d85f7cc69aa3e911892206b6779eb5fb45fe1d9a0e6145c4c13f3410ff6ed930",
+  "generator": "synapsy",
+  "plan_hash": "89c01ddc6e6bd974c05f32a2e290e807eebe75a08a7c06f1e2bdbbe050fb53ee",
+  "references": [
+    "mn.blocks.domain_operation@1",
+    "mirrorneuron-nvidia-transcribe-skill",
+    "mn-agents.worker.python_docker@1"
+  ],
+  "schema_hash": "2730507527623b9beec0c851ad1a61277fb02fc83c0b102a52f3f68b61d61d86",
+  "schema_source": "/Users/homer/Projects/mirror-neuron-set/mn-python-sdk/mn_sdk/blueprints/schemas",
+  "version": "0.1.0"
+}

@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "config": "config/default.json",
+  "contracts": "contracts.json",
+  "dependencies": "dependencies.json",
+  "description": "Transcribe complete local audio recordings into Markdown with lazy NVIDIA Nemotron 3.5 NVFP4 inference, ordered coverage and immutable source provenance.",
+  "execution": "execution.json",
+  "extensions": {
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  },
+  "id": "nvidia_transcribe",
+  "license": "LICENSE.md",
+  "name": "NVIDIA Transcribe",
+  "payload_api": "mn.blueprint.v1",
+  "tagline": "Turn an audio folder into complete Markdown transcripts",
+  "terms": "TERM.md",
+  "version": "0.1.0",
+  "workflow": "workflow.json"
+}

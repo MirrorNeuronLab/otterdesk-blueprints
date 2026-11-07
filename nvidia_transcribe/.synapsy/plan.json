@@ -1,0 +1,475 @@
+{
+  "acceptance": [
+    "Every supported source file has a complete Markdown transcript",
+    "Every decoded sample is covered by ordered chunks",
+    "Length/refusal responses cannot publish successful batch results",
+    "Replay reuses frozen source and committed responses"
+  ],
+  "config": {
+    "inputs": {
+      "payload": {
+        "chunk_seconds": 300,
+        "input_folder": "@/examples/sample_inputs"
+      }
+    },
+    "local_inputs": {
+      "folders": [
+        {
+          "allowed_extensions": [
+            ".wav",
+            ".flac",
+            ".mp3",
+            ".ogg",
+            ".m4a"
+          ],
+          "config_path": "inputs.payload.input_folder",
+          "payload_path": "mn_local_inputs/audio",
+          "runtime_path": "mn_local_inputs/audio"
+        }
+      ]
+    },
+    "outputs": {
+      "folder_path": "~/Downloads/nvidia-transcribe"
+    }
+  },
+  "contracts": {
+    "inputs": {
+      "chunk_seconds": {
+        "description": "1\u2013300 seconds; default 300.",
+        "required": false,
+        "type": "integer"
+      },
+      "input_folder": {
+        "description": "WAV, FLAC, MP3, OGG or M4A folder; up to 100 files, 2 GiB total and one hour per file.",
+        "path_kind": "directory",
+        "required": true,
+        "type": "local_path"
+      },
+      "output_folder": {
+        "path_kind": "directory",
+        "required": false,
+        "type": "local_path"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "transcripts",
+          "path": "transcripts",
+          "path_kind": "directory"
+        }
+      ],
+      "primary": {
+        "id": "transcription_result",
+        "path": "transcription_result.json",
+        "schema": {
+          "additionalProperties": true,
+          "properties": {
+            "file_count": {
+              "maximum": 100,
+              "minimum": 1,
+              "type": "integer"
+            },
+            "files": {
+              "maxItems": 100,
+              "minItems": 1,
+              "type": "array"
+            },
+            "schema": {
+              "const": "mn.nvidia_transcribe.batch.v1"
+            }
+          },
+          "required": [
+            "schema",
+            "source_model",
+            "model_revision",
+            "file_count",
+            "files"
+          ],
+          "type": "object"
+        },
+        "schema_version": "mn.nvidia_transcribe.batch.v1"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "classification": "confidential",
+      "external_sharing": "disabled"
+    },
+    "summary": "Complete Markdown transcript for every supported recording, with immutable provenance."
+  },
+  "dependencies": {
+    "agents": [
+      {
+        "name": "mn-worker-python-docker-agent",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.58,<2"
+      }
+    ],
+    "packages": [
+      {
+        "name": "mirrorneuron-python-sdk",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.4.1.dev46,<2"
+      },
+      {
+        "name": "mn-python-sdk-common",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev38,<2"
+      },
+      {
+        "name": "mn-blueprint-blocks",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev38,<2"
+      },
+      {
+        "name": "mn-python-sdk-mcp",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      },
+      {
+        "name": "mn-python-sdk-job-response",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      },
+      {
+        "name": "mn-python-sdk-rag",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      }
+    ],
+    "skills": [
+      {
+        "name": "mirrorneuron-nvidia-transcribe-skill",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.4.1.dev10,<2"
+      }
+    ]
+  },
+  "description": "Transcribe complete local audio recordings into Markdown with lazy NVIDIA Nemotron 3.5 NVFP4 inference, ordered coverage and immutable source provenance.",
+  "document_paths": {},
+  "execution": {
+    "agents": {
+      "registry": {}
+    },
+    "defaults": {
+      "worker": {
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "build_context": ".",
+          "docker_worker_image": "docker_worker",
+          "dockerfile": "docker_worker/Dockerfile",
+          "image": "mirror-neuron/nvidia-transcribe-worker:0.1.0",
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "timeout_seconds": 3600,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/app"
+        }
+      }
+    },
+    "job_name": "nvidia-transcribe",
+    "mode": "compiled",
+    "requirements": {
+      "cpu": {
+        "min_cores": 8
+      },
+      "disk": {
+        "min_gb": 100
+      },
+      "gpu": {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "memory_operator": ">=",
+        "min_count": 1,
+        "min_memory_mb": 98304,
+        "vendor": "nvidia"
+      },
+      "memory": {
+        "min_gb": 16
+      },
+      "network": {
+        "egress": "Registry images and pinned Hugging Face model download on first use; audio stays on the managed node."
+      },
+      "os": "linux"
+    },
+    "runtime": {
+      "models": {
+        "transcribe": {
+          "backend": "vllm",
+          "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+          "model_spec": {
+            "api_model": "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4",
+            "backend": "vllm",
+            "backends": [
+              "vllm"
+            ],
+            "context_size": 65536,
+            "docker": {
+              "api_path": "/v1",
+              "cache_path": "/cache",
+              "container_port": 8000,
+              "environment": {
+                "DO_NOT_TRACK": "1",
+                "FLASHINFER_WORKSPACE_BASE": "/cache/flashinfer",
+                "HF_HOME": "/cache/huggingface",
+                "HF_HUB_DISABLE_TELEMETRY": "1",
+                "TORCHINDUCTOR_CACHE_DIR": "/cache/torchinductor",
+                "TRITON_CACHE_DIR": "/cache/triton",
+                "VLLM_CACHE_ROOT": "/cache/vllm"
+              },
+              "gpus": "all",
+              "image": "docker.io/homerquan/nvidia-transcribe@sha256:13befda8bf29f69d432e221cdefea3b031b614723f3cb9a4afd0f2415a7f2629",
+              "port": 30085,
+              "ready_path": "/health",
+              "ready_timeout": 3600,
+              "shm_size": "16g"
+            },
+            "id": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+            "input_modalities": [
+              "audio",
+              "text"
+            ],
+            "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+            "model_type": "audio",
+            "name": "NVIDIA Nemotron 3.5 Transcribe NVFP4",
+            "protocol": "openai",
+            "provider": "docker_model_runner",
+            "requirements": {
+              "min_vram_gb": 96,
+              "required_capabilities": [
+                "cuda"
+              ]
+            },
+            "source": "docker"
+          },
+          "provider": "docker_model_runner",
+          "required": true,
+          "type": "inference"
+        }
+      }
+    },
+    "type": "batch"
+  },
+  "extensions": {
+    "mn.blocks": {
+      "document": {
+        "steps": {
+          "transcribe_audio_folder": {
+            "hooks": {
+              "operation": "domain.transcription:run"
+            },
+            "input_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "chunk_seconds": {
+                  "maximum": 300,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "input_folder": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "input_folder"
+              ],
+              "type": "object"
+            },
+            "inputs": {
+              "chunk_seconds": {
+                "$ref": "run_input",
+                "path": [
+                  "chunk_seconds"
+                ]
+              },
+              "input_folder": {
+                "$ref": "run_input",
+                "path": [
+                  "input_folder"
+                ]
+              }
+            },
+            "limits": {
+              "max_calls": 1300,
+              "timeout_seconds": 3600
+            },
+            "output_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "file_count": {
+                  "maximum": 100,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "report": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "report",
+                "file_count"
+              ],
+              "type": "object"
+            },
+            "uses": "mn.blocks.domain_operation@1"
+          }
+        }
+      },
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.context": {
+      "document": {
+        "text_memory": {
+          "contract": "mn.context.text.v1",
+          "enabled": false
+        }
+      },
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "document": {
+        "manual": "@/knowledge/user_manual.md",
+        "profile": "mn.mcp.supervision.v1",
+        "tools": {}
+      },
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.product": {
+      "document": {
+        "category": "Other",
+        "product": {
+          "agent_role": "Audio transcription specialist",
+          "how_it_works": "Uses ordered audio chunks and the exact NVIDIA Nemotron 3.5 NVFP4 model on Blackwell.",
+          "input": "A local audio folder",
+          "output": "Complete Markdown transcripts and provenance"
+        }
+      },
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "document": {
+        "enabled": false
+      },
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "document": {
+        "enabled": true
+      },
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.ui": {
+      "document": {
+        "setup_guide": {
+          "fields": [
+            {
+              "label": "Audio folder",
+              "path": "inputs.payload.input_folder",
+              "path_kind": "directory",
+              "required": true,
+              "role": "input",
+              "type": "local_path"
+            }
+          ],
+          "introduction": "Choose an audio folder. Requires NVIDIA Blackwell; the default profile uses 96 GiB GPU memory.",
+          "prompt_file": "@/payloads/prompts/setup.md",
+          "real": {
+            "values": {}
+          },
+          "sample": {
+            "available": true,
+            "expected_output": "A complete Markdown transcript of Bdb001.interaction.wav and a coverage/provenance index.",
+            "values": {
+              "inputs.payload.input_folder": "@/examples/sample_inputs"
+            }
+          },
+          "schema": "otterdesk.setup_guide.v1"
+        },
+        "starter_questions": [
+          "How do I transcribe a folder?",
+          "Can I try the included recording?",
+          "Where are my Markdown transcripts?"
+        ]
+      },
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  },
+  "files": {
+    "LICENSE.md": "MIT License\n\nCopyright (c) 2026 MirrorNeuronLab\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+    "README.md": "# NVIDIA Transcribe\n\nRead an audio folder and produce complete Markdown transcripts using\n`nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4`. The conservative default\nrequires one NVIDIA Blackwell GPU with 96 GiB memory and a Linux runtime. This\nNVFP4 checkpoint cannot run on a 48 GB L40S or substitute another precision.\n\nThe coworker accepts WAV, FLAC, MP3, OGG and M4A, including nested folders. It\nfreezes a source snapshot, normalizes audio to 16 kHz mono, transcribes every\nordered 300-second chunk through the SDK model journal and saves one\n`transcripts/<relative filename>.md` per input. The authoritative\n`transcription_result.json` records hashes, durations, model revision, coverage\ntimes, empty-response flags and durable transcript references. A failed or\ntruncated response fails the batch; saved responses are not dispatched twice.\n\n```bash\nmn blueprint run ./nvidia_transcribe --set inputs.payload.input_folder=/absolute/path/audio\n```\n\nSelect the bundled sample to use `examples/sample_inputs/Bdb001.interaction.wav`,\ncopied in full from the user-provided recording. It is about 50 minutes long,\n16 kHz mono PCM, and is neither synthetic audio nor an observed transcript.\nIts SHA-256 and duration are in `examples/sample_source.json`. The recording\nis excluded from the model build context; no source recording is published with\nthe container image. The sample's inclusion does not grant public redistribution.\n\nInputs are bounded to 100 audio files, 2 GiB total, 256 MiB and one hour per file.\nNon-PCM formats use the worker's FFmpeg with a 180-second deadline. No file is\nsilently truncated. Chunk headings mark input times and may divide words; they\nare not word-level alignments or speaker identification. Review important text.\n\nWorkers use Python 3.12 and a lightweight Docker image. The independent model\nimage uses Python 3.13, CUDA 13.2, vLLM 0.32.0 and pinned NeMo Speech. The\nmodel recipe pins the published `homerquan/nvidia-transcribe` image by SHA-256,\nwith Linux amd64 and arm64 variants. Rebuild sources are in `payloads/model/`;\nordinary use pulls the image automatically. The SDK starts it only for the first transcription, downloads\nthe pinned NVFP4 checkpoint and caches weights and kernels under its managed\nvolume. Job preparation, folder discovery and audio normalization do not download\nmodel weights. Model and worker operations reuse the Job allocation.\n\n```bash\nsynapsy verify ./nvidia_transcribe --workspace /path/to/mirror-neuron-set --compile --python /path/to/runtime/python\npython -m pytest nvidia_transcribe/tests -q\n```\n\nCreated using Synapse's concrete-plan `synapsy create --plan` path. Offline checks\ncover compiled dispatch, full chunk coverage, Markdown, immutable snapshots,\nreplay and explicit failure. CUDA startup, NVFP4 kernels and transcript quality\nrequire separate live qualification; no live transcript is bundled.\n",
+    "SPEC.md": "# NVIDIA Transcribe coworker specification\n\nTranscribe every supported recording in an authorized staged audio folder to one\nMarkdown file, preserving relative names and appending `.md`. The required exact\nmodel is `nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4`, revision\n`66c6adc4020179567074d0399cda2a4eeb2bb347`. No alternate model or precision is used.\n\nOne stock domain-operation step owns folder policy and reporting. Reusable audio\npreparation and model request construction belong to `nvidia_transcribe_skill`.\nThe SDK owns immutable file snapshots, per-chunk effect journals, model admission,\nplacement, installation and result delivery. Domain hooks never invoke Docker or\nimplement workflow routing, retries, ACKs or logical completion.\n\nLimits are 100 files, 2 GiB total, 256 MiB and one hour per file. Every decoded\nsample is included exactly once in ordered chunks of up to 300 seconds. Native\n16 kHz mono PCM WAV is read directly; other formats use bounded FFmpeg decoding.\nModel requests fit the SDK binary payload bounds. Output text is at most 4 MiB\nper recording. Stop/length/refusal validation rejects incomplete responses.\n\nCompletion requires all transcript Markdown files and `transcription_result.json`\nto be durably published. The index binds file hashes, durations, exact chunk\ncoverage, the pinned model and transcript references. Empty responses are\nqualified explicitly. A failed file prevents successful batch completion; partial\nprivate work remains available for recovery. Replays use captured source and\ncommitted responses, including when original files change after capture.\n\nRequirements: Linux, NVIDIA Blackwell, conservative 96 GiB GPU memory floor,\n8 CPU cores, 16 GiB CPU RAM and 100 GiB disk. Serving startup checks actual\nBlackwell capability. Python 3.12 workers and the isolated Python 3.13 upstream\nmodel environment are separate. Model weights are installed lazily on first\nrequired request; images contain serving code only. The admitted Job allocation\ncovers all worker/model work. Inputs and transcripts are confidential.\n\nThe bundled sample is the user's full Bdb001.interaction.wav recording with\nhash/duration provenance. It is excluded from public model images. Acceptance\nrequires complete coverage and correct output receipts in offline fixtures, and\na separate representative live transcript on the intended Blackwell node.\nWord alignment, persistent speaker identities, live streaming and accuracy\nguarantees are outside this coworker's contract.\n",
+    "TERM.md": "# Terms\n\nTranscripts may contain errors or omissions. Recordings and transcripts remain confidential. The bundled recording was provided by the user for this local coworker; this does not grant rights to redistribute it publicly. Model weights use OpenMDW-1.1 and upstream software retains its own licenses.\n",
+    "examples/sample_inputs/README.md": "This sample folder contains the full user-provided Bdb001.interaction.wav recording. See ../sample_source.json for its hash and duration. The audio is excluded from model image publication.\n",
+    "examples/sample_source.json": "{\n  \"source_file\": \"Bdb001.interaction.wav\",\n  \"sha256\": \"74ded35b52877dd300effd32ed25d8c390fe9eecfaf451c080271778751842d9\",\n  \"size_bytes\": 96701996,\n  \"duration_seconds\": 3021.936,\n  \"origin\": \"User-provided sample recording; not synthetic and not included in the model image.\"\n}\n",
+    "knowledge/user_manual.md": "# NVIDIA Transcribe user manual\n\nChoose an authorized local folder containing WAV, FLAC, MP3, OGG or M4A files.\nNested folders are supported. Or select the bundled Bdb001.interaction.wav sample,\nabout 50 minutes of audio. Start a run with normal Job controls; Chat never starts\nwork by itself. The coworker writes one `transcripts/<relative filename>.md` per\nrecording and an authoritative `transcription_result.json` inventory.\n\nIt transcribes every file completely in ordered 300-second chunks. Heading times\nmark input coverage, not word alignments. Transcripts preserve spoken wording and\nmay contain errors, especially at chunk boundaries or with overlapping speakers.\nAn empty model response is marked explicitly; no speech is invented to fill it.\n\nLimits: 100 audio files, 2 GiB total input, 256 MiB and one hour per recording.\nRequires a Linux NVIDIA Blackwell node; default memory floor is 96 GiB, based on\nNVIDIA's documented NVFP4 profile. A generic 48 GB NVIDIA GPU is insufficient for\nthis exact checkpoint. The first transcription installs/reuses the pinned model\nthrough the SDK; later runs use its cache. Audio is sent only to that managed\nnode. The model image does not contain the sample recording.\n\nInspect `get_run_status` and `get_run_results` for observed completion. A failed\nfile rejects completion; the batch index is published only after every recording\nhas a complete saved transcript. Pausing/stopping uses normal Job controls.\n",
+    "payloads/docker_worker/Dockerfile": "FROM python:3.12-slim-bookworm\nRUN apt-get update && apt-get install -y --no-install-recommends ffmpeg && rm -rf /var/lib/apt/lists/*\nWORKDIR /app\nCOPY domain/ /app/domain/\nCMD [\"python3\", \"-m\", \"mn_sdk.step_runtime\"]\n",
+    "payloads/domain/__init__.py": "",
+    "payloads/domain/transcription.py": "\"\"\"Folder transcription policy; the SDK journals model calls and publication.\"\"\"\n\nfrom pathlib import Path\n\nfrom mn_nvidia_transcribe_skill import (\n    MODEL_REVISION,\n    SOURCE_MODEL,\n    build_transcription_request,\n    parse_completion,\n    prepare_audio,\n    scan_audio_folder,\n)\nfrom mn_sdk.blueprint.context import source_manifest\nfrom mn_sdk.blueprint.hooks import fingerprint\nfrom mn_sdk.blueprint.inputs import capture_declared_inputs\nfrom mn_sdk.blueprint.models import model_request\nfrom mn_sdk.blueprint.outputs import capture_file, materialize_file, publish_artifact_bundle\nfrom mn_sdk_common.publication import ArtifactWrite\n\n\ndef _snapshot(block, folder):\n    records = []\n    for path in scan_audio_folder(folder):\n        block.check()\n        relative = path.relative_to(folder).as_posix()\n        ref = capture_file(block, path, key=relative)\n        info = block.store.read(ref)\n        records.append(\n            {\n                \"source\": relative,\n                \"source_sha256\": info[\"sha256\"],\n                \"size_bytes\": info[\"size_bytes\"],\n                \"file\": ref.to_dict(),\n            }\n        )\n    return records\n\n\ndef _chunks(block, item, seconds):\n    source = materialize_file(\n        block,\n        item[\"file\"],\n        path=block.root\n        + \"/audio-inputs/\"\n        + fingerprint(item[\"source\"])\n        + Path(item[\"source\"]).suffix,\n    )\n    with prepare_audio(source, chunk_seconds=seconds) as document:\n        if document.source_sha256 != item[\"source_sha256\"]:\n            raise ValueError(\"Audio snapshot does not match its source hash\")\n        chunks = []\n        for chunk in document.chunks():\n            block.check()\n            ref = block.store.commit_bytes(\n                block.root\n                + \"/audio-chunks/\"\n                + fingerprint(item[\"source\"])\n                + \"/\"\n                + str(chunk.index)\n                + \".wav\",\n                chunk.wav_bytes,\n                kind=\"transcription_chunk\",\n            )\n            chunks.append(\n                {\n                    \"index\": chunk.index,\n                    \"start_seconds\": chunk.start_seconds,\n                    \"end_seconds\": chunk.end_seconds,\n                    \"audio\": ref.to_dict(),\n                }\n            )\n        return {\"duration_seconds\": document.duration_seconds, \"chunks\": chunks}\n\n\ndef _time(seconds):\n    milliseconds = round(seconds * 1000)\n    hours, milliseconds = divmod(milliseconds, 3600000)\n    minutes, milliseconds = divmod(milliseconds, 60000)\n    seconds, milliseconds = divmod(milliseconds, 1000)\n    return f\"{hours:02}:{minutes:02}:{seconds:02}.{milliseconds:03}\"\n\n\ndef run(block, inputs):\n    inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)\n    folder = Path(inputs.get(\"input_folder\") or \"\")\n    if not folder.is_absolute():\n        raise ValueError(\"An absolute staged audio folder is required\")\n    seconds = inputs.get(\"chunk_seconds\", 300)\n    if type(seconds) is not int or not 1 <= seconds <= 300:\n        raise ValueError(\"chunk_seconds must be 1\u2013300\")\n    inventory_path = block.root + \"/audio-inventory.json\"\n    inventory = block.read_checkpoint(\n        block.freeze_checkpoint(inventory_path, lambda: _snapshot(block, folder)),\n        expected_path=inventory_path,\n    )\n    declaration = source_manifest(__file__)[\"runtime\"][\"models\"][\"transcribe\"]\n    prepared_inputs = []\n    for item in inventory:\n        block.check()\n        prepared_path = block.root + \"/prepared-audio/\" + fingerprint(item[\"source\"]) + \".json\"\n        prepared = block.read_checkpoint(\n            block.freeze_checkpoint(prepared_path, lambda item=item: _chunks(block, item, seconds)),\n            expected_path=prepared_path,\n        )\n        prepared_inputs.append((item, prepared))\n    if sum(len(prepared[\"chunks\"]) for _, prepared in prepared_inputs) >= block.max_calls:\n        raise ValueError(\"Audio inventory exceeds the declared model call budget\")\n    writes, records = [], []\n    for item, prepared in prepared_inputs:\n        block.check()\n        sections, chunks, text_bytes = [], [], 0\n        for chunk in prepared[\"chunks\"]:\n            block.check()\n            request = build_transcription_request(block.store.read_bytes(chunk[\"audio\"]))\n            request[\"model\"] = declaration[\"model\"]\n            request[\"payload\"][\"model\"] = declaration[\"model_spec\"][\"api_model\"]\n            request[\"options\"].update(\n                provider=declaration[\"provider\"],\n                backend=declaration[\"backend\"],\n                model_spec=declaration[\"model_spec\"],\n            )\n            request[\"payload\"][\"messages\"][0][\"content\"][1][\"audio_url\"][\"url\"] = {\n                \"$artifact\": chunk[\"audio\"],\n                \"encoding\": \"data_uri\",\n                \"mime_type\": \"audio/wav\",\n            }\n            response = model_request(\n                block, request, key=fingerprint([item[\"source\"], chunk[\"index\"]])\n            )\n            text = parse_completion(response)\n            text_bytes += len(text.encode())\n            if text_bytes > 4 * 1024 * 1024:\n                raise ValueError(\"Transcript exceeds 4 MiB per recording\")\n            sections.append(\n                \"## \"\n                + _time(chunk[\"start_seconds\"])\n                + \" \u2013 \"\n                + _time(chunk[\"end_seconds\"])\n                + \"\\n\\n\"\n                + (text or \"[No transcript text returned for this chunk.]\")\n            )\n            chunks.append(\n                {\n                    \"index\": chunk[\"index\"],\n                    \"start_seconds\": chunk[\"start_seconds\"],\n                    \"end_seconds\": chunk[\"end_seconds\"],\n                    \"empty\": not bool(text),\n                }\n            )\n        markdown = (\n            \"# Audio transcript\\n\\nSource: \"\n            + item[\"source\"]\n            + \"\\n\\nSource SHA-256: \"\n            + item[\"source_sha256\"]\n            + \"\\n\\nModel: \"\n            + SOURCE_MODEL\n            + \"\\n\\nModel revision: \"\n            + MODEL_REVISION\n            + \"\\n\\nTimes label input chunks; they are not word alignments. Chunk boundaries may split words.\\n\\n\"\n            + \"\\n\\n\".join(sections)\n            + \"\\n\"\n        )\n        path = \"transcripts/\" + item[\"source\"] + \".md\"\n        transcript = block.store.commit_bytes(path, markdown.encode(), kind=\"markdown\")\n        writes.append(\n            ArtifactWrite(\n                \"transcript-\" + fingerprint(item[\"source\"]),\n                path,\n                block.store.read_bytes(transcript),\n                kind=\"markdown\",\n                authoritative=True,\n            )\n        )\n        records.append(\n            {\n                \"source\": item[\"source\"],\n                \"source_sha256\": item[\"source_sha256\"],\n                \"duration_seconds\": prepared[\"duration_seconds\"],\n                \"transcript\": transcript.to_dict(),\n                \"chunks\": chunks,\n            }\n        )\n    report = {\n        \"schema\": \"mn.nvidia_transcribe.batch.v1\",\n        \"source_model\": SOURCE_MODEL,\n        \"model_revision\": MODEL_REVISION,\n        \"file_count\": len(records),\n        \"files\": records,\n    }\n    reference = block.store.commit(\"transcription_result.json\", report, kind=\"transcription_result\")\n    writes.append(\n        ArtifactWrite(\n            \"transcription_result\",\n            \"transcription_result.json\",\n            block.store.read_bytes(reference),\n            kind=\"transcription_result\",\n            authoritative=True,\n        )\n    )\n    publish_artifact_bundle(block, writes, receipt_path=block.root + \"/publication.json\")\n    return {\"report\": reference.to_dict(), \"file_count\": len(records)}\n",
+    "payloads/model/Dockerfile": "# Separate model service: workers use Python 3.12; the upstream serving lock uses 3.13.\nFROM nvidia/cuda:13.2.0-devel-ubuntu24.04\nRUN apt-get update && apt-get install -y --no-install-recommends \\\n    git ca-certificates curl build-essential libsndfile1 libgomp1 && rm -rf /var/lib/apt/lists/*\nCOPY --from=ghcr.io/astral-sh/uv:0.9.9 /uv /uvx /usr/local/bin/\nRUN git init /opt/nemo && git -C /opt/nemo remote add origin https://github.com/NVIDIA-NeMo/Speech.git && \\\n    git -C /opt/nemo fetch --depth 1 origin 9b3fc483286e428e93d4426fb08599e89b8d46e3 && \\\n    git -C /opt/nemo checkout --detach FETCH_HEAD\nWORKDIR /opt/nemo\nRUN --mount=type=cache,target=/root/.cache/uv uv venv --python 3.13 .venv && \\\n    UV_PROJECT_ENVIRONMENT=/opt/nemo/.venv uv sync --extra asr --extra vllm --locked --no-install-project && \\\n    uv pip install --python .venv/bin/python --no-deps -e .\n# Ignore the training project's OpenCV exclusion for these explicitly required extras.\nRUN --mount=type=cache,target=/root/.cache/uv uv --no-config pip install --python .venv/bin/python --no-deps av==19.0.2 opencv-python-headless==5.0.0.93\n# Cross builds check metadata without executing target CUDA/CPU kernels in QEMU.\nRUN .venv/bin/python -c \"import importlib.metadata as m; assert m.version('vllm') == '0.32.0'; assert m.version('opencv-python-headless') == '5.0.0.93'; assert any(e.name == 'nemo_speechlm' for e in m.entry_points(group='vllm.general_plugins'))\"\nCOPY serve.py /opt/serve.py\nENV PATH=/opt/nemo/.venv/bin:/usr/local/cuda/bin:${PATH} \\\n    HF_HOME=/cache/huggingface HF_HUB_DISABLE_TELEMETRY=1 DO_NOT_TRACK=1 \\\n    VLLM_PLUGINS=nemo_speechlm VLLM_MAX_AUDIO_DECODE_DURATION_S=3600 \\\n    VLLM_MAX_AUDIO_CLIP_FILESIZE_MB=180 VLLM_USE_V2_MODEL_RUNNER=0 \\\n    VLLM_DISABLED_KERNELS=FlashInferFP8ScaledMMLinearKernel\nEXPOSE 8000\nENTRYPOINT [\"/opt/nemo/.venv/bin/python\", \"/opt/serve.py\"]\n",
+    "payloads/model/serve.py": "\"\"\"Trusted serving entrypoint; only SDK first-use startup reaches this code.\"\"\"\n\nimport os\n\nSOURCE_MODEL = \"nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4\"\nMODEL_REVISION = \"66c6adc4020179567074d0399cda2a4eeb2bb347\"\n\n\ndef main():\n    import torch\n\n    if not torch.cuda.is_available() or torch.cuda.get_device_capability()[0] not in {\n        10,\n        12,\n    }:\n        raise RuntimeError(\"This exact NVFP4 checkpoint requires NVIDIA Blackwell\")\n    from huggingface_hub import snapshot_download\n\n    # Never fetch the BF16/FP8 siblings or an unpinned main revision.\n    directory = snapshot_download(\n        repo_id=SOURCE_MODEL, revision=MODEL_REVISION, max_workers=4\n    )\n    command = [\n        \"/opt/nemo/.venv/bin/vllm\",\n        \"serve\",\n        directory,\n        \"--served-model-name\",\n        SOURCE_MODEL,\n        \"--host\",\n        \"0.0.0.0\",\n        \"--port\",\n        \"8000\",\n        \"--trust-remote-code\",\n        \"--dtype\",\n        \"bfloat16\",\n        \"--kv-cache-dtype\",\n        \"fp8\",\n        \"--gpu-memory-utilization\",\n        \"0.85\",\n        \"--max-model-len\",\n        \"65536\",\n        \"--max-num-batched-tokens\",\n        \"4096\",\n        \"--max-num-seqs\",\n        \"64\",\n        \"--enable-chunked-prefill\",\n        \"--no-enable-prefix-caching\",\n        \"--use-replayssm\",\n        \"--mamba-backend\",\n        \"flashinfer\",\n        \"--mamba-cache-mode\",\n        \"none\",\n        \"--mm-processor-cache-gb\",\n        \"0\",\n        \"--no-async-scheduling\",\n        \"--limit-mm-per-prompt\",\n        '{\"audio\":{\"count\":1,\"length\":57600000}}',\n        \"--speculative-config\",\n        '{\"method\":\"mtp\",\"num_speculative_tokens\":8}',\n        \"--reasoning-parser\",\n        \"nemotron_v3\",\n    ]\n    os.execv(command[0], command)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "payloads/prompts/setup.md": "Ask for an audio folder or offer the bundled Bdb001.interaction.wav recording as a sample. Keep user recordings private. Require a Blackwell NVIDIA GPU; the default profile requires 96 GiB GPU memory. Do not promise speaker identity or word-level timestamps.\n",
+    "tests/test_transcription.py": "\"\"\"Compiled worker, complete chunk coverage, replay and failure tests.\"\"\"\n\nimport io\nimport json\nimport sys\nimport wave\nfrom pathlib import Path\nfrom types import SimpleNamespace\n\nimport pytest\nfrom mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config\nfrom mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor\nfrom mn_sdk.integrations.block_worker import run\nfrom mn_sdk.step_runtime import StepContext\nfrom mn_sdk_common.committed_artifacts import CommittedJsonStore\n\nROOT = Path(__file__).resolve().parents[1]\n\n\n@pytest.fixture\ndef worker(tmp_path, monkeypatch):\n    monkeypatch.syspath_prepend(str(ROOT / \"payloads\"))\n    for name in list(sys.modules):\n        if name == \"domain\" or name.startswith(\"domain.\"):\n            monkeypatch.delitem(sys.modules, name)\n    package = read_blueprint(ROOT)\n    config = resolve_config(package)\n    compiled = compile_blueprint(package, config).manifest\n    descriptor = tmp_path / \"manifest.json\"\n    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, config)))\n    node = next(\n        n\n        for n in compiled[\"agents\"][\"nodes\"]\n        if n.get(\"config\", {}).get(\"environment\", {}).get(\"MN_WORKFLOW_STEP_HANDLER\")\n        == \"mn_sdk.integrations.block_worker\"\n    )\n    parameters = json.loads(node[\"config\"][\"environment\"][\"MN_WORKFLOW_STEP_WITH_JSON\"])\n    environment = {\n        \"MN_RUN_DIR\": str(tmp_path / \"run\"),\n        \"MN_BLUEPRINT_MANIFEST_PATH\": str(descriptor),\n        \"MN_SDK_COMPONENTS_JSON\": '[\"blueprint-blocks\"]',\n    }\n    for key, value in environment.items():\n        monkeypatch.setenv(key, value)\n    folder = tmp_path / \"audio\"\n    folder.mkdir()\n    output = io.BytesIO()\n    with wave.open(output, \"wb\") as handle:\n        handle.setparams((1, 2, 16000, 0, \"NONE\", \"not compressed\"))\n        handle.writeframes(b\"\\0\\0\" * 36000)\n    (folder / \"sample.wav\").write_bytes(output.getvalue())\n    calls = []\n\n    def request(*args, **options):\n        calls.append((args, options))\n        return {\n            \"choices\": [\n                {\n                    \"finish_reason\": \"stop\",\n                    \"message\": {\n                        \"role\": \"assistant\",\n                        \"content\": \"Synthetic transcript \" + str(len(calls)),\n                    },\n                }\n            ]\n        }\n\n    monkeypatch.setattr(\n        \"mn_sdk.integrations.block_model_request.runtime_model_json_request\", request\n    )\n    inputs = {\"input_folder\": str(folder), \"chunk_seconds\": 1}\n\n    def execute():\n        return run(\n            StepContext(\n                step_id=\"transcribe_audio_folder\",\n                agent_id=node[\"node_id\"],\n                run_id=\"audio-test\",\n                idempotency_key=\"audio-test/transcribe\",\n                config=config.data,\n                environment=environment,\n                message={\"body\": {\"step_input\": inputs}},\n            ),\n            **parameters,\n        )\n\n    return SimpleNamespace(\n        execute=execute,\n        calls=calls,\n        store=CommittedJsonStore(tmp_path / \"run\"),\n        folder=folder,\n        inputs=inputs,\n    )\n\n\ndef test_complete_markdown_transcripts_and_replay(worker):\n    first = worker.execute()\n    assert worker.execute() == first\n    assert len(worker.calls) == 3\n    saved = worker.store.read_path(\"transcription_result.json\")\n    record = saved[\"files\"][0]\n    assert record[\"duration_seconds\"] == 2.25\n    assert [(p[\"start_seconds\"], p[\"end_seconds\"]) for p in record[\"chunks\"]] == [\n        (0, 1),\n        (1, 2),\n        (2, 2.25),\n    ]\n    text = worker.store.path(\"transcripts/sample.wav.md\").read_text()\n    assert all(\"Synthetic transcript \" + str(n) in text for n in (1, 2, 3))\n    assert \"00:00:02.250\" in text\n    args, options = worker.calls[0]\n    assert args[2] == \"/chat/completions\"\n    assert args[3][\"messages\"][0][\"content\"][1][\"audio_url\"][\"url\"].startswith(\n        \"data:audio/wav;base64,\"\n    )\n    assert options[\"num_retries\"] == 0\n    assert options[\"model_spec\"][\"docker\"][\"cache_path\"] == \"/cache\"\n    assert \"Synthetic transcript\" not in json.dumps(first.outputs)\n\n\ndef test_publication_failure_recovers_without_repeating_audio_inference(worker, monkeypatch):\n    import domain.transcription as domain\n\n    with monkeypatch.context() as patch:\n        patch.setattr(\n            domain,\n            \"publish_artifact_bundle\",\n            lambda *a, **k: (_ for _ in ()).throw(OSError(\"interrupted delivery\")),\n        )\n        with pytest.raises(OSError):\n            worker.execute()\n    (worker.folder / \"sample.wav\").write_bytes(b\"changed source after durable capture\")\n    worker.execute()\n    assert len(worker.calls) == 3\n    assert worker.store.path(\"transcription_result.json\").exists()\n\n\ndef test_truncated_completion_never_publishes_complete_batch(worker, monkeypatch):\n    def request(*args, **options):\n        worker.calls.append(args)\n        return {\"choices\": [{\"finish_reason\": \"length\", \"message\": {\"content\": \"Partial words\"}}]}\n\n    monkeypatch.setattr(\n        \"mn_sdk.integrations.block_model_request.runtime_model_json_request\", request\n    )\n    for _ in range(2):\n        with pytest.raises(ValueError, match=\"truncated\"):\n            worker.execute()\n    assert len(worker.calls) == 1\n    assert not worker.store.path(\"transcription_result.json\").exists()\n\n\ndef test_empty_folder_never_prepares_model(worker):\n    (worker.folder / \"sample.wav\").unlink()\n    with pytest.raises(ValueError, match=\"no supported\"):\n        worker.execute()\n    assert not worker.calls\n\n\ndef test_sample_is_complete_original_recording():\n    metadata = json.loads((ROOT / \"examples/sample_source.json\").read_text())\n    path = ROOT / \"examples/sample_inputs/Bdb001.interaction.wav\"\n    if not path.exists():\n        pytest.skip(\"Binary sample is staged immediately after Synapsy creation\")\n    import hashlib\n\n    assert hashlib.sha256(path.read_bytes()).hexdigest() == metadata[\"sha256\"]\n    with wave.open(str(path)) as audio:\n        assert audio.getnframes() / audio.getframerate() == metadata[\"duration_seconds\"]\n\n\ndef test_declared_local_staging_preserves_audio_files(tmp_path):\n    from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads\n\n    folder = tmp_path / \"staged-audio\"\n    folder.mkdir()\n    (folder / \"recording.wav\").write_bytes(b\"fake-wav-for-staging\")\n    (folder / \"recording.mp3\").write_bytes(b\"fake-mp3-for-staging\")\n    (folder / \"notes.md\").write_text(\"not an audio input\")\n    config = json.loads((ROOT / \"config/default.json\").read_text())\n    config[\"inputs\"][\"payload\"][\"input_folder\"] = str(folder)\n    payloads = {}\n    report = stage_local_input_payloads(config, payloads, bundle_dir=ROOT)\n    assert report[\"folders\"][0][\"file_count\"] == 2\n    assert {Path(name).suffix for name in payloads} == {\".wav\", \".mp3\"}\n"
+  },
+  "id": "nvidia_transcribe",
+  "license": "LICENSE.md",
+  "name": "NVIDIA Transcribe",
+  "payload_api": "mn.blueprint.v1",
+  "plan_version": "synapsy.plan.v1",
+  "rationale": "One bounded stock block composes reusable transcription mechanics, SDK file capture and durable model requests; the model stays on its admitted Blackwell node.",
+  "references": [
+    "mn.blocks.domain_operation@1",
+    "mirrorneuron-nvidia-transcribe-skill",
+    "mn-agents.worker.python_docker@1"
+  ],
+  "sandbox": "Stock Docker workers read only the explicitly staged audio folder and write through SDK stores. FFmpeg processes bounded local bytes without shell invocation. The independent, pinned CUDA serving image executes trusted vLLM/NeMo startup and requires Blackwell. The SDK owns model installation and effect journals; audio and the bundled sample are excluded from the public image build context. Model and workers reuse the admitted Job GPU allocation.",
+  "tagline": "Turn an audio folder into complete Markdown transcripts",
+  "terms": "TERM.md",
+  "version": "0.1.0",
+  "workflow": {
+    "execution": {
+      "max_parallel_steps": 1,
+      "strategy": "serial"
+    },
+    "mode": "static_dag",
+    "steps": [
+      {
+        "control": {
+          "retry": {
+            "max_attempts": 1
+          },
+          "timeout_seconds": 3600
+        },
+        "goal": "Transcribe every recording completely and publish Markdown with source/coverage receipts.",
+        "id": "transcribe_audio_folder",
+        "kind": "stage",
+        "label": "Transcribe audio folder",
+        "needs": []
+      }
+    ],
+    "workflow_id": "nvidia_transcribe_v1"
+  }
+}

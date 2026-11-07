@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "execution": {
+    "max_parallel_steps": 1,
+    "strategy": "serial"
+  },
+  "mode": "static_dag",
+  "steps": [
+    {
+      "control": {
+        "retry": {
+          "max_attempts": 1
+        },
+        "timeout_seconds": 3600
+      },
+      "goal": "Read every page and publish verified OCR artifacts.",
+      "id": "extract_document_text",
+      "kind": "stage",
+      "label": "Extract document text",
+      "needs": []
+    }
+  ],
+  "workflow_id": "nvidia_ocr_v1"
+}

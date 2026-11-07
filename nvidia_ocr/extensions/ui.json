@@ -1,0 +1,54 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "setup_guide": {
+    "fields": [
+      {
+        "label": "Document",
+        "path": "inputs.payload.document_file",
+        "path_kind": "file",
+        "required": true,
+        "role": "input",
+        "type": "local_path"
+      },
+      {
+        "choices": [
+          {
+            "label": "Paragraph",
+            "value": "paragraph"
+          },
+          {
+            "label": "Sentence",
+            "value": "sentence"
+          },
+          {
+            "label": "Word",
+            "value": "word"
+          }
+        ],
+        "default": "paragraph",
+        "label": "Text grouping",
+        "path": "inputs.payload.merge_level",
+        "required": false,
+        "type": "text"
+      }
+    ],
+    "introduction": "Select an image or PDF. Requires an NVIDIA CUDA GPU with at least 48 GiB memory on Linux amd64.",
+    "prompt_file": "@/payloads/prompts/setup.md",
+    "real": {
+      "values": {}
+    },
+    "sample": {
+      "available": true,
+      "expected_output": "Text including NVIDIA OCR sample and Invoice total: 42.00 USD, with page regions.",
+      "values": {
+        "inputs.payload.document_file": "@/examples/sample.pdf"
+      }
+    },
+    "schema": "otterdesk.setup_guide.v1"
+  },
+  "starter_questions": [
+    "What documents can you read?",
+    "How do I try the sample?",
+    "Where are my OCR results?"
+  ]
+}

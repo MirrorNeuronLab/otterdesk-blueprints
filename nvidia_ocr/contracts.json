@@ -1,0 +1,162 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "inputs": {
+    "document_file": {
+      "description": "PNG, JPEG, single-frame TIFF, BMP, WebP or PDF, up to 32 MiB and 50 PDF pages.",
+      "path_kind": "file",
+      "required": true,
+      "type": "local_path"
+    },
+    "merge_level": {
+      "description": "paragraph, sentence or word; defaults to paragraph.",
+      "required": false,
+      "type": "string"
+    },
+    "output_folder": {
+      "path_kind": "directory",
+      "required": false,
+      "type": "local_path"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "text",
+        "path": "text.txt"
+      },
+      {
+        "artifact_id": "markdown",
+        "path": "document.md"
+      }
+    ],
+    "primary": {
+      "id": "ocr_result",
+      "path": "ocr_result.json",
+      "schema": {
+        "additionalProperties": false,
+        "properties": {
+          "input_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "type": "string"
+          },
+          "merge_level": {
+            "enum": [
+              "paragraph",
+              "sentence",
+              "word"
+            ]
+          },
+          "model_revision": {
+            "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
+          },
+          "pages": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "height": {
+                  "maximum": 25000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "page_number": {
+                  "maximum": 50,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "regions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "bbox": {
+                        "items": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "maxItems": 4,
+                        "minItems": 4,
+                        "type": "array"
+                      },
+                      "confidence": {
+                        "maximum": 1,
+                        "minimum": 0,
+                        "type": "number"
+                      },
+                      "text": {
+                        "maxLength": 4194304,
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "text",
+                      "confidence",
+                      "bbox"
+                    ],
+                    "type": "object"
+                  },
+                  "maxItems": 10000,
+                  "type": "array"
+                },
+                "text": {
+                  "maxLength": 4194304,
+                  "type": "string"
+                },
+                "width": {
+                  "maximum": 25000000,
+                  "minimum": 1,
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "page_number",
+                "width",
+                "height",
+                "text",
+                "regions"
+              ],
+              "type": "object"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "type": "array"
+          },
+          "schema": {
+            "const": "mn.nvidia_ocr.result.v1"
+          },
+          "source_model": {
+            "const": "nvidia/nemotron-ocr-v2"
+          },
+          "variant": {
+            "const": "v2_multilingual"
+          },
+          "warnings": {
+            "items": {
+              "maxLength": 100,
+              "type": "string"
+            },
+            "maxItems": 50,
+            "type": "array"
+          }
+        },
+        "required": [
+          "schema",
+          "source_model",
+          "model_revision",
+          "variant",
+          "input_sha256",
+          "merge_level",
+          "pages",
+          "warnings"
+        ],
+        "type": "object"
+      },
+      "schema_version": "mn.nvidia_ocr.result.v1"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled"
+  },
+  "summary": "Complete OCR text with source provenance and page regions."
+}

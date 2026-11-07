@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "execution": {
+    "max_parallel_steps": 1,
+    "strategy": "serial"
+  },
+  "mode": "static_dag",
+  "steps": [
+    {
+      "control": {
+        "retry": {
+          "max_attempts": 1
+        },
+        "timeout_seconds": 3600
+      },
+      "goal": "Transcribe every recording completely and publish Markdown with source/coverage receipts.",
+      "id": "transcribe_audio_folder",
+      "kind": "stage",
+      "label": "Transcribe audio folder",
+      "needs": []
+    }
+  ],
+  "workflow_id": "nvidia_transcribe_v1"
+}

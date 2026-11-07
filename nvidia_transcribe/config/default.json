@@ -1,0 +1,27 @@
+{
+  "inputs": {
+    "payload": {
+      "chunk_seconds": 300,
+      "input_folder": "@/examples/sample_inputs"
+    }
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "allowed_extensions": [
+          ".wav",
+          ".flac",
+          ".mp3",
+          ".ogg",
+          ".m4a"
+        ],
+        "config_path": "inputs.payload.input_folder",
+        "payload_path": "mn_local_inputs/audio",
+        "runtime_path": "mn_local_inputs/audio"
+      }
+    ]
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/nvidia-transcribe"
+  }
+}

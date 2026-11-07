@@ -9,5 +9,7 @@
   "ros_amr_controller",
   "mac_security_investigator",
   "ct_reader",
-  "web_lab_operator"
+  "web_lab_operator",
+  "nvidia_ocr",
+  "nvidia_transcribe"
 ]

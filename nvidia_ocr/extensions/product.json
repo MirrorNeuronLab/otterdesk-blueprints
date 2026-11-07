@@ -1,0 +1,10 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Other",
+  "product": {
+    "agent_role": "OCR specialist",
+    "how_it_works": "Uses NVIDIA Nemotron OCR v2 on a managed CUDA node and saves complete results.",
+    "input": "One image or PDF",
+    "output": "Complete text, Markdown and page regions"
+  }
+}

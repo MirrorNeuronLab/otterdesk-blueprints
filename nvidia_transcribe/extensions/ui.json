@@ -1,0 +1,33 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "setup_guide": {
+    "fields": [
+      {
+        "label": "Audio folder",
+        "path": "inputs.payload.input_folder",
+        "path_kind": "directory",
+        "required": true,
+        "role": "input",
+        "type": "local_path"
+      }
+    ],
+    "introduction": "Choose an audio folder. Requires NVIDIA Blackwell; the default profile uses 96 GiB GPU memory.",
+    "prompt_file": "@/payloads/prompts/setup.md",
+    "real": {
+      "values": {}
+    },
+    "sample": {
+      "available": true,
+      "expected_output": "A complete Markdown transcript of Bdb001.interaction.wav and a coverage/provenance index.",
+      "values": {
+        "inputs.payload.input_folder": "@/examples/sample_inputs"
+      }
+    },
+    "schema": "otterdesk.setup_guide.v1"
+  },
+  "starter_questions": [
+    "How do I transcribe a folder?",
+    "Can I try the included recording?",
+    "Where are my Markdown transcripts?"
+  ]
+}

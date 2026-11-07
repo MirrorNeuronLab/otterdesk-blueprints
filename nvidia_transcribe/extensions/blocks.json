@@ -1,0 +1,65 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "transcribe_audio_folder": {
+      "hooks": {
+        "operation": "domain.transcription:run"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chunk_seconds": {
+            "maximum": 300,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "input_folder": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_folder"
+        ],
+        "type": "object"
+      },
+      "inputs": {
+        "chunk_seconds": {
+          "$ref": "run_input",
+          "path": [
+            "chunk_seconds"
+          ]
+        },
+        "input_folder": {
+          "$ref": "run_input",
+          "path": [
+            "input_folder"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 2500,
+        "timeout_seconds": 3600
+      },
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "file_count": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "report": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "report",
+          "file_count"
+        ],
+        "type": "object"
+      },
+      "uses": "mn.blocks.domain_operation@1"
+    }
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "blueprint": "/Users/homer/Projects/otterdesk-blueprints/nvidia_transcribe",
+  "checks": {
+    "blocks": "completed against selected SDK catalog",
+    "dependencies": "completed against selected catalogs",
+    "execution": "completed against frozen SDK defaults and selected agent templates",
+    "live_runtime": "not run: models, services, devices and domain correctness require live qualification",
+    "payload_execution": "not run: static inspection never imports or executes blueprint code",
+    "schemas": "completed: all readable role documents inspected",
+    "sdk_compile": "passed; no runtime submission performed",
+    "source": "completed: AST, file references, and credential patterns",
+    "topology": "completed"
+  },
+  "files": [
+    "LICENSE.md",
+    "README.md",
+    "SPEC.md",
+    "TERM.md",
+    "config/default.json",
+    "contracts.json",
+    "dependencies.json",
+    "examples/sample_inputs/Bdb001.interaction.wav",
+    "examples/sample_inputs/README.md",
+    "examples/sample_source.json",
+    "execution.json",
+    "extensions/blocks.json",
+    "extensions/context.json",
+    "extensions/mcp.json",
+    "extensions/product.json",
+    "extensions/rag.json",
+    "extensions/response.json",
+    "extensions/ui.json",
+    "knowledge/user_manual.md",
+    "manifest.json",
+    "payloads/docker_worker/Dockerfile",
+    "payloads/domain/__init__.py",
+    "payloads/domain/transcription.py",
+    "payloads/model/Dockerfile",
+    "payloads/model/serve.py",
+    "payloads/prompts/setup.md",
+    "tests/test_transcription.py",
+    "workflow.json"
+  ],
+  "findings": [
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mirrorneuron-python-sdk uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/0/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-common uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/1/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-blueprint-blocks uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/2/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-mcp uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/3/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-job-response uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/4/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-rag uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/5/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mirrorneuron-nvidia-transcribe-skill uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/skills/0/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-worker-python-docker-agent uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/agents/0/version",
+      "severity": "info"
+    }
+  ],
+  "metrics": {
+    "block_instances": 1,
+    "catalog_fingerprint": "19767f6f7aa28fed7640d13e0685af9bed7300e14f8f8425f9856952c72d2f0b",
+    "compiled_fingerprint": "811295e5362ece40350eae7d27e36d9bcfd1ffb6110d9a805e19d9535719dcf5",
+    "declared_dependencies": 8,
+    "entry_steps": [
+      "transcribe_audio_folder"
+    ],
+    "files": 28,
+    "logical_steps": 1,
+    "name_characters": 17,
+    "output_artifacts": 2,
+    "physical_nodes": 0,
+    "python_files": 4,
+    "python_lines": 453,
+    "schema_fingerprint": "2730507527623b9beec0c851ad1a61277fb02fc83c0b102a52f3f68b61d61d86",
+    "tagline_characters": 55,
+    "tagline_limit": 80,
+    "terminal_steps": [
+      "transcribe_audio_folder"
+    ]
+  },
+  "report_version": "synapsy.verify.v1",
+  "schema_source": "/Users/homer/Projects/mirror-neuron-set/mn-python-sdk/mn_sdk/blueprints/schemas",
+  "summary": {
+    "error": 0,
+    "info": 8,
+    "warning": 0
+  },
+  "valid": true
+}

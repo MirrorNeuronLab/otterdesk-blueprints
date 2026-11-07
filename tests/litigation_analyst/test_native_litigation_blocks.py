@@ -150,6 +150,11 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     assert published['status'] == 'draft_for_human_review'
     assert case.original in case.store.path('evidence_appendix.md').read_text()
     assert 'Approval notice' in case.store.path('final_report.md').read_text()
+    text_summary = case.store.path('run_summary.md').read_text()
+    assert 'Approval notice' in text_summary and 'Draft excerpt:' in text_summary
+    assert '## Output files' in text_summary and '## Your next review' in text_summary
+    assert len(text_summary.encode()) < 16 * 1024
+    assert 'run_summary.md' in {f['path'] for f in published['files']}
     assert case.store.path('case/workspace.json').exists()
     assert bool(published['web_ui']) is not ui_failure
     summary_path = case.store.path('data/chat-summary.json')
@@ -165,7 +170,7 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     downloads = output_metadata(case.store.run_dir)
     assert {item['name'] for item in downloads} == {
         'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
-        'transaction_appendix.md', 'review_index.json',
+        'transaction_appendix.md', 'review_index.json', 'run_summary.md',
     }
     for item in downloads:
         data = Path(item['path']).read_bytes()
@@ -239,7 +244,7 @@ def test_compiled_case_uses_real_sdk_fake_models_through_planning_and_publicatio
     assert case.execute('write_review_draft', {'previous': terminal}) == result
     assert {item['name'] for item in output_metadata(case.store.run_dir)} == {
         'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
-        'transaction_appendix.md', 'review_index.json',
+        'transaction_appendix.md', 'review_index.json', 'run_summary.md',
     }
 
 

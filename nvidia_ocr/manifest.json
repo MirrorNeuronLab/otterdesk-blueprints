@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "config": "config/default.json",
+  "contracts": "contracts.json",
+  "dependencies": "dependencies.json",
+  "description": "Extract complete page text, confidence scores and bounding boxes from one image or PDF using lazy NVIDIA Nemotron OCR v2 on a 48 GiB CUDA GPU.",
+  "execution": "execution.json",
+  "extensions": {
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  },
+  "id": "nvidia_ocr",
+  "license": "LICENSE.md",
+  "name": "NVIDIA OCR",
+  "payload_api": "mn.blueprint.v1",
+  "tagline": "Turn document images and PDFs into text with NVIDIA OCR",
+  "terms": "TERM.md",
+  "version": "0.1.0",
+  "workflow": "workflow.json"
+}

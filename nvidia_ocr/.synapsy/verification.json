@@ -1,0 +1,171 @@
+{
+  "blueprint": "/Users/homer/Projects/otterdesk-blueprints/nvidia_ocr",
+  "checks": {
+    "blocks": "completed against selected SDK catalog",
+    "dependencies": "completed against selected catalogs",
+    "execution": "completed against frozen SDK defaults and selected agent templates",
+    "live_runtime": "not run: models, services, devices and domain correctness require live qualification",
+    "payload_execution": "not run: static inspection never imports or executes blueprint code",
+    "schemas": "completed: all readable role documents inspected",
+    "sdk_compile": "passed; no runtime submission performed",
+    "source": "completed: AST, file references, and credential patterns",
+    "topology": "completed"
+  },
+  "files": [
+    "LICENSE.md",
+    "README.md",
+    "SPEC.md",
+    "TERM.md",
+    "config/default.json",
+    "contracts.json",
+    "dependencies.json",
+    "examples/sample.pdf",
+    "execution.json",
+    "extensions/blocks.json",
+    "extensions/context.json",
+    "extensions/mcp.json",
+    "extensions/product.json",
+    "extensions/rag.json",
+    "extensions/response.json",
+    "extensions/ui.json",
+    "knowledge/user_manual.md",
+    "manifest.json",
+    "payloads/docker_worker/Dockerfile",
+    "payloads/domain/__init__.py",
+    "payloads/domain/ocr.py",
+    "payloads/model/Dockerfile",
+    "payloads/model/serve.py",
+    "payloads/prompts/setup.md",
+    "payloads/skills/nvidia_ocr_skill/README.md",
+    "payloads/skills/nvidia_ocr_skill/pyproject.toml",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/__init__.py",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/backend.py",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/client.py",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/contracts.py",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/server.py",
+    "tests/test_ocr.py",
+    "workflow.json"
+  ],
+  "findings": [
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mirrorneuron-python-sdk uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/0/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-common uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/1/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-blueprint-blocks uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/2/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-mcp uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/3/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-job-response uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/4/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-python-sdk-rag uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/packages/5/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mirrorneuron-nvidia-ocr-skill uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/skills/0/version",
+      "severity": "info"
+    },
+    {
+      "category": "dependencies",
+      "code": "dependency.range",
+      "fix": "",
+      "line": null,
+      "message": "mn-worker-python-docker-agent uses a release range; exact pins improve reproducibility",
+      "path": "dependencies.json",
+      "pointer": "/agents/0/version",
+      "severity": "info"
+    },
+    {
+      "category": "security",
+      "code": "security.execution",
+      "fix": "Use the runtime's declared sandbox and bounded execution contracts",
+      "line": 35,
+      "message": "Dynamic code or shell execution needs worker isolation and review",
+      "path": "payloads/model/serve.py",
+      "pointer": "",
+      "severity": "warning"
+    }
+  ],
+  "metrics": {
+    "block_instances": 1,
+    "catalog_fingerprint": "19767f6f7aa28fed7640d13e0685af9bed7300e14f8f8425f9856952c72d2f0b",
+    "compiled_fingerprint": "368d19ba88b3f9a3af872dba34c2f20b0c80cd1f0b367e076b0951e4f4855c6e",
+    "declared_dependencies": 8,
+    "entry_steps": [
+      "extract_document_text"
+    ],
+    "files": 33,
+    "logical_steps": 1,
+    "name_characters": 10,
+    "output_artifacts": 3,
+    "physical_nodes": 0,
+    "python_files": 9,
+    "python_lines": 840,
+    "schema_fingerprint": "2730507527623b9beec0c851ad1a61277fb02fc83c0b102a52f3f68b61d61d86",
+    "tagline_characters": 55,
+    "tagline_limit": 80,
+    "terminal_steps": [
+      "extract_document_text"
+    ]
+  },
+  "report_version": "synapsy.verify.v1",
+  "schema_source": "/Users/homer/Projects/mirror-neuron-set/mn-python-sdk/mn_sdk/blueprints/schemas",
+  "summary": {
+    "error": 0,
+    "info": 8,
+    "warning": 1
+  },
+  "valid": true
+}

@@ -115,17 +115,63 @@ def test_no_authorized_sources_stops_without_inference(modules, tmp_path):
     assert not model.calls
 
 
-def test_no_planning_capacity_marks_incomplete_without_inference(dynamic_case, modules, monkeypatch):
+def test_no_planning_capacity_fails_before_reporting_completion(dynamic_case, monkeypatch):
     from domain import round_planning
     context, ref = dynamic_case
     monkeypatch.setattr(round_planning, 'evidence_room', lambda *args: 0)
     model = RoundModel()
-    result = round_planning.plan_round(context, {'context':ref, '_child':{'revision':0}}, llm_client=model)
-    assert result['child_plan']['output']['stop_reason'] == 'planning_source_context_unavailable'
+    with pytest.raises(ValueError, match='Case analysis did not start'):
+        round_planning.plan_round(context, {'context':ref, '_child':{'revision':0}}, llm_client=model)
     assert not model.calls
+    assert not (context['run_dir']/'case/terminal.json').exists()
+    assert not (context['run_dir']/'case/rounds/plan-00.json').exists()
+
+
+def test_large_inventory_cannot_crowd_out_first_pass_analysis(modules, tmp_path):
+    from domain.round_state import initialize
+    from domain.round_planning import plan_round
+    from test_dynamic_rounds import execute_round
+    folder = tmp_path/'input'
+    folder.mkdir()
+    for i in range(40):
+        (folder / (f'{i:03d}-' + 'correspondence-record-' * 4 + '.txt')).write_text(
+            f'Record {i}: Approval notice. Routine duties explain the correspondence. '
+            'The approval scope remains unresolved.')
+    context = make_context(tmp_path, folder)
+    context['config']['review']['profile'] = 'first_pass'
+    modules['intake'].prepare_sources(context)
+    modules['indexing'].build_indexes(context)
+    ref = initialize(context)[0]['context']
+    model = RoundModel()
+    plan = plan_round(context, {'context':ref, '_child':{'revision':0}}, llm_client=model)
+    assert plan['child_plan']['decision'] == 'execute'
+    overview = model.calls[0]['source_overview']
+    assert overview['authorized_readable_sources'] == 40
+    assert overview['samples'] and not overview['exhaustive']
+    execute_round(context, ref, plan, model)
+    plan_round(context, {'context':ref, '_child':{'revision':1}}, llm_client=model)
+    assert [call['stage'] for call in model.calls] == ['plan', 'assess', 'review']
     modules['reporting'].write_review(context)
-    workspace = json.loads((context['run_dir']/'case/workspace.json').read_text())
-    assert workspace['analysis']['status'] == 'Incomplete analysis'
+    assert 'Approval notice' in (context['run_dir']/'final_report.md').read_text()
+
+
+def test_discovery_accounts_for_escaped_unicode_and_tries_unsampled_sources(modules, tmp_path):
+    from domain.round_state import initialize, load
+    from domain.planning_context import discover, _spread
+    folder = tmp_path/'input'
+    folder.mkdir()
+    preferred = set(_spread(list(range(20)), 8))
+    for i in range(20):
+        (folder/f'{i:02d}.txt').write_text(f'{i} ' + '界' * 1500 if i in preferred else f'批准 {i}: USD 12,500 requires review.')
+    context = make_context(tmp_path, folder)
+    modules['intake'].prepare_sources(context)
+    modules['indexing'].build_indexes(context)
+    frozen = load(context['run_dir'], initialize(context)[0]['context'])
+    packet = discover(context['run_dir'], frozen, 1800)
+    assert packet['distinct_contents'] == 20
+    assert packet['samples']
+    assert len(json.dumps(packet).encode()) <= 1800
+    assert any('USD 12,500' in p['text'] for s in packet['samples'] for p in s['passages'])
 
 
 def test_tampered_index_never_reaches_planner(dynamic_case):

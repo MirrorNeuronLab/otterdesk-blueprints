@@ -1,0 +1,67 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "inputs": {
+    "chunk_seconds": {
+      "description": "1–300 seconds; default 300.",
+      "required": false,
+      "type": "integer"
+    },
+    "input_folder": {
+      "description": "WAV, FLAC, MP3, OGG or M4A folder; up to 100 files, 2 GiB total and two hours per file.",
+      "path_kind": "directory",
+      "required": true,
+      "type": "local_path"
+    },
+    "output_folder": {
+      "path_kind": "directory",
+      "required": false,
+      "type": "local_path"
+    }
+  },
+  "outputs": {
+    "artifacts": [
+      {
+        "artifact_id": "transcripts",
+        "path": "transcripts",
+        "path_kind": "directory"
+      }
+    ],
+    "primary": {
+      "id": "transcription_result",
+      "path": "transcription_result.json",
+      "schema": {
+        "additionalProperties": true,
+        "properties": {
+          "file_count": {
+            "maximum": 100,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "files": {
+            "maxItems": 100,
+            "minItems": 1,
+            "type": "array"
+          },
+          "schema": {
+            "const": "mn.nvidia_transcribe.batch.v1"
+          }
+        },
+        "required": [
+          "schema",
+          "source_model",
+          "model_revision",
+          "file_count",
+          "files"
+        ],
+        "type": "object"
+      },
+      "schema_version": "mn.nvidia_transcribe.batch.v1"
+    },
+    "profile": "standard_run_store"
+  },
+  "privacy": {
+    "classification": "confidential",
+    "external_sharing": "disabled"
+  },
+  "summary": "Complete Markdown transcript for every supported recording, with immutable provenance."
+}

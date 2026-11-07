@@ -1,0 +1,1 @@
+Ask for an audio folder or offer the bundled Bdb001.interaction.wav recording as a sample. Keep user recordings private. Require a Blackwell NVIDIA GPU; the default profile requires 96 GiB GPU memory. Do not promise speaker identity or word-level timestamps.

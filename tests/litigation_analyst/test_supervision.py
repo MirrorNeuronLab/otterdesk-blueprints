@@ -55,10 +55,12 @@ def test_handling_question_cannot_clear_restricted_material(workspace):
 
 def test_summary_does_not_publish_a_finding_with_inaccessible_counterevidence(workspace):
     from domain.supervision import chat_summary
+    from domain.run_summary import render
     finding = workspace['findings'][-1]
     finding.update(title='PRIVATE_FINDING', counter_evidence=['hidden'])
     workspace['findings'] = [finding]
     assert 'PRIVATE_FINDING' not in json.dumps(chat_summary(workspace))
+    assert 'PRIVATE_FINDING' not in render(workspace)
 
 
 def test_summary_respects_dismissal_and_current_reviewed_wording(workspace):
@@ -94,6 +96,7 @@ def test_reread_before_collection_and_no_invented_findings_in_empty_handoff(work
 
 def test_summary_remains_bounded_and_preserves_excerpt_and_limit_labels(workspace):
     from domain.supervision import chat_summary
+    from domain.run_summary import render
     workspace['findings'] = [workspace['findings'][-1]]
     workspace['findings'][0].update(title='🌍' * 500, assessment='Long assessment. ' * 500)
     summary = chat_summary(workspace)
@@ -103,6 +106,25 @@ def test_summary_remains_bounded_and_preserves_excerpt_and_limit_labels(workspac
     assert 'Long assessment' not in summary['highlights'][0]['detail']
     assert len(summary['review']['question']) <= 320
     assert len(json.dumps(summary, ensure_ascii=False).encode()) < 16 * 1024
+    assert len(render(workspace).encode()) < 16 * 1024
+    assert 'Long assessment' not in render(workspace)
+
+
+@pytest.mark.parametrize('reason, explanation', [
+    ('planning_source_context_unavailable', 'no complete source passage fit'),
+    ('no_authorized_readable_sources', 'no authorized readable sources'),
+])
+def test_zero_analysis_is_explicit_in_both_saved_summaries(workspace, reason, explanation):
+    from domain.supervision import chat_summary
+    from domain.run_summary import render
+    workspace['findings'] = []
+    workspace['analysis']['stop_reason'] = reason
+    workspace['coverage'] = {}
+    assert chat_summary(workspace)['status'] == 'Analysis did not start'
+    report = render(workspace)
+    assert explanation in report
+    assert '0 source records sent for assessment; 0 sent for independent review' in report
+    assert '[Evidence appendix](evidence_appendix.md)' in report
 
 
 def test_real_setup_asks_for_goal_while_sample_is_ready(modules):

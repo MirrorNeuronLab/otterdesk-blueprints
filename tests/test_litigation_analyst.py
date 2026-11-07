@@ -459,7 +459,7 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     assert (context["output_folder"] / "runs/run/final_report.md").exists()
     sources = context["output_folder"] / "context_sources/outputs/run"
     assert {p.name for p in sources.glob("*.md")} == {
-        "final_report.md.md", "evidence_appendix.md.md", "graph_appendix.md.md", "transaction_appendix.md.md"
+        "run_summary.md.md", "final_report.md.md", "evidence_appendix.md.md", "graph_appendix.md.md", "transaction_appendix.md.md"
     }
     assert quotation in (sources / "final_report.md.md").read_text()
     from domain.conversation_sources import publish_outputs

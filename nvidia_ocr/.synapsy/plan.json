@@ -1,0 +1,715 @@
+{
+  "acceptance": [
+    "Compiled stock native block dispatches the declared model",
+    "Every source page is represented with a matching source hash",
+    "All three required artifacts are durable before completion",
+    "Replay reuses saved model responses"
+  ],
+  "config": {
+    "inputs": {
+      "payload": {
+        "document_file": "@/examples/sample.pdf",
+        "merge_level": "paragraph"
+      }
+    },
+    "local_inputs": {
+      "files": [
+        {
+          "config_path": "inputs.payload.document_file",
+          "payload_path": "mn_local_inputs/ocr/document.pdf",
+          "runtime_path": "mn_local_inputs/ocr/document.pdf"
+        }
+      ]
+    },
+    "outputs": {
+      "folder_path": "~/Downloads/nvidia-ocr"
+    }
+  },
+  "contracts": {
+    "inputs": {
+      "document_file": {
+        "description": "PNG, JPEG, single-frame TIFF, BMP, WebP or PDF, up to 32 MiB and 50 PDF pages.",
+        "path_kind": "file",
+        "required": true,
+        "type": "local_path"
+      },
+      "merge_level": {
+        "description": "paragraph, sentence or word; defaults to paragraph.",
+        "required": false,
+        "type": "string"
+      },
+      "output_folder": {
+        "path_kind": "directory",
+        "required": false,
+        "type": "local_path"
+      }
+    },
+    "outputs": {
+      "artifacts": [
+        {
+          "artifact_id": "text",
+          "path": "text.txt"
+        },
+        {
+          "artifact_id": "markdown",
+          "path": "document.md"
+        }
+      ],
+      "primary": {
+        "id": "ocr_result",
+        "path": "ocr_result.json",
+        "schema": {
+          "additionalProperties": false,
+          "properties": {
+            "input_sha256": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "merge_level": {
+              "enum": [
+                "paragraph",
+                "sentence",
+                "word"
+              ]
+            },
+            "model_revision": {
+              "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
+            },
+            "pages": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "height": {
+                    "maximum": 25000000,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "page_number": {
+                    "maximum": 50,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "regions": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "bbox": {
+                          "items": {
+                            "maximum": 1,
+                            "minimum": 0,
+                            "type": "number"
+                          },
+                          "maxItems": 4,
+                          "minItems": 4,
+                          "type": "array"
+                        },
+                        "confidence": {
+                          "maximum": 1,
+                          "minimum": 0,
+                          "type": "number"
+                        },
+                        "text": {
+                          "maxLength": 4194304,
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "text",
+                        "confidence",
+                        "bbox"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 10000,
+                    "type": "array"
+                  },
+                  "text": {
+                    "maxLength": 4194304,
+                    "type": "string"
+                  },
+                  "width": {
+                    "maximum": 25000000,
+                    "minimum": 1,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "page_number",
+                  "width",
+                  "height",
+                  "text",
+                  "regions"
+                ],
+                "type": "object"
+              },
+              "maxItems": 50,
+              "minItems": 1,
+              "type": "array"
+            },
+            "schema": {
+              "const": "mn.nvidia_ocr.result.v1"
+            },
+            "source_model": {
+              "const": "nvidia/nemotron-ocr-v2"
+            },
+            "variant": {
+              "const": "v2_multilingual"
+            },
+            "warnings": {
+              "items": {
+                "maxLength": 100,
+                "type": "string"
+              },
+              "maxItems": 50,
+              "type": "array"
+            }
+          },
+          "required": [
+            "schema",
+            "source_model",
+            "model_revision",
+            "variant",
+            "input_sha256",
+            "merge_level",
+            "pages",
+            "warnings"
+          ],
+          "type": "object"
+        },
+        "schema_version": "mn.nvidia_ocr.result.v1"
+      },
+      "profile": "standard_run_store"
+    },
+    "privacy": {
+      "classification": "confidential",
+      "external_sharing": "disabled"
+    },
+    "summary": "Complete OCR text with source provenance and page regions."
+  },
+  "dependencies": {
+    "agents": [
+      {
+        "name": "mn-worker-python-docker-agent",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.58,<2"
+      }
+    ],
+    "packages": [
+      {
+        "name": "mirrorneuron-python-sdk",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.4.1.dev46,<2"
+      },
+      {
+        "name": "mn-python-sdk-common",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev38,<2"
+      },
+      {
+        "name": "mn-blueprint-blocks",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev38,<2"
+      },
+      {
+        "name": "mn-python-sdk-mcp",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      },
+      {
+        "name": "mn-python-sdk-job-response",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      },
+      {
+        "name": "mn-python-sdk-rag",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.3.61.dev12,<2"
+      }
+    ],
+    "skills": [
+      {
+        "name": "mirrorneuron-nvidia-ocr-skill",
+        "source": "gar",
+        "type": "pip",
+        "version": ">=1.4.1.dev10,<2"
+      }
+    ]
+  },
+  "description": "Extract complete page text, confidence scores and bounding boxes from one image or PDF using lazy NVIDIA Nemotron OCR v2 on a 48 GiB CUDA GPU.",
+  "document_paths": {},
+  "execution": {
+    "agents": {
+      "registry": {}
+    },
+    "defaults": {
+      "worker": {
+        "uses": "mn-agents.worker.python_docker@1",
+        "with": {
+          "build_context": ".",
+          "docker_worker_image": "docker_worker",
+          "dockerfile": "docker_worker/Dockerfile",
+          "image": "mirror-neuron/nvidia-ocr-worker:0.1.0",
+          "stereotype": [
+            "blueprint_docker_worker",
+            "internal_write_worker"
+          ],
+          "timeout_seconds": 3600,
+          "upload_paths": [
+            {
+              "source": "domain",
+              "target": "domain"
+            }
+          ],
+          "workdir": "/app"
+        }
+      }
+    },
+    "job_name": "nvidia-ocr",
+    "mode": "compiled",
+    "requirements": {
+      "cpu": {
+        "min_cores": 4
+      },
+      "disk": {
+        "min_gb": 40
+      },
+      "gpu": {
+        "driver": "cuda",
+        "enforcement": "hard",
+        "memory_operator": ">=",
+        "min_count": 1,
+        "min_memory_mb": 49152,
+        "vendor": "nvidia"
+      },
+      "memory": {
+        "min_gb": 8
+      },
+      "network": {
+        "egress": "NVIDIA registry, Python indexes and Hugging Face for image preparation and lazy weights; inference on the admitted node."
+      },
+      "os": "linux"
+    },
+    "runtime": {
+      "models": {
+        "ocr": {
+          "backend": "docker",
+          "model": "nvidia-nemotron-ocr-v2:0.1.0",
+          "model_spec": {
+            "backend": "docker",
+            "backends": [
+              "docker"
+            ],
+            "docker": {
+              "api_path": "/v1",
+              "cache_path": "/cache",
+              "container_port": 8000,
+              "environment": {
+                "DO_NOT_TRACK": "1",
+                "HF_HOME": "/cache",
+                "HF_HUB_DISABLE_TELEMETRY": "1"
+              },
+              "gpus": "all",
+              "image": "docker.io/homerquan/nvidia-ocr@sha256:3ea113f619ce8ba7c13d7213ca258fcb6dba0b8c9914bcca627ebab349041064",
+              "port": 30084,
+              "ready_path": "/health",
+              "ready_timeout": 3600,
+              "shm_size": "8g"
+            },
+            "id": "nvidia-nemotron-ocr-v2:0.1.0",
+            "input_modalities": [
+              "image"
+            ],
+            "model": "nvidia-nemotron-ocr-v2:0.1.0",
+            "model_type": "ocr",
+            "name": "NVIDIA Nemotron OCR v2",
+            "protocol": "http_json",
+            "provider": "docker_model_runner",
+            "requirements": {
+              "min_vram_gb": 48,
+              "required_capabilities": [
+                "cuda"
+              ]
+            },
+            "source": "docker"
+          },
+          "provider": "docker_model_runner",
+          "required": true,
+          "type": "ocr"
+        }
+      }
+    },
+    "type": "batch"
+  },
+  "extensions": {
+    "mn.blocks": {
+      "document": {
+        "steps": {
+          "extract_document_text": {
+            "config": {
+              "model": "ocr",
+              "request_timeout_seconds": 900,
+              "response_schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input_sha256": {
+                    "pattern": "^[a-f0-9]{64}$",
+                    "type": "string"
+                  },
+                  "merge_level": {
+                    "enum": [
+                      "paragraph",
+                      "sentence",
+                      "word"
+                    ]
+                  },
+                  "model_revision": {
+                    "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
+                  },
+                  "pages": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "height": {
+                          "maximum": 25000000,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "page_number": {
+                          "maximum": 50,
+                          "minimum": 1,
+                          "type": "integer"
+                        },
+                        "regions": {
+                          "items": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "bbox": {
+                                "items": {
+                                  "maximum": 1,
+                                  "minimum": 0,
+                                  "type": "number"
+                                },
+                                "maxItems": 4,
+                                "minItems": 4,
+                                "type": "array"
+                              },
+                              "confidence": {
+                                "maximum": 1,
+                                "minimum": 0,
+                                "type": "number"
+                              },
+                              "text": {
+                                "maxLength": 4194304,
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "text",
+                              "confidence",
+                              "bbox"
+                            ],
+                            "type": "object"
+                          },
+                          "maxItems": 10000,
+                          "type": "array"
+                        },
+                        "text": {
+                          "maxLength": 4194304,
+                          "type": "string"
+                        },
+                        "width": {
+                          "maximum": 25000000,
+                          "minimum": 1,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "page_number",
+                        "width",
+                        "height",
+                        "text",
+                        "regions"
+                      ],
+                      "type": "object"
+                    },
+                    "maxItems": 50,
+                    "minItems": 1,
+                    "type": "array"
+                  },
+                  "schema": {
+                    "const": "mn.nvidia_ocr.result.v1"
+                  },
+                  "source_model": {
+                    "const": "nvidia/nemotron-ocr-v2"
+                  },
+                  "variant": {
+                    "const": "v2_multilingual"
+                  },
+                  "warnings": {
+                    "items": {
+                      "maxLength": 100,
+                      "type": "string"
+                    },
+                    "maxItems": 50,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "schema",
+                  "source_model",
+                  "model_revision",
+                  "variant",
+                  "input_sha256",
+                  "merge_level",
+                  "pages",
+                  "warnings"
+                ],
+                "type": "object"
+              }
+            },
+            "hooks": {
+              "project": "domain.ocr:publish",
+              "request": "domain.ocr:prepare",
+              "validate": "domain.ocr:accepted"
+            },
+            "input_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "document_file": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "merge_level": {
+                  "enum": [
+                    "word",
+                    "sentence",
+                    "paragraph"
+                  ]
+                }
+              },
+              "required": [
+                "document_file"
+              ],
+              "type": "object"
+            },
+            "inputs": {
+              "document_file": {
+                "$ref": "run_input",
+                "path": [
+                  "document_file"
+                ]
+              },
+              "merge_level": {
+                "$ref": "run_input",
+                "path": [
+                  "merge_level"
+                ]
+              }
+            },
+            "limits": {
+              "max_calls": 1,
+              "timeout_seconds": 3600
+            },
+            "output_schema": {
+              "additionalProperties": false,
+              "properties": {
+                "artifacts": {
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                "page_count": {
+                  "maximum": 50,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                "report": {
+                  "type": "object"
+                }
+              },
+              "required": [
+                "report",
+                "page_count",
+                "artifacts"
+              ],
+              "type": "object"
+            },
+            "uses": "mn.blocks.native_computation@1"
+          }
+        }
+      },
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.context": {
+      "document": {
+        "text_memory": {
+          "contract": "mn.context.text.v1",
+          "enabled": false
+        }
+      },
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "document": {
+        "manual": "@/knowledge/user_manual.md",
+        "profile": "mn.mcp.supervision.v1",
+        "tools": {}
+      },
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.product": {
+      "document": {
+        "category": "Other",
+        "product": {
+          "agent_role": "OCR specialist",
+          "how_it_works": "Uses NVIDIA Nemotron OCR v2 on a managed CUDA node and saves complete results.",
+          "input": "One image or PDF",
+          "output": "Complete text, Markdown and page regions"
+        }
+      },
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "document": {
+        "enabled": false
+      },
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "document": {
+        "enabled": true
+      },
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.ui": {
+      "document": {
+        "setup_guide": {
+          "fields": [
+            {
+              "label": "Document",
+              "path": "inputs.payload.document_file",
+              "path_kind": "file",
+              "required": true,
+              "role": "input",
+              "type": "local_path"
+            },
+            {
+              "choices": [
+                {
+                  "label": "Paragraph",
+                  "value": "paragraph"
+                },
+                {
+                  "label": "Sentence",
+                  "value": "sentence"
+                },
+                {
+                  "label": "Word",
+                  "value": "word"
+                }
+              ],
+              "default": "paragraph",
+              "label": "Text grouping",
+              "path": "inputs.payload.merge_level",
+              "required": false,
+              "type": "text"
+            }
+          ],
+          "introduction": "Select an image or PDF. Requires an NVIDIA CUDA GPU with at least 48 GiB memory on Linux amd64.",
+          "prompt_file": "@/payloads/prompts/setup.md",
+          "real": {
+            "values": {}
+          },
+          "sample": {
+            "available": true,
+            "expected_output": "Text including NVIDIA OCR sample and Invoice total: 42.00 USD, with page regions.",
+            "values": {
+              "inputs.payload.document_file": "@/examples/sample.pdf"
+            }
+          },
+          "schema": "otterdesk.setup_guide.v1"
+        },
+        "starter_questions": [
+          "What documents can you read?",
+          "How do I try the sample?",
+          "Where are my OCR results?"
+        ]
+      },
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  },
+  "files": {
+    "LICENSE.md": "MIT License\n\nCopyright (c) 2026 MirrorNeuron contributors\nCopyright (c) 2026 MirrorNeuronLab (bundled reference schemas and catalog data)\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+    "README.md": "# NVIDIA OCR\n\nExtract text and page regions from one image or PDF using NVIDIA Nemotron OCR v2.\nThe coworker requires one NVIDIA CUDA GPU with at least 48 GiB memory on Linux\namd64. The default model is the pinned multilingual v2 checkpoint.\n\nThe workflow has one stock native-computation step. It captures the document,\ncalls the SDK-managed OCR service, validates provenance and writes `ocr_result.json`,\n`text.txt` and `document.md` before returning bounded artifact references.\nThe SDK handles admission, model preparation, routing, caching and result delivery.\n\nFrom the catalog root:\n\n```bash\nmn blueprint run ./nvidia_ocr --set inputs.payload.document_file=/absolute/path/scan.pdf\n```\n\nOr select the bundled synthetic `examples/sample.pdf` in setup. It contains the\nstrings `NVIDIA OCR sample` and `Invoice total: 42.00 USD`; these are expected\nsource text, not a recorded model result. The input accepts up to 32 MiB, 50 PDF\npages and 25 million pixels per page; animated/multi-frame images fail explicitly.\nParagraph merging is the default; `word` and `sentence` are optional.\n\nThe model recipe pins the published `homerquan/nvidia-ocr` image by SHA-256.\nThe SDK pulls it automatically on first required OCR use. Workers have a separate\nlightweight Python 3.12 image. Model rebuild sources are in `payloads/model/`;\nuse `payloads/` as the model Docker build context.\n\nThe source skill is staged under `payloads/skills/nvidia_ocr_skill` from `mn-skills`;\nmake reusable changes there and regenerate that snapshot. Local mode uses declared\nsibling packages (`MN_USE_LOCAL_SKILLS=1`). Binary distribution needs the declared\nPython skill release in the package registry; the model image is already public.\n\nImage preparation installs pinned upstream source without weights. First managed\nstartup compiles the CUDA extension natively for the actual GPU and caches it.\nOnly the first valid OCR request starts the model and downloads its pinned\nmultilingual checkpoints. The runtime's model cache persists across runs; image\nand model work reuse this Job's GPU allocation. Build access needs NVIDIA's\nregistry, Hugging Face and Python indexes; document bytes go only to the managed\nexecution node. OCR can omit text and confidence is not calibrated accuracy.\n\n```bash\nsynapsy verify ./nvidia_ocr --workspace /path/to/mirror-neuron-set --compile --python /path/to/runtime/python\npython -m pytest nvidia_ocr/tests -q\n```\n\nAuthored using Synapse's concrete-plan `synapsy create --plan` path. Offline\ntests cover compiled dispatch, source integrity, publication, replay and failure.\nStatic checks and SDK compilation do not qualify a CUDA build or OCR quality.\n\nSandbox boundary: the stock Docker worker handles staged documents only. The\nindependent SDK-managed model container runs the pinned CUDA build script once\nfor its GPU, with a finite deadline and no document-derived command arguments.\nIt caches only its model weights and compiled extension. The worker and model\nnever execute source document text or accept operator-provided shell commands.\n",
+    "SPEC.md": "# NVIDIA OCR coworker specification\n\nAccept one authorized image or PDF and transcribe every page with\n`nvidia/nemotron-ocr-v2` multilingual, revision\n`0e83e83f17943524b90afa6c0fd82ac2bc1a40ca`. One stock native-computation step owns\ndurable model dispatch and recovery; the skill owns reusable OCR mechanics.\n\nCompletion requires committed `ocr_result.json`, `text.txt` and `document.md`.\nJSON is authoritative and binds all pages to the source SHA-256 and model\nrevision, with model-ordered regions, normalized left/top/right/bottom boxes,\nconfidence and explicit empty-page warnings. No source content enters coordination\nmessages. Retries recover committed responses without repeating inference.\n\nRequirements: Linux amd64, NVIDIA CUDA, one GPU with at least 49,152 MiB memory,\n8 GiB CPU RAM, 4 CPU cores and 40 GiB disk. The Job allocation covers worker and\nmodel use. Dependencies and model recipe are declared once in role documents.\nNo model download occurs on import, skill installation or Job preparation.\nThe image is prepared before execution; weights are installed lazily by the SDK\nwhen the first valid native request starts the service.\n\nInput is at most 32 MiB; up to 50 PDF pages, 25 million pixels per raster page.\nPDFs render sequentially. Output is bounded to 8 MiB, 10,000 regions and 4 MiB\nof text. Corrupt/unsupported inputs, resource failures, malformed responses,\nmismatched hashes and publication errors fail explicitly. Empty text is reported,\nnot fabricated. Single-frame images only; OCR is not semantic table extraction.\n\nAcceptance: sample text can be recovered in a separately qualified GPU run;\noffline checks prove all pages are represented, hashes and output contracts\nmatch, stock bindings compile and replay never repeats a saved model call.\nLive GPU build and inference remain separate qualification gates.\n",
+    "TERM.md": "# Terms\n\nOCR output may be incorrect or incomplete. Review critical fields against the original. Model weights and upstream software retain their own licenses; no model weights are bundled.\n",
+    "examples/sample.pdf": "%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 500 220] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n5 0 obj\n<< /Length 87 >>\nstream\nBT /F1 24 Tf 50 140 Td (NVIDIA OCR sample) Tj 0 -40 Td (Invoice total: 42.00 USD) Tj ET\nendstream\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000241 00000 n \n0000000311 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n448\n%%EOF\n",
+    "knowledge/user_manual.md": "# NVIDIA OCR user manual\n\nUpload a PNG, JPEG, TIFF, BMP, WebP or PDF (at most 32 MiB and 50 pages), or select\nthe bundled synthetic sample. Start the run through the normal Job controls.\nThe coworker extracts all pages and publishes `ocr_result.json`, `text.txt` and\n`document.md`. JSON retains page numbers, normalized bounding boxes, confidence\nscores, source SHA-256, pinned model revision and empty-page warnings.\n\nRequires Linux amd64, Docker with NVIDIA GPU access and one GPU with at least\n48 GiB memory. The first run builds the CUDA image and downloads multilingual\nNemotron OCR v2 weights; later runs reuse the runtime cache. Job preparation and\nChat do not download OCR weights. Inference stays on the admitted node.\n\nOCR can omit or misread text; review critical fields against the source. There is\nno claim of perfect table reconstruction. Chat questions never start a run.\nUse `get_run_status` and `get_run_results` to inspect observed completion.\n",
+    "payloads/docker_worker/Dockerfile": "FROM python:3.12-slim-bookworm\nWORKDIR /app\nCOPY domain/ /app/domain/\nCMD [\"python3\", \"-m\", \"mn_sdk.step_runtime\"]\n",
+    "payloads/domain/__init__.py": "",
+    "payloads/domain/ocr.py": "\"\"\"Product input policy and publication for one document OCR run.\"\"\"\nfrom pathlib import Path\nfrom mn_nvidia_ocr_skill import build_ocr_request, detect_document_suffix, validate_result\nfrom mn_nvidia_ocr_skill.contracts import MAX_INPUT_BYTES\nfrom mn_sdk.blueprint.inputs import capture_declared_inputs\nfrom mn_sdk.blueprint.outputs import publish_artifact_bundle\nfrom mn_sdk_common.publication import ArtifactWrite\n\n\ndef prepare(block, inputs):\n    inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)\n    path = Path(inputs.get(\"document_file\") or \"\")\n    if not path.is_absolute() or path.is_symlink() or not path.is_file():\n        raise ValueError(\"Provide one resolved staged document file\")\n    with path.open(\"rb\") as stream:\n        data = stream.read(MAX_INPUT_BYTES + 1)\n    request = build_ocr_request(data, suffix=detect_document_suffix(data), merge_level=inputs.get(\"merge_level\", \"paragraph\"))\n    ref = block.store.commit_bytes(block.root + \"/source.bin\", data, kind=\"ocr_source\")\n    request[\"payload\"][\"document_base64\"] = {\"$artifact\": ref.to_dict(), \"encoding\": \"base64\"}\n    return request\n\n\ndef accepted(block, result):\n    validate_result(result)\n    return True\n\n\ndef publish(block, data):\n    source = data[\"request\"][\"payload\"][\"document_base64\"][\"$artifact\"]\n    block.store.validate(source)\n    result = validate_result(data[\"result\"], input_sha256=source[\"sha256\"])\n    if result[\"merge_level\"] != data[\"request\"][\"payload\"][\"merge_level\"]:\n        raise ValueError(\"OCR response does not match requested merge level\")\n    report = block.store.commit(\"ocr_result.json\", result, kind=\"ocr_result\")\n    text = \"\\n\\n\".join(page[\"text\"] for page in result[\"pages\"]) + \"\\n\"\n    markdown = \"# OCR transcript\\n\\n\" + \"\\n\\n\".join(\n        \"## Page \" + str(page[\"page_number\"]) + \"\\n\\n\" + page[\"text\"] for page in result[\"pages\"]\n    ) + \"\\n\"\n    plain = block.store.commit_bytes(\"text.txt\", text.encode(), kind=\"text\")\n    md = block.store.commit_bytes(\"document.md\", markdown.encode(), kind=\"markdown\")\n    publish_artifact_bundle(block, [\n        ArtifactWrite(\"ocr_result\", \"ocr_result.json\", block.store.read_bytes(report), kind=\"ocr_result\", authoritative=True),\n        ArtifactWrite(\"text\", \"text.txt\", block.store.read_bytes(plain), kind=\"text\"),\n        ArtifactWrite(\"markdown\", \"document.md\", block.store.read_bytes(md), kind=\"markdown\"),\n    ], receipt_path=block.root + \"/publication.json\")\n    return {\"report\": report.to_dict(), \"page_count\": len(result[\"pages\"]), \"artifacts\": [report.to_dict(), plain.to_dict(), md.to_dict()]}\n",
+    "payloads/model/Dockerfile": "# Build context: a payload root containing skills/nvidia_ocr_skill/.\n# Separate model service; MirrorNeuron workers keep their own lightweight image.\nFROM nvcr.io/nvidia/pytorch:25.09-py3\nARG TARGETARCH=amd64\nENV HF_HOME=/cache HF_HUB_DISABLE_TELEMETRY=1 DO_NOT_TRACK=1 \\\n    GIT_LFS_SKIP_SMUDGE=1 MAX_JOBS=2\nRUN python -c \"import sys, platform; assert sys.version_info[:2] == (3, 12); assert platform.machine() == 'x86_64'\"\nRUN python -m pip install --no-cache-dir hatchling editables ninja \"setuptools>=77\" \"setuptools-scm>=8\"\nRUN git init /opt/nemotron-ocr && \\\n    git -C /opt/nemotron-ocr remote add origin https://huggingface.co/nvidia/nemotron-ocr-v2 && \\\n    git -C /opt/nemotron-ocr fetch --depth 1 origin 0e83e83f17943524b90afa6c0fd82ac2bc1a40ca && \\\n    git -C /opt/nemotron-ocr checkout --detach FETCH_HEAD && \\\n    BUILD_CPP_EXTENSION=0 ARCH=${TARGETARCH} python -m pip install --no-cache-dir --no-build-isolation /opt/nemotron-ocr/nemotron-ocr\nCOPY skills/nvidia_ocr_skill/ /opt/nvidia-ocr-skill/\n# Private SDK packages are injected by Core for workers; the OCR service uses no SDK.\nRUN SETUPTOOLS_SCM_PRETEND_VERSION_FOR_MIRRORNEURON_NVIDIA_OCR_SKILL=0.1.0 \\\n    python -m pip install --no-cache-dir --no-deps /opt/nvidia-ocr-skill && \\\n    python -m pip install --no-cache-dir \"fastapi>=0.115,<1\" \"uvicorn>=0.30,<1\" \"pypdfium2>=4.30,<6\" \"jsonschema>=4.23,<5\"\nWORKDIR /app\nCOPY model/serve.py /app/serve.py\nEXPOSE 8000\nCMD [\"python\", \"/app/serve.py\"]\n",
+    "payloads/model/serve.py": "\"\"\"Prepare the CUDA extension on its native model node, then serve OCR.\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport os\nimport platform\nimport shutil\nimport subprocess\nimport sys\nfrom pathlib import Path\n\nMODEL_REVISION = \"0e83e83f17943524b90afa6c0fd82ac2bc1a40ca\"\n\n\ndef prepare_extension():\n    import torch\n\n    if not torch.cuda.is_available():\n        raise RuntimeError(\"OCR model preparation requires NVIDIA CUDA\")\n    major, minor = torch.cuda.get_device_capability()\n    if major < 8:\n        raise RuntimeError(\"Nemotron OCR requires NVIDIA Ampere or newer\")\n    root = Path(\"/opt/nemotron-ocr/nemotron-ocr\")\n    target = root / \"src/nemotron_ocr_cpp\"\n    identity = hashlib.sha256(\n        f\"{MODEL_REVISION}:{torch.__version__}:{torch.version.cuda}:{platform.machine()}:{major}.{minor}\".encode()\n    ).hexdigest()\n    cache = Path(\"/cache/nemotron-ocr-extensions\") / identity\n    cached = list(cache.glob(\"_nemotron_ocr_cpp*.so\"))\n    if cached:\n        for path in cached:\n            shutil.copy2(path, target / path.name)\n    else:\n        subprocess.run(\n            [sys.executable, \"scripts/build-extension.py\"],\n            cwd=root,\n            check=True,\n            timeout=1800,\n            env={\n                **os.environ,\n                \"TORCH_CUDA_ARCH_LIST\": f\"{major}.{minor}\",\n                \"ARCH\": platform.machine(),\n                \"BUILD_CPP_EXTENSION\": \"1\",\n            },\n        )\n        compiled = list(target.glob(\"_nemotron_ocr_cpp*.so\"))\n        if not compiled:\n            raise RuntimeError(\"OCR CUDA extension build produced no shared library\")\n        cache.mkdir(parents=True, exist_ok=True)\n        for path in compiled:\n            temporary = cache / (path.name + \".tmp\")\n            shutil.copy2(path, temporary)\n            temporary.replace(cache / path.name)\n    # The upstream shim imports its shared library relative to this source package.\n    sys.path.insert(0, str(root / \"src\"))\n\n\ndef main():\n    prepare_extension()\n    from mn_nvidia_ocr_skill.server import main as serve\n\n    serve()\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "payloads/prompts/setup.md": "Ask for one document image or PDF. Use the bundled synthetic sample only when the user selects the sample. Explain that the worker needs a Linux amd64 NVIDIA node with at least 48 GiB GPU memory.\n",
+    "payloads/skills/nvidia_ocr_skill/README.md": "# NVIDIA OCR\n\n`mirrorneuron-nvidia-ocr-skill` (`mn_nvidia_ocr_skill`) extracts complete text,\nconfidence scores and normalized bounding boxes using\n[NVIDIA Nemotron OCR v2](https://huggingface.co/nvidia/nemotron-ocr-v2), pinned to\n`0e83e83f17943524b90afa6c0fd82ac2bc1a40ca`, multilingual variant.\n\n```python\nfrom mn_nvidia_ocr_skill import NvidiaOcrClient\n\nresult = NvidiaOcrClient().ocr_path(\"/authorized/input/scan.pdf\")\nfor page in result[\"pages\"]:\n    print(page[\"page_number\"], page[\"text\"])\n```\n\nInstall the package with pip. Ordinary installation requires neither CUDA nor\nmodel weights. Linux amd64, Python 3.12, NVIDIA CUDA and a prepared model image\nare required by the model service. The default recipe declares 48 GiB of GPU\nmemory. The supplied Dockerfile uses NVIDIA's PyTorch CUDA development image,\ninstalls pinned upstream code with `--no-build-isolation`, and downloads no\ncheckpoint weights while building. During first SDK-managed startup, it compiles\nthe C++/CUDA extension natively for the selected GPU and caches that binary.\nSee [runtime setup](references/runtime.md) for building and declaring that image.\n\nThe SDK owns lazy model preparation, routing, node selection, caching and lifecycle.\nClient construction and catalog listing have no installation side effects. The\nfirst valid request prepares the model through the SDK; subsequent requests reuse\nits binding and cache. Model weights are cached in the runtime-owned volume.\nNeither package code nor blueprint hooks invoke Docker or install Python packages.\n\nSupported inputs: PNG, JPEG, single-frame TIFF, BMP, WebP and PDF. Limits: 32 MiB\nper file, 50 PDF pages, 25 million pixels per image/page, 10,000 total regions,\n4 MiB extracted text and 8 MiB JSON output. Merge granularity is `paragraph`,\n`sentence` or `word`. PDF pages render sequentially at 144 DPI with bounded\ndimensions. Password-protected/corrupt PDFs and multi-frame images are rejected.\nThe output schema and immutable model provenance are exposed as `RESULT_SCHEMA`,\n`SOURCE_MODEL` and `MODEL_REVISION`.\n\nResults preserve model reading order and report empty pages. Confidence is the\nmodel's score, not a calibrated correctness probability. OCR can omit or misread\ntext, tables, handwriting and unusual layouts; review critical fields against the\nsource. This skill transcribes text rather than reconstructing table semantics.\n\nRun deterministic checks from the `mn-skills` root:\n\n```bash\npython -m pytest nvidia_ocr_skill/tests -q\npython3 scripts/sync_agent_skills.py --check\n```\n\nGPU inference is separately qualified by the opt-in `e2e` test. Default tests\ninject the model and downloader; they do not establish CUDA build or OCR quality.\nUpstream model weights use NVIDIA's license; upstream code and third-party\ncomponents retain their own notices in the built image.\n",
+    "payloads/skills/nvidia_ocr_skill/pyproject.toml": "[project]\nname = \"mirrorneuron-nvidia-ocr-skill\"\ndynamic = [\"version\"]\ndescription = \"Bounded Nemotron OCR v2 document extraction with lazy SDK-managed CUDA preparation.\"\nreadme = \"README.md\"\nrequires-python = \">=3.12\"\nlicense = \"MIT\"\ndependencies = [\"mirrorneuron-python-sdk>=1.4.1.dev46,<2\", \"jsonschema>=4.23,<5\"]\n\n[project.optional-dependencies]\nserver = [\"fastapi>=0.115,<1\", \"uvicorn>=0.30,<1\", \"Pillow>=12,<13\", \"pypdfium2>=4.30,<6\", \"huggingface-hub>=0.34,<2\"]\n\n[build-system]\nrequires = [\"setuptools>=77\", \"setuptools-scm>=8\"]\nbuild-backend = \"setuptools.build_meta\"\n\n[tool.setuptools_scm]\nroot = \"..\"\nfallback_version = \"0.0.0\"\nlocal_scheme = \"no-local-version\"\n\n[tool.setuptools.packages.find]\nwhere = [\"src\"]\n\n[tool.pytest.ini_options]\npythonpath = [\"src\"]\ntestpaths = [\"tests\"]\nmarkers = [\"e2e: opt-in live model tests\"]\n",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/__init__.py": "\"\"\"NVIDIA OCR; importing this module performs no model or runtime preparation.\"\"\"\n\nfrom .client import NvidiaOcrClient\nfrom .contracts import (\n    MODEL_ID,\n    MODEL_IMAGE,\n    MODEL_REVISION,\n    RESULT_SCHEMA,\n    SOURCE_MODEL,\n    build_ocr_request,\n    detect_document_suffix,\n    runtime_model_spec,\n    validate_result,\n)\n\n__all__ = [\n    \"MODEL_ID\",\n    \"MODEL_IMAGE\",\n    \"MODEL_REVISION\",\n    \"RESULT_SCHEMA\",\n    \"SOURCE_MODEL\",\n    \"NvidiaOcrClient\",\n    \"build_ocr_request\",\n    \"detect_document_suffix\",\n    \"runtime_model_spec\",\n    \"validate_result\",\n]\n",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/backend.py": "\"\"\"Model-service internals. CUDA imports and checkpoint downloads stay lazy.\"\"\"\n\nfrom __future__ import annotations\n\nimport io\nimport math\nfrom contextlib import closing\nfrom pathlib import Path\n\nfrom .contracts import (\n    MAX_PAGES,\n    MAX_PIXELS,\n    MAX_REGIONS,\n    MAX_TEXT_BYTES,\n    MODEL_REVISION,\n    SOURCE_MODEL,\n    source_hash,\n    validate_input,\n    validate_result,\n)\n\nCHECKPOINT_FILES = (\n    \"detector.pth\",\n    \"recognizer.pth\",\n    \"relational.pth\",\n    \"charset.txt\",\n    \"model_config.json\",\n)\n\n\ndef load_pipeline():\n    import platform\n\n    if platform.system() != \"Linux\" or platform.machine() not in {\"x86_64\", \"amd64\"}:\n        raise RuntimeError(\"Nemotron OCR requires Linux amd64 and NVIDIA CUDA\")\n    import torch\n\n    if not torch.cuda.is_available():\n        raise RuntimeError(\n            \"Nemotron OCR requires NVIDIA CUDA; CPU fallback is unsupported\"\n        )\n    from huggingface_hub import snapshot_download\n    from nemotron_ocr.inference.pipeline_v2 import NemotronOCRV2\n\n    root = (\n        Path(\n            snapshot_download(\n                repo_id=SOURCE_MODEL,\n                revision=MODEL_REVISION,\n                allow_patterns=[f\"v2_multilingual/{name}\" for name in CHECKPOINT_FILES],\n                max_workers=2,\n            )\n        )\n        / \"v2_multilingual\"\n    )\n    if not all((root / name).is_file() for name in CHECKPOINT_FILES):\n        # Do not let the upstream loader silently resolve an incomplete folder at main.\n        raise RuntimeError(\"Nemotron OCR checkpoint cache is incomplete\")\n    return NemotronOCRV2(model_dir=str(root), detector_max_batch_size=1)\n\n\ndef _image(data: bytes):\n    from PIL import Image\n\n    image = Image.open(io.BytesIO(data))\n    try:\n        if getattr(image, \"n_frames\", 1) != 1:\n            raise ValueError(\"Multi-frame images are unsupported; use a PDF\")\n        if not 0 < image.width * image.height <= MAX_PIXELS:\n            raise ValueError(\"OCR image exceeds 25 million pixels\")\n        image.load()\n        return image.convert(\"RGB\")\n    finally:\n        image.close()\n\n\ndef _number(value) -> float:\n    if (\n        isinstance(value, bool)\n        or not isinstance(value, (int, float))\n        or not math.isfinite(value)\n    ):\n        raise ValueError(\"OCR model returned a non-finite number\")\n    return float(value)\n\n\ndef normalize_regions(predictions) -> list[dict]:\n    if not isinstance(predictions, list) or len(predictions) > MAX_REGIONS:\n        raise ValueError(\"OCR model returned invalid or excessive regions\")\n    regions = []\n    text_size = 0\n    for prediction in predictions:\n        if not isinstance(prediction, dict) or not isinstance(\n            prediction.get(\"text\"), str\n        ):\n            raise TypeError(\"OCR model returned an invalid text region\")\n        confidence = _number(prediction.get(\"confidence\"))\n        if not 0 <= confidence <= 1:\n            raise ValueError(\"OCR model returned invalid confidence\")\n        left, top, right, bottom = [\n            _number(prediction.get(key)) for key in (\"left\", \"lower\", \"right\", \"upper\")\n        ]\n        if left > right or top > bottom:\n            raise ValueError(\"OCR model returned an inverted bounding box\")\n        text_size += len(prediction[\"text\"].encode())\n        if text_size > MAX_TEXT_BYTES:\n            raise ValueError(\"OCR text exceeds its limit\")\n        regions.append(\n            {\n                \"text\": prediction[\"text\"],\n                \"confidence\": confidence,\n                \"bbox\": [\n                    max(0.0, min(1.0, value)) for value in (left, top, right, bottom)\n                ],\n            }\n        )\n    return regions\n\n\nclass NemotronOcrBackend:\n    def __init__(self, *, pipeline_factory=load_pipeline):\n        self._factory = pipeline_factory\n        self._pipeline = None\n\n    def prepare(self):\n        if self._pipeline is None:\n            self._pipeline = self._factory()\n        return self\n\n    def extract(\n        self, data: bytes, *, suffix: str, merge_level: str = \"paragraph\"\n    ) -> dict:\n        suffix = validate_input(data, suffix, merge_level)\n        pages = []\n\n        def recognize(image):\n            # Validate/decode a complete page before starting or downloading a model.\n            self.prepare()\n            import numpy as np\n\n            regions = normalize_regions(\n                self._pipeline(np.array(image), merge_level=merge_level)\n            )\n            page = {\n                \"page_number\": len(pages) + 1,\n                \"width\": image.width,\n                \"height\": image.height,\n                \"text\": \"\\n\".join(region[\"text\"] for region in regions),\n                \"regions\": regions,\n            }\n            if (\n                sum(len(item[\"regions\"]) for item in pages) + len(regions) > MAX_REGIONS\n                or sum(len(item[\"text\"].encode()) for item in pages)\n                + len(page[\"text\"].encode())\n                > MAX_TEXT_BYTES\n            ):\n                raise ValueError(\"OCR document exceeds region or text limits\")\n            pages.append(page)\n\n        if suffix == \".pdf\":\n            import pypdfium2 as pdfium\n\n            with pdfium.PdfDocument(data) as document:\n                if not 0 < len(document) <= MAX_PAGES:\n                    raise ValueError(\"OCR PDF must contain between 1 and 50 pages\")\n                for index in range(len(document)):\n                    with closing(document[index]) as page:\n                        width, height = page.get_size()\n                        if not all(\n                            math.isfinite(value) and value > 0\n                            for value in (width, height)\n                        ):\n                            raise ValueError(\"Invalid PDF page dimensions\")\n                        # Bound raster allocation before invoking PDFium.\n                        scale = min(2.0, math.sqrt(MAX_PIXELS / (width * height)))\n                        while (\n                            math.ceil(width * scale) * math.ceil(height * scale)\n                            > MAX_PIXELS\n                        ):\n                            scale *= 0.99\n                        with closing(page.render(scale=scale)) as bitmap:\n                            image = bitmap.to_pil().convert(\"RGB\")\n                            try:\n                                recognize(image)\n                            finally:\n                                image.close()\n        else:\n            with _image(data) as image:\n                recognize(image)\n        result = {\n            \"schema\": \"mn.nvidia_ocr.result.v1\",\n            \"source_model\": SOURCE_MODEL,\n            \"model_revision\": MODEL_REVISION,\n            \"variant\": \"v2_multilingual\",\n            \"input_sha256\": source_hash(data),\n            \"merge_level\": merge_level,\n            \"pages\": pages,\n            \"warnings\": [\n                f\"no_text_detected:page_{page['page_number']}\"\n                for page in pages\n                if not page[\"text\"].strip()\n            ],\n        }\n        return validate_result(result)\n",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/client.py": "\"\"\"Lazy managed OCR requests; no Docker CLI or package installation.\"\"\"\n\nfrom __future__ import annotations\n\nimport math\nfrom pathlib import Path\n\nfrom .contracts import (\n    MAX_INPUT_BYTES,\n    MODEL_ID,\n    MODEL_IMAGE,\n    RESULT_SCHEMA,\n    build_ocr_request,\n    runtime_model_spec,\n    source_hash,\n    validate_result,\n)\n\n\nclass NvidiaOcrClient:\n    def __init__(self, *, image: str = MODEL_IMAGE, timeout_seconds: float = 900):\n        if (\n            isinstance(timeout_seconds, bool)\n            or not isinstance(timeout_seconds, (int, float))\n            or not math.isfinite(timeout_seconds)\n            or not 0 < timeout_seconds <= 3600\n        ):\n            raise ValueError(\"OCR timeout must be finite and within one hour\")\n        self.model_spec = runtime_model_spec(image=image)\n        self.timeout_seconds = timeout_seconds\n\n    def ocr_path(self, path: str | Path, *, merge_level: str = \"paragraph\") -> dict:\n        source = Path(path)\n        if source.is_symlink() or not source.is_file():\n            raise ValueError(\"OCR input must be an authorized regular file\")\n        with source.open(\"rb\") as stream:\n            data = stream.read(MAX_INPUT_BYTES + 1)\n        request = build_ocr_request(data, suffix=source.suffix, merge_level=merge_level)\n        from mn_sdk.blueprint.models import runtime_model_json_request\n\n        result = runtime_model_json_request(\n            \"ocr\",\n            MODEL_ID,\n            request[\"path\"],\n            request[\"payload\"],\n            provider=\"docker_model_runner\",\n            backend=\"docker\",\n            model_spec=self.model_spec,\n            response_schema=RESULT_SCHEMA,\n            timeout_seconds=self.timeout_seconds,\n            num_retries=0,\n        )\n        result = validate_result(result, input_sha256=source_hash(data))\n        if result[\"merge_level\"] != merge_level:\n            raise ValueError(\"OCR result merge level does not match the request\")\n        return result\n",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/contracts.py": "\"\"\"Portable request/result contracts and a data-only managed model recipe.\"\"\"\n\nfrom __future__ import annotations\n\nimport base64\nimport copy\nimport hashlib\nimport json\n\nSOURCE_MODEL = \"nvidia/nemotron-ocr-v2\"\nMODEL_REVISION = \"0e83e83f17943524b90afa6c0fd82ac2bc1a40ca\"\nMODEL_ID = \"nvidia-nemotron-ocr-v2:0.1.0\"\nMODEL_IMAGE = \"docker.io/homerquan/nvidia-ocr:0.1.0\"\nMAX_INPUT_BYTES = 32 * 1024 * 1024\nMAX_RESULT_BYTES = 8 * 1024 * 1024\nMAX_TEXT_BYTES = 4 * 1024 * 1024\nMAX_PAGES = 50\nMAX_PIXELS = 25_000_000\nMAX_REGIONS = 10_000\nMERGE_LEVELS = {\"word\", \"sentence\", \"paragraph\"}\nSUFFIXES = {\".pdf\", \".png\", \".jpg\", \".jpeg\", \".tif\", \".tiff\", \".bmp\", \".webp\"}\n\nREGION_SCHEMA = {\n    \"type\": \"object\",\n    \"properties\": {\n        \"text\": {\"type\": \"string\", \"maxLength\": MAX_TEXT_BYTES},\n        \"confidence\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 1},\n        \"bbox\": {\n            \"type\": \"array\",\n            \"minItems\": 4,\n            \"maxItems\": 4,\n            \"items\": {\"type\": \"number\", \"minimum\": 0, \"maximum\": 1},\n        },\n    },\n    \"required\": [\"text\", \"confidence\", \"bbox\"],\n    \"additionalProperties\": False,\n}\nPAGE_SCHEMA = {\n    \"type\": \"object\",\n    \"properties\": {\n        \"page_number\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": MAX_PAGES},\n        \"width\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": MAX_PIXELS},\n        \"height\": {\"type\": \"integer\", \"minimum\": 1, \"maximum\": MAX_PIXELS},\n        \"text\": {\"type\": \"string\", \"maxLength\": MAX_TEXT_BYTES},\n        \"regions\": {\"type\": \"array\", \"maxItems\": MAX_REGIONS, \"items\": REGION_SCHEMA},\n    },\n    \"required\": [\"page_number\", \"width\", \"height\", \"text\", \"regions\"],\n    \"additionalProperties\": False,\n}\nRESULT_SCHEMA = {\n    \"type\": \"object\",\n    \"properties\": {\n        \"schema\": {\"const\": \"mn.nvidia_ocr.result.v1\"},\n        \"source_model\": {\"const\": SOURCE_MODEL},\n        \"model_revision\": {\"const\": MODEL_REVISION},\n        \"variant\": {\"const\": \"v2_multilingual\"},\n        \"input_sha256\": {\"type\": \"string\", \"pattern\": \"^[a-f0-9]{64}$\"},\n        \"merge_level\": {\"enum\": sorted(MERGE_LEVELS)},\n        \"pages\": {\n            \"type\": \"array\",\n            \"minItems\": 1,\n            \"maxItems\": MAX_PAGES,\n            \"items\": PAGE_SCHEMA,\n        },\n        \"warnings\": {\n            \"type\": \"array\",\n            \"maxItems\": MAX_PAGES,\n            \"items\": {\"type\": \"string\", \"maxLength\": 100},\n        },\n    },\n    \"required\": [\n        \"schema\",\n        \"source_model\",\n        \"model_revision\",\n        \"variant\",\n        \"input_sha256\",\n        \"merge_level\",\n        \"pages\",\n        \"warnings\",\n    ],\n    \"additionalProperties\": False,\n}\n\n\ndef runtime_model_spec(*, image: str = MODEL_IMAGE) -> dict:\n    \"\"\"Return a fresh SDK-owned Docker/HTTP JSON recipe, without side effects.\"\"\"\n    return {\n        \"id\": MODEL_ID,\n        \"model\": MODEL_ID,\n        \"name\": \"NVIDIA Nemotron OCR v2\",\n        \"source\": \"docker\",\n        \"provider\": \"docker_model_runner\",\n        \"backend\": \"docker\",\n        \"backends\": [\"docker\"],\n        \"protocol\": \"http_json\",\n        \"model_type\": \"ocr\",\n        \"input_modalities\": [\"image\"],\n        \"requirements\": {\"min_vram_gb\": 48, \"required_capabilities\": [\"cuda\"]},\n        \"docker\": {\n            \"image\": image,\n            \"port\": 30084,\n            \"container_port\": 8000,\n            \"gpus\": \"all\",\n            \"shm_size\": \"8g\",\n            \"api_path\": \"/v1\",\n            \"ready_path\": \"/health\",\n            \"ready_timeout\": 3600,\n            \"cache_path\": \"/cache\",\n            \"environment\": {\n                \"HF_HOME\": \"/cache\",\n                \"HF_HUB_DISABLE_TELEMETRY\": \"1\",\n                \"DO_NOT_TRACK\": \"1\",\n            },\n        },\n    }\n\n\ndef validate_input(data: bytes, suffix: str, merge_level: str) -> str:\n    if not isinstance(data, bytes) or not 0 < len(data) <= MAX_INPUT_BYTES:\n        raise ValueError(\"OCR input must be nonempty bytes within 32 MiB\")\n    if not isinstance(suffix, str) or suffix.lower() not in SUFFIXES:\n        raise ValueError(\"Unsupported OCR document format\")\n    if not isinstance(merge_level, str) or merge_level not in MERGE_LEVELS:\n        raise ValueError(\"merge_level must be word, sentence or paragraph\")\n    suffix = suffix.lower()\n    signatures = {\n        \".pdf\": data.startswith(b\"%PDF-\"),\n        \".png\": data.startswith(b\"\\x89PNG\\r\\n\\x1a\\n\"),\n        \".jpg\": data.startswith(b\"\\xff\\xd8\\xff\"),\n        \".jpeg\": data.startswith(b\"\\xff\\xd8\\xff\"),\n        \".tif\": data.startswith((b\"II*\\x00\", b\"MM\\x00*\")),\n        \".tiff\": data.startswith((b\"II*\\x00\", b\"MM\\x00*\")),\n        \".bmp\": data.startswith(b\"BM\"),\n        \".webp\": data.startswith(b\"RIFF\") and data[8:12] == b\"WEBP\",\n    }\n    if not signatures[suffix]:\n        raise ValueError(\"OCR input signature does not match its document format\")\n    return suffix\n\n\ndef build_ocr_request(\n    data: bytes, *, suffix: str, merge_level: str = \"paragraph\"\n) -> dict:\n    suffix = validate_input(data, suffix, merge_level)\n    return {\n        \"path\": \"/ocr\",\n        \"payload\": {\n            \"document_base64\": base64.b64encode(data).decode(\"ascii\"),\n            \"suffix\": suffix,\n            \"merge_level\": merge_level,\n        },\n    }\n\n\ndef detect_document_suffix(data: bytes) -> str:\n    \"\"\"Detect supported document bytes after a caller's staging renamed the file.\"\"\"\n    for suffix in (\".pdf\", \".png\", \".jpg\", \".tif\", \".bmp\", \".webp\"):\n        try:\n            return validate_input(data, suffix, \"paragraph\")\n        except ValueError:\n            continue\n    raise ValueError(\"Unsupported or invalid OCR document\")\n\n\ndef validate_result(result: dict, *, input_sha256: str | None = None) -> dict:\n    \"\"\"Reject malformed/incomplete responses; preserve complete model text.\"\"\"\n    from jsonschema import Draft202012Validator\n\n    encoded = json.dumps(result, ensure_ascii=False, allow_nan=False).encode()\n    if len(encoded) > MAX_RESULT_BYTES:\n        raise ValueError(\"OCR result exceeds 8 MiB\")\n    Draft202012Validator(RESULT_SCHEMA).validate(result)\n    if input_sha256 is not None and result[\"input_sha256\"] != input_sha256:\n        raise ValueError(\"OCR result does not match its source document\")\n    region_count, text_bytes = 0, 0\n    for number, page in enumerate(result[\"pages\"], 1):\n        if page[\"page_number\"] != number or page[\"width\"] * page[\"height\"] > MAX_PIXELS:\n            raise ValueError(\"Invalid OCR page order or dimensions\")\n        if page[\"text\"] != \"\\n\".join(region[\"text\"] for region in page[\"regions\"]):\n            raise ValueError(\"OCR page text does not match its regions\")\n        for region in page[\"regions\"]:\n            left, top, right, bottom = region[\"bbox\"]\n            if left > right or top > bottom:\n                raise ValueError(\"Invalid OCR bounding box ordering\")\n        region_count += len(page[\"regions\"])\n        text_bytes += len(page[\"text\"].encode())\n    if region_count > MAX_REGIONS or text_bytes > MAX_TEXT_BYTES:\n        raise ValueError(\"OCR result exceeds region or text limits\")\n    return copy.deepcopy(result)\n\n\ndef source_hash(data: bytes) -> str:\n    return hashlib.sha256(data).hexdigest()\n",
+    "payloads/skills/nvidia_ocr_skill/src/mn_nvidia_ocr_skill/server.py": "\"\"\"Managed, bounded OCR HTTP service. No client paths or remote URLs are accepted.\"\"\"\n\nfrom __future__ import annotations\n\nimport asyncio\nimport base64\nimport binascii\nimport json\nfrom contextlib import asynccontextmanager\n\nfrom fastapi import FastAPI, HTTPException, Request\n\nfrom .backend import NemotronOcrBackend\nfrom .contracts import MAX_INPUT_BYTES\n\nMAX_REQUEST_BYTES = 4 * ((MAX_INPUT_BYTES + 2) // 3) + 1024\n\n\ndef create_app(*, backend_factory=NemotronOcrBackend):\n    gate = asyncio.Lock()\n\n    @asynccontextmanager\n    async def lifespan(app):\n        # SDK first-use preparation starts this service. Readiness means weights loaded.\n        app.state.backend = await asyncio.to_thread(lambda: backend_factory().prepare())\n        try:\n            yield\n        finally:\n            app.state.backend = None\n\n    app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)\n\n    @app.get(\"/health\")\n    def health():\n        if getattr(app.state, \"backend\", None) is None:\n            raise HTTPException(503, \"OCR model is not ready\")\n        return {\"ready\": True}\n\n    @app.post(\"/v1/ocr\")\n    async def ocr(request: Request):\n        if gate.locked():\n            raise HTTPException(429, \"OCR model is busy\")\n        async with gate:\n            body = bytearray()\n            try:\n                async with asyncio.timeout(30):\n                    async for chunk in request.stream():\n                        if len(body) + len(chunk) > MAX_REQUEST_BYTES:\n                            raise HTTPException(\n                                413, \"OCR document exceeds request limit\"\n                            )\n                        body.extend(chunk)\n                payload = json.loads(body)\n                if not isinstance(payload, dict) or set(payload) != {\n                    \"document_base64\",\n                    \"suffix\",\n                    \"merge_level\",\n                }:\n                    raise ValueError(\"Invalid OCR request\")\n                encoded = payload[\"document_base64\"]\n                if not isinstance(encoded, str):\n                    raise TypeError(\"Invalid OCR encoding\")\n                data = base64.b64decode(encoded, validate=True)\n                return await asyncio.to_thread(\n                    app.state.backend.extract,\n                    data,\n                    suffix=payload[\"suffix\"],\n                    merge_level=payload[\"merge_level\"],\n                )\n            except HTTPException:\n                raise\n            except TimeoutError:\n                raise HTTPException(408, \"OCR request read timed out\") from None\n            except (ValueError, TypeError, KeyError, binascii.Error):\n                raise HTTPException(\n                    400, \"Invalid or unsupported OCR document\"\n                ) from None\n            except Exception:  # noqa: BLE001 - sanitize model and decoder diagnostics\n                # Model exceptions may contain document text or filesystem paths.\n                raise HTTPException(\n                    503, \"OCR inference failed; check model readiness\"\n                ) from None\n\n    return app\n\n\ndef main():\n    import uvicorn\n\n    uvicorn.run(create_app(), host=\"0.0.0.0\", port=8000, workers=1, access_log=False)\n\n\nif __name__ == \"__main__\":\n    main()\n",
+    "tests/test_ocr.py": "\"\"\"Offline compiled worker checks; the external CUDA request is injected.\"\"\"\n\nimport io\nimport json\nimport sys\nfrom pathlib import Path\nfrom types import SimpleNamespace\n\nimport pytest\nfrom mn_nvidia_ocr_skill.backend import NemotronOcrBackend\nfrom mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config\nfrom mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor\nfrom mn_sdk.integrations.block_worker import run\nfrom mn_sdk.step_runtime import StepContext\nfrom mn_sdk_common.committed_artifacts import CommittedJsonStore\nfrom PIL import Image\n\nROOT = Path(__file__).resolve().parents[1]\n\n\n@pytest.fixture\ndef worker(tmp_path, monkeypatch):\n    monkeypatch.syspath_prepend(str(ROOT / \"payloads\"))\n    for name in list(sys.modules):\n        if name == \"domain\" or name.startswith(\"domain.\"):\n            monkeypatch.delitem(sys.modules, name)\n    package = read_blueprint(ROOT)\n    config = resolve_config(package)\n    compiled = compile_blueprint(package, config).manifest\n    descriptor = tmp_path / \"manifest.json\"\n    descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, config)))\n    node = next(\n        n\n        for n in compiled[\"agents\"][\"nodes\"]\n        if n.get(\"config\", {}).get(\"environment\", {}).get(\"MN_WORKFLOW_STEP_HANDLER\")\n        == \"mn_sdk.integrations.block_worker\"\n    )\n    parameters = json.loads(node[\"config\"][\"environment\"][\"MN_WORKFLOW_STEP_WITH_JSON\"])\n    environment = {\n        \"MN_RUN_DIR\": str(tmp_path / \"run\"),\n        \"MN_BLUEPRINT_MANIFEST_PATH\": str(descriptor),\n        \"MN_SDK_COMPONENTS_JSON\": '[\"blueprint-blocks\"]',\n    }\n    for key, value in environment.items():\n        monkeypatch.setenv(key, value)\n    image = io.BytesIO()\n    Image.new(\"RGB\", (80, 30), \"white\").save(image, format=\"PNG\")\n    path = tmp_path / \"source.png\"\n    path.write_bytes(image.getvalue())\n    inputs = {\"document_file\": str(path), \"merge_level\": \"paragraph\"}\n    saved = NemotronOcrBackend(\n        pipeline_factory=lambda: (\n            lambda *a, **k: [\n                {\n                    \"text\": \"Synthetic source text\",\n                    \"confidence\": 0.9,\n                    \"left\": 0.1,\n                    \"lower\": 0.2,\n                    \"right\": 0.9,\n                    \"upper\": 0.8,\n                }\n            ]\n        )\n    ).extract(image.getvalue(), suffix=\".png\")\n    calls = []\n\n    def request(*args, **options):\n        calls.append((args, options))\n        return saved\n\n    monkeypatch.setattr(\"mn_sdk.integrations.block_native.runtime_model_json_request\", request)\n\n    def execute(selected=None):\n        return run(\n            StepContext(\n                step_id=\"extract_document_text\",\n                agent_id=node[\"node_id\"],\n                run_id=\"ocr-test\",\n                idempotency_key=\"ocr-test/extract\",\n                config=config.data,\n                environment=environment,\n                message={\"body\": {\"step_input\": inputs if selected is None else selected}},\n            ),\n            **parameters,\n        )\n\n    return SimpleNamespace(\n        execute=execute,\n        calls=calls,\n        store=CommittedJsonStore(tmp_path / \"run\"),\n        saved=saved,\n        inputs=inputs,\n    )\n\n\ndef test_compiled_ocr_publishes_and_replays(worker):\n    output = worker.execute()\n    assert worker.execute() == output\n    assert len(worker.calls) == 1\n    args, options = worker.calls[0]\n    assert args[0] == \"inference\" and args[2] == \"/ocr\"\n    assert options[\"num_retries\"] == 0\n    assert options[\"model_spec\"][\"protocol\"] == \"http_json\"\n    assert worker.store.read_path(\"ocr_result.json\") == worker.saved\n    assert worker.store.path(\"text.txt\").read_text() == \"Synthetic source text\\n\"\n    assert \"## Page 1\" in worker.store.path(\"document.md\").read_text()\n    assert \"Synthetic source text\" not in json.dumps(output.outputs)\n    assert len(json.dumps(output.outputs)) < 4096\n\n\ndef test_source_mismatch_does_not_publish(worker):\n    worker.saved[\"input_sha256\"] = \"a\" * 64\n    with pytest.raises(ValueError, match=\"source\"):\n        worker.execute()\n    assert not worker.store.path(\"ocr_result.json\").exists()\n    assert len(worker.calls) == 1\n\n\ndef test_invalid_document_never_dispatches(worker):\n    Path(worker.inputs[\"document_file\"]).write_bytes(b\"invalid\")\n    with pytest.raises(ValueError):\n        worker.execute()\n    assert not worker.calls\n\n\ndef test_publication_recovers_without_another_model_call(worker, monkeypatch):\n    original = CommittedJsonStore.commit_bytes\n\n    def interrupted(store, path, content, **options):\n        if str(path) == \"document.md\":\n            raise OSError(\"publication interruption\")\n        return original(store, path, content, **options)\n\n    with monkeypatch.context() as patch:\n        patch.setattr(CommittedJsonStore, \"commit_bytes\", interrupted)\n        with pytest.raises(OSError):\n            worker.execute()\n    worker.execute()\n    assert len(worker.calls) == 1\n    assert worker.store.path(\"document.md\").exists()\n\n\ndef test_requires_nvidia_48_gib_and_real_sample():\n    execution = json.loads((ROOT / \"execution.json\").read_text())\n    gpu = execution[\"requirements\"][\"gpu\"]\n    assert gpu[\"min_memory_mb\"] == 49152 and gpu[\"vendor\"] == \"nvidia\"\n    assert gpu[\"enforcement\"] == \"hard\"\n    from pypdf import PdfReader\n\n    assert (\n        \"Invoice total: 42.00 USD\"\n        in PdfReader(ROOT / \"examples/sample.pdf\").pages[0].extract_text()\n    )\n"
+  },
+  "id": "nvidia_ocr",
+  "license": "LICENSE.md",
+  "name": "NVIDIA OCR",
+  "payload_api": "mn.blueprint.v1",
+  "plan_version": "synapsy.plan.v1",
+  "rationale": "One bounded native-computation block reuses SDK model preparation and publication; the new reusable skill owns OCR requests, CUDA inference and result validation.",
+  "references": [
+    "mn.blocks.native_computation@1",
+    "mirrorneuron-nvidia-ocr-skill",
+    "mn-agents.worker.python_docker@1"
+  ],
+  "sandbox": "Stock Docker workers and the SDK-managed model run on the admitted Linux NVIDIA node. The worker image builds trusted pinned CUDA source. Inputs are untrusted bytes; no document text is executed, no host paths or URLs are accepted by the model, and model preparation reuses the Job GPU allocation. Model download is lazy; output artifacts are published through SDK storage.",
+  "tagline": "Turn document images and PDFs into text with NVIDIA OCR",
+  "terms": "TERM.md",
+  "version": "0.1.0",
+  "workflow": {
+    "execution": {
+      "max_parallel_steps": 1,
+      "strategy": "serial"
+    },
+    "mode": "static_dag",
+    "steps": [
+      {
+        "control": {
+          "retry": {
+            "max_attempts": 1
+          },
+          "timeout_seconds": 3600
+        },
+        "goal": "Read every page and publish verified OCR artifacts.",
+        "id": "extract_document_text",
+        "kind": "stage",
+        "label": "Extract document text",
+        "needs": []
+      }
+    ],
+    "workflow_id": "nvidia_ocr_v1"
+  }
+}

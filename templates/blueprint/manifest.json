@@ -2,6 +2,7 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "{{BLUEPRINT_ID}}",
   "name": "{{BLUEPRINT_NAME}}",
+  "tagline": "Start a blueprint with one empty workflow step",
   "version": "0.1.0",
   "payload_api": "mn.blueprint.v1",
   "description": "A no-op co-worker starter. Runs one empty step without domain actions or model calls.",
