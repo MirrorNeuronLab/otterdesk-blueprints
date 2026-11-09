@@ -3,7 +3,7 @@
   "config": "config/default.json",
   "contracts": "contracts.json",
   "dependencies": "dependencies.json",
-  "description": "Extract complete page text, confidence scores and bounding boxes from one image or PDF using lazy NVIDIA Nemotron OCR v2 on a 48 GiB CUDA GPU.",
+  "description": "Read PDFs, images and Office documents recursively from a source folder with NVIDIA Nemotron OCR v2, preserving per-file text and provenance.",
   "execution": "execution.json",
   "extensions": {
     "mn.blocks": {
@@ -39,8 +39,8 @@
   "license": "LICENSE.md",
   "name": "NVIDIA OCR",
   "payload_api": "mn.blueprint.v1",
-  "tagline": "Turn document images and PDFs into text with NVIDIA OCR",
+  "tagline": "Turn a folder of documents into text with NVIDIA OCR",
   "terms": "TERM.md",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "workflow": "workflow.json"
 }

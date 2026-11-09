@@ -3,12 +3,13 @@
   "setup_guide": {
     "fields": [
       {
-        "label": "Document",
-        "path": "inputs.payload.document_file",
-        "path_kind": "file",
+        "label": "Source folder",
+        "path": "inputs.payload.input_folder",
+        "path_kind": "directory",
         "required": true,
         "role": "input",
-        "type": "local_path"
+        "type": "local_path",
+        "description": "Include PDFs, images and Office documents in this folder and all subfolders."
       },
       {
         "choices": [
@@ -32,7 +33,7 @@
         "type": "text"
       },
       {
-        "description": "Save a copy of each run's extracted text and page data here.",
+        "description": "Save each run's text, page data and comparison report here. Defaults to ~/Downloads/nvidia-ocr.",
         "label": "Output folder",
         "path": "outputs.folder_path",
         "path_kind": "directory",
@@ -41,23 +42,29 @@
         "type": "local_path"
       }
     ],
-    "introduction": "Select an image or PDF. Requires an NVIDIA CUDA GPU with at least 48 GiB memory on Linux amd64.",
+    "introduction": "Select a source folder. I’ll read PDFs, images and Office documents in its subfolders too. Requires a Linux NVIDIA CUDA node with at least 48 GiB memory, including DGX Spark.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
       "values": {}
     },
     "sample": {
       "available": true,
-      "expected_output": "Text including NVIDIA OCR sample and Invoice total: 42.00 USD, with page regions.",
+      "expected_output": "Text from the Nasdaq & AMEX newspaper clipping, including the heading and stock listings, with page regions.",
       "values": {
-        "inputs.payload.document_file": "@/examples/sample.pdf"
+        "inputs.payload.input_folder": "@/examples/sample_inputs"
       }
     },
     "schema": "otterdesk.setup_guide.v1"
   },
   "starter_questions": [
-    "What documents can you read?",
-    "How do I try the sample?",
+    "Which file formats can you read?",
+    "How do I try the sample folder?",
     "Where are my OCR results?"
-  ]
+  ],
+  "web_ui": {
+    "enabled": true,
+    "adapter": "static_html",
+    "title": "OCR report",
+    "description": "Compare original document pages and extracted text side by side."
+  }
 }

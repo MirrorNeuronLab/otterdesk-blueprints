@@ -11,14 +11,14 @@
         "retry": {
           "max_attempts": 1
         },
-        "timeout_seconds": 3600
+        "timeout_seconds": 86400
       },
-      "goal": "Read every page and publish verified OCR artifacts.",
-      "id": "extract_document_text",
+      "goal": "Read all supported documents recursively and publish per-file OCR results and an honest batch summary.",
+      "id": "extract_folder_text",
       "kind": "stage",
-      "label": "Extract document text",
+      "label": "Extract folder text",
       "needs": []
     }
   ],
-  "workflow_id": "nvidia_ocr_v1"
+  "workflow_id": "nvidia_ocr_v2"
 }

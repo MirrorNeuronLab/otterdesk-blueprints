@@ -5,6 +5,6 @@
     "agent_role": "Audio transcription specialist",
     "how_it_works": "Uses ordered audio chunks and the exact NVIDIA Nemotron 3.5 NVFP4 model on Blackwell.",
     "input": "A local audio folder",
-    "output": "Complete Markdown transcripts and provenance"
+    "output": "Complete Markdown transcripts, provenance and an interactive audio replay"
   }
 }

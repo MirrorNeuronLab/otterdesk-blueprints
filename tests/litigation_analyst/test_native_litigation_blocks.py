@@ -168,10 +168,15 @@ def test_compiled_case_rounds_publish_and_replay_verified_draft(native_case, mon
     assert '## Your next review' in case.store.path('final_report.md').read_text()
     from mn_sdk.run_outputs import output_metadata
     downloads = output_metadata(case.store.run_dir)
-    assert {item['name'] for item in downloads} == {
+    required = {
         'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
         'transaction_appendix.md', 'review_index.json', 'run_summary.md',
     }
+    paths = {item['relative_path'] for item in downloads}
+    assert required <= paths
+    assert paths == set(published['published_files']['files'])
+    assert ('web/index.html' in paths) is not ui_failure
+    assert ('data/chat-summary.json' in paths) is not ui_failure
     for item in downloads:
         data = Path(item['path']).read_bytes()
         assert item['sha256'] == hashlib.sha256(data).hexdigest()
@@ -218,8 +223,9 @@ def test_native_publication_recovers_failed_export_without_repeating_investigati
     assert len(attempts) == 2 and len(model.calls) == count
     assert (destination / 'final_report.md').exists()
     assert (destination / 'runs/run/case/evidence.sqlite3').exists()
-    assert (destination / 'final_report.md').read_text().startswith('Audit paths below are relative to `runs/run/`.')
-    assert json.loads((destination / 'review_index.json').read_text())['audit_root'] == 'runs/run'
+    assert (destination / 'final_report.md').read_bytes() == case.store.path('final_report.md').read_bytes()
+    assert 'the full audit archive is in `runs/run/`' in (destination / 'final_report.md').read_text()
+    assert json.loads((destination / 'review_index.json').read_text())['export_audit_root'] == 'runs/run'
 
 
 @pytest.mark.parametrize('native_case', [{'text_memory': {'enabled': False}}], indirect=True)
@@ -242,10 +248,28 @@ def test_compiled_case_uses_real_sdk_fake_models_through_planning_and_publicatio
     assert all(item['support_query'] != item['counter_query'] for item in proposal['hypotheses'])
     result = case.execute('write_review_draft', {'previous': terminal})
     assert case.execute('write_review_draft', {'previous': terminal}) == result
-    assert {item['name'] for item in output_metadata(case.store.run_dir)} == {
+    assert {item['name'] for item in output_metadata(case.store.run_dir)} >= {
         'final_report.md', 'evidence_appendix.md', 'graph_appendix.md',
         'transaction_appendix.md', 'review_index.json', 'run_summary.md',
     }
+
+
+def test_native_publication_delivers_report_package_to_configured_output(native_case, tmp_path):
+    from test_dynamic_rounds import RoundModel
+    case = native_case
+    terminal = case.investigate(RoundModel())
+    destination = tmp_path / 'Downloads' / 'litigation-analyst'
+    case.environment['MN_JOB_OUTPUT_DIR'] = str(destination)
+    case.environment['MN_ARTIFACT_OUTPUT_DIR'] = str(tmp_path / 'handoff')
+    case.environment['MN_ARTIFACT_COMMIT_ID'] = 'publication-attempt'
+    case.environment['MN_ARTIFACT_PRODUCER'] = json.dumps({'run_id': 'native-case-run'})
+    result = case.execute('write_review_draft', {'previous': terminal})
+    assert 'web/index.html' in result.exports
+    assert 'final_report.md' in result.exports
+    for name in ['final_report.md', 'run_summary.md', 'web/index.html', 'data/chat-summary.json', 'web_ui.json']:
+        assert (destination / name).read_bytes() == case.store.path(name).read_bytes()
+    assert not any(name.startswith(('case/', 'blocks/')) for name in result.exports)
+    assert case.execute('write_review_draft', {'previous': terminal}) == result
 
 
 def test_domain_file_postconditions_preserve_large_case_artifacts(native_case):

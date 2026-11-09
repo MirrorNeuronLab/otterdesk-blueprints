@@ -136,3 +136,13 @@ def test_real_setup_asks_for_goal_while_sample_is_ready(modules):
     assert ui['sample']['values']['inputs.payload.goal']
     optional = [f for f in fields if f['path'] in {'inputs.payload.matter_file', 'inputs.payload.review_file'}]
     assert len(optional) == 2 and all(f['requiredModes'] == [] for f in optional)
+
+
+def test_internal_locators_do_not_dominate_handoff_but_original_enquiry_is_preserved(workspace):
+    from domain.supervision import chat_summary
+    workspace['findings'] = []
+    question = 'Examine source ' + 'job:' + 'a' * 64 + ' before drawing conclusions.'
+    workspace['gaps'] = [{'id': 'gap', 'question': question, 'why_it_matters': 'The enquiry remains unresolved.',
+                          'source_evidence_ids': []}]
+    assert chat_summary(workspace)['review']['question'] == 'Examine source unresolved source reference before drawing conclusions.'
+    assert workspace['gaps'][0]['question'] == question

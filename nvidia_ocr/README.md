@@ -1,58 +1,103 @@
 # NVIDIA OCR
 
-Extract text and page regions from one image or PDF using NVIDIA Nemotron OCR v2.
-The coworker requires one NVIDIA CUDA GPU with at least 48 GiB memory on Linux
-amd64. The default model is the pinned multilingual v2 checkpoint.
-
-The workflow has one stock native-computation step. It captures the document,
-calls the SDK-managed OCR service, validates provenance and writes `ocr_result.json`,
-`text.txt` and `document.md` before returning bounded artifact references.
-The SDK handles admission, model preparation, routing, caching and result delivery.
-
-The default **Output folder** in setup is `~/Downloads/nvidia-ocr`.
-MirrorNeuron delivers each batch to a `run_<timestamp>/` subfolder there.
+Read PDFs, images and Office documents throughout a source folder, including its
+subfolders, using NVIDIA Nemotron OCR v2. Requires a Linux NVIDIA CUDA node with
+at least 48 GiB GPU memory; amd64 and arm64 (including DGX Spark) are supported.
+The default sample folder contains the supplied, unmodified `stock_gs200.jpg`
+Nasdaq & AMEX newspaper clipping.
 
 From the catalog root:
 
 ```bash
-mn blueprint run ./nvidia_ocr --set inputs.payload.document_file=/absolute/path/scan.pdf
+mn blueprint run ./nvidia_ocr --set inputs.payload.input_folder=/absolute/path/documents
 ```
 
-Or select the bundled synthetic `examples/sample.pdf` in setup. It contains the
-strings `NVIDIA OCR sample` and `Invoice total: 42.00 USD`; these are expected
-source text, not a recorded model result. The input accepts up to 32 MiB, 50 PDF
-pages and 25 million pixels per page; animated/multi-frame images fail explicitly.
-Paragraph merging is the default; `word` and `sentence` are optional.
+Setup accepts a **Source folder**, **Text grouping** (`paragraph`, `sentence` or
+`word`) and **Output folder** (default `~/Downloads/nvidia-ocr`). Inputs are staged
+by the platform from the submitting computer. Results are delivered to a separate
+`run_<timestamp>/` folder and retained in the authoritative shared run store.
+Open `~/Downloads/nvidia-ocr/run_<timestamp>/web/index.html` for the comparison
+report, or open the co-worker's **OCR report** after the run finishes. Keep the
+whole run folder together so all document and download links remain available.
 
-The model recipe pins the published `homerquan/nvidia-ocr` image by SHA-256.
-The SDK pulls it automatically on first required OCR use. Workers have a separate
-lightweight Python 3.12 image. Model rebuild sources are in `payloads/model/`;
-use `payloads/` as the model Docker build context.
+The offline report places each original page beside its OCR text. Choose a
+document and page, zoom the preview, show text-region boxes, or select a region
+to highlight the matching text. Switch between text and region views, copy page
+text, and download the captured original or extracted text/JSON. The **Files**
+view lists completed, failed and skipped sources. Office previews show the
+rendered pages actually sent to OCR; the original Office file remains available
+to download. The report uses local assets and makes no network requests.
 
-The source skill is staged under `payloads/skills/nvidia_ocr_skill` from `mn-skills`;
-make reusable changes there and regenerate that snapshot. Local mode uses declared
-sibling packages (`MN_USE_LOCAL_SKILLS=1`). Binary distribution needs the declared
-Python skill release in the package registry; the model image is already public.
+Supported extensions, case-insensitively:
 
-Image preparation installs pinned upstream source without weights. First managed
-startup compiles the CUDA extension natively for the actual GPU and caches it.
-Only the first valid OCR request starts the model and downloads its pinned
-multilingual checkpoints. The runtime's model cache persists across runs; image
-and model work reuse this Job's GPU allocation. Build access needs NVIDIA's
-registry, Hugging Face and Python indexes; document bytes go only to the managed
-execution node. OCR can omit text and confidence is not calibrated accuracy.
+- PDF: `.pdf`.
+- Images: `.png`, `.jpg`, `.jpeg`, `.tif`, `.tiff`, `.bmp`, `.webp`.
+- Word: `.doc`, `.docx`, `.docm`, `.odt`, `.rtf`.
+- PowerPoint: `.ppt`, `.pptx`, `.pptm`, `.pps`, `.ppsx`, `.odp`.
+- Excel: `.xls`, `.xlsx`, `.xlsm`, `.xlsb`, `.ods`.
+
+Office documents render to PDF with LibreOffice inside the worker before OCR.
+Each conversion has a fresh profile with macros and active content disabled,
+a three-minute deadline and bounded output. Spreadsheet results follow the
+workbook's print layout; hidden sheets and content outside print areas may be
+excluded. Password-protected, corrupt or unrenderable files are recorded as
+failed; remaining documents continue. Unsupported extensions are listed as
+skipped. Source text is data, never instructions to the co-worker.
+
+The batch writes `ocr_result.json` and `document.md`. Each successful source also
+has `documents/<relative source path>/ocr_result.json`, `text.txt` and
+`document.md`, preserving subfolders and distinguishing equal filenames in
+different folders. Per-document JSON retains page numbers, text regions,
+normalized bounding boxes, confidence, source hash and pinned model revision.
+Office entries retain both the original source hash and rendered PDF hash.
+The batch explicitly distinguishes `completed`, `partial` and `failed`.
+
+Discovery uses the shared `mirrorneuron-folder-files-skill`, also used by NVIDIA
+Transcribe. Limits: 1,000 supported files, 32 MiB each, 2 GiB total, ten directory
+levels, 10,000 entries and 512-byte relative paths. Symlinks, special files and
+inventory-limit violations fail explicitly. PDF and rendered Office inputs allow
+up to 50 pages. Images must be single-frame and at most 25 million pixels. Each
+OCR response is bounded to 8 MiB, 10,000 regions and 4 MiB of text. OCR may omit or
+misread text; it does not reconstruct spreadsheet cells or semantic tables.
+
+One stock domain-operation step freezes the inventory and captures immutable
+source bytes, then prepares, reads and publishes documents sequentially. The SDK
+journals each model call. Recovery uses captured sources and saved responses
+without repeating successful inference. Model, integrity or publication errors
+stop the run; earlier document artifacts remain committed. The optional report
+is published after the authoritative outputs; report or preview failures do not
+invalidate extracted text. Previews are capped at 1,600 pixels per side, 8 MiB
+per page and 512 MiB per batch. HTML is bounded to 32 MiB per document. Coordination messages
+contain only bounded counts and artifact references.
+
+The model recipe pins the published `homerquan/nvidia-ocr` image index for Linux
+amd64 and arm64 by SHA-256. The model build uses NVIDIA's pinned multi-architecture
+PyTorch base and the blueprint's bundled OCR loader, which admits both Linux CPU
+architectures while requiring
+CUDA. The former amd64-only image could not be pulled on Spark. First startup
+compiles the CUDA extension for the actual GPU; the first inference downloads
+pinned multilingual weights. Both are cached. Worker and model use the Job's
+existing GPU allocation. Document bytes stay on the admitted execution node.
+
+Model rebuild sources are in `payloads/model/`; build with `payloads/` as the
+context. Publish an image index containing Linux amd64 and arm64, then pin its
+digest in `execution.json`. Workers build their own Python 3.12/LibreOffice image.
+Local mode resolves declared sibling skills (`MN_USE_LOCAL_SKILLS=1`); binary
+mode requires a published folder-files skill satisfying `dependencies.json`.
+Reprepare the co-worker after updating its blueprint so the saved definition
+uses the new model image, folder contract and sample.
 
 ```bash
 synapsy verify ./nvidia_ocr --workspace /path/to/mirror-neuron-set --compile --python /path/to/runtime/python
 python -m pytest nvidia_ocr/tests -q
+cd nvidia_ocr/tests
+npm ci
+npx playwright install chromium
+PYTHON=/path/to/runtime/python npm test
 ```
 
-Authored using Synapse's concrete-plan `synapsy create --plan` path. Offline
-tests cover compiled dispatch, source integrity, publication, replay and failure.
-Static checks and SDK compilation do not qualify a CUDA build or OCR quality.
-
-Sandbox boundary: the stock Docker worker handles staged documents only. The
-independent SDK-managed model container runs the pinned CUDA build script once
-for its GPU, with a finite deadline and no document-derived command arguments.
-It caches only its model weights and compiled extension. The worker and model
-never execute source document text or accept operator-provided shell commands.
+Offline tests cover mixed recursive input, staging, conversion failures, limits,
+provenance, publication, replay and optional report failure isolation. Browser
+checks cover offline loading, page and file navigation, region matching, text
+escaping and responsive layouts. Native GPU startup and real Office rendering
+are separate live qualification checks.

@@ -59,6 +59,9 @@ def main():
         '{"method":"mtp","num_speculative_tokens":8}',
         "--reasoning-parser",
         "nemotron_v3",
+        "--trust-request-mm-kwargs",
+        "--middleware",
+        "nemo.collections.speechlm2.vllm.salm.ctc_serving.ctc_timestamp_middleware",
     ]
     os.execv(command[0], command)
 

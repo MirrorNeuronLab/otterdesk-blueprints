@@ -436,6 +436,9 @@ def test_final_report_export_is_grounded_and_uses_configured_destination(
     (folder / "notice.txt").write_text(quotation)
     context = make_context(tmp_path, folder)
     context["output_folder"] = tmp_path / "Downloads/litigation-analyst"
+    # Native publication consumes the runtime-resolved destination, not a raw
+    # host path from the blueprint configuration.
+    monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(context["output_folder"]))
     assert (
         context["config"]["outputs"]["folder_path"] == "~/Downloads/litigation-analyst"
     )

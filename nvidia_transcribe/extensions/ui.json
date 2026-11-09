@@ -27,7 +27,7 @@
     },
     "sample": {
       "available": true,
-      "expected_output": "A complete Markdown transcript of Bdb001.interaction.wav and a coverage/provenance index.",
+      "expected_output": "Complete Markdown, provenance and a finished interactive transcript when word alignment succeeds.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs"
       }
@@ -38,5 +38,11 @@
     "How do I transcribe a folder?",
     "Can I try the included recording?",
     "Where are my Markdown transcripts?"
-  ]
+  ],
+  "web_ui": {
+    "enabled": true,
+    "adapter": "static_html",
+    "title": "Audio transcript",
+    "description": "Review the finished transcript with audio playback and speaker highlights."
+  }
 }

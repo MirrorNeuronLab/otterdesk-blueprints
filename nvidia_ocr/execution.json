@@ -10,12 +10,12 @@
         "build_context": ".",
         "docker_worker_image": "docker_worker",
         "dockerfile": "docker_worker/Dockerfile",
-        "image": "mirror-neuron/nvidia-ocr-worker:0.1.0",
+        "image": "mirror-neuron/nvidia-ocr-worker:0.3.0",
         "stereotype": [
           "blueprint_docker_worker",
           "internal_write_worker"
         ],
-        "timeout_seconds": 3600,
+        "timeout_seconds": 86400,
         "upload_paths": [
           {
             "source": "domain",
@@ -71,7 +71,7 @@
               "HF_HUB_DISABLE_TELEMETRY": "1"
             },
             "gpus": "all",
-            "image": "docker.io/homerquan/nvidia-ocr@sha256:3ea113f619ce8ba7c13d7213ca258fcb6dba0b8c9914bcca627ebab349041064",
+            "image": "docker.io/homerquan/nvidia-ocr@sha256:33709d1e2b25a9d5b5f8a5be60eea101744cb659dd92265f38395163d7c3e2a4",
             "port": 30084,
             "ready_path": "/health",
             "ready_timeout": 3600,

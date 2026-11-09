@@ -55,7 +55,7 @@
     "models": {
       "transcribe": {
         "backend": "vllm",
-        "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+        "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.2.0",
         "model_spec": {
           "api_model": "nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4",
           "backend": "vllm",
@@ -79,18 +79,18 @@
               "VLLM_CACHE_ROOT": "/cache/vllm"
             },
             "gpus": "all",
-            "image": "docker.io/homerquan/nvidia-transcribe@sha256:13befda8bf29f69d432e221cdefea3b031b614723f3cb9a4afd0f2415a7f2629",
+            "image": "docker.io/homerquan/nvidia-transcribe:0.2.0",
             "port": 30085,
             "ready_path": "/health",
             "ready_timeout": 3600,
             "shm_size": "16g"
           },
-          "id": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+          "id": "nvidia-nemotron-3.5-transcribe-nvfp4:0.2.0",
           "input_modalities": [
             "audio",
             "text"
           ],
-          "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.1.0",
+          "model": "nvidia-nemotron-3.5-transcribe-nvfp4:0.2.0",
           "model_type": "audio",
           "name": "NVIDIA Nemotron 3.5 Transcribe NVFP4",
           "protocol": "openai",

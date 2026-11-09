@@ -31,8 +31,10 @@ CHECKPOINT_FILES = (
 def load_pipeline():
     import platform
 
-    if platform.system() != "Linux" or platform.machine() not in {"x86_64", "amd64"}:
-        raise RuntimeError("Nemotron OCR requires Linux amd64 and NVIDIA CUDA")
+    if platform.system() != "Linux" or platform.machine() not in {
+        "x86_64", "amd64", "aarch64", "arm64"
+    }:
+        raise RuntimeError("Nemotron OCR requires Linux amd64 or arm64 and NVIDIA CUDA")
     import torch
 
     if not torch.cuda.is_available():

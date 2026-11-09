@@ -5,7 +5,8 @@ Markdown file, preserving relative names and appending `.md`. The required exact
 model is `nvidia/NVIDIA-Nemotron-3.5-Transcribe-30B-A4B-NVFP4`, revision
 `66c6adc4020179567074d0399cda2a4eeb2bb347`. No alternate model or precision is used.
 
-Discovery includes nested folders and case-insensitive audio extensions. Files
+Shared `folder_files_skill` discovery includes nested folders and
+case-insensitive audio extensions, with this blueprint's existing limits. Files
 are transcribed sequentially in sorted relative-path order; every chunk and the
 saved transcript for one recording precede inference on the next recording.
 
@@ -41,5 +42,36 @@ The bundled sample is the user's full Bdb001.interaction.wav recording with
 hash/duration provenance. It is excluded from public model images. Acceptance
 requires complete coverage and correct output receipts in offline fixtures, and
 a separate representative live transcript on the intended Blackwell node.
-Word alignment, persistent speaker identities, live streaming and accuracy
-guarantees are outside this coworker's contract.
+The blueprint requests speaker-attributed word timestamps from the same pinned
+model using its bundled NeMo CTC middleware. It validates finite, bounded timing,
+word coverage, diarizer mappings and speaker activity before displaying them.
+It never estimates timing from chunk length or assumes that a repeated speaker
+tag in another chunk identifies the same person. Missing or failed alignment
+withholds the optional replay while preserving completed Markdown.
+
+Only after the complete batch's authoritative publication succeeds may the
+blueprint publish its optional static report and handle. It uses the shared
+runtime web report template unchanged, with domain-owned table, transcript and
+playback controls. The generated page adds only same-origin media to the
+template's restrictive CSP. The runtime remains a static presentation transport;
+no service, new shared skill, desktop change or runtime change is required.
+
+The current section's detected speaker count determines the anonymous avatar
+count. Word timing controls the lyric-like highlight and internal transcript
+scroll; diarization controls speaker emphasis and supports overlapping voices.
+Playback, pause, seek, speed, section/recording choice and follow controls are
+keyboard accessible, do not autoplay and honor reduced motion. Selecting an
+avatar opens the shared name editor; display names are browser-local and scoped
+to run/source/section. They never rewrite authoritative evidence. Unknown voices
+and empty transcripts remain explicit. Long names retain full tooltips.
+
+Captured normalized WAV sections and recording pages ship under `web/`. The
+entry page and handle are published last. Failed optional UI rendering or
+delivery must not reject the saved transcript batch. Playback is supported in
+the runtime web report/browser; the desktop cached iframe's media restrictions
+are outside this blueprint's ownership. The 0.2.0 model image requires a build
+with the timestamp-enabled entrypoint before live use and a digest pin before
+catalog release. No container is built or published by ordinary tests.
+
+Persistent speaker identities across sections, live streaming and accuracy
+guarantees remain outside this co-worker's contract.

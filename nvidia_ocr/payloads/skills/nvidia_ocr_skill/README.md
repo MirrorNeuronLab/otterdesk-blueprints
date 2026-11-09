@@ -14,13 +14,14 @@ for page in result["pages"]:
 ```
 
 Install the package with pip. Ordinary installation requires neither CUDA nor
-model weights. Linux amd64, Python 3.12, NVIDIA CUDA and a prepared model image
+model weights. Linux amd64 or arm64, Python 3.12, NVIDIA CUDA and a prepared model image
 are required by the model service. The default recipe declares 48 GiB of GPU
 memory. The supplied Dockerfile uses NVIDIA's PyTorch CUDA development image,
 installs pinned upstream code with `--no-build-isolation`, and downloads no
 checkpoint weights while building. During first SDK-managed startup, it compiles
 the C++/CUDA extension natively for the selected GPU and caches that binary.
-See [runtime setup](references/runtime.md) for building and declaring that image.
+This blueprint's bundled model-service copy supports ARM64 GPU hosts such as
+DGX Spark. See the blueprint README and `payloads/model/` for its image build.
 
 The SDK owns lazy model preparation, routing, node selection, caching and lifecycle.
 Client construction and catalog listing have no installation side effects. The

@@ -1,159 +1,16 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
   "steps": {
-    "extract_document_text": {
-      "config": {
-        "model": "ocr",
-        "request_timeout_seconds": 900,
-        "response_schema": {
-          "additionalProperties": false,
-          "properties": {
-            "input_sha256": {
-              "pattern": "^[a-f0-9]{64}$",
-              "type": "string"
-            },
-            "merge_level": {
-              "enum": [
-                "paragraph",
-                "sentence",
-                "word"
-              ]
-            },
-            "model_revision": {
-              "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
-            },
-            "pages": {
-              "items": {
-                "additionalProperties": false,
-                "properties": {
-                  "height": {
-                    "maximum": 25000000,
-                    "minimum": 1,
-                    "type": "integer"
-                  },
-                  "page_number": {
-                    "maximum": 50,
-                    "minimum": 1,
-                    "type": "integer"
-                  },
-                  "regions": {
-                    "items": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "bbox": {
-                          "items": {
-                            "maximum": 1,
-                            "minimum": 0,
-                            "type": "number"
-                          },
-                          "maxItems": 4,
-                          "minItems": 4,
-                          "type": "array"
-                        },
-                        "confidence": {
-                          "maximum": 1,
-                          "minimum": 0,
-                          "type": "number"
-                        },
-                        "text": {
-                          "maxLength": 4194304,
-                          "type": "string"
-                        }
-                      },
-                      "required": [
-                        "text",
-                        "confidence",
-                        "bbox"
-                      ],
-                      "type": "object"
-                    },
-                    "maxItems": 10000,
-                    "type": "array"
-                  },
-                  "text": {
-                    "maxLength": 4194304,
-                    "type": "string"
-                  },
-                  "width": {
-                    "maximum": 25000000,
-                    "minimum": 1,
-                    "type": "integer"
-                  }
-                },
-                "required": [
-                  "page_number",
-                  "width",
-                  "height",
-                  "text",
-                  "regions"
-                ],
-                "type": "object"
-              },
-              "maxItems": 50,
-              "minItems": 1,
-              "type": "array"
-            },
-            "schema": {
-              "const": "mn.nvidia_ocr.result.v1"
-            },
-            "source_model": {
-              "const": "nvidia/nemotron-ocr-v2"
-            },
-            "variant": {
-              "const": "v2_multilingual"
-            },
-            "warnings": {
-              "items": {
-                "maxLength": 100,
-                "type": "string"
-              },
-              "maxItems": 50,
-              "type": "array"
-            }
-          },
-          "required": [
-            "schema",
-            "source_model",
-            "model_revision",
-            "variant",
-            "input_sha256",
-            "merge_level",
-            "pages",
-            "warnings"
-          ],
-          "type": "object"
-        }
-      },
+    "extract_folder_text": {
+      "uses": "mn.blocks.domain_operation@1",
       "hooks": {
-        "project": "domain.ocr:publish",
-        "request": "domain.ocr:prepare",
-        "validate": "domain.ocr:accepted"
-      },
-      "input_schema": {
-        "additionalProperties": false,
-        "properties": {
-          "document_file": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "merge_level": {
-            "enum": [
-              "word",
-              "sentence",
-              "paragraph"
-            ]
-          }
-        },
-        "required": [
-          "document_file"
-        ],
-        "type": "object"
+        "operation": "domain.ocr:run"
       },
       "inputs": {
-        "document_file": {
+        "input_folder": {
           "$ref": "run_input",
           "path": [
-            "document_file"
+            "input_folder"
           ]
         },
         "merge_level": {
@@ -163,35 +20,54 @@
           ]
         }
       },
+      "input_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "input_folder"
+        ],
+        "properties": {
+          "input_folder": {
+            "type": "string",
+            "minLength": 1
+          },
+          "merge_level": {
+            "enum": [
+              "word",
+              "sentence",
+              "paragraph"
+            ]
+          }
+        }
+      },
       "limits": {
-        "max_calls": 1,
-        "timeout_seconds": 3600
+        "max_calls": 1100,
+        "timeout_seconds": 86400
       },
       "output_schema": {
+        "type": "object",
         "additionalProperties": false,
-        "properties": {
-          "artifacts": {
-            "maxItems": 3,
-            "minItems": 3,
-            "type": "array"
-          },
-          "page_count": {
-            "maximum": 50,
-            "minimum": 1,
-            "type": "integer"
-          },
-          "report": {
-            "type": "object"
-          }
-        },
         "required": [
           "report",
-          "page_count",
-          "artifacts"
+          "file_count",
+          "failed_count"
         ],
-        "type": "object"
-      },
-      "uses": "mn.blocks.native_computation@1"
+        "properties": {
+          "report": {
+            "type": "object"
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "failed_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          }
+        }
+      }
     }
   }
 }

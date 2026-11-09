@@ -151,3 +151,37 @@ test('Empty matters render every primary destination without exposing unavailabl
   a.go('Evidence Explorer');assert.match(a.html(),/No documents are included/);
   a.go('Overview');assert.match(a.html(),/>Read report</);
 });
+
+test('Incomplete review exposes exact assessment coverage and useful zero-finding actions',async()=>{
+  const w=fixture();w.findings=[];
+  w.analysis={status:'Incomplete analysis',stop_reason:'maximum_rounds_reached',scope:'Frozen sources'};
+  w.coverage.assessor_source_ids=[];
+  w.coverage.reviewer_source_ids=['case:notice.eml','hidden-source'];
+  w.coverage.unreadable_ids=[];
+  const a=app(w);
+  assert.match(a.html(),/Review progress and next steps/);
+  assert.match(a.html(),/configured investigation rounds were used/);
+  assert.match(a.html(),/No draft findings were retained/);
+  assert.match(a.html(),/does not establish that no relevant events occurred/);
+  assert.match(a.html(),/aria-label="Sent for assessment: 0 of 1"/);
+  assert.match(a.html(),/aria-label="Sent for independent review: 1 of 1"/);
+  assert.match(a.html(),/>Search evidence</);
+  await a.search('not a match');
+  await a.click('coverage','reviewer_source_ids');vm.runInContext('render()',a.ctx);
+  assert.equal(vm.runInContext('state.query',a.ctx),'');
+  assert.match(a.html(),/notice.eml/);
+  assert.equal(vm.runInContext('state.sourceIds.join(",")',a.ctx),'case:notice.eml');
+  await a.click('coverage','assessor_source_ids');vm.runInContext('render()',a.ctx);
+  assert.match(a.html(),/No documents match/);
+});
+
+test('Unresolved references remain in disclosure without looking like findings or source citations',()=>{
+  const w=fixture();w.findings=[];
+  const question='Examine job:'+'a'.repeat(64)+' before concluding.';
+  w.supervision={next_review:{kind:'gap',gap_id:'G1',question,reason:'Resolve the enquiry.',timing:'Before further work',evidence_ids:[]},boundary:'No automatic action.'};
+  const a=app(w);
+  assert.match(a.html(),/<h3>Examine unresolved source reference before concluding\.<\/h3>/);
+  assert.match(a.html(),/<details><summary>Original investigation question<\/summary><p>Examine job:/);
+  assert.doesNotMatch(a.html(),/No matching retained passage/);
+  assert.match(a.html(),/Not recorded/);
+});

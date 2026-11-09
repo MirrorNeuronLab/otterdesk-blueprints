@@ -1,16 +1,19 @@
 {
   "inputs": {
     "payload": {
-      "document_file": "@/examples/sample.pdf",
+      "input_folder": "@/examples/sample_inputs",
       "merge_level": "paragraph"
     }
   },
   "local_inputs": {
-    "files": [
+    "folders": [
       {
-        "config_path": "inputs.payload.document_file",
-        "payload_path": "mn_local_inputs/ocr/document.pdf",
-        "runtime_path": "mn_local_inputs/ocr/document.pdf"
+        "config_path": "inputs.payload.input_folder",
+        "allowed_extensions": [
+          "*"
+        ],
+        "payload_path": "mn_local_inputs/documents",
+        "runtime_path": "mn_local_inputs/documents"
       }
     ]
   },

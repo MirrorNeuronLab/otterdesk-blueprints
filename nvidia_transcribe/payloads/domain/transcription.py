@@ -2,28 +2,45 @@
 
 from pathlib import Path
 
+from mn_folder_files_skill import ScanLimits, scan_folder
 from mn_nvidia_transcribe_skill import (
     MODEL_REVISION,
     SOURCE_MODEL,
     build_transcription_request,
     parse_completion,
     prepare_audio,
-    scan_audio_folder,
 )
-from mn_sdk.blueprint.context import source_manifest
+from mn_sdk.blueprint.context import load_runtime_config, source_manifest
 from mn_sdk.blueprint.hooks import fingerprint
 from mn_sdk.blueprint.inputs import capture_declared_inputs
 from mn_sdk.blueprint.models import model_request
 from mn_sdk.blueprint.outputs import capture_file, materialize_file, publish_artifact_bundle
 from mn_sdk_common.publication import ArtifactWrite
 
+from .alignment import playback_alignment, request_timestamps
+from .reporting import publish_replay
+
 
 def _snapshot(block, folder):
+    staging = load_runtime_config(__file__)["local_inputs"]["folders"]
+    extensions = next(
+        item["allowed_extensions"]
+        for item in staging
+        if item["config_path"] == "inputs.payload.input_folder"
+    )
+    inventory = scan_folder(
+        folder,
+        suffixes=extensions,
+        limits=ScanLimits(max_files=100, max_file_bytes=256 * 1024**2),
+        check=block.check,
+    )
+    if not inventory.files:
+        raise ValueError("Audio folder contains no supported audio files")
     records = []
-    for path in scan_audio_folder(folder):
+    for item in inventory.files:
         block.check()
-        relative = path.relative_to(folder).as_posix()
-        ref = capture_file(block, path, key=relative)
+        relative = item.relative_path
+        ref = capture_file(block, item.path, key=relative)
         info = block.store.read(ref)
         records.append(
             {
@@ -112,6 +129,7 @@ def run(block, inputs):
         for chunk in prepared["chunks"]:
             block.check()
             request = build_transcription_request(block.store.read_bytes(chunk["audio"]))
+            request_timestamps(request)
             request["model"] = declaration["model"]
             request["payload"]["model"] = declaration["model_spec"]["api_model"]
             request["options"].update(
@@ -145,6 +163,11 @@ def run(block, inputs):
                     "start_seconds": chunk["start_seconds"],
                     "end_seconds": chunk["end_seconds"],
                     "empty": not bool(text),
+                    "text": text,
+                    "audio": chunk["audio"],
+                    "alignment": playback_alignment(
+                        response, text, chunk["end_seconds"] - chunk["start_seconds"]
+                    ),
                 }
             )
         markdown = (
@@ -156,7 +179,8 @@ def run(block, inputs):
             + SOURCE_MODEL
             + "\n\nModel revision: "
             + MODEL_REVISION
-            + "\n\nTimes label input chunks; they are not word alignments. Chunk boundaries may split words.\n\n"
+            + "\n\nHeadings label input chunks. Speaker labels restart in each chunk. "
+            + "Word alignment, when available, is saved in transcription_result.json.\n\n"
             + "\n\n".join(sections)
             + "\n"
         )
@@ -198,4 +222,5 @@ def run(block, inputs):
         )
     )
     publish_artifact_bundle(block, writes, receipt_path=block.root + "/publication.json")
+    publish_replay(block, records)
     return {"report": reference.to_dict(), "file_count": len(records)}

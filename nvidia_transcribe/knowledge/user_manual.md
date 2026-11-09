@@ -11,7 +11,8 @@ batch has its own `run_<timestamp>/` subfolder.
 It processes files one at a time in sorted relative-path order, including nested
 WAV and MP3 files. It finishes each recording before transcribing the next,
 using ordered 300-second chunks. Heading times
-mark input coverage, not word alignments. Transcripts preserve spoken wording and
+mark input coverage. Separate measured word timings drive the finished web
+report. Transcripts preserve spoken wording and
 may contain errors, especially at chunk boundaries or with overlapping speakers.
 An empty model response is marked explicitly; no speech is invented to fill it.
 
@@ -25,3 +26,19 @@ node. The model image does not contain the sample recording.
 Inspect `get_run_status` and `get_run_results` for observed completion. A failed
 file rejects completion; the batch index is published only after every recording
 has a complete saved transcript. Pausing/stopping uses normal Job controls.
+
+After the entire batch finishes, open its Web UI or `web/index.html` in a browser.
+Press Play to hear the captured audio, follow highlighted words and see who is
+speaking around the table. Click a word to seek; use Speed or Follow transcript
+to change playback or scrolling. The section selector moves through long audio.
+Choose another recording from the top selector. Playback never starts by itself.
+
+Click an avatar to set a name. Names are remembered in this browser for this
+run, recording and section; they do not edit the original transcript. Speaker
+identification is anonymous and restarts in each section. The model does not
+establish persistent identities across sections or recordings.
+
+If timing cannot be verified, only the Markdown is published. A failed optional
+report does not invalidate a saved transcript. Keep the complete `web/` folder,
+including audio, when moving the report. For sound, open the runtime web report
+or a browser; the desktop cached report viewer currently blocks audio assets.

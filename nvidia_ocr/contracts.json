@@ -1,12 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
   "inputs": {
-    "document_file": {
-      "description": "PNG, JPEG, single-frame TIFF, BMP, WebP or PDF, up to 32 MiB and 50 PDF pages.",
-      "path_kind": "file",
-      "required": true,
-      "type": "local_path"
-    },
     "merge_level": {
       "description": "paragraph, sentence or word; defaults to paragraph.",
       "required": false,
@@ -16,141 +10,212 @@
       "path_kind": "directory",
       "required": false,
       "type": "local_path"
+    },
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": true,
+      "description": "Recursively read PDF, PNG, JPEG, TIFF, BMP, WebP, Word, PowerPoint, Excel and OpenDocument files. Up to 1000 supported files, 32 MiB per file and 2 GiB total."
     }
   },
   "outputs": {
     "artifacts": [
       {
-        "artifact_id": "text",
-        "path": "text.txt"
+        "artifact_id": "summary",
+        "path": "document.md"
       },
       {
-        "artifact_id": "markdown",
-        "path": "document.md"
+        "artifact_id": "documents",
+        "path": "documents",
+        "path_kind": "directory"
+      },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "required": false,
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "web_report",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "required": false,
+        "type": "report"
+      },
+      {
+        "artifact_id": "web_assets",
+        "path": "web",
+        "path_kind": "directory",
+        "required": false,
+        "type": "report_assets"
       }
     ],
     "primary": {
       "id": "ocr_result",
       "path": "ocr_result.json",
       "schema": {
+        "type": "object",
         "additionalProperties": false,
-        "properties": {
-          "input_sha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "type": "string"
-          },
-          "merge_level": {
-            "enum": [
-              "paragraph",
-              "sentence",
-              "word"
-            ]
-          },
-          "model_revision": {
-            "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
-          },
-          "pages": {
-            "items": {
-              "additionalProperties": false,
-              "properties": {
-                "height": {
-                  "maximum": 25000000,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "page_number": {
-                  "maximum": 50,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                "regions": {
-                  "items": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "bbox": {
-                        "items": {
-                          "maximum": 1,
-                          "minimum": 0,
-                          "type": "number"
-                        },
-                        "maxItems": 4,
-                        "minItems": 4,
-                        "type": "array"
-                      },
-                      "confidence": {
-                        "maximum": 1,
-                        "minimum": 0,
-                        "type": "number"
-                      },
-                      "text": {
-                        "maxLength": 4194304,
-                        "type": "string"
-                      }
-                    },
-                    "required": [
-                      "text",
-                      "confidence",
-                      "bbox"
-                    ],
-                    "type": "object"
-                  },
-                  "maxItems": 10000,
-                  "type": "array"
-                },
-                "text": {
-                  "maxLength": 4194304,
-                  "type": "string"
-                },
-                "width": {
-                  "maximum": 25000000,
-                  "minimum": 1,
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "page_number",
-                "width",
-                "height",
-                "text",
-                "regions"
-              ],
-              "type": "object"
-            },
-            "maxItems": 50,
-            "minItems": 1,
-            "type": "array"
-          },
-          "schema": {
-            "const": "mn.nvidia_ocr.result.v1"
-          },
-          "source_model": {
-            "const": "nvidia/nemotron-ocr-v2"
-          },
-          "variant": {
-            "const": "v2_multilingual"
-          },
-          "warnings": {
-            "items": {
-              "maxLength": 100,
-              "type": "string"
-            },
-            "maxItems": 50,
-            "type": "array"
-          }
-        },
         "required": [
           "schema",
           "source_model",
           "model_revision",
-          "variant",
-          "input_sha256",
-          "merge_level",
-          "pages",
-          "warnings"
+          "status",
+          "file_count",
+          "completed_count",
+          "failed_count",
+          "skipped_count",
+          "files",
+          "skipped"
         ],
-        "type": "object"
+        "properties": {
+          "schema": {
+            "const": "mn.nvidia_ocr.batch.v1"
+          },
+          "source_model": {
+            "const": "nvidia/nemotron-ocr-v2"
+          },
+          "model_revision": {
+            "const": "0e83e83f17943524b90afa6c0fd82ac2bc1a40ca"
+          },
+          "status": {
+            "enum": [
+              "completed",
+              "partial",
+              "failed"
+            ]
+          },
+          "file_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000
+          },
+          "completed_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "failed_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000
+          },
+          "skipped_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10000
+          },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 1000,
+            "items": {
+              "type": "object",
+              "required": [
+                "source",
+                "source_sha256",
+                "status"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "source_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "status": {
+                  "enum": [
+                    "completed",
+                    "failed"
+                  ]
+                },
+                "input_sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                },
+                "page_count": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 50
+                },
+                "warnings": {
+                  "type": "array",
+                  "maxItems": 50,
+                  "items": {
+                    "type": "string",
+                    "maxLength": 256
+                  }
+                },
+                "artifacts": {
+                  "type": "array",
+                  "minItems": 3,
+                  "maxItems": 3,
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "error": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 512
+                }
+              },
+              "additionalProperties": false,
+              "oneOf": [
+                {
+                  "properties": {
+                    "status": {
+                      "const": "completed"
+                    }
+                  },
+                  "required": [
+                    "input_sha256",
+                    "page_count",
+                    "warnings",
+                    "artifacts"
+                  ]
+                },
+                {
+                  "properties": {
+                    "status": {
+                      "const": "failed"
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ]
+                }
+              ]
+            }
+          },
+          "skipped": {
+            "type": "array",
+            "maxItems": 10000,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "source",
+                "reason"
+              ],
+              "properties": {
+                "source": {
+                  "type": "string",
+                  "maxLength": 512
+                },
+                "reason": {
+                  "const": "unsupported_format"
+                }
+              }
+            }
+          }
+        }
       },
-      "schema_version": "mn.nvidia_ocr.result.v1"
+      "schema_version": "mn.nvidia_ocr.batch.v1"
     },
     "profile": "standard_run_store"
   },
@@ -158,5 +223,5 @@
     "classification": "confidential",
     "external_sharing": "disabled"
   },
-  "summary": "Complete OCR text with source provenance and page regions."
+  "summary": "Per-document OCR results and a batch summary with source provenance, failed files and unsupported-file exclusions."
 }

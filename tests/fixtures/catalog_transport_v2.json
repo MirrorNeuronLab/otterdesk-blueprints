@@ -4991,6 +4991,55 @@
           "after": "46edcda07c7b12b5215e2cfc1c85c454820fb97fb3f43231eec9b09773f279f5"
         }
       }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "litigation_analyst",
+      "added": false,
+      "reason": "5.2.2 declares the verified report and optional web package for stock-worker delivery, explains review coverage and stop conditions, and makes follow-up questions readable. Only the reviewed Litigation source files are updated. Compiled transport expectations remain unchanged: the local SDK common lock/version mismatch prevents transport verification; runtime sources are unchanged.",
+      "preexisting_source_drift": [
+        "litigation_analyst/payloads/domain/workspace_assets/report-domain.css"
+      ],
+      "fields": {},
+      "configuration_leaves": {},
+      "source_files": {
+        "litigation_analyst/README.md": {
+          "before": "93572f81c283de96e2e250e4b57c67089e9d7646be7f9dd2577cd9537e9a3fee",
+          "after": "281481a85cc7863adc813ea56bedb4eef116025ecc2b12ddfec9fe69c440b50a"
+        },
+        "litigation_analyst/SPEC.md": {
+          "before": "2fd706e412fda7f9c712bea97eeff42707923c28b159c4c267e8b7b492ddbb38",
+          "after": "deec019874651363cb0727c8e29a63b3ccdb88f687821c00d62e41af73ced40e"
+        },
+        "litigation_analyst/manifest.json": {
+          "before": "dfa8567c789d155435d06fe36e4cae143a1b09d92599cc7b316d61574295e1ca",
+          "after": "5ced03d1fe5fbfa813654850da6af81e2d0d2c3d5f978bbab007cd713ed70785"
+        },
+        "litigation_analyst/payloads/domain/report_publication.py": {
+          "before": "5912c77e1e7cbf1a63ddbedf84ae593f4936e9d126092800821faef870a4192a",
+          "after": "0de7dea8a1f7fca1953ba74ab2fa78466db1dab18d86982ffc27aadbd2567a74"
+        },
+        "litigation_analyst/payloads/domain/reporting.py": {
+          "before": "46edcda07c7b12b5215e2cfc1c85c454820fb97fb3f43231eec9b09773f279f5",
+          "after": "d3a3af4f5c452d2034a2a05c313d18acff60b39b5259f8b5e679e66ee60ac48d"
+        },
+        "litigation_analyst/payloads/domain/supervision.py": {
+          "before": "449fc242ee8994dcf19f417800f950d6557bf0742aa9da07e756876e8ee782e3",
+          "after": "ca2d1f3d4bf74d427f1700458a35ae8587bb4a5fee4a34e576251de10907e182"
+        },
+        "litigation_analyst/payloads/domain/workspace_assets/reading.js": {
+          "before": "79d6f19a06f39ee5c04394c4048d02fdfa87c8a70e05c2fdf647a20899f333df",
+          "after": "e55c6fa9175780c0aefe993df0ac1831d0b21c2f68c59b4c0bb1cb0d2e7f0b16"
+        },
+        "litigation_analyst/payloads/domain/workspace_assets/report-domain.css": {
+          "before": "7630ca5f5abfabdaca9673d52ee3c34a9620020f5fddbf1b1f863e0b8ede3c10",
+          "after": "e5405b284f75ed9e65d00b5d37a0744f021a1dd488ee024db9b3460a7e54471c"
+        },
+        "litigation_analyst/payloads/domain/workspace_assets/workspace.js": {
+          "before": "9c3d03bc703999afd5ede585ceb7a2bed25f44a4b5a661af79b5ecb83856a181",
+          "after": "c7f0ae71e459364e6fbb8b68f217dc904016052fc293bc6ec18023c82ad6bbb1"
+        }
+      }
     }
   ],
   "published_inventory": {
@@ -5328,8 +5377,8 @@
       "litigation_analyst/AUTONOMOUS_EXPLORER.md": "8856ba3ff23f94f4c56600a546c7f95af0078d124aa18c6ca5864cfca3c582b4",
       "litigation_analyst/IMPLEMENTATION_REPORT.md": "648f654be67818335afba323cb6a76e5ef67c0c06b7bb83cf7740eb0f4de4630",
       "litigation_analyst/LICENSE.md": "afca786189738a9a82a94538090b9258cae456abb15d117e62859e75e219336d",
-      "litigation_analyst/README.md": "93572f81c283de96e2e250e4b57c67089e9d7646be7f9dd2577cd9537e9a3fee",
-      "litigation_analyst/SPEC.md": "2fd706e412fda7f9c712bea97eeff42707923c28b159c4c267e8b7b492ddbb38",
+      "litigation_analyst/README.md": "281481a85cc7863adc813ea56bedb4eef116025ecc2b12ddfec9fe69c440b50a",
+      "litigation_analyst/SPEC.md": "deec019874651363cb0727c8e29a63b3ccdb88f687821c00d62e41af73ced40e",
       "litigation_analyst/TERM.md": "90a053bd6e7f8697dd8a91c9f5d6f4ab35c639618d5ac7c4ee5c577f41d0e58d",
       "litigation_analyst/compare_runs.py": "cab52bfe6974e2c6e546b2d584741b41b2b5f9c02b0f10b20f01ee30936170d6",
       "litigation_analyst/config/default.json": "9f8c094a867cd6cb3d381c6749643fadb837e071be5cc15520d5591ea2debb32",
@@ -5353,7 +5402,7 @@
       "litigation_analyst/extensions/ui.json": "1cc4d074b179581e1408d4c1f5bf28a86003f587a8e2433d0a50588774700ae8",
       "litigation_analyst/knowledge/conversation_guide.md": "888c5e4374e884c2de8991a07970cef094b55dfd1fb5fe1c90d35a7c34d84ffd",
       "litigation_analyst/knowledge/user_manual.md": "a9dad3322560e080e42d4c80ca64cee32dbef77b20f590d43733b2949e3541c4",
-      "litigation_analyst/manifest.json": "dfa8567c789d155435d06fe36e4cae143a1b09d92599cc7b316d61574295e1ca",
+      "litigation_analyst/manifest.json": "5ced03d1fe5fbfa813654850da6af81e2d0d2c3d5f978bbab007cd713ed70785",
       "litigation_analyst/payloads/domain/__init__.py": "01272d70857b75bc6d949c2791e9db079e2b844296196652567d760cf031a990",
       "litigation_analyst/payloads/domain/app/__init__.py": "f7379938facece2534505be22ad6d71857d88ccabcec2bdfac81a56192fa98f3",
       "litigation_analyst/payloads/domain/app/actions.py": "d8cc71311a3fdc28b8468240c55c4dcd52c7208e2153e37b20302e2930497ff2",
@@ -5398,8 +5447,8 @@
       "litigation_analyst/payloads/domain/performance.py": "f2bd1346b47c89940581a7cb57b3bbfdbc01d10f608062215c3db9f303f6a261",
       "litigation_analyst/payloads/domain/planning_context.py": "b3aa33adaa0555cbd5a51f5a4970403b4776b50503ca0a388576c666df453294",
       "litigation_analyst/payloads/domain/relationship_index.py": "fc1d7bd7910062e80c26bb2c62555c7c77554be67b91cfd760c0cabbe97cb794",
-      "litigation_analyst/payloads/domain/report_publication.py": "5912c77e1e7cbf1a63ddbedf84ae593f4936e9d126092800821faef870a4192a",
-      "litigation_analyst/payloads/domain/reporting.py": "46edcda07c7b12b5215e2cfc1c85c454820fb97fb3f43231eec9b09773f279f5",
+      "litigation_analyst/payloads/domain/report_publication.py": "0de7dea8a1f7fca1953ba74ab2fa78466db1dab18d86982ffc27aadbd2567a74",
+      "litigation_analyst/payloads/domain/reporting.py": "d3a3af4f5c452d2034a2a05c313d18acff60b39b5259f8b5e679e66ee60ac48d",
       "litigation_analyst/payloads/domain/research.py": "845638d37ae9c989ea14918556ac599c1eb73120f6ddccdc6d6696cd38bad7c3",
       "litigation_analyst/payloads/domain/review_audit.py": "95df36dc2d2c957aeef74ca8217e63916d04abc119d3e8fb37b104ed045f8255",
       "litigation_analyst/payloads/domain/review_packets.py": "7a2287cafc68feac56d88d1cf64b24934de89fc6648bf8428c4618e25b4780bc",
@@ -5413,13 +5462,13 @@
       "litigation_analyst/payloads/domain/source_graph.py": "83607b372607b2147eece8696df39dc9da082f7c20b8d16a3756ee991996accf",
       "litigation_analyst/payloads/domain/source_query.py": "9ed484f708e522ccc42954be954d8846464c670f27c2a9fd8b7b87e6df75caee",
       "litigation_analyst/payloads/domain/state.py": "fc055ef094a55768680ab782cd9be05810d023f7bab173c7acaf5d5b69257f0a",
-      "litigation_analyst/payloads/domain/supervision.py": "449fc242ee8994dcf19f417800f950d6557bf0742aa9da07e756876e8ee782e3",
+      "litigation_analyst/payloads/domain/supervision.py": "ca2d1f3d4bf74d427f1700458a35ae8587bb4a5fee4a34e576251de10907e182",
       "litigation_analyst/payloads/domain/temporal_evidence.py": "584e2befb5327bdb2c477f9379add6fcca33a4f6af15db15301f5be4641921da",
       "litigation_analyst/payloads/domain/workspace_assets/navigation.js": "1e029b653e18e85a3b9a3916c696046efb15d7e87968e700fdf9034bd205dd92",
-      "litigation_analyst/payloads/domain/workspace_assets/reading.js": "79d6f19a06f39ee5c04394c4048d02fdfa87c8a70e05c2fdf647a20899f333df",
-      "litigation_analyst/payloads/domain/workspace_assets/report-domain.css": "7630ca5f5abfabdaca9673d52ee3c34a9620020f5fddbf1b1f863e0b8ede3c10",
+      "litigation_analyst/payloads/domain/workspace_assets/reading.js": "e55c6fa9175780c0aefe993df0ac1831d0b21c2f68c59b4c0bb1cb0d2e7f0b16",
+      "litigation_analyst/payloads/domain/workspace_assets/report-domain.css": "e5405b284f75ed9e65d00b5d37a0744f021a1dd488ee024db9b3460a7e54471c",
       "litigation_analyst/payloads/domain/workspace_assets/workspace.css": "48202e51ddd7696d6cc1fc1de228e060e2f2da4684888293819a19b1b997c475",
-      "litigation_analyst/payloads/domain/workspace_assets/workspace.js": "9c3d03bc703999afd5ede585ceb7a2bed25f44a4b5a661af79b5ecb83856a181",
+      "litigation_analyst/payloads/domain/workspace_assets/workspace.js": "c7f0ae71e459364e6fbb8b68f217dc904016052fc293bc6ec18023c82ad6bbb1",
       "litigation_analyst/payloads/domain/workspace_graph.py": "3c336a03a4024b5e1706bb742468f35b899f6ee2eaaf3e7a95a9d859ac05f93b",
       "litigation_analyst/payloads/domain/workspace_history.py": "0d8082d1acb2862d65bffda08c032a88980e23e4c6d14478c87ad091d038b85b",
       "litigation_analyst/payloads/domain/workspace_memory.py": "ea523a75fedbd1f86b158d40e2db83af42d2f6b3a27608125067712826d67fde",

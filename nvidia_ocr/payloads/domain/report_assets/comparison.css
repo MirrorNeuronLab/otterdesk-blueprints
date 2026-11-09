@@ -1,0 +1,249 @@
+.report [hidden] {
+  display: none !important;
+}
+.comparison-toolbar {
+  display: flex;
+  gap: 16px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.file-control {
+  flex: 1;
+  max-width: 520px;
+  min-width: 180px !important;
+}
+.page-controls {
+  display: flex;
+  gap: 6px;
+  align-items: end;
+}
+.page-controls label {
+  width: 90px;
+}
+.comparison-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+.comparison-pane {
+  min-width: 0;
+  border: 1px solid var(--od-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pane-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--od-border);
+  min-height: 54px;
+}
+.pane-heading h2 {
+  margin: 0;
+  font-size: 13px;
+}
+.pane-heading a {
+  font-size: 12px;
+}
+.preview-tools,
+.result-tools {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  min-height: 65px;
+  border-bottom: 1px solid var(--od-border);
+}
+.preview-tools label,
+.result-tools label {
+  max-width: 140px;
+}
+.inline-control {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 6px !important;
+}
+.preview-scroll,
+.result-scroll {
+  height: calc(100dvh - 280px);
+  min-height: 360px;
+  max-height: 1000px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.preview-scroll {
+  background: var(--od-muted);
+  padding: 16px;
+}
+.result-scroll {
+  padding: 16px;
+}
+.preview-scroll svg {
+  width: 100%;
+  display: block;
+  background: white;
+  box-shadow: 0 2px 10px #00000014;
+  height: auto;
+  max-width: none;
+}
+.preview-scroll svg[data-zoom="150"] {
+  width: 150%;
+}
+.preview-scroll svg[data-zoom="200"] {
+  width: 200%;
+}
+.region-box {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+}
+.show-regions .region-box {
+  stroke: #2563eb90;
+  fill: #2563eb0a;
+}
+.region-box:hover,
+.region-box:focus,
+.region-box[data-selected="true"] {
+  stroke: #2563eb;
+  fill: #2563eb30;
+  outline: none;
+}
+#page-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+  font-size: 14px;
+}
+#region-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--od-border);
+  border-radius: 0;
+  background: transparent;
+  padding: 9px 6px;
+  font-weight: 400;
+}
+#region-list button[data-selected="true"] {
+  background: var(--od-muted);
+  outline: 2px solid var(--od-info);
+  outline-offset: -2px;
+}
+#region-list small {
+  display: block;
+  color: var(--od-muted-foreground);
+  margin-top: 3px;
+  font-size: 11px;
+}
+.empty-state {
+  padding: 24px 12px !important;
+  color: var(--od-muted-foreground);
+}
+#file-list {
+  margin-top: 16px;
+}
+#file-list a,
+#file-list .file-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--od-border);
+  padding: 12px 0;
+  text-decoration: none;
+}
+#file-list .file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#file-list .file-status {
+  flex-shrink: 0;
+  color: var(--od-muted-foreground);
+  font-size: 12px;
+}
+#file-list a:hover {
+  text-decoration: underline;
+}
+#document-note {
+  min-height: 18px;
+}
+#copy-status:empty {
+  display: none;
+}
+#inspector-content dl {
+  display: grid;
+  gap: 4px;
+}
+#inspector-content dt {
+  color: var(--od-muted-foreground);
+  margin-top: 12px;
+}
+#inspector-content dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.comparison-pane [data-slot="button"] {
+  white-space: normal;
+}
+#report-main {
+  max-width: none;
+}
+@media (max-width: 760px) {
+  .comparison-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .preview-scroll,
+  .result-scroll {
+    height: 52dvh;
+    min-height: 280px;
+  }
+  .file-control {
+    max-width: none;
+    min-width: 0 !important;
+    flex-basis: 100%;
+  }
+  .comparison-toolbar {
+    gap: 10px;
+  }
+  .page-controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .pane-heading {
+    flex-wrap: wrap;
+  }
+  .preview-tools,
+  .result-tools {
+    min-height: 60px;
+  }
+  .report-header {
+    align-items: center;
+  }
+}
+@media print {
+  .comparison-toolbar,
+  .preview-tools,
+  .result-tools,
+  .pane-heading button {
+    display: none;
+  }
+  .preview-scroll,
+  .result-scroll {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .comparison-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}

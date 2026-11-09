@@ -4,7 +4,7 @@
   "product": {
     "agent_role": "OCR specialist",
     "how_it_works": "Uses NVIDIA Nemotron OCR v2 on a managed CUDA node and saves complete results.",
-    "input": "One image or PDF",
-    "output": "Complete text, Markdown and page regions"
+    "input": "A source folder of PDFs, images and Office documents, including subfolders",
+    "output": "Per-file text, Markdown, page regions, a batch summary and an offline comparison report"
   }
 }

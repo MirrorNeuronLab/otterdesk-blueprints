@@ -24,6 +24,28 @@
         "artifact_id": "transcripts",
         "path": "transcripts",
         "path_kind": "directory"
+      },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "required": false,
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "type": "web_ui"
+      },
+      {
+        "artifact_id": "web_report",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "required": false,
+        "type": "report"
+      },
+      {
+        "artifact_id": "web_recordings",
+        "path": "web",
+        "path_kind": "directory",
+        "required": false,
+        "type": "report_assets"
       }
     ],
     "primary": {

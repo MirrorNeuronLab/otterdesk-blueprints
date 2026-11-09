@@ -56,6 +56,17 @@ def worker(tmp_path, monkeypatch):
     def request(*args, **options):
         calls.append((args, options))
         return {
+            "ctc_timestamps": {
+                "error": None,
+                "words": [
+                    {"word": "Synthetic", "start": 0, "end": .06, "speaker": "<spk:0>"},
+                    {"word": "transcript", "start": .06, "end": .12, "speaker": "<spk:0>"},
+                    {"word": str(len(calls)), "start": .12, "end": .2, "speaker": "<spk:1>"},
+                ],
+                "diarization": [{"speaker": 0, "start": 0, "end": .12},
+                                {"speaker": 1, "start": .12, "end": .2}],
+                "speaker_tag_to_diarization_speaker": {"<spk:0>": 0, "<spk:1>": 1},
+            },
             "choices": [
                 {
                     "finish_reason": "stop",
@@ -117,6 +128,11 @@ def test_complete_markdown_transcripts_and_replay(worker):
     )
     assert options["num_retries"] == 0
     assert options["model_spec"]["docker"]["cache_path"] == "/cache"
+    assert args[3]["mm_processor_kwargs"] == {"capture_ctc_timestamps": True}
+    assert args[3]["skip_special_tokens"] is False
+    assert worker.store.path("web/index.html").is_file()
+    assert worker.store.path("web_ui.json").is_file()
+    assert record["chunks"][0]["alignment"]["speakers"] == ["0", "1"]
     assert "Synthetic transcript" not in json.dumps(first.outputs)
 
 
@@ -150,6 +166,58 @@ def test_truncated_completion_never_publishes_complete_batch(worker, monkeypatch
             worker.execute()
     assert len(worker.calls) == 1
     assert not worker.store.path("transcription_result.json").exists()
+    assert not worker.store.path("web/index.html").exists()
+    assert not worker.store.path("web_ui.json").exists()
+
+
+def test_report_is_published_only_after_the_complete_batch(worker, monkeypatch):
+    import domain.transcription as domain
+
+    (worker.folder / "second.wav").write_bytes((worker.folder / "sample.wav").read_bytes())
+    original = domain.publish_replay
+
+    def publish(block, records):
+        assert len(worker.calls) == 6
+        assert block.store.path(block.root + "/publication.json").is_file()
+        assert all(block.store.path("transcripts/" + item["source"] + ".md").is_file() for item in records)
+        assert not block.store.path("web/index.html").exists()
+        return original(block, records)
+
+    monkeypatch.setattr(domain, "publish_replay", publish)
+    worker.execute()
+    assert worker.store.path("web_ui.json").is_file()
+
+
+@pytest.mark.parametrize("failure", ["render", "audio", "handle"])
+def test_optional_replay_failure_does_not_reject_saved_transcripts(worker, monkeypatch, failure):
+    import domain.reporting as reporting
+
+    if failure == "render":
+        monkeypatch.setattr(reporting, "render", lambda *a: (_ for _ in ()).throw(ValueError("render failed")))
+    elif failure == "handle":
+        monkeypatch.setattr("mn_sdk_web_ui.static_run_report_handle", lambda *a, **k: (_ for _ in ()).throw(ValueError("handle failed")))
+    else:
+        publish = reporting.publish_artifact_bundle
+
+        def fail_audio(block, writes, **kwargs):
+            if writes[0].kind == "audio":
+                raise OSError("optional delivery failed")
+            return publish(block, writes, **kwargs)
+
+        monkeypatch.setattr(reporting, "publish_artifact_bundle", fail_audio)
+    worker.execute()
+    assert worker.store.path("transcription_result.json").is_file()
+    assert not worker.store.path("web_ui.json").exists()
+    if failure != "handle":
+        assert not worker.store.path("web/index.html").exists()
+
+
+def test_missing_word_timing_keeps_transcript_but_does_not_invent_replay(worker, monkeypatch):
+    monkeypatch.setattr("mn_sdk.integrations.block_model_request.runtime_model_json_request",
+        lambda *a, **k: {"choices": [{"finish_reason": "stop", "message": {"content": "Saved text"}}]})
+    worker.execute()
+    assert worker.store.path("transcripts/sample.wav.md").is_file()
+    assert not worker.store.path("web/index.html").exists()
 
 
 def test_empty_folder_never_prepares_model(worker):
