@@ -126,6 +126,7 @@ def test_creates_public_repo_and_pinned_submodule_without_committing_other_work(
     child = root / "example_blueprint"
     remote = catalog.remotes / "mn-blueprint-example_blueprint.git"
     pin = git(child, "rev-parse", "HEAD", env=env)
+    assert git(child, "branch", "--show-current", env=env) == "development"
     assert git(remote, "rev-parse", "main", env=env) == pin
     assert git(root, "ls-files", "--stage", "--", child.name, env=env).startswith(
         f"160000 {pin} 0"

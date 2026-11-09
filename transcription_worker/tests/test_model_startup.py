@@ -1,9 +1,20 @@
 """The blueprint-owned image enables real timestamp capture without a GPU test."""
 
 import importlib.util
+import json
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+
+
+def test_model_recipe_pins_the_serving_image_by_digest():
+    path = Path(__file__).parents[1] / "execution.json"
+    recipe = json.loads(path.read_text())["runtime"]["models"]["transcribe"]
+    assert re.fullmatch(
+        r"docker\.io/homerquan/nvidia-transcribe@sha256:[0-9a-f]{64}",
+        recipe["model_spec"]["docker"]["image"],
+    )
 
 
 def test_serving_entrypoint_enables_the_pinned_models_timestamp_middleware(monkeypatch):

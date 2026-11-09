@@ -1,5 +1,12 @@
 # OCR worker
 
+While a batch runs, OtterDesk shows pages processed and average pages per second
+in Chat's run monitor and workflow detail. Each completed document updates the
+measurement; a document still in inference has no estimated page count. The
+average includes model preparation and request overhead. Recovery uses the
+original call timings. This requires the matching SDK with `ProcessingProgress`
+on the worker and API, followed by re-preparing the co-worker.
+
 Read PDFs, images and Office documents throughout a source folder, including its
 subfolders, using NVIDIA Nemotron OCR v2. Requires a Linux NVIDIA CUDA node with
 at least 48 GiB GPU memory; amd64 and arm64 (including DGX Spark) are supported.

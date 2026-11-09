@@ -350,3 +350,19 @@ def test_local_staging_preserves_all_formats_and_subfolders(tmp_path):
         any(name.endswith("nested/deep/same" + suffix) for name in payloads)
         for suffix in suffixes
     )
+
+
+def test_live_speed_counts_completed_pages_without_source_content(worker, monkeypatch):
+    events = []
+    monkeypatch.setattr("mn_sdk.processing_progress.emit_agent_event", lambda kind, payload: events.append(payload))
+    (worker.folder / "two-pages.pdf").write_bytes(pdf_bytes(2))
+    (worker.folder / "invalid.pdf").write_bytes(b"%PDF-corrupt")
+    worker.execute()
+    readings = [event["processing"] for event in events]
+    assert [item["completed"] for item in readings] == [0, 1, 3, 3]
+    assert [item["status"] for item in readings] == ["running"] * 3 + ["completed"]
+    assert all(item["unit"] == "page" and item["total"] is None for item in readings)
+    assert readings[-1]["elapsed_seconds"] > 0
+    assert all(event["step_id"] == "extract_folder_text" for event in events)
+    assert all(event["agent_id"] for event in events)
+    assert not any(secret in json.dumps(events) for secret in ("Synthetic source text", "source.png", "two-pages.pdf"))

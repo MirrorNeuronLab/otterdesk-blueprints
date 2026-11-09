@@ -38,19 +38,31 @@ After pulling an existing checkout, load the commits recorded by the catalog:
 git submodule update --init --recursive
 ```
 
-Commit and push changes in every blueprint, then the catalog:
+Use `development` for local work in the catalog and every submodule. On a new
+checkout, switch to `development` after initializing the submodules. Create the
+branch from the current commit if it does not exist yet.
+
+Commit and push changes to `development` in every blueprint, then the catalog:
 
 ```bash
 ./scripts/git-push-all.sh "Describe the changes"
 ```
 
-The script stages all non-ignored changes, including new files and deletions.
-It pushes each submodule before committing its updated pin in the parent, also
-pushes existing unpushed commits, and stops on an error. It uses each checked-out
-branch; a detached submodule uses its branch declared in `.gitmodules` (`main`).
-Missing submodules, conflicts, and unfinished Git operations must be resolved
-before it stages anything. Ordinary blueprint folders are committed with their
+The script requires every checkout to be on `development` before it stages
+all non-ignored changes. It pushes each submodule before committing its updated
+pin in the parent. Ordinary blueprint folders are committed with their
 containing repository.
+
+When the production runtime is ready, run the release script from clean
+`development` checkouts with every updated submodule pin committed:
+
+```bash
+./scripts/sync-development-to-main.sh --dry-run
+./scripts/sync-development-to-main.sh
+```
+
+The script fast-forwards local `main` and `origin/main` in each submodule before
+updating the catalog. If a push fails, resolve the Git error and rerun the script.
 
 Submodule download URLs use public HTTPS so catalog consumers need no SSH keys.
 This development checkout uses SSH origins for the separate repositories.
@@ -72,8 +84,8 @@ hyphens, starting with a letter. The script requires Git, Python 3.9 or newer,
 and an authenticated `gh` with permission to create repositories in
 `MirrorNeuronLab`. SSH push access to GitHub is also required.
 
-It creates `MirrorNeuronLab/mn-blueprint-my_blueprint`, commits and pushes a
-starter on `main`, and adds `my_blueprint/` as a pinned submodule. The starter
+It creates `MirrorNeuronLab/mn-blueprint-my_blueprint`, pushes a starter on
+`main`, and checks out `development` in the new pinned submodule. The starter
 includes an MIT license, ignore rules, Python 3.12 configuration, canonical
 workflow documents, a domain package, a reserved steps folder, a user manual,
 and an offline test. Its one stock HostLocal step returns an empty result;
@@ -86,8 +98,8 @@ commit and `index.json` unchanged. Existing folders and GitHub repositories
 are never overwritten. Finish the mission, behavior and tests before adding
 the folder name to `index.json` for catalog publication. Use
 `./scripts/git-push-all.sh "Add my_blueprint blueprint"` to commit and push the
-catalog pin when ready. All catalog maintenance scripts live in `scripts/`;
-their starter files live in `templates/blueprint/`.
+catalog pin to `development`. Catalog maintenance scripts live in `scripts/`
+and starter files live in `templates/blueprint/`.
 
 ## Quick Start
 

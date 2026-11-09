@@ -2,7 +2,7 @@
 
 Use one folder per co-worker. The folder and manifest own its mission, inputs, domain decisions and deliverables. MirrorNeuron prepares the Job, starts an admitted Run, executes its steps and publishes their results. Begin with a published package whose work resembles yours. VC Assistant is a batch example with several specialists. ROS AMR Controller is a supervised Compose service.
 
-Start with a runnable empty blueprint:
+Start with a runnable empty blueprint from the catalog's `development` branch:
 
 ```bash
 ./scripts/create_blueprint.sh -n my_blueprint
@@ -10,7 +10,7 @@ Start with a runnable empty blueprint:
 
 This creates and pushes the public
 `MirrorNeuronLab/mn-blueprint-my_blueprint` repository, then stages its pinned
-submodule in this catalog. It includes an MIT license, a canonical package,
+submodule in this catalog and checks it out on `development`. It includes an MIT license, a canonical package,
 standard supervision, an empty domain hook and an offline test. The workflow
 does no domain work or model inference. The parent is not committed and
 `index.json` is unchanged. The command requires Git, Python 3.9+, authenticated
@@ -25,10 +25,11 @@ The generated blueprint runs with the normal Python 3.12 MirrorNeuron runtime.
 4. The creation script sets up the public repository and pinned submodule.
    Add the folder ID to `index.json` when the implemented co-worker is ready
    for catalog publication. Keep its README, setup guide and tests aligned
-   with the actual inputs and output receipts. Commit and push the package
-   before updating the catalog pin;
-   `./scripts/git-push-all.sh "Commit message"` publishes every changed package
-   and then the catalog. Ordinary folders remain valid for local authoring.
+   with the actual inputs and output receipts.
+   `./scripts/git-push-all.sh "Commit message"` pushes each changed package to
+   `development` before updating and pushing the catalog. Use
+   `./scripts/sync-development-to-main.sh` when ready for production. Ordinary
+   folders remain valid for local authoring.
 
 ## Compose the work
 

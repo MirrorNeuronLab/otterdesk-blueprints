@@ -5,7 +5,7 @@ from pathlib import Path
 from mn_nvidia_ocr_skill import MODEL_REVISION, SOURCE_MODEL, validate_result
 from mn_nvidia_ocr_skill.contracts import MERGE_LEVELS
 from mn_sdk.blueprint.context import source_manifest
-from mn_sdk.blueprint.hooks import fingerprint, report_activity
+from mn_sdk.blueprint.hooks import ProcessingProgress, fingerprint, report_activity
 from mn_sdk.blueprint.inputs import capture_declared_inputs
 from mn_sdk.blueprint.models import model_request
 from mn_sdk.blueprint.outputs import publish_artifact_bundle
@@ -75,6 +75,7 @@ def run(block, inputs):
     declaration = source_manifest(__file__)["runtime"]["models"]["ocr"]
     records = []
     report_inputs = []
+    progress = ProcessingProgress("page", context=block).start()
     for index, item in enumerate(inventory["files"], 1):
         block.check()
         report_activity(
@@ -105,32 +106,34 @@ def run(block, inputs):
                 }
             )
             continue
-        response = model_request(
-            block,
-            {
-                "purpose": "ocr",
-                "model": declaration["model"],
-                "path": "/ocr",
-                "payload": {
-                    "document_base64": {
-                        "$artifact": prepared["document"],
-                        "encoding": "base64",
-                    },
-                    "suffix": prepared["suffix"],
-                    "merge_level": merge,
+        request = {
+            "purpose": "ocr",
+            "model": declaration["model"],
+            "path": "/ocr",
+            "payload": {
+                "document_base64": {
+                    "$artifact": prepared["document"],
+                    "encoding": "base64",
                 },
-                "options": {
-                    "provider": declaration["provider"],
-                    "backend": declaration["backend"],
-                    "model_spec": declaration["model_spec"],
-                    "timeout_seconds": 900,
-                },
+                "suffix": prepared["suffix"],
+                "merge_level": merge,
             },
-            key=fingerprint(item["source"]),
-        )
+            "options": {
+                "provider": declaration["provider"],
+                "backend": declaration["backend"],
+                "model_spec": declaration["model_spec"],
+                "timeout_seconds": 900,
+            },
+        }
+        key = fingerprint(item["source"])
+        response = model_request(block, request, key=key)
         if response.get("merge_level") != merge:
             raise ValueError("OCR response does not match requested text grouping")
         records.append(_publish_document(block, item, prepared, response))
+        progress.record_model_response(
+            block, request, key=key, units=len(response["pages"])
+        )
+    progress.finish()
     succeeded = sum(item["status"] == "completed" for item in records)
     failed = len(records) - succeeded
     report = {

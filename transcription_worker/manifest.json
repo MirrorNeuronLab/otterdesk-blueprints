@@ -41,6 +41,6 @@
   "payload_api": "mn.blueprint.v1",
   "tagline": "Listen back with a transcript and speaker highlights",
   "terms": "TERM.md",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "workflow": "workflow.json"
 }

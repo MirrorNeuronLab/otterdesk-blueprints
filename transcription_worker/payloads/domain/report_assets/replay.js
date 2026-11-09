@@ -38,13 +38,13 @@
   const name = (speaker, section = chunkIndex) => speaker === null ? "Unidentified speaker"
     : names[`${section}:${speaker}`] || `Speaker ${record.chunks[section].alignment.speakers.indexOf(speaker) + 1}`;
   const report = MNWebReport.createReport({
-    tabs: [["transcript", "Transcript", "transcript-view"]],
     actions: [{ id: "details", label: "Recording details", icon: "info" }],
     onAction(id, trigger) {
       if (id !== "details") return;
       editor = null;
       report.openInspector("Recording details", `<p>${escape(record.source)}</p>
         <p>${time(record.duration_seconds)} · ${record.chunks.length} sections</p>
+        <p>Generated transcript. Review important wording against the recording.</p>
         <p>Word highlights use the model’s audio alignment. Overlapping speakers can be active together.</p>
         <p>Speaker labels restart in each section. They do not identify a person across sections or recordings.</p>
         <p>Custom names are saved only in this browser for this run. They do not change the original transcript.</p>
@@ -134,6 +134,7 @@
     audio.currentTime = offset;
     audio.playbackRate = Number($("speed").value);
     $("section").value = String(index);
+    $("section").title = $("section").selectedOptions[0].text;
     renderSeats();
     renderTranscript();
     update();
@@ -262,7 +263,6 @@
     $("recording").append(option);
   }
   $("recording").title = record.source;
-  $("duration").textContent = time(record.duration_seconds);
   $("seek").max = String(record.duration_seconds);
   for (const [index, chunk] of record.chunks.entries()) {
     $("section").append(new Option(`Section ${index + 1} · ${time(chunk.start_seconds)}`, String(index)));

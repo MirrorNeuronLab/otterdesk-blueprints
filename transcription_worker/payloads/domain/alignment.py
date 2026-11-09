@@ -52,8 +52,9 @@ def playback_alignment(response, text, duration):
             raise ValueError("Invalid speaker activity")
         if not isinstance(mapping, dict) or len(mapping) > 8:
             raise ValueError("Invalid speaker mapping")
+        # NeMo uses numeric strings for speaker IDs in timestamp data.
         if any(
-            not SPEAKER_TAG.fullmatch(tag)
+            not re.fullmatch(r"[0-7]", tag)
             or (
                 speaker is not None
                 and (type(speaker) is not int or not 0 <= speaker <= 7)

@@ -31,7 +31,7 @@ def write_fixture(root):
                 "word": word,
                 "start": index * 0.08,
                 "end": index * 0.08 + 0.07,
-                "speaker": str(index // 15 % 3),
+                "speaker": str(index // 5 % 3),
             }
             for index, word in enumerate(
                 (

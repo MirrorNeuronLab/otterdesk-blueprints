@@ -22,14 +22,14 @@ def response():
         "ctc_timestamps": {
             "error": None,
             "words": [
-                {"word": "Hello", "start": 0.1, "end": 0.5, "speaker": "<spk:0>"},
-                {"word": "there.", "start": 0.4, "end": 0.8, "speaker": "<spk:1>"},
+                {"word": "Hello", "start": 0.1, "end": 0.5, "speaker": "0"},
+                {"word": "there.", "start": 0.4, "end": 0.8, "speaker": "1"},
             ],
             "diarization": [
                 {"start": 0.1, "end": 0.6, "speaker": 2},
                 {"start": 0.4, "end": 0.8, "speaker": 5},
             ],
-            "speaker_tag_to_diarization_speaker": {"<spk:0>": 2, "<spk:1>": 5},
+            "speaker_tag_to_diarization_speaker": {"0": 2, "1": 5},
         }
     }
 
@@ -59,7 +59,7 @@ def test_missing_unknown_and_empty_are_distinct(alignment):
     result = alignment.playback_alignment(raw, "Hello there.", 1)
     assert result["speakers"] == []
     assert all(word["speaker"] is None for word in result["words"])
-    raw["ctc_timestamps"]["speaker_tag_to_diarization_speaker"] = {"<spk:0>": None}
+    raw["ctc_timestamps"]["speaker_tag_to_diarization_speaker"] = {"0": None}
     assert (
         alignment.playback_alignment(raw, "Hello there.", 1)["words"][0]["speaker"]
         is None

@@ -22,11 +22,14 @@ Blueprint packages are Git submodules backed by public
 `MirrorNeuronLab/mn-blueprint-<folder_name>` repositories. `.gitmodules` records
 their locations and default branches; `index.json` alone controls catalog
 publication. Initialize a fresh checkout with
-`git submodule update --init --recursive` before editing packages. Commit and
-push a package before recording its updated pin in the catalog.
-`scripts/git-push-all.sh "Commit message"` performs that sequence for all repositories;
-it intentionally includes all non-ignored changes, so do not run it over
-unrelated work without authorization. Keep ordinary blueprint folders supported.
+`git submodule update --init --recursive` before editing packages. Check out
+`development` in the catalog and each submodule for local work. Commit and push
+a package to `development` before recording its updated pin in the catalog.
+`scripts/git-push-all.sh "Commit message"` performs that sequence for all
+repositories. It includes all non-ignored changes, so do not run it over
+unrelated work without authorization. Promote to production `main` with
+`scripts/sync-development-to-main.sh` when the release is authorized.
+Keep ordinary blueprint folders supported.
 Local development reads the filesystem directly and must not fetch or reset
 submodules. Remote catalog preparation uses the recorded commits.
 
@@ -261,9 +264,9 @@ Authoritative reports and evidence must remain under the SDK-provided run path
 in `$MN_HOME/shared/submissions/<submission-id>/outputs/runs/<run-id>/`, which
 Syncthing replicates between nodes. Configured Downloads outputs are additional
 host copies. Verify matching report hashes in both shared trees after replication.
-Keep final code on `main` and sync deployment checkouts using Git; compare commit
-IDs on mini and Spark before the final live gate. Never overwrite unrelated
-changes to force synchronization.
+After promotion to `main`, sync deployment checkouts using Git and compare
+commit IDs on mini and Spark before the final live gate. Never overwrite
+unrelated changes to force synchronization.
 Run these live checks sequentially: model preparation can restart the shared
 gateway, interrupting another workflow's active model request.
 

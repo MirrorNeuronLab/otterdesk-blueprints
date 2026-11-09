@@ -155,6 +155,37 @@ test('Long names, empty results and repeated resizing never overflow the page', 
   } finally { await page.close(); }
 });
 
+test('Only the transcript scrolls beside the table in full view and below it in the workspace', async () => {
+  const { page } = await open();
+  try {
+    for (const [width, height] of [[1180, 700], [488, 550], [216, 520], [1440, 800]]) {
+      await page.setViewportSize({ width, height });
+      const layout = await page.evaluate(() => {
+        const table = document.querySelector('.speakers-panel').getBoundingClientRect();
+        const panel = document.querySelector('.transcript-panel').getBoundingClientRect();
+        const transcript = document.getElementById('transcript');
+        transcript.scrollTop = 0;
+        const before = transcript.getBoundingClientRect();
+        transcript.scrollTop = transcript.scrollHeight;
+        return {
+          sideBySide: table.right <= panel.left && Math.abs(table.top - panel.top) < 1,
+          stacked: table.bottom <= panel.top && Math.abs(table.left - panel.left) < 1,
+          fixedTable: document.querySelector('.speakers-panel').getBoundingClientRect().top === table.top,
+          viewportFits: document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth,
+          transcriptHeight: before.height,
+          transcriptScroll: transcript.scrollTop,
+        };
+      });
+      assert.equal(width >= 720 ? layout.sideBySide : layout.stacked, true, `layout at ${width}px`);
+      assert.equal(layout.fixedTable, true);
+      assert.equal(layout.viewportFits, true, `page overflow at ${width}px`);
+      assert.ok(layout.transcriptHeight >= 48, `transcript clipped at ${width}px`);
+      assert.ok(layout.transcriptScroll > 0, `transcript cannot scroll at ${width}px`);
+      await expect(page.getByRole('button', { name: 'Play', exact: true })).toBeInViewport();
+    }
+  } finally { await page.close(); }
+});
+
 test('Unavailable audio gives a recovery action without fabricating playback', async () => {
   const { page } = await open();
   try {
@@ -166,7 +197,7 @@ test('Unavailable audio gives a recovery action without fabricating playback', a
 });
 
 test('Eight detected voices fit around the table and overlapping speakers all highlight', async () => {
-  const { page } = await open({ viewport: { width: 360, height: 900 } });
+  const { page } = await open({ viewport: { width: 216, height: 520 } });
   try {
     await page.goto(origin + '/many.html');
     await expect(page.locator('.avatar')).toHaveCount(8);

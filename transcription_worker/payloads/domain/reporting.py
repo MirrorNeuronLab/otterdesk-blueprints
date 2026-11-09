@@ -20,7 +20,6 @@ def render(record, recordings, run_id):
         script=(ASSETS / "replay.js").read_text(),
         style=(ASSETS / "replay.css").read_text(),
         data={"recording": record, "recordings": recordings, "run_id": run_id},
-        description="Generated transcript. Review important wording against the recording.",
     )
     # The shared shell defaults to no media. This domain view opts into only
     # same-origin captured audio; all other template/CSP restrictions stay intact.

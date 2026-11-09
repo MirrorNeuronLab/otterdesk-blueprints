@@ -51,8 +51,9 @@ each submodule to a commit in its public
 must materialize that recorded commit, including nested submodules, rather than
 following a branch tip. Local development reads folders as they exist without
 Git updates or checkout changes. The inventory and package contracts are the
-same for either storage form. Publication pushes child repositories before the
-catalog commit that references them.
+same for either storage form. The catalog and its submodules use `development`
+for ongoing work. Production promotion fast-forwards child repositories to the
+reviewed commits before updating `main` in the catalog that references them.
 
 Catalog development scripts live in `scripts/`.
 `scripts/create_blueprint.sh -n <name>` requires a name and creates a public
@@ -61,9 +62,10 @@ starter from `templates/blueprint/`. The canonical starter has one bounded
 stock HostLocal domain-operation step returning an empty object. It requires
 no GPU, inputs or domain actions and makes no workflow model calls. Standard
 Chat/MCP supervision is declared separately; memory and RAG start disabled.
-Creation pushes the initial blueprint commit and stages its submodule pin,
-preserving unrelated work and leaving `index.json` and the parent commit
-unchanged. Existing folders and repositories must not be overwritten.
+Creation pushes the initial blueprint commit, stages its submodule pin, and
+checks out `development` in the submodule. It preserves unrelated work and
+leaves `index.json` and the parent commit unchanged. Existing folders and
+repositories must not be overwritten.
 
 Every package uses the same canonical blueprint/v1 manifest in development,
 installed folders, generated folders, and ZIP distributions. `manifest.json`

@@ -11,7 +11,7 @@ from mn_nvidia_transcribe_skill import (
     prepare_audio,
 )
 from mn_sdk.blueprint.context import load_runtime_config, source_manifest
-from mn_sdk.blueprint.hooks import fingerprint
+from mn_sdk.blueprint.hooks import ProcessingProgress, fingerprint
 from mn_sdk.blueprint.inputs import capture_declared_inputs
 from mn_sdk.blueprint.models import model_request
 from mn_sdk.blueprint.outputs import capture_file, materialize_file, publish_artifact_bundle
@@ -123,6 +123,15 @@ def run(block, inputs):
     if sum(len(prepared["chunks"]) for _, prepared in prepared_inputs) >= block.max_calls:
         raise ValueError("Audio inventory exceeds the declared model call budget")
     writes, records = [], []
+    progress = ProcessingProgress(
+        "audio_second",
+        total=sum(
+            chunk["end_seconds"] - chunk["start_seconds"]
+            for _, prepared in prepared_inputs
+            for chunk in prepared["chunks"]
+        ),
+        context=block,
+    ).start()
     for item, prepared in prepared_inputs:
         block.check()
         sections, chunks, text_bytes = [], [], 0
@@ -142,13 +151,16 @@ def run(block, inputs):
                 "encoding": "data_uri",
                 "mime_type": "audio/wav",
             }
-            response = model_request(
-                block, request, key=fingerprint([item["source"], chunk["index"]])
-            )
+            key = fingerprint([item["source"], chunk["index"]])
+            response = model_request(block, request, key=key)
             text = parse_completion(response)
             text_bytes += len(text.encode())
             if text_bytes > 4 * 1024 * 1024:
                 raise ValueError("Transcript exceeds 4 MiB per recording")
+            progress.record_model_response(
+                block, request, key=key,
+                units=chunk["end_seconds"] - chunk["start_seconds"],
+            )
             sections.append(
                 "## "
                 + _time(chunk["start_seconds"])
@@ -204,6 +216,7 @@ def run(block, inputs):
                 "chunks": chunks,
             }
         )
+    progress.finish()
     report = {
         "schema": "mn.nvidia_transcribe.batch.v1",
         "source_model": SOURCE_MODEL,

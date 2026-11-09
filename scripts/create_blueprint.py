@@ -203,6 +203,7 @@ def create(name):
         # development origin stays SSH. No parent commit or catalog entry is made.
         run("git", "submodule", "add", "--branch", "main", https_url, name)
         run("git", "submodule", "absorbgitdirs", "--", name)
+        run("git", "switch", "--no-track", "--create", "development", cwd=target)
     except (CreationError, OSError, ValueError) as error:
         if remote_created:
             print(

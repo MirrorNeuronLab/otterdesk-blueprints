@@ -1,32 +1,37 @@
 <main id="transcript-view" class="transcript-view">
-  <div class="recording-picker">
-    <label for="recording">Recording</label>
-    <select id="recording"></select>
-    <span id="duration" class="muted"></span>
-  </div>
-  <section class="speakers-panel" aria-labelledby="speakers-heading">
-    <div class="section-heading"><h2 id="speakers-heading">At the table</h2><span id="section-label" class="muted"></span></div>
-    <div id="round-table" class="round-table">
-      <div class="table-surface"><span id="speaker-count"></span><span id="speaking" role="status" aria-live="polite">Ready to play</span></div>
-      <div id="seats"></div>
+  <section class="replay-toolbar" aria-label="Audio playback">
+    <div class="recording-picker">
+      <label for="recording">Recording</label>
+      <select id="recording"></select>
     </div>
-    <p class="muted table-help">Select a person to add a name. Speaker labels apply to the current section.</p>
-  </section>
-  <section class="playback-panel" aria-label="Audio playback">
     <div class="playback-controls">
       <button id="play" class="primary" type="button">Play</button>
       <span id="position" class="time">0:00 / 0:00</span>
       <label class="speed-label" for="speed">Speed</label>
       <select id="speed"><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
-      <button id="follow" type="button" aria-pressed="true">Follow transcript</button>
     </div>
     <label class="sr-only" for="seek">Playback position</label><input id="seek" type="range" min="0" max="1" step="0.01" value="0">
     <p id="playback-error" role="alert" hidden></p>
-    <audio id="audio" preload="none"></audio>
+    <audio id="audio" preload="none" hidden></audio>
   </section>
-  <section aria-labelledby="transcript-heading">
-    <div class="section-heading transcript-heading"><h2 id="transcript-heading">Transcript</h2><label class="sr-only" for="section">Transcript section</label><select id="section"></select></div>
-    <p class="muted">Select a word to seek.</p>
-    <div id="transcript" class="transcript" tabindex="0" role="region" aria-label="Scrollable transcript"></div>
-  </section>
+  <div class="replay-content">
+    <section class="speakers-panel" aria-labelledby="speakers-heading">
+      <div class="section-heading"><h2 id="speakers-heading">At the table</h2><span id="section-label" class="muted"></span></div>
+      <div id="round-table" class="round-table">
+        <div class="table-surface"><span id="speaker-count"></span><span id="speaking" role="status" aria-live="polite">Ready to play</span></div>
+        <div id="seats"></div>
+      </div>
+      <p class="muted table-help">Select a speaker to name them.</p>
+    </section>
+    <section class="transcript-panel" aria-labelledby="transcript-heading">
+      <div class="section-heading transcript-heading">
+        <h2 id="transcript-heading">Transcript</h2>
+        <div class="transcript-controls">
+          <label class="sr-only" for="section">Transcript section</label><select id="section"></select>
+          <button id="follow" type="button" aria-label="Follow transcript" aria-pressed="true">Follow</button>
+        </div>
+      </div>
+      <div id="transcript" class="transcript" tabindex="0" role="region" aria-label="Scrollable transcript"></div>
+    </section>
+  </div>
 </main>

@@ -1,5 +1,12 @@
 # OCR worker specification
 
+After each validated, published document, report its measured page count through
+the SDK's generic `ProcessingProgress` hook (`page`). The SDK's original model
+response receipt supplies duration, including setup/request overhead, and sample
+time even on recovery. Exclude failed inputs and never estimate pages in an
+unfinished request. Measurements contain no filenames or source text and do not
+change inference, resource allocation, publication or workflow completion.
+
 Accept an authorized source folder and recursively process its PDF, supported
 single-frame image, Word, PowerPoint and Excel/OpenDocument files. Use
 `nvidia/nemotron-ocr-v2` multilingual at revision

@@ -59,13 +59,13 @@ def worker(tmp_path, monkeypatch):
             "ctc_timestamps": {
                 "error": None,
                 "words": [
-                    {"word": "Synthetic", "start": 0, "end": .06, "speaker": "<spk:0>"},
-                    {"word": "transcript", "start": .06, "end": .12, "speaker": "<spk:0>"},
-                    {"word": str(len(calls)), "start": .12, "end": .2, "speaker": "<spk:1>"},
+                    {"word": "Synthetic", "start": 0, "end": .06, "speaker": "0"},
+                    {"word": "transcript", "start": .06, "end": .12, "speaker": "0"},
+                    {"word": str(len(calls)), "start": .12, "end": .2, "speaker": "1"},
                 ],
                 "diarization": [{"speaker": 0, "start": 0, "end": .12},
                                 {"speaker": 1, "start": .12, "end": .2}],
-                "speaker_tag_to_diarization_speaker": {"<spk:0>": 0, "<spk:1>": 1},
+                "speaker_tag_to_diarization_speaker": {"0": 0, "1": 1},
             },
             "choices": [
                 {
@@ -298,3 +298,27 @@ def test_nested_wav_and_mp3_finish_one_recording_before_the_next(worker, monkeyp
         assert all(f"Chunk {n}" in text for n in range(index * 3 + 1, index * 3 + 4))
     assert worker.execute() == result
     assert len(worker.calls) == 9
+
+
+def test_live_audio_speed_counts_full_chunks_and_reuses_original_timing(worker, monkeypatch):
+    import domain.transcription as domain
+
+    events = []
+    monkeypatch.setattr("mn_sdk.processing_progress.emit_agent_event", lambda kind, payload: events.append(payload))
+    with monkeypatch.context() as patch:
+        patch.setattr(domain, "publish_artifact_bundle", lambda *a, **k: (_ for _ in ()).throw(OSError("delivery failed")))
+        with pytest.raises(OSError):
+            worker.execute()
+    first = [event["processing"] for event in events]
+    assert [item["completed"] for item in first] == [0, 1, 2, 2.25, 2.25]
+    assert all(item["total"] == 2.25 and item["unit"] == "audio_second" for item in first)
+    assert first[-1]["elapsed_seconds"] > 0
+    events.clear()
+    worker.execute()
+    replay = [event["processing"] for event in events]
+    assert len(worker.calls) == 3
+    assert [(item["completed"], item["elapsed_seconds"], item["sample_at"]) for item in replay] == [
+        (item["completed"], item["elapsed_seconds"], item["sample_at"]) for item in first
+    ]
+    assert all(event["step_id"] == "transcribe_audio_folder" and event["agent_id"] for event in events)
+    assert "sample.wav" not in json.dumps(events) and "Synthetic transcript" not in json.dumps(events)
