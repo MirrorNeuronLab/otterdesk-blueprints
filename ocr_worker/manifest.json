@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "config": "config/default.json",
+  "contracts": "contracts.json",
+  "dependencies": "dependencies.json",
+  "description": "Read PDFs, images and Office documents recursively from a source folder with NVIDIA Nemotron OCR v2, preserving per-file text and provenance.",
+  "execution": "execution.json",
+  "extensions": {
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.rag": {
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  },
+  "id": "ocr_worker",
+  "license": "LICENSE.md",
+  "name": "OCR worker",
+  "payload_api": "mn.blueprint.v1",
+  "tagline": "Extract text from a folder of documents",
+  "terms": "TERM.md",
+  "version": "0.3.0",
+  "workflow": "workflow.json"
+}

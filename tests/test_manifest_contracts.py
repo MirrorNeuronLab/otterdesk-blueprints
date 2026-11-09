@@ -7,7 +7,6 @@ import pytest
 from blueprint_modernization_support import blueprint_path
 from mn_sdk.blueprints import (
     blueprint_definition,
-    catalog_record,
     read_blueprint,
     read_catalog,
 )
@@ -57,16 +56,26 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
                             assert field["default"] == folder_path, name
 
 
-@pytest.mark.parametrize("name", ["nvidia_transcribe", "nvidia_ocr"])
-def test_nvidia_setup_exposes_default_output_folder(name):
-    package = read_blueprint(blueprint_path(name))
-    guide = catalog_record(package, name)["setup_guide"]
-    field = next(field for field in guide["fields"] if field["path"] == "outputs.folder_path")
+@pytest.mark.parametrize(
+    ("blueprint_id", "display_name"),
+    [("ocr_worker", "OCR worker"), ("transcription_worker", "Transcription worker")],
+)
+def test_worker_catalog_exposes_identity_and_default_output_folder(blueprint_id, display_name):
+    root = Path(__file__).resolve().parents[1]
+    entries = read_catalog(root / "index.json")
+    entry = next(entry for entry in entries if entry["id"] == blueprint_id)
+    job_name = blueprint_id.replace("_", "-")
+    assert entry["path"] == blueprint_id
+    assert entry["name"] == display_name
+    assert entry["job_name"] == job_name
+
+    fields = entry["setup_guide"]["fields"]
+    field = next(field for field in fields if field["path"] == "outputs.folder_path")
 
     assert field["role"] == "output"
     assert field["type"] == "local_path"
     assert field["path_kind"] == "directory"
-    assert field["default"] == package.document("config")["outputs"]["folder_path"]
+    assert field["default"] == f"~/Downloads/{job_name}"
 
 
 def test_catalog_blueprints_declare_job_response_service():

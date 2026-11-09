@@ -1,6 +1,0 @@
-{
-  "name": "nvidia-transcribe-report-tests",
-  "private": true,
-  "scripts": { "test": "node --test replay.test.cjs" },
-  "devDependencies": { "@playwright/test": "1.59.1" }
-}
