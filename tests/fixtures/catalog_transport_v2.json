@@ -5040,6 +5040,216 @@
           "after": "c7f0ae71e459364e6fbb8b68f217dc904016052fc293bc6ec18023c82ad6bbb1"
         }
       }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": ".",
+      "added": false,
+      "reason": "Review setup and Chat prompt assets across existing packages, including missing GTM profiles and schema-correct Web Lab guidance. Only changed conversation assets are refreshed; existing unrelated source, inventory and runtime-binding drift remains visible. OCR and transcription are covered by the catalog profile tests but are not added to this older transport inventory.",
+      "fields": {},
+      "configuration_leaves": {},
+      "source_files": {
+        "cctv_operator/knowledge/conversation_guide.md": {
+          "before": "49483f493400ae2d04ad33d27ab141eb09527f2f87d279188abb0dab51e18973",
+          "after": "20d889ced8044ebf7ddc06200b3977f246e2b668ba0f7ca6d90607d549385cbd"
+        },
+        "cctv_operator/payloads/prompts/conversation.json": {
+          "before": "18fb01d08b6a2d43fa624f260c6dc2c0e3e30aeb2139f73040bec8aad39c140d",
+          "after": "3e77cbdfd038686254b0a2a4d5c06bd0860fb72f899f73f3319d86980a0e35d2"
+        },
+        "cctv_operator/payloads/prompts/setup.md": {
+          "before": "d520251b24d81e89b4303cbc31ff682b46c80847b6487f3f1286b2ac9a424c85",
+          "after": "f2e1f93f21cb8735af58404bc62f1499a0f531dbb27a70aea1239c3fa5603130"
+        },
+        "code_verifier/knowledge/conversation_guide.md": {
+          "before": "7744f0b10bc657e240a090ac13a28c88195ddb60e521de8816ac34e1b9aef61f",
+          "after": "5eae756184771750f5d8f74626bcfa5aab3c8f797f60200296a8d1610c7a6158"
+        },
+        "code_verifier/payloads/prompts/conversation.json": {
+          "before": "170d2b3b14e38dce4b10c6628ba92e3861393ee8921987774d837ab9f6ac9c5e",
+          "after": "4610e0811b59c4d6b010b54d0bfc89bd67b92662d3d383d2923fc55d667636a9"
+        },
+        "code_verifier/payloads/prompts/setup.md": {
+          "before": "a3a123ee553695f239a5d68b368d623da4f0d4aad1603ae1d7f07016ae44fd82",
+          "after": "b55ca1f23ec3cd1cbfbaed9403ae74fd46aaa58fd0ef6c09deecbb8379a96e07"
+        },
+        "ct_reader/knowledge/conversation_guide.md": {
+          "before": "67c0ca6dce770c5bcc3a6500838c80812325a6539e6606ff947c2f9205f4fae9",
+          "after": "54a4fff587f48c2861c1dd594269916dbab8d6cc6878f7371e973c8607b2455d"
+        },
+        "ct_reader/payloads/prompts/conversation.json": {
+          "before": "2fdb4fda696aa8af9e2b3cc63de52a3dbd6c4f94b516baadab5d5a278678e5a2",
+          "after": "c60db2ff7d0aeb22d4ae10d9e1de43715f0b686bf821fa083046247f88ee4bd7"
+        },
+        "ct_reader/payloads/prompts/setup.md": {
+          "before": "134012cd14f9130836771c26342b68e0c17cd5f737793ef1f4ad4d6c321f53c9",
+          "after": "2d082acfa8ea6c868b67db5d9758888526d1ec658787c9fc82b52b1d30f76b7a"
+        },
+        "drug_discovery_research_assistant/knowledge/conversation_guide.md": {
+          "before": "0b3f32273b1fa02f9beea0f863c854f56d3be3c738cc615646a2f9f15b586846",
+          "after": "5392a76fa39ed03257b1d7ef7b0a2c67bd66f6a1a1b50cc6b1b94e01ccd95d0a"
+        },
+        "drug_discovery_research_assistant/payloads/knowledge/conversation_guide.md": {
+          "before": "0b3f32273b1fa02f9beea0f863c854f56d3be3c738cc615646a2f9f15b586846",
+          "after": "5392a76fa39ed03257b1d7ef7b0a2c67bd66f6a1a1b50cc6b1b94e01ccd95d0a"
+        },
+        "drug_discovery_research_assistant/payloads/prompts/conversation.json": {
+          "before": "61376068e88ff4a3279227a75a71066f2f892e853a3ecc60fd65822d9295a122",
+          "after": "75a5d5a8ca04b0033992faee65f140cb0132eb1d540ac4d583b18740cc6baad8"
+        },
+        "drug_discovery_research_assistant/payloads/prompts/setup.md": {
+          "before": "9a465c87a62482fab777717caee4d1d6359d8cee55bb310118ad165694c347f1",
+          "after": "d9da6c126c1fda831ee7b24422ccfed4dff6563fd9b420976a381787ff33bace"
+        },
+        "general_assistant/knowledge/conversation_guide.md": {
+          "before": "d480c499ff31b60afbb2deb7a478d48d53546badd789be9eb4da510c543141e5",
+          "after": "68e1ce17153776fa339c3fd2b27ed429a5f925a6d5e7bbba60a83902105b608c"
+        },
+        "general_assistant/payloads/prompts/conversation.json": {
+          "before": "98a6b6c27f0ad958b27a392a5c9b28e74515412cd8b13f6bb250ead725305892",
+          "after": "7a625ca213a3392fc9b8d9f56bfaef9065d4f3854b2ba2d9a081c2ad93bf1dda"
+        },
+        "general_assistant/payloads/prompts/setup.md": {
+          "before": "bed5c71f808acd9cf7fc06bc9ec43957bf4a34c0be9f31927a7a33c84099fb19",
+          "after": "36833ccd234c317d583b3853283198cd98f1c1858239aff81561f18f85ab974d"
+        },
+        "gtm_executor/extensions/ui.json": {
+          "before": "7cab93f0821518df43757a5e819e3d813ce426223ccded3e6b9315a62ecf34f7",
+          "after": "848c0141aa0beca77ae8944ddffcf38044e5c5d8ba8fc8802da7ac3e2a2b271b"
+        },
+        "gtm_executor/knowledge/conversation_guide.md": {
+          "before": null,
+          "after": "415d47627958c42fe563e7761d0ff337177bda6e4f5d13e00936ef6146df250e"
+        },
+        "gtm_executor/knowledge/user_manual.md": {
+          "before": "f1aeb9db4075004b73d82705564310a97ffb754029e862f38ccb06da25110f03",
+          "after": "711b1928896066cc06f79d4673bbfff0b04358bfd7b1f61094c0cb02b6aecfc3"
+        },
+        "gtm_executor/payloads/prompts/conversation.json": {
+          "before": null,
+          "after": "3c2df4997bc306b4e4197b131e462127fe52ebe0ef800852734cd8b3814d5662"
+        },
+        "gtm_executor/payloads/prompts/setup.md": {
+          "before": null,
+          "after": "3af01eb96581c47b147c0741189dd0d4a9590677b0f8cedcce1c84f68549069b"
+        },
+        "gtm_planner/extensions/ui.json": {
+          "before": "ba11f1b17dd72a0d4e1466085c2cb0b3124c0f12230c1290099d5de494c5f5d7",
+          "after": "457f14c34c33685ff71a65add54019fe6703b11f379d2bae73ef94411b5cf812"
+        },
+        "gtm_planner/knowledge/conversation_guide.md": {
+          "before": null,
+          "after": "6405587674aefc2c96724a24406a56b0bb53f7c91c4007508c59cbe3f34c668c"
+        },
+        "gtm_planner/knowledge/user_manual.md": {
+          "before": "065bdcb2902a9b0c075fddbc7b87c8e8117272fba4878530d7a5d6c7b5fd5a81",
+          "after": "1289212e351ec176c189132892c7ff09480ff1e4bcdfbdff0b1cb082855b0eb6"
+        },
+        "gtm_planner/payloads/prompts/conversation.json": {
+          "before": null,
+          "after": "e52ea47495855ea455eb7acf18d121b7269d235204cfbc8d1da57a617213606d"
+        },
+        "gtm_planner/payloads/prompts/setup.md": {
+          "before": null,
+          "after": "f7e8a4e70d64587036e3a69be6590d862bff0c8eec0696e1f2473e02cba5c1a6"
+        },
+        "litigation_analyst/knowledge/conversation_guide.md": {
+          "before": "888c5e4374e884c2de8991a07970cef094b55dfd1fb5fe1c90d35a7c34d84ffd",
+          "after": "b0741fef54d1c16037b9cdc440f23186f97900a3f2c68106f66f874c0b0aed27"
+        },
+        "litigation_analyst/payloads/prompts/conversation.json": {
+          "before": "0aac39487ea5e91e0a09a234eef8e730a1f83dc98413b390e2f9555d77dc81e4",
+          "after": "579f3c59d6a1e9202d6a0347f89906eaaf393485831f9edfbb6d2c4aa431d367"
+        },
+        "litigation_analyst/payloads/prompts/setup.md": {
+          "before": "e8ede1edf63b8e37098a5e732000f2d54d366ea71206e2e8ba37bdcce5dbbcb2",
+          "after": "c7741b3ef49974feaa3c4f6f369d6cc777ff0a55eb713e7efee7bd95078c33e8"
+        },
+        "mac_security_investigator/knowledge/conversation_guide.md": {
+          "before": "6b1c06382c66b70ca75d7242a60ad4d5c896290e243af3076665e6d7536c6f9b",
+          "after": "899ac8677fe6bec34a67b629d409195f50771642a676032e064ede3faecfa724"
+        },
+        "mac_security_investigator/payloads/prompts/conversation.json": {
+          "before": "e9c38e6fd6cb27a13f76fc1bc16df5283cf976c17de33f8c4bdc72502d9deb68",
+          "after": "5d84aa9fcd89c79a75883139bbb8b16c0cddea0dd48d15d11aa1b66323579cca"
+        },
+        "mac_security_investigator/payloads/prompts/setup.md": {
+          "before": "8c570d3be06ec192c2c6a3275537ec6f2c352f0b0484f8e88fdd9e6b108f2325",
+          "after": "909c54e44cee64465fae202741b6e9251b69d3b24fb5dba6b66fc03d61dfce2d"
+        },
+        "procurement_manager/knowledge/conversation_guide.md": {
+          "before": "bbe66677d2d0ecc8195c82ed9e3a1640a6e56e1a17f1c20b0933679c31cb524f",
+          "after": "3ff558ce6e03b1e7440f3c8ebde589a95b67418019320f0fb87f2b5f6d9781da"
+        },
+        "procurement_manager/payloads/knowledge/conversation_guide.md": {
+          "before": "bbe66677d2d0ecc8195c82ed9e3a1640a6e56e1a17f1c20b0933679c31cb524f",
+          "after": "3ff558ce6e03b1e7440f3c8ebde589a95b67418019320f0fb87f2b5f6d9781da"
+        },
+        "procurement_manager/payloads/prompts/conversation.json": {
+          "before": "76c8d426dace0a253d8846815f9a18f5e35a1928c30bddf44f1b09984f6acfc1",
+          "after": "48db1f7edc67967d53728223bac98550163a1d1ef38bd580493b6b7e905dbf95"
+        },
+        "procurement_manager/payloads/prompts/setup.md": {
+          "before": "dabaa43e424d86b77c7b6184fd9336cbe1fe68f96ac0f3955cbbcc1c91319572",
+          "after": "cfdc2b9d47e6c07dee911311bfd0f82bbb18b67265ae4b71738bce31c7525cdc"
+        },
+        "ros_amr_controller/knowledge/conversation_guide.md": {
+          "before": "5a060624f800449b419c85f68be559105a6155ecb854c680e96b3cbbdcc385ce",
+          "after": "7fce4f2de929e3d38fa1ae3b4cf7eae90f1e06a6de29b052e5db0f01130881ee"
+        },
+        "ros_amr_controller/payloads/knowledge/conversation_guide.md": {
+          "before": "5a060624f800449b419c85f68be559105a6155ecb854c680e96b3cbbdcc385ce",
+          "after": "7fce4f2de929e3d38fa1ae3b4cf7eae90f1e06a6de29b052e5db0f01130881ee"
+        },
+        "ros_amr_controller/payloads/prompts/conversation.json": {
+          "before": "cbc9996c435c7ed228d475da6c2e1efae54de09ccf8e58ece5f4002ef1c234c8",
+          "after": "93451effbc6c5a5e0e217c2e1efae452a60b55049cb3e9f9685dae8164428557"
+        },
+        "ros_amr_controller/payloads/prompts/setup.md": {
+          "before": "7692e0d26ff4eff4e05ab616138ad4da74164ad19446ac6c6e44f63ddb8e9963",
+          "after": "ddaae82c49e016dbe5f1e0c8f6f149361be53140fe12fc9b7e1c34d7571ec9e8"
+        },
+        "software_architecture_advisor/knowledge/conversation_guide.md": {
+          "before": "167854bd285b3a1253537afe46899de979490fd37bca265e822b60f6ca429bae",
+          "after": "4648aed0a97f5871d9ea97be1bf01831326212e8faf30246b24e7a70ae17d4f5"
+        },
+        "software_architecture_advisor/payloads/prompts/conversation.json": {
+          "before": "7b3bb6ffe80938c067346dd267e10a5ce3893b63ba482c0d04426b297a7218ce",
+          "after": "4c103884e142c39090c257eef4caa146182f5a78a7488fa6ee7ef2d6f7272110"
+        },
+        "software_architecture_advisor/payloads/prompts/setup.md": {
+          "before": "1ea89a5413ab8450eddf1f3ed96f84c1cf65a22e9bca504d35450221b16c1b0a",
+          "after": "b2bd6359894f050acfeb822854f58570254bca7427369383e434082b963e11c4"
+        },
+        "vc_assistant/knowledge/conversation_guide.md": {
+          "before": "a24f5130812b12e1ecc91bfe3b054531d72f6fb6e244ee7454700beafb8b8893",
+          "after": "e531555019738dd9c055a5ffdd2e4a88ce69d307b92214eb31698f450512129d"
+        },
+        "vc_assistant/payloads/knowledge/conversation_guide.md": {
+          "before": "a24f5130812b12e1ecc91bfe3b054531d72f6fb6e244ee7454700beafb8b8893",
+          "after": "e531555019738dd9c055a5ffdd2e4a88ce69d307b92214eb31698f450512129d"
+        },
+        "vc_assistant/payloads/prompts/conversation.json": {
+          "before": "cf7dedacfcd0f564bee8499bdb438498d7b04aa576ab8e2aa47742fff061e70f",
+          "after": "5340b0ee859a8db4fc66a5c49e9da7cee54392a01df543cd6bddf3e73bf2269a"
+        },
+        "vc_assistant/payloads/prompts/setup.md": {
+          "before": "9b2714d967b514c43ba4547109a7e3c4112b9ed7328a524d185f1ea57828317d",
+          "after": "90e97ce8bc0105b31475317e713fb6276fec09d5443dc2bf1d18bc9ac65b53a7"
+        },
+        "web_lab_operator/knowledge/conversation_guide.md": {
+          "before": "3db446bb6fc77f511576c16543120504ffe4cbf55803f08be2d4916263317d1c",
+          "after": "203dd097279cd7165c460a56afac31a9e90789827d11ef1cfc76e6075720ea3b"
+        },
+        "web_lab_operator/payloads/prompts/conversation.json": {
+          "before": "1af5cba131a9a2a6ba17ad1aa8ca291cf8e7471dde28f7ae4f215ba0a6920ba8",
+          "after": "cb419270180999b39234bd3adf13ddb40026a153febdcd1f26888baacb53d0b4"
+        },
+        "web_lab_operator/payloads/prompts/setup.md": {
+          "before": "ddc099a531d2cee9433c5329156cd1330f69f2bed7259d6e90db6f7d2f60dce7",
+          "after": "bf1fb55e645328a2b6eab242bd852975387f2cd548c6d2a84091cc2f965e9821"
+        }
+      }
     }
   ],
   "published_inventory": {
@@ -5084,7 +5294,7 @@
       "cctv_operator/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
       "cctv_operator/extensions/ui.json": "efab489bf71d33974722775a2069901c6d11bdcc761591a06ba284b16c971c56",
       "cctv_operator/knowledge/capabilities.md": "79d355da115d5806e0760c16d8e1bc4475a7bb245c12477fcbcbb8d2c603a170",
-      "cctv_operator/knowledge/conversation_guide.md": "49483f493400ae2d04ad33d27ab141eb09527f2f87d279188abb0dab51e18973",
+      "cctv_operator/knowledge/conversation_guide.md": "20d889ced8044ebf7ddc06200b3977f246e2b668ba0f7ca6d90607d549385cbd",
       "cctv_operator/knowledge/monitoring_policy.md": "b903b4448e143d4795ca46cbb1ed8855bb410bc9eae210a196129c96c3eedf8e",
       "cctv_operator/knowledge/user_manual.md": "939de8fab8463e04e0f13369175246a7b8fba8dc39b446c3577755c0e8a2e154",
       "cctv_operator/manifest.json": "a64f6e5ed43647d27a184a0b57116ec43c2587962a01e672d1c43ff64b1d8838",
@@ -5106,8 +5316,8 @@
       "cctv_operator/payloads/domain/web.py": "59c000d0bc03f4e78c23ca7a660a45b4d1481320c0156296a0f5ce6b55108449",
       "cctv_operator/payloads/domain/window_evidence.py": "03d5a11391b9b0def08019f6b546e903b494c4cc03b881fe5523360bb4d1c0b5",
       "cctv_operator/payloads/prompts/chat-system.md": "d179648a49e3b22585a91d4071974803dfa7755ff761974175bfb207989b6e68",
-      "cctv_operator/payloads/prompts/conversation.json": "18fb01d08b6a2d43fa624f260c6dc2c0e3e30aeb2139f73040bec8aad39c140d",
-      "cctv_operator/payloads/prompts/setup.md": "d520251b24d81e89b4303cbc31ff682b46c80847b6487f3f1286b2ac9a424c85",
+      "cctv_operator/payloads/prompts/conversation.json": "3e77cbdfd038686254b0a2a4d5c06bd0860fb72f899f73f3319d86980a0e35d2",
+      "cctv_operator/payloads/prompts/setup.md": "f2e1f93f21cb8735af58404bc62f1499a0f531dbb27a70aea1239c3fa5603130",
       "cctv_operator/payloads/web_assets/app.js": "405af5876e5c8efab0f468ba811edb4f62e2cdcdaf400403ab8a6836c3cd44eb",
       "cctv_operator/payloads/web_assets/index.html": "08a73b2e86dcb399cea57e5eb8e3192a706b2028647ef2dea07153172fa43bb1",
       "cctv_operator/payloads/web_assets/style.css": "ebd1f945e43212969418634366aefacda18ec67e91eeba2a40f03f43b6af82db",
@@ -5133,7 +5343,7 @@
       "code_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "code_verifier/extensions/storage.json": "57638c9a33ceca2c968cf0cfbfa1edb5f6ac2a452d5a7203806227138a7d93ea",
       "code_verifier/extensions/ui.json": "649e8b4df104cde08d6483050569cc3fa3a9e6d46dc9b1c16a076b9f3a977b54",
-      "code_verifier/knowledge/conversation_guide.md": "7744f0b10bc657e240a090ac13a28c88195ddb60e521de8816ac34e1b9aef61f",
+      "code_verifier/knowledge/conversation_guide.md": "5eae756184771750f5d8f74626bcfa5aab3c8f797f60200296a8d1610c7a6158",
       "code_verifier/knowledge/rules/custom.md": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "code_verifier/knowledge/user_manual.md": "d4769e1c10a113ee258ab914cf31242d8b29a799141a22e8adc38b09e9cc88dd",
       "code_verifier/manifest.json": "663e5fc7f8e6ccd1908c3e374eef861577add092f0548df5b60c539089dbb756",
@@ -5159,12 +5369,12 @@
       "code_verifier/payloads/domain/workspace_assets/workspace.css": "ecfcb3cbfa28cf33297edeeaef251468aedb16366f69ca495dc40327b503a385",
       "code_verifier/payloads/domain/workspace_assets/workspace.js": "0b143a64f23936256dde44fec35b29dacf3ec360cbda668f6329506870d34d59",
       "code_verifier/payloads/domain/workspace_web.py": "4ac73539c6d96a537e1facba44215ec036afc95005fd82a3e1deb8b177e0f5a1",
-      "code_verifier/payloads/prompts/conversation.json": "170d2b3b14e38dce4b10c6628ba92e3861393ee8921987774d837ab9f6ac9c5e",
+      "code_verifier/payloads/prompts/conversation.json": "4610e0811b59c4d6b010b54d0bfc89bd67b92662d3d383d2923fc55d667636a9",
       "code_verifier/payloads/prompts/critique.md": "181f586b35888df940dc4bf42a0a4c298f0864dba982564ad9b445fc0a552f6b",
       "code_verifier/payloads/prompts/extract.md": "a21dbf6d2c48853d954b7e399c9f9e895649c00b9afb471be44ac40f9302d557",
       "code_verifier/payloads/prompts/judge.md": "15ea3e1e671889e1199e5d439ed4aabc2c7d71f917c027c4068a52dcab44c3c7",
       "code_verifier/payloads/prompts/repair_sources.md": "126119e3751e33fdc9df5469d88f2df447c2a69d52c1a065c55bfa3db53aac42",
-      "code_verifier/payloads/prompts/setup.md": "a3a123ee553695f239a5d68b368d623da4f0d4aad1603ae1d7f07016ae44fd82",
+      "code_verifier/payloads/prompts/setup.md": "b55ca1f23ec3cd1cbfbaed9403ae74fd46aaa58fd0ef6c09deecbb8379a96e07",
       "code_verifier/payloads/prompts/verify.md": "26511974513684986fee760c05db669bdb98cd9d34980d3cb7edda607b67484b",
       "code_verifier/workflow.json": "f4bb311fe4fc593dd725ce4f1c3c4cf7e3f4e09670a3ac8f8c0046f9d5f9b863",
       "ct_reader/LICENSE.md": "a67934a26f6006d67d874745ca4dbe89027846a5f9313c00999529d395cbbb9a",
@@ -5183,7 +5393,7 @@
       "ct_reader/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "ct_reader/extensions/ui.json": "d520ab8ec20acbbed3f18bccc28e4bf7665bea2c48236d7b53cc83aa2f214068",
       "ct_reader/knowledge/common_ct_terms.md": "e33bdd2c1b2410b503a46f394ffc41ebeadfc9336146e16f4bd413ffa28cf599",
-      "ct_reader/knowledge/conversation_guide.md": "67c0ca6dce770c5bcc3a6500838c80812325a6539e6606ff947c2f9205f4fae9",
+      "ct_reader/knowledge/conversation_guide.md": "54a4fff587f48c2861c1dd594269916dbab8d6cc6878f7371e973c8607b2455d",
       "ct_reader/knowledge/preview_and_model_limits.md": "76fc82c453dfe31b324cd56c2fe2e044a2ef13b756043f3d1dd0b7da03e3817a",
       "ct_reader/knowledge/uncertainty_and_safe_explanations.md": "862e2da956ae864b9a600b5d21e2ab2ffe019c0dfedd5ec77ec419244d14303f",
       "ct_reader/knowledge/understanding_the_report.md": "a52a03984d03244b23faf7eeceb189ff258a19236dddc2e9e59ada1c354e103e",
@@ -5195,8 +5405,8 @@
       "ct_reader/payloads/model/LICENSE.md": "d7c8a9e5d1896d0a9588319cc7b1433e64645ad6d9e55632c30b78d8c038c23b",
       "ct_reader/payloads/model/inference.py": "c6a862170517dd15624a0a8253a8a1d7b086cb129694971db7d01e39c5fb4949",
       "ct_reader/payloads/model/server.py": "335334d56f1348338fed118663f0340a27cce9fa475a7a348b39d28076e96861",
-      "ct_reader/payloads/prompts/conversation.json": "2fdb4fda696aa8af9e2b3cc63de52a3dbd6c4f94b516baadab5d5a278678e5a2",
-      "ct_reader/payloads/prompts/setup.md": "134012cd14f9130836771c26342b68e0c17cd5f737793ef1f4ad4d6c321f53c9",
+      "ct_reader/payloads/prompts/conversation.json": "c60db2ff7d0aeb22d4ae10d9e1de43715f0b686bf821fa083046247f88ee4bd7",
+      "ct_reader/payloads/prompts/setup.md": "2d082acfa8ea6c868b67db5d9758888526d1ec658787c9fc82b52b1d30f76b7a",
       "ct_reader/payloads/runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "ct_reader/workflow.json": "5384caaa32d6ab4f562d0698c084e5b32eeea474cf6f44a7d858219c794b7768",
       "drug_discovery_research_assistant/LICENSE.md": "76adf2e0c1f19485cb1e15231971399dc4678ad4e86fab24ac48b5ea1bde1c6e",
@@ -5224,7 +5434,7 @@
       "drug_discovery_research_assistant/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
       "drug_discovery_research_assistant/extensions/testing.json": "da7ff1b54d648ed48016f1cdc8fa819d5ed4843eba04f5a173730c96bcc6fe16",
       "drug_discovery_research_assistant/extensions/ui.json": "185f962bc21af3217b1b7b90eb97fed221f61be979be16c847839cead3a124dc",
-      "drug_discovery_research_assistant/knowledge/conversation_guide.md": "0b3f32273b1fa02f9beea0f863c854f56d3be3c738cc615646a2f9f15b586846",
+      "drug_discovery_research_assistant/knowledge/conversation_guide.md": "5392a76fa39ed03257b1d7ef7b0a2c67bd66f6a1a1b50cc6b1b94e01ccd95d0a",
       "drug_discovery_research_assistant/knowledge/discovery_triage_playbook.md": "045e1eceb076307fc67d09c08c8ae888c084c8567e1afb0dc353e3c968ef808f",
       "drug_discovery_research_assistant/knowledge/product_readiness_retrieval.md": "aea9f83fc7ae5e597e7c808fff833e49f7cedcc1f16b895bbc224195331c2ce1",
       "drug_discovery_research_assistant/knowledge/user_manual.md": "c58c0a5b78c6a9c9c98bdcbf263ac6250f4db3a2343b32e6b6cad7306df982ba",
@@ -5249,12 +5459,12 @@
       "drug_discovery_research_assistant/payloads/domain/dashboard.py": "adfd59217223db974aee068d0cc911676b6d870c958e0297accab4f42d0de751",
       "drug_discovery_research_assistant/payloads/domain/native_stages.py": "ade912bd5910116f756124fc3ca3718450d50852f2b1eda683c8670fee01f2ee",
       "drug_discovery_research_assistant/payloads/domain/reporting.py": "965e681a0671656f482d12c955414bceef6f8c1452d34b5f4b7dc1bc29b62fd5",
-      "drug_discovery_research_assistant/payloads/knowledge/conversation_guide.md": "0b3f32273b1fa02f9beea0f863c854f56d3be3c738cc615646a2f9f15b586846",
+      "drug_discovery_research_assistant/payloads/knowledge/conversation_guide.md": "5392a76fa39ed03257b1d7ef7b0a2c67bd66f6a1a1b50cc6b1b94e01ccd95d0a",
       "drug_discovery_research_assistant/payloads/knowledge/discovery_triage_playbook.md": "045e1eceb076307fc67d09c08c8ae888c084c8567e1afb0dc353e3c968ef808f",
       "drug_discovery_research_assistant/payloads/knowledge/product_readiness_retrieval.md": "aea9f83fc7ae5e597e7c808fff833e49f7cedcc1f16b895bbc224195331c2ce1",
-      "drug_discovery_research_assistant/payloads/prompts/conversation.json": "61376068e88ff4a3279227a75a71066f2f892e853a3ecc60fd65822d9295a122",
+      "drug_discovery_research_assistant/payloads/prompts/conversation.json": "75a5d5a8ca04b0033992faee65f140cb0132eb1d540ac4d583b18740cc6baad8",
       "drug_discovery_research_assistant/payloads/prompts/scientific-review.md": "8b7ae7a0d84df871f30c130a9844dc897688b120e9c9353d48dceecc0eb01b82",
-      "drug_discovery_research_assistant/payloads/prompts/setup.md": "9a465c87a62482fab777717caee4d1d6359d8cee55bb310118ad165694c347f1",
+      "drug_discovery_research_assistant/payloads/prompts/setup.md": "d9da6c126c1fda831ee7b24422ccfed4dff6563fd9b420976a381787ff33bace",
       "drug_discovery_research_assistant/payloads/service/scripts/biotarget_adapter.py": "276414ac0d6988f5a01b4771854f04cac3d1ea5ed081ae438b909f98609e0d0c",
       "drug_discovery_research_assistant/payloads/service/scripts/continuous_service.py": "eaf5f2aa38fcb8215420a2af42c6c949c7bce66110b1e0690b5bda5719cc899b",
       "drug_discovery_research_assistant/payloads/services/__init__.py": "ecef13108de01c51f10534ab7fc685e6ed9712fbaefe86b68c08b6a07cc9aa94",
@@ -5277,7 +5487,7 @@
       "general_assistant/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "general_assistant/extensions/storage.json": "57638c9a33ceca2c968cf0cfbfa1edb5f6ac2a452d5a7203806227138a7d93ea",
       "general_assistant/extensions/ui.json": "f922c201070e9f6e0ce7893b219d225c8cbb01e01b604cafa08f1fba0bd51f60",
-      "general_assistant/knowledge/conversation_guide.md": "d480c499ff31b60afbb2deb7a478d48d53546badd789be9eb4da510c543141e5",
+      "general_assistant/knowledge/conversation_guide.md": "68e1ce17153776fa339c3fd2b27ed429a5f925a6d5e7bbba60a83902105b608c",
       "general_assistant/knowledge/user_manual.md": "9477573f1dca0ae8bb9fc4a7f9aa6b03d5e8f64db1c5943b63e59b287ef54e0f",
       "general_assistant/manifest.json": "a16eccc2e19865ccb5cb2593f68209ad045052143bc46af681209423b4cbdac2",
       "general_assistant/payloads/domain/__init__.py": "5155c65aafe3f314696bb10d2e5221c6e0ef608f33b09aa091773a1cb79083e2",
@@ -5290,8 +5500,8 @@
       "general_assistant/payloads/domain/solver.py": "a9fbbee1af468a3965536fb62cc80d4c1e55e0a90739ce280fa8a81d9226b1c2",
       "general_assistant/payloads/domain/visual_memory.py": "feb09d0e3abe545bf8e0f41b11afe98fc95103ae10c762e5ea4f753f12b16437",
       "general_assistant/payloads/domain/visual_store.py": "17a262668556ea701d23806507cfedaf8260838d369ebd4e141fffd22a23ff24",
-      "general_assistant/payloads/prompts/conversation.json": "98a6b6c27f0ad958b27a392a5c9b28e74515412cd8b13f6bb250ead725305892",
-      "general_assistant/payloads/prompts/setup.md": "bed5c71f808acd9cf7fc06bc9ec43957bf4a34c0be9f31927a7a33c84099fb19",
+      "general_assistant/payloads/prompts/conversation.json": "7a625ca213a3392fc9b8d9f56bfaef9065d4f3854b2ba2d9a081c2ad93bf1dda",
+      "general_assistant/payloads/prompts/setup.md": "36833ccd234c317d583b3853283198cd98f1c1858239aff81561f18f85ab974d",
       "general_assistant/workflow.json": "141921055ca38d06cb9d10fdc2b840aba28f298ae8dc81fad3a3f272a0fb0f6c",
       "gtm_executor/LICENSE.md": "14ababee1e02b10249d783cb1d1b16cfc939d9d88ced0bb525b519e420acb9c7",
       "gtm_executor/README.md": "efd5b6d6f8af740088c557c2a74ec9ac8ce6117938dd3419c1dcaf2036db0dc4",
@@ -5308,9 +5518,9 @@
       "gtm_executor/extensions/rag.json": "6e16732ae95e6c6543086ceb6441f6fbec18590f19a8c27ce7ce98567bff2365",
       "gtm_executor/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "gtm_executor/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
-      "gtm_executor/extensions/ui.json": "7cab93f0821518df43757a5e819e3d813ce426223ccded3e6b9315a62ecf34f7",
+      "gtm_executor/extensions/ui.json": "848c0141aa0beca77ae8944ddffcf38044e5c5d8ba8fc8802da7ac3e2a2b271b",
       "gtm_executor/knowledge/guide.md": "5f6fd7e87e7fca0e932722009671afacadc5f31f81e03b2f7af359b27bfa21bc",
-      "gtm_executor/knowledge/user_manual.md": "f1aeb9db4075004b73d82705564310a97ffb754029e862f38ccb06da25110f03",
+      "gtm_executor/knowledge/user_manual.md": "711b1928896066cc06f79d4673bbfff0b04358bfd7b1f61094c0cb02b6aecfc3",
       "gtm_executor/manifest.json": "295408b1714b51cc17df5c3a1a85808f00d601112cd4d318340ad4d72bb1df8f",
       "gtm_executor/payloads/agents/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "gtm_executor/payloads/agents/executor_operator.py": "e36a303ec16424a484339d649961bb594e5043ce860de401bc27abdd6a7a4ca9",
@@ -5350,9 +5560,9 @@
       "gtm_planner/extensions/rag.json": "6e16732ae95e6c6543086ceb6441f6fbec18590f19a8c27ce7ce98567bff2365",
       "gtm_planner/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "gtm_planner/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
-      "gtm_planner/extensions/ui.json": "ba11f1b17dd72a0d4e1466085c2cb0b3124c0f12230c1290099d5de494c5f5d7",
+      "gtm_planner/extensions/ui.json": "457f14c34c33685ff71a65add54019fe6703b11f379d2bae73ef94411b5cf812",
       "gtm_planner/knowledge/guide.md": "4cc1eaa677d25d71a7b3f1ca12a72764de756f800f9a4e78d224b2d8ad80ef1a",
-      "gtm_planner/knowledge/user_manual.md": "065bdcb2902a9b0c075fddbc7b87c8e8117272fba4878530d7a5d6c7b5fd5a81",
+      "gtm_planner/knowledge/user_manual.md": "1289212e351ec176c189132892c7ff09480ff1e4bcdfbdff0b1cb082855b0eb6",
       "gtm_planner/manifest.json": "b731fc77499a631b773b009f8bb886b5a2618086ab558ed4e6b526ea5bc1a4a4",
       "gtm_planner/payloads/agents/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "gtm_planner/payloads/agents/planner_operator.py": "e36a303ec16424a484339d649961bb594e5043ce860de401bc27abdd6a7a4ca9",
@@ -5400,7 +5610,7 @@
       "litigation_analyst/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "litigation_analyst/extensions/storage.json": "d6b03a655ce1af1f4a65fc2b4f2232e310ec2fc544d44985f0d575bdc6fdf1e9",
       "litigation_analyst/extensions/ui.json": "1cc4d074b179581e1408d4c1f5bf28a86003f587a8e2433d0a50588774700ae8",
-      "litigation_analyst/knowledge/conversation_guide.md": "888c5e4374e884c2de8991a07970cef094b55dfd1fb5fe1c90d35a7c34d84ffd",
+      "litigation_analyst/knowledge/conversation_guide.md": "b0741fef54d1c16037b9cdc440f23186f97900a3f2c68106f66f874c0b0aed27",
       "litigation_analyst/knowledge/user_manual.md": "a9dad3322560e080e42d4c80ca64cee32dbef77b20f590d43733b2949e3541c4",
       "litigation_analyst/manifest.json": "5ced03d1fe5fbfa813654850da6af81e2d0d2c3d5f978bbab007cd713ed70785",
       "litigation_analyst/payloads/domain/__init__.py": "01272d70857b75bc6d949c2791e9db079e2b844296196652567d760cf031a990",
@@ -5475,8 +5685,8 @@
       "litigation_analyst/payloads/domain/workspace_projection.py": "74d6a7225f1515dc2042e164470c08c2b331900ae841cee04aade27fe9939b6d",
       "litigation_analyst/payloads/domain/workspace_review.py": "2ee540a4ceb29f85bb7af57f2ddc078ee66264e4c331a33214a51fa8dca5287f",
       "litigation_analyst/payloads/domain/workspace_web.py": "28f0aee79bfd8a67f74b594cd0695d70825ea3b663aa3fd417c47f617fc2995b",
-      "litigation_analyst/payloads/prompts/conversation.json": "0aac39487ea5e91e0a09a234eef8e730a1f83dc98413b390e2f9555d77dc81e4",
-      "litigation_analyst/payloads/prompts/setup.md": "e8ede1edf63b8e37098a5e732000f2d54d366ea71206e2e8ba37bdcce5dbbcb2",
+      "litigation_analyst/payloads/prompts/conversation.json": "579f3c59d6a1e9202d6a0347f89906eaaf393485831f9edfbb6d2c4aa431d367",
+      "litigation_analyst/payloads/prompts/setup.md": "c7741b3ef49974feaa3c4f6f369d6cc777ff0a55eb713e7efee7bd95078c33e8",
       "litigation_analyst/prepare.py": "144345e995f62e5d8fa629dcb5bd3bd6f077d7a9d508d2485095d97c7d3c80f7",
       "litigation_analyst/render_review.py": "c0407c3a67a8e39608a64dcff2750ba491c404ff080713524f106910bffa9c3c",
       "litigation_analyst/workflow.json": "ada530344e33d230e45772a468b21c6a477a421cf6bdfb4b371b72c5b9c4bc44",
@@ -5504,7 +5714,7 @@
       "mac_security_investigator/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "mac_security_investigator/extensions/storage.json": "d6b03a655ce1af1f4a65fc2b4f2232e310ec2fc544d44985f0d575bdc6fdf1e9",
       "mac_security_investigator/extensions/ui.json": "cb1deb0a8386bede126f3741e65ae29dc7efa0251675b2fd639429425654205f",
-      "mac_security_investigator/knowledge/conversation_guide.md": "6b1c06382c66b70ca75d7242a60ad4d5c896290e243af3076665e6d7536c6f9b",
+      "mac_security_investigator/knowledge/conversation_guide.md": "899ac8677fe6bec34a67b629d409195f50771642a676032e064ede3faecfa724",
       "mac_security_investigator/knowledge/user_manual.md": "c048a428bd6ba9a1aab3bea6486bbc0d1ff9a631c9e811d086754fa5da35c244",
       "mac_security_investigator/manifest.json": "1a33a4555ae2389666b6ae2473c0e0aa511956559e4ff9cdaf5a6af1da0601a3",
       "mac_security_investigator/payloads/domain/__init__.py": "cf8a57fe66382876fe465654689468c71c0b8534503f1525e6e60d3bbe9559da",
@@ -5518,8 +5728,8 @@
       "mac_security_investigator/payloads/domain/reporting.py": "8c5418a7370a9f1ab733527ca8a11d1c43f3e7f5e0c77d8dd8cbf6369b5d5058",
       "mac_security_investigator/payloads/domain/system_logs.py": "962342da7e756953623483b09508fbfeb16bff7bfd3dd123b10a83d1a0d3c6c2",
       "mac_security_investigator/payloads/domain/timeline.py": "e57cb0ab38c91a7dfa647f7d88a7f4f2a4766329347ed2afde0539e5b12d9198",
-      "mac_security_investigator/payloads/prompts/conversation.json": "e9c38e6fd6cb27a13f76fc1bc16df5283cf976c17de33f8c4bdc72502d9deb68",
-      "mac_security_investigator/payloads/prompts/setup.md": "8c570d3be06ec192c2c6a3275537ec6f2c352f0b0484f8e88fdd9e6b108f2325",
+      "mac_security_investigator/payloads/prompts/conversation.json": "5d84aa9fcd89c79a75883139bbb8b16c0cddea0dd48d15d11aa1b66323579cca",
+      "mac_security_investigator/payloads/prompts/setup.md": "909c54e44cee64465fae202741b6e9251b69d3b24fb5dba6b66fc03d61dfce2d",
       "mac_security_investigator/workflow.json": "a625383f25e3c1d068a321cd9c2c0422957dbad13b7a4897a8af3ff3a157aaef",
       "procurement_manager/IMPLEMENTATION_MAP.md": "241a97804a75371462eb24ce895d11f469bfe36c4894066e8d60c32b98e02ebf",
       "procurement_manager/LICENSE.md": "76adf2e0c1f19485cb1e15231971399dc4678ad4e86fab24ac48b5ea1bde1c6e",
@@ -5549,7 +5759,7 @@
       "procurement_manager/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "procurement_manager/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
       "procurement_manager/extensions/ui.json": "46de40d46bac40ac9cbf2b6f5f28aa95e624c1f000f5b793d46d1bb6ebb42eec",
-      "procurement_manager/knowledge/conversation_guide.md": "bbe66677d2d0ecc8195c82ed9e3a1640a6e56e1a17f1c20b0933679c31cb524f",
+      "procurement_manager/knowledge/conversation_guide.md": "3ff558ce6e03b1e7440f3c8ebde589a95b67418019320f0fb87f2b5f6d9781da",
       "procurement_manager/knowledge/product_readiness_retrieval.md": "bdd55f7a420e68118994355d5266b69c332a2ed146bd04849db9c3d6fcfada0f",
       "procurement_manager/knowledge/purchase_category_checklists.md": "4a287b847e6e59467be18368248e7e5db26d81393aff98ea959f121e01380006",
       "procurement_manager/knowledge/purchase_research_playbook.md": "01f51fcbf19d0c761eda067fb3c5b46441a2819e176ce6dae0f2a489fb2858bc",
@@ -5570,11 +5780,11 @@
       "procurement_manager/payloads/domain/research.py": "d18f0404f690bebac404bdfe2772f82dc09d48b31122f39e0fbb4262c66c5af7",
       "procurement_manager/payloads/domain/state.py": "2e9d73d0069d31acfe4c869e09106ca2df9efa641ed8c02af3384dadeefe1f7b",
       "procurement_manager/payloads/domain/supervision.py": "ff2f60547c34b017ac1828d341a0837ba41250329b0d8c55736f845f580ac3bb",
-      "procurement_manager/payloads/knowledge/conversation_guide.md": "bbe66677d2d0ecc8195c82ed9e3a1640a6e56e1a17f1c20b0933679c31cb524f",
+      "procurement_manager/payloads/knowledge/conversation_guide.md": "3ff558ce6e03b1e7440f3c8ebde589a95b67418019320f0fb87f2b5f6d9781da",
       "procurement_manager/payloads/knowledge/product_readiness_retrieval.md": "bdd55f7a420e68118994355d5266b69c332a2ed146bd04849db9c3d6fcfada0f",
       "procurement_manager/payloads/knowledge/purchase_category_checklists.md": "4a287b847e6e59467be18368248e7e5db26d81393aff98ea959f121e01380006",
       "procurement_manager/payloads/knowledge/purchase_research_playbook.md": "01f51fcbf19d0c761eda067fb3c5b46441a2819e176ce6dae0f2a489fb2858bc",
-      "procurement_manager/payloads/prompts/conversation.json": "76c8d426dace0a253d8846815f9a18f5e35a1928c30bddf44f1b09984f6acfc1",
+      "procurement_manager/payloads/prompts/conversation.json": "48db1f7edc67967d53728223bac98550163a1d1ef38bd580493b6b7e905dbf95",
       "procurement_manager/payloads/prompts/purchase-decision-analysis-task.md": "1528a0c2c74d3c1b2c7b9605a271540d747f83fed81dc9553f2e662366697dcd",
       "procurement_manager/payloads/prompts/purchase-intake-task.md": "0bd24513c930bd4e12face3eccfbde7fbd696357bde8a563d8e9215e3be63c61",
       "procurement_manager/payloads/prompts/purchase-report-narrative-task.md": "287e446c74406ac5857cd534ca9ad009af3ccbb8dc350ecc13d11df6e880a193",
@@ -5582,7 +5792,7 @@
       "procurement_manager/payloads/prompts/purchase-risk-analysis-task.md": "6f409abd6f973cce0d8940ad1d704622c9fbc1835338d545ca01df6423229b5f",
       "procurement_manager/payloads/prompts/purchase-tco-analysis-task.md": "233d84ef89e1a67f970d77f85e7cf18848f1c076696eeeeb0ed1ac65933b11a4",
       "procurement_manager/payloads/prompts/recommendation-system.md": "e5109795bc7caf313e92b4249f69447f3c4f4a12cf212cb2db5675b6fe3f45cb",
-      "procurement_manager/payloads/prompts/setup.md": "dabaa43e424d86b77c7b6184fd9336cbe1fe68f96ac0f3955cbbcc1c91319572",
+      "procurement_manager/payloads/prompts/setup.md": "cfdc2b9d47e6c07dee911311bfd0f82bbb18b67265ae4b71738bce31c7525cdc",
       "procurement_manager/payloads/steps/__init__.py": "72b9f453c571049d6d33857bc960045097730ca7e7d106b1efe8494a929595e1",
       "procurement_manager/payloads/steps/_shared.py": "f960f9f0b77d6db138edc5333bfa38b770e35d22ab6763f58c19872979e36066",
       "procurement_manager/payloads/steps/compare_purchase_options.py": "f09c9f08a5f1def22f375595df3b778be8cfe6ac1ab8270d083ba24552d04ada",
@@ -5605,7 +5815,7 @@
       "ros_amr_controller/extensions/response.json": "4d1c6318cad867f15236758619801cfdbb8f97a88eaccb84feb69d0128239dcc",
       "ros_amr_controller/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
       "ros_amr_controller/extensions/ui.json": "4ac5d75a9ca70988c0320eb4714a648cab2e95ba31f1f200e73adb9e0bf05b9a",
-      "ros_amr_controller/knowledge/conversation_guide.md": "5a060624f800449b419c85f68be559105a6155ecb854c680e96b3cbbdcc385ce",
+      "ros_amr_controller/knowledge/conversation_guide.md": "7fce4f2de929e3d38fa1ae3b4cf7eae90f1e06a6de29b052e5db0f01130881ee",
       "ros_amr_controller/knowledge/robot_capabilities.md": "9833ec10ac478797ab880c75209a5fb06ab455e4c4b7193620642ae0c8b7a9b9",
       "ros_amr_controller/knowledge/user_manual.md": "024d2fc604c93c99d02fb0efc338630a3de5e6030450eab58fcf5ee60d780b5c",
       "ros_amr_controller/manifest.json": "f98e28b1d9eaf60345d3204367cbe9da3a602ffb1c41abffb6d1c305a5879f10",
@@ -5664,10 +5874,10 @@
       "ros_amr_controller/payloads/docker_compose/turtlebot-maze/web_ui/index.html": "8160744216a2bc606c7a686d92512b416f8a657023696f57c2fe9f23294d2e8d",
       "ros_amr_controller/payloads/domain/__init__.py": "24968a97128695a8781af897f3ffa58ecf180beb476a976c2eb92ac800ee6b12",
       "ros_amr_controller/payloads/domain/finalization.py": "6ee1dbf78ed8e9993724575e2a63f83a750f613f8409f7fe0868b1d14c6ee669",
-      "ros_amr_controller/payloads/knowledge/conversation_guide.md": "5a060624f800449b419c85f68be559105a6155ecb854c680e96b3cbbdcc385ce",
+      "ros_amr_controller/payloads/knowledge/conversation_guide.md": "7fce4f2de929e3d38fa1ae3b4cf7eae90f1e06a6de29b052e5db0f01130881ee",
       "ros_amr_controller/payloads/knowledge/robot_capabilities.md": "9833ec10ac478797ab880c75209a5fb06ab455e4c4b7193620642ae0c8b7a9b9",
-      "ros_amr_controller/payloads/prompts/conversation.json": "cbc9996c435c7ed228d475da6c2e1efae54de09ccf8e58ece5f4002ef1c234c8",
-      "ros_amr_controller/payloads/prompts/setup.md": "7692e0d26ff4eff4e05ab616138ad4da74164ad19446ac6c6e44f63ddb8e9963",
+      "ros_amr_controller/payloads/prompts/conversation.json": "93451effbc6c5a5e0e217c2e1efae452a60b55049cb3e9f9685dae8164428557",
+      "ros_amr_controller/payloads/prompts/setup.md": "ddaae82c49e016dbe5f1e0c8f6f149361be53140fe12fc9b7e1c34d7571ec9e8",
       "ros_amr_controller/workflow.json": "bbb01a81ca67da3a7d2b427a37b42aac0d67985536e68723328a05c523cabfdc",
       "software_architecture_advisor/LICENSE.md": "afca786189738a9a82a94538090b9258cae456abb15d117e62859e75e219336d",
       "software_architecture_advisor/README.md": "d23bd2c47afd04419c5dc9e1c8e96226c36de297f331854de0f839f360e07650",
@@ -5698,7 +5908,7 @@
       "software_architecture_advisor/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "software_architecture_advisor/extensions/storage.json": "1284486a11c22ecf4250328a18d2dbf30c2ecb4aba798851dd002d0e073b5170",
       "software_architecture_advisor/extensions/ui.json": "2595de7ac177cb5d6fa6fcaf9716ec303a28b61e068b3da7a4f7b5728efa17a3",
-      "software_architecture_advisor/knowledge/conversation_guide.md": "167854bd285b3a1253537afe46899de979490fd37bca265e822b60f6ca429bae",
+      "software_architecture_advisor/knowledge/conversation_guide.md": "4648aed0a97f5871d9ea97be1bf01831326212e8faf30246b24e7a70ae17d4f5",
       "software_architecture_advisor/knowledge/user_manual.md": "7e970cffc64622c3a3676f56e48a817eb839de3b060983cdf9340703bdc7a9ae",
       "software_architecture_advisor/manifest.json": "111f1d4fd85ba5f2147c96484efb1b58fdfab833aa07b786e3a359186d69d5cd",
       "software_architecture_advisor/payloads/agents/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
@@ -5770,8 +5980,8 @@
       "software_architecture_advisor/payloads/domain/workspace_web.py": "3431e10d830a6461f74693da9d09d2c4b3c23a93215be1422d059b98794fa7d3",
       "software_architecture_advisor/payloads/knowledge/README.md": "d132ee34aa11150e6fd0814abc9c6a312bce43078ecec26d20151c1b0be2cd28",
       "software_architecture_advisor/payloads/knowledge/practices.json": "624ee9f52d85355b7c87ae82664315bbf9c9a9da2379cd55b25d639de9b4bb9b",
-      "software_architecture_advisor/payloads/prompts/conversation.json": "7b3bb6ffe80938c067346dd267e10a5ce3893b63ba482c0d04426b297a7218ce",
-      "software_architecture_advisor/payloads/prompts/setup.md": "1ea89a5413ab8450eddf1f3ed96f84c1cf65a22e9bca504d35450221b16c1b0a",
+      "software_architecture_advisor/payloads/prompts/conversation.json": "4c103884e142c39090c257eef4caa146182f5a78a7488fa6ee7ef2d6f7272110",
+      "software_architecture_advisor/payloads/prompts/setup.md": "b2bd6359894f050acfeb822854f58570254bca7427369383e434082b963e11c4",
       "software_architecture_advisor/payloads/report_specs/INDEX.md": "ccada166a7e5bb350ee1f55252dc755497e2b0c76fe8029c4e347d65718dffc1",
       "software_architecture_advisor/payloads/report_specs/README.md": "29a5f0c1a9f0fc1fd0ffe517f6971afeee98a8b90f22557b57932e38e1a6f72f",
       "software_architecture_advisor/payloads/report_specs/REPORT_CONVENTIONS.md": "8d702379b9568854afcf2dc31221ccb69e789fd7d289c4b28b544981960166e3",
@@ -7624,7 +7834,7 @@
       "vc_assistant/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "vc_assistant/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
       "vc_assistant/extensions/ui.json": "56ee1f397c567a97a69bd9d1eda885cc2a3e9b53d92126d1b5bf490cdfc4fd95",
-      "vc_assistant/knowledge/conversation_guide.md": "a24f5130812b12e1ecc91bfe3b054531d72f6fb6e244ee7454700beafb8b8893",
+      "vc_assistant/knowledge/conversation_guide.md": "e531555019738dd9c055a5ffdd2e4a88ce69d307b92214eb31698f450512129d",
       "vc_assistant/knowledge/startup_research_playbook.md": "587421fbfabee505f7793a14ac85c16f4a5c699a7330922d8799a752796deec3",
       "vc_assistant/knowledge/user_manual.md": "9e26671bca24983d4b2dd512c1c812c666c5633a83485282d138d8e3277ab61e",
       "vc_assistant/manifest.json": "1b9c2cadabd9ad2995593b48cd6704f8950ad18a31e294a1e56a83c617b70825",
@@ -7672,13 +7882,13 @@
       "vc_assistant/payloads/domain/valuation/scorecard.py": "fcd8ddd1012a59583e7570d6ffdf28bff945395dd4ec119d408d4735284eb2d0",
       "vc_assistant/payloads/domain/valuation/venture_capital.py": "c81cd528c5a8260a3cfa6b35107f55adb65385ccf0386cfa1f2cf8ccf5b01deb",
       "vc_assistant/payloads/domain/valuation_scorer.py": "6f1a5a25fb8bf05ade088a4f0333865dfe317c8f9083d7b2876b3c0c83c11c6e",
-      "vc_assistant/payloads/knowledge/conversation_guide.md": "a24f5130812b12e1ecc91bfe3b054531d72f6fb6e244ee7454700beafb8b8893",
+      "vc_assistant/payloads/knowledge/conversation_guide.md": "e531555019738dd9c055a5ffdd2e4a88ce69d307b92214eb31698f450512129d",
       "vc_assistant/payloads/knowledge/startup_research_playbook.md": "587421fbfabee505f7793a14ac85c16f4a5c699a7330922d8799a752796deec3",
       "vc_assistant/payloads/prompts/actor-review-system.md": "51d4b772f486022efaf01cd9a9e854c3e0a591ebedefb8cabaf18554fa52c13b",
       "vc_assistant/payloads/prompts/batch-index-writer.md": "cb0be542911ce82f7cde6e44d748b04a67e1607a844882248041db25d427dcaa",
       "vc_assistant/payloads/prompts/company-identity-researcher.md": "52f1fa6a3b1b8b258a5f2464df6d725b21e59373174dc07c6f4a4c9f4d82f3e3",
       "vc_assistant/payloads/prompts/company-report-writer.md": "638b3ec5544b74b73f1787f66ef69a8e12891fb1bd5f9d0789145dbd0f97d9d1",
-      "vc_assistant/payloads/prompts/conversation.json": "cf7dedacfcd0f564bee8499bdb438498d7b04aa576ab8e2aa47742fff061e70f",
+      "vc_assistant/payloads/prompts/conversation.json": "5340b0ee859a8db4fc66a5c49e9da7cee54392a01df543cd6bddf3e73bf2269a",
       "vc_assistant/payloads/prompts/funding-researcher.md": "929f29a7ba043e23645a88a0e05b1508d1805071ca4ec6169ccc6ec8e7da9bc8",
       "vc_assistant/payloads/prompts/generic-actor-review.md": "881f2d7adeb7b63d3c237877bc006306bdb89321598217b2a3050687761789d7",
       "vc_assistant/payloads/prompts/market-comp-researcher.md": "a1854f6eb7c596a79ff8d31aeaba1c488fec9dcb65927b228d7cfd4584b963a2",
@@ -7690,7 +7900,7 @@
       "vc_assistant/payloads/prompts/research-planner.md": "d5702e2aa53fc766eb4c206f4228a2da09936137ecc799515a9af3fae9984d58",
       "vc_assistant/payloads/prompts/research-reconciler.md": "d6c70a98d8a330976b31bddd3b6819de1a16d14678d0b6fd5bd3d4c43f3ba64d",
       "vc_assistant/payloads/prompts/score-consistency-auditor.md": "19f35cdd2213871cf4d260178cfdf7f812abf3056dd49da37b142f56b5954b0a",
-      "vc_assistant/payloads/prompts/setup.md": "9b2714d967b514c43ba4547109a7e3c4112b9ed7328a524d185f1ea57828317d",
+      "vc_assistant/payloads/prompts/setup.md": "90e97ce8bc0105b31475317e713fb6276fec09d5443dc2bf1d18bc9ac65b53a7",
       "vc_assistant/payloads/prompts/traction-verifier.md": "a1bdff7f2fd8d26ff3a1c1f6b9fdd598115f954d9684e12157ec294ea5778e24",
       "vc_assistant/payloads/steps/__init__.py": "736dc9dd6381f7518c039f408e849566d6cc77650de2d0b3b7f981e13fcba476",
       "vc_assistant/payloads/steps/_shared.py": "b72fbec5c5bff719e4a3f85dcd383c411f2facb984e8de1f698600f80ef502a0",
@@ -7728,7 +7938,7 @@
       "web_lab_operator/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "web_lab_operator/extensions/storage.json": "a8e23a6158a62815c1b0e9d4aab56b459a819d38d72f17315563858056a1f799",
       "web_lab_operator/extensions/ui.json": "25cef819f86c9197b13f56a29994f692f6e20423e9cb3a14e9e737eebb9631d8",
-      "web_lab_operator/knowledge/conversation_guide.md": "3db446bb6fc77f511576c16543120504ffe4cbf55803f08be2d4916263317d1c",
+      "web_lab_operator/knowledge/conversation_guide.md": "203dd097279cd7165c460a56afac31a9e90789827d11ef1cfc76e6075720ea3b",
       "web_lab_operator/knowledge/user_manual.md": "1a30bc6b04763419eb803712ba533e85e44c2de416c4ecf4cfd26aaa4b6908de",
       "web_lab_operator/manifest.json": "d0e3d4c2e0dbd5393eef32cad03ec61a0434e34c053cd8ecf344ec32c0549971",
       "web_lab_operator/payloads/docker_worker/THIRD_PARTY.md": "b3fa8f6f34f94272ede6f76a6ccf4eccd3491a3a1c2c4717966ffee3206b66f4",
@@ -7748,16 +7958,22 @@
       "web_lab_operator/payloads/domain/supervision.py": "b195a6eb0532da7a248341f060925dc8080880a2f4672d0fa31feb03869dc54f",
       "web_lab_operator/payloads/domain/visualizer.py": "08033aa3ebe22e6b4a548b7da76a2f0660aeed06910a735ec7446e48950e9d31",
       "web_lab_operator/payloads/prompts/adapt.md": "c8097e1f189679e2bfa6b6a40e01231ea2bcabd8f808532c2bb10e8cf332527e",
-      "web_lab_operator/payloads/prompts/conversation.json": "1af5cba131a9a2a6ba17ad1aa8ca291cf8e7471dde28f7ae4f215ba0a6920ba8",
+      "web_lab_operator/payloads/prompts/conversation.json": "cb419270180999b39234bd3adf13ddb40026a153febdcd1f26888baacb53d0b4",
       "web_lab_operator/payloads/prompts/plan.md": "49986c8cc7ca438927104f44871a50a6d766a56ba4a70e82a8d66f954cf4eb69",
-      "web_lab_operator/payloads/prompts/setup.md": "ddc099a531d2cee9433c5329156cd1330f69f2bed7259d6e90db6f7d2f60dce7",
+      "web_lab_operator/payloads/prompts/setup.md": "bf1fb55e645328a2b6eab242bd852975387f2cd548c6d2a84091cc2f965e9821",
       "web_lab_operator/payloads/web_assets/app.js": "bb7eb4972f132b093a6be0ea19c97ca289234499f2f37b63e46f2260dc2d5cf0",
       "web_lab_operator/payloads/web_assets/index.html": "9e8e13fc71338340a6a7ba81bef49d522b55f8a8cf06e657571ff69f9c2af726",
       "web_lab_operator/payloads/web_assets/style.css": "42240f77c05fb82d03deb459629c2e3b26952c3242294e3903584a43e9b486fc",
       "web_lab_operator/payloads/web_assets/workspace.css": "0b2d111736779a295586ec5e5bc09ee30f9891f18839c7589bc339ed5c205b93",
       "web_lab_operator/payloads/web_assets/workspace.js": "480ad592ed28b5c1f7649810def2869c373a089fd316dc57271ac1e719830ea4",
       "web_lab_operator/workflow.json": "e3168af71ba95666b8cbc7252ecf724ae01faae2263407e82ca9d19a33e81926",
-      "litigation_analyst/payloads/domain/run_summary.py": "83abc0424b593f05b8dfc283927677bbcf452d46c9ecfdce1d16be55e1be920c"
+      "litigation_analyst/payloads/domain/run_summary.py": "83abc0424b593f05b8dfc283927677bbcf452d46c9ecfdce1d16be55e1be920c",
+      "gtm_executor/knowledge/conversation_guide.md": "415d47627958c42fe563e7761d0ff337177bda6e4f5d13e00936ef6146df250e",
+      "gtm_executor/payloads/prompts/conversation.json": "3c2df4997bc306b4e4197b131e462127fe52ebe0ef800852734cd8b3814d5662",
+      "gtm_executor/payloads/prompts/setup.md": "3af01eb96581c47b147c0741189dd0d4a9590677b0f8cedcce1c84f68549069b",
+      "gtm_planner/knowledge/conversation_guide.md": "6405587674aefc2c96724a24406a56b0bb53f7c91c4007508c59cbe3f34c668c",
+      "gtm_planner/payloads/prompts/conversation.json": "e52ea47495855ea455eb7acf18d121b7269d235204cfbc8d1da57a617213606d",
+      "gtm_planner/payloads/prompts/setup.md": "f7e8a4e70d64587036e3a69be6590d862bff0c8eec0696e1f2473e02cba5c1a6"
     }
   },
   "previous_fixture": "catalog_transport_v1.json",

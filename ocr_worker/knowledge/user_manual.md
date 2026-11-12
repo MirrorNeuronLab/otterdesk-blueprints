@@ -37,3 +37,5 @@ later runs reuse the runtime cache. Inference stays on the selected node.
 After updating this blueprint, reprepare the co-worker so its saved definition
 uses the new model image and source-folder settings. Chat questions do not start
 runs. Use `get_run_status` and `get_run_results` to inspect observed completion.
+
+For setup help and evidence-aware follow-ups, see the [conversation guide](conversation_guide.md).

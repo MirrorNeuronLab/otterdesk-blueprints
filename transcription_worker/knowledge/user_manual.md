@@ -42,3 +42,5 @@ If timing cannot be verified, only the Markdown is published. A failed optional
 report does not invalidate a saved transcript. Keep the complete `web/` folder,
 including audio, when moving the report. For sound, open the runtime web report
 or a browser; the desktop cached report viewer currently blocks audio assets.
+
+For setup help and evidence-aware follow-ups, see the [conversation guide](conversation_guide.md).

@@ -8,10 +8,13 @@ from mn_sdk.blueprints.definition import setup_guide_from_contracts
 
 ROOT = Path(__file__).resolve().parents[1]
 FOLDERS = json.loads((ROOT / 'index.json').read_text())
+# Local packages have the same Chat contract without being catalog entries.
+LOCAL_FOLDERS = ['general_assistant', 'gtm_planner', 'gtm_executor']
+PROFILE_FOLDERS = list(dict.fromkeys([*FOLDERS, *LOCAL_FOLDERS]))
 STAGES = {'onboarding', 'configuring', 'ready', 'preparing', 'working', 'waiting_for_input', 'paused', 'reviewing', 'failed', 'stopped', 'archived'}
-DERIVED_GUIDES = {'drug_discovery_research_assistant', 'research_assistant', 'vc_assistant', 'mac_security_investigator'}
+DERIVED_GUIDES = {'drug_discovery_research_assistant', 'vc_assistant', 'mac_security_investigator'}
 
-@pytest.mark.parametrize('folder', FOLDERS)
+@pytest.mark.parametrize('folder', PROFILE_FOLDERS)
 def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
     root = ROOT / folder
     package = read_blueprint(root)
@@ -23,7 +26,15 @@ def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
     # The desktop normalizer keeps only 1,000 characters per stage. Guidance
     # after that point would validate but silently disappear from the prompt.
     assert all(20 < len(value) <= 1000 for value in profile['stages'].values())
-    assert profile['responsibility'] and profile['evidence'] and profile['limitations']
+    assert isinstance(profile['responsibility'], str) and 0 < len(profile['responsibility']) <= 1200
+    # Match the desktop reader's array contract and normalization bounds. A
+    # nonempty string used to pass this gate but was rejected by native Chat.
+    for key in ('evidence', 'limitations'):
+        assert isinstance(profile[key], list) and 0 < len(profile[key]) <= 8
+        assert all(isinstance(text, str) and 0 < len(text) <= 1000 for text in profile[key])
+    assert isinstance(profile['instructionKinds'], list)
+    assert len(profile['instructionKinds']) == len(set(profile['instructionKinds']))
+    assert set(profile['instructionKinds']) <= {'communication', 'work_rule'}
     assert profile_file.stat().st_size <= 12000
     entry = catalog_record(package, folder)
     # First-hire welcomes read setup_guide directly, before any model reply.
@@ -44,12 +55,15 @@ def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
         assert any(field.get('path') == 'inputs.payload.supervisor_instructions' and field.get('required') is False
                    for guide in guides for field in guide.get('fields', []))
     else:
-        assert folder in {'cctv_operator', 'ros_amr_controller'}
+        # Presentation guidance does not opt a co-worker into a new memory
+        # feature. Both bounded responders and ordinary read-only roles may
+        # intentionally have no app-managed supervisor instructions.
         assert 'supervisor_instructions' not in package.document('contracts')['inputs']
-        assert entry['response_service']['agent']['kind'] == 'bounded_mcp'
+        if folder in {'cctv_operator', 'ros_amr_controller'}:
+            assert entry['response_service']['agent']['kind'] == 'bounded_mcp'
 
 
-@pytest.mark.parametrize('folder', FOLDERS)
+@pytest.mark.parametrize('folder', PROFILE_FOLDERS)
 def test_conversation_knowledge_is_reachable_and_worker_seeds_match(folder):
     root = ROOT / folder
     guide = root / 'knowledge/conversation_guide.md'

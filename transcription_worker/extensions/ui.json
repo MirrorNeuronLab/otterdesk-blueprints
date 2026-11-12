@@ -20,7 +20,7 @@
         "type": "local_path"
       }
     ],
-    "introduction": "Choose an audio folder. Requires NVIDIA Blackwell; the default profile uses 96 GiB GPU memory.",
+    "introduction": "I'll turn your recordings into Markdown transcripts, with audio playback and word highlights when alignment succeeds. Choose an audio folder or try the included 50-minute recording. Processing requires NVIDIA Blackwell; the default profile needs 96 GiB GPU memory.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
       "values": {}

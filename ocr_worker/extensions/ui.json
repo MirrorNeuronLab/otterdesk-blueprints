@@ -42,7 +42,7 @@
         "type": "local_path"
       }
     ],
-    "introduction": "Select a source folder. I’ll read PDFs, images and Office documents in its subfolders too. Requires a Linux NVIDIA CUDA node with at least 48 GiB memory, including DGX Spark.",
+    "introduction": "I'll extract text from PDFs, images and Office documents and show which files need review. Choose a source folder or try the included newspaper clipping. Processing requires a Linux NVIDIA computer with at least 48 GiB GPU memory.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
       "values": {}
