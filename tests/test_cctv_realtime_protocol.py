@@ -270,3 +270,62 @@ async def test_goal_change_serializes_cleanup_keeps_history_and_deduplicates_rec
     assert any(path == "/v1/streams/delete/stream-1" for _, path, _ in calls[:registrations[1]])
     await analysis.stop()
     await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_completed_caption_request_still_requires_stream_deletion_before_recovery(tmp_path):
+    async def handler(request):
+        if request.method == "DELETE" and request.url.params.get("request_id") == "old-request":
+            return httpx.Response(400, json={"code": "InvalidParameterValue", "message":
+                "No active caption request old-request for live stream stream-1"})
+    analysis, calls, _, published = make_analysis(tmp_path, handler)
+    analysis.store.set_state("active_request", {"stream_id": "stream-1", "request_id": "old-request", "origin": "http://vlm"})
+    await analysis.start()
+    await wait_for(lambda: bool(published))
+    assert calls[:3] == [
+        ("DELETE", "/v1/generate_captions/stream-1", {"request_id": "old-request"}),
+        ("DELETE", "/v1/streams/delete/stream-1", {}),
+        ("GET", "/v1/ready", {}),
+    ]
+    await analysis.stop()
+    assert analysis.store.state("active_request") is None
+    await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("code,message,request_id", [
+    ("BadParameter", "No active caption request old-request for live stream stream-1", "old-request"),
+    ("InvalidParameterValue", "No active caption request other-request for live stream stream-1", "old-request"),
+    ("InvalidParameterValue", "No active caption request old-request for live stream other-stream", "old-request"),
+    ("InvalidParameterValue", "No active caption request None for live stream stream-1", None),
+])
+async def test_absent_caption_receipt_must_match_both_saved_identities(tmp_path, code, message, request_id):
+    async def handler(request):
+        if request.method == "DELETE":
+            return httpx.Response(400, json={"code": code, "message": message})
+    analysis, calls, _, _ = make_analysis(tmp_path, handler)
+    lease = {"stream_id": "stream-1", "request_id": request_id, "origin": "http://vlm"}
+    analysis.store.set_state("active_request", lease)
+    with pytest.raises(httpx.HTTPStatusError):
+        await analysis.start()
+    assert analysis.store.state("active_request") == lease
+    assert len(calls) == 1
+    await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_absent_caption_request_does_not_bypass_failed_stream_deletion(tmp_path):
+    async def handler(request):
+        if request.method == "DELETE" and request.url.path.startswith("/v1/generate_captions/"):
+            return httpx.Response(400, json={"code": "InvalidParameterValue", "message":
+                "No active caption request old-request for live stream stream-1"})
+        if request.method == "DELETE":
+            return httpx.Response(500)
+    analysis, calls, _, _ = make_analysis(tmp_path, handler)
+    lease = {"stream_id": "stream-1", "request_id": "old-request", "origin": "http://vlm"}
+    analysis.store.set_state("active_request", lease)
+    with pytest.raises(httpx.HTTPStatusError):
+        await analysis.start()
+    assert analysis.store.state("active_request") == lease
+    assert not any(path == "/v1/streams/add" for _, path, _ in calls)
+    await analysis.client.http.aclose()
