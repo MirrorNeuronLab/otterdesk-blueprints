@@ -7,11 +7,11 @@ audio, not synthetic or a quick preview. Do not imply a transcript already exist
 or that the sample grants redistribution permission. A Linux NVIDIA Blackwell
 node with the default 96 GiB GPU memory floor is required. Keep the chosen folder
 and output destination; chunk size is not a required setup question.
-Only after all recordings finish can a verified alignment enable the optional
-interactive transcript with audio and word highlights. Markdown still completes
-if that report is unavailable. Speaker labels are anonymous and local to each
-chunk, not verified identities across recordings. Review important wording
-against the audio; do not promise perfect transcription or invent missing speech.
+After all recordings finish, the co-worker prepares an interactive transcript with
+audio playback. Verified timing enables word and speaker highlights per section.
+Markdown remains available if report publication fails. Anonymous speaker labels
+apply only within each section. Review important wording against the audio. Never
+invent missing speech or promise perfect transcription.
 
 ## Reply style and setup contract
 

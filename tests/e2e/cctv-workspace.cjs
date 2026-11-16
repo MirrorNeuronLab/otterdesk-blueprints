@@ -20,63 +20,74 @@ let data = { run_id: 'run', camera: 'Warehouse · aisle 3', preview: { connected
   session: { status: 'running', total_captions: 35, instruction_revision: 2, instruction: 'Watch for people without a visible safety helmet.', last_caption_at: '2026-11-04T18:02:30Z', inference_ms: 1930 },
   captions: rows, goal_matches: rows.filter(row => row.goal_match === 'matched'), match_count: 1, omitted_count: 0,
   history: { summary: 'Saved footage search · 35 of 35 windows indexed.' } };
+let statusUnavailable = false;
 
 async function checkPinnedPreview(page) {
-  const video = await page.locator('.video-stage').boundingBox();
-  const status = await page.locator('#status').boundingBox();
-  const events = await page.getByRole('heading', { name: /^Event stream/ }).boundingBox();
+  const video = await page.locator('.camera-card:visible .video-stage').first().boundingBox();
+  const preview = await page.locator('.camera-card:visible .preview-badge').first().boundingBox();
+  const primary = await page.locator('.workspace-primary').boundingBox();
+  const events = await page.getByRole('heading', { name: /^Recent observations/ }).boundingBox();
   const timeline = await page.locator('#transcript').boundingBox();
-  assert(video && status && events && timeline);
-  assert(status.x >= video.x && status.x < video.x + 16, 'Status stays at the video’s left edge');
-  assert(status.y >= video.y && status.y < video.y + 16, 'Status stays at the video’s top edge');
-  assert(timeline.height > 0 && timeline.y + timeline.height <= page.viewportSize().height, 'Timeline fits inside the window');
+  assert(video && preview && primary && events && timeline);
+  assert(preview.x >= video.x && preview.x < video.x + 16, 'Preview label stays at the video’s left edge');
+  assert(preview.y >= video.y && preview.y < video.y + 16, 'Preview label stays at the video’s top edge');
+  assert(video.height > 24, 'The camera preview remains usable');
+  assert(timeline.height > 0 && timeline.y + timeline.height <= page.viewportSize().height,
+    `Timeline fits inside the window: ${JSON.stringify({ timeline, viewport: page.viewportSize() })}`);
   if (page.viewportSize().width >= 960) {
-    assert(events.x >= video.x + video.width && Math.abs(events.y - video.y) <= 8, 'Events sit to the right of the top-aligned video');
+    assert(events.x >= primary.x + primary.width && events.y < video.y, 'Events sit to the right of the camera section');
   } else {
     assert(events.y >= video.y + video.height, 'Events sit below the video');
   }
-  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth
-    && document.documentElement.scrollHeight <= innerHeight), 'The page does not overflow');
+  const size = await page.evaluate(() => ({ width: document.documentElement.scrollWidth,
+    height: document.documentElement.scrollHeight, viewport: [innerWidth, innerHeight] }));
+  assert(size.width <= size.viewport[0] && size.height <= size.viewport[1],
+    `The page does not overflow: ${JSON.stringify(size)}`);
   await page.evaluate(() => document.getElementById('transcript').scrollTop = 0);
   await page.locator('#transcript').hover();
   await page.mouse.wheel(0, 500);
   await expect.poll(() => page.locator('#transcript').evaluate(el => el.scrollTop)).toBeGreaterThan(0);
-  assert.deepEqual(await page.locator('.video-stage').boundingBox(), video, 'Scrolling keeps the video in place');
+  assert.deepEqual(await page.locator('.camera-card:visible .video-stage').first().boundingBox(), video, 'Scrolling keeps the video in place');
   assert.equal(await page.evaluate(() => scrollY), 0, 'Only the timeline scrolls');
   await page.getByRole('button', { name: 'Back to latest' }).click();
 }
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
+  let page;
   try {
-    const page = await browser.newPage({ viewport: { width: 640, height: 1000 }, colorScheme: 'light' });
+    page = await browser.newPage({ viewport: { width: 640, height: 1000 }, colorScheme: 'light' });
     const errors = [];
+    const previewRequests = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.route('https://cctv.test/**', async route => {
       const url = new URL(route.request().url());
       const headers = { 'Content-Security-Policy': "default-src 'self'; img-src 'self' blob:; style-src 'self'; script-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'" };
-      if (url.pathname.endsWith('/api/status')) return route.fulfill({ json: data, headers });
+      if (url.pathname.endsWith('/api/status') && statusUnavailable) return route.fulfill({ status: 503, body: 'Unavailable', headers });
+      if (url.pathname.endsWith('/api/status')) return route.fulfill({ json: {
+        ...data, cameras: data.cameras || [{...data.session, slot: 1, camera: data.camera, preview: data.preview}],
+      }, headers });
       if (url.pathname.endsWith('/api/observations')) return route.fulfill({ json: { observations: rows.slice(0, 2), omitted_count: 0 }, headers });
+      if (url.pathname.endsWith('/api/preview.mjpeg')) previewRequests.push(url.searchParams.get('camera'));
       if (/snapshot.jpg$|preview.mjpeg$/.test(url.pathname)) return route.fulfill({ contentType: 'image/svg+xml', body: image, headers });
       const file = url.pathname.split('/static/')[1] || 'index.html';
       return route.fulfill({ path: path.join(assets, file), headers });
     });
     await page.goto('https://cctv.test/jobs/camera/ui/');
     await expect(page.locator('.caption')).toHaveCount(35);
-    await expect(page.locator('#status')).toHaveText('Running');
-    assert(await page.locator('.video-stage').evaluate(el => el.contains(document.getElementById('status'))));
+    await expect(page.locator('.camera-status')).toHaveText('Running');
     const goalToggle = page.locator('summary').and(page.getByLabel('Monitoring goal', { exact: true }));
     const goal = page.getByRole('region', { name: 'Monitoring goal' });
     const video = await page.locator('.video-stage').boundingBox();
     const toggleBounds = await goalToggle.boundingBox();
-    assert(video && toggleBounds && toggleBounds.y < video.y + 16 && toggleBounds.x + toggleBounds.width > video.x + video.width - 16);
+    assert(video && toggleBounds && toggleBounds.y < video.y && toggleBounds.x + toggleBounds.width > video.x + video.width - 16);
     await expect(goal).toBeHidden();
     await goalToggle.press('Enter');
     await expect(goal).toContainText(data.session.instruction);
     assert.deepEqual(await page.locator('.video-stage').boundingBox(), video, 'Opening the goal keeps the video in place');
     await goalToggle.press('Space');
     await expect(goal).toBeHidden();
-    await expect(page.locator('#preview-state')).toBeHidden();
+    await expect(page.locator('.preview-state')).toBeHidden();
     await checkPinnedPreview(page);
     await expect(page.locator('.caption .snapshot')).toHaveCount(34);
     const first = page.locator('.caption').first();
@@ -101,7 +112,14 @@ async function checkPinnedPreview(page) {
     assert((await page.locator('#transcript').evaluate(el => el.scrollTop)) > anchor);
     await expect(page.locator('[data-id="window-34"] details')).toHaveAttribute('open', '');
     await page.getByRole('button', { name: 'Back to latest' }).click();
-    for (const [width, height] of [[1440, 1000], [215, 480], [320, 640], [640, 700], [1440, 480], [320, 640], [1440, 1000]]) {
+    data = { ...data, omitted_count: 2 };
+    await page.getByRole('button', { name: 'Show earlier' }).click();
+    await expect(page.locator('.caption')).toHaveCount(2);
+    await expect(page.locator('#transcript')).toBeFocused();
+    await page.getByRole('button', { name: 'Back to latest' }).click();
+    await expect(page.locator('.caption')).toHaveCount(36);
+    data = { ...data, omitted_count: 0 };
+    for (const [width, height] of [[1440, 1000], [215, 480], [360, 450], [320, 640], [640, 700], [1440, 480], [320, 640], [1440, 1000]]) {
       await page.setViewportSize({ width, height });
       await checkPinnedPreview(page);
       await expect(page.getByRole('link', { name: 'Export observations' })).toBeVisible();
@@ -111,8 +129,8 @@ async function checkPinnedPreview(page) {
       }
     }
     data = { ...data, camera: 'Warehouse-camera-with-a-very-long-name-'.repeat(20), session: { ...data.session, instruction: 'LongGoal'.repeat(500) } };
-    await expect(page.locator('#camera')).toHaveAttribute('title', data.camera);
-    await expect(page.locator('#camera')).toHaveAttribute('aria-label', `Live video · ${data.camera}`);
+    await expect(page.locator('.camera-card')).toHaveAttribute('title', data.camera);
+    await expect(page.locator('.camera-card')).toHaveAttribute('aria-label', `Live video · ${data.camera}`);
     for (const width of [215, 1440, 320]) {
       await page.setViewportSize({ width, height: 900 });
       await checkPinnedPreview(page);
@@ -136,17 +154,111 @@ async function checkPinnedPreview(page) {
     await expect(page.locator('#empty')).toHaveText('No completed video observations yet.');
     await expect(page.locator('#transcript')).toBeHidden();
     data = { ...data, preview: { connected: false } };
-    await expect(page.locator('#preview-state')).toBeVisible();
-    await expect(page.locator('#preview-state')).toHaveText('Connecting to live video…');
+    await expect(page.locator('.preview-state')).toBeVisible();
+    await expect(page.locator('.preview-state')).toHaveText('Connecting to live video…');
     data = { ...data, preview: { connected: false, error: 'Preview disconnected.' },
       session: { ...data.session, status: 'error', error: 'Video analysis needs attention.' } };
-    await expect(page.locator('#preview-state')).toHaveText('Preview disconnected.');
-    await expect(page.locator('#status')).toHaveText('Needs review');
+    await expect(page.locator('.preview-state')).toHaveText('Video analysis needs attention.');
+    await expect(page.locator('.camera-status')).toHaveText('Needs review');
     await expect(page.getByRole('alert')).toHaveText('Video analysis needs attention.');
     data = { ...data, preview: { connected: true }, session: { ...data.session, status: 'running', error: null } };
-    await expect(page.locator('#preview-state')).toBeHidden();
+    await expect(page.locator('.preview-state')).toBeHidden();
     await expect(page.getByRole('alert')).toBeHidden();
+    data = {
+      ...data, session: { ...data.session, status: 'degraded', instruction: 'Watch for activity near the entrance' },
+      cameras: [1, 2, 3, 4].map(slot => ({
+        slot, camera: `Camera ${slot}`, status: slot === 4 ? 'error' : 'running',
+        preview: { connected: slot !== 4 }, error: slot === 4 ? 'Video analysis disconnected.' : null,
+      })),
+      captions: rows.map((row, index) => ({ ...row, camera: `Camera ${index % 4 + 1}` })),
+      goal_matches: [{ ...rows[33], camera: 'Camera 2' }], match_count: 1,
+    };
+    const liveCameras = page.getByRole('group', { name: 'Live cameras' });
+    await expect(liveCameras.getByRole('region')).toHaveCount(4);
+    await expect(page.locator('#preview-count')).toHaveText('3 / 4');
+    await expect(page.locator('#attention-count')).toHaveText('1');
+    await expect(page.locator('#monitor-status')).toHaveText('Needs review');
+    await expect(page.locator('#observation-count')).toHaveText('35');
+    await expect(page.locator('#match-count')).toHaveText('1');
+    const selector = page.getByRole('combobox', { name: 'Preview camera' });
+    await expect(selector).toBeEnabled();
+    for (let slot = 1; slot <= 4; slot++) {
+      const tile = liveCameras.getByRole('region', { name: `Live video · Camera ${slot}`, exact: true });
+      await expect(tile.getByRole('img')).toHaveAttribute('src', `api/preview.mjpeg?camera=${slot}`);
+      await expect(tile.locator('.camera-status')).toHaveText(slot === 4 ? 'Needs review' : 'Running');
+      await expect(tile.locator('.preview-badge')).toHaveText(slot === 4 ? 'Connecting' : 'Live preview');
+    }
+    await expect(page.locator('.caption-camera').first()).toHaveText('Camera 3');
+    for (const [width, height] of [[1440, 1000], [215, 480], [360, 450], [320, 640], [360, 800], [1440, 480], [1440, 1000]]) {
+      await page.setViewportSize({ width, height });
+      await expect(liveCameras).toBeInViewport({ ratio: 1 });
+      for (const focus of await liveCameras.getByRole('button', { name: /Focus preview/ }).all()) {
+        await expect(focus).toBeInViewport({ ratio: 1 });
+      }
+      await expect(page.getByRole('link', { name: 'Export observations' })).toBeVisible();
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth
+        && document.documentElement.scrollHeight <= innerHeight), 'The four-camera layout does not overflow');
+      await checkPinnedPreview(page);
+      if (output && height > 600 && [320, 360, 1440].includes(width)) {
+        await page.screenshot({ path: path.join(output, `workspace-four-${width}.png`), fullPage: true });
+      }
+    }
+    await selector.selectOption('3');
+    await expect(liveCameras.getByRole('region')).toHaveCount(1);
+    await expect(liveCameras.getByRole('region')).toHaveAccessibleName('Live video · Camera 3');
+    await expect(page.locator('.caption')).toHaveCount(35);
+    await page.setViewportSize({ width: 360, height: 800 });
+    await checkPinnedPreview(page);
+    await liveCameras.getByRole('button', { name: 'Show all cameras' }).click();
+    await expect(liveCameras.getByRole('region')).toHaveCount(4);
+    await liveCameras.getByRole('button', { name: 'Focus preview · Camera 2', exact: true }).press('Enter');
+    await expect(selector).toHaveValue('2');
+    await expect(liveCameras.getByRole('region')).toHaveAccessibleName('Live video · Camera 2');
+    await selector.selectOption('all');
+    await liveCameras.getByRole('button', { name: 'Focus preview · Camera 4', exact: true }).click();
+    await expect(selector).toHaveValue('4');
+    await expect(liveCameras.getByRole('region')).toHaveAccessibleName('Live video · Camera 4');
+    await liveCameras.getByRole('button', { name: 'Show all cameras' }).click();
+    assert.deepEqual(previewRequests, ['1', '2', '3', '4'], 'Polling, focusing and resizing reuse the four preview streams');
+    // Both intermediate camera counts render all selected sources, with no phantom tiles.
+    for (const count of [3, 2]) {
+      data = { ...data, cameras: data.cameras.slice(0, count) };
+      await expect(liveCameras.getByRole('region')).toHaveCount(count);
+      await expect(selector.locator('option')).toHaveCount(count + 1);
+      await checkPinnedPreview(page);
+    }
+    await selector.selectOption('2');
+    data = { ...data, cameras: data.cameras.slice(0, 1) };
+    await expect(selector).toHaveValue('all');
+    await expect(selector).toBeDisabled();
+    await expect(liveCameras.getByRole('region')).toHaveAccessibleName('Live video · Camera 1');
+    await expect(page.locator('#attention-count')).toHaveText('0');
+    // A preview-only failure must not mislabel healthy analysis or other cameras.
+    data = { ...data, session: { ...data.session, status: 'running' },
+      cameras: [{ ...data.cameras[0], preview: { connected: false, error: 'Preview disconnected.' } }] };
+    await expect(page.locator('#attention-count')).toHaveText('1');
+    await expect(page.locator('.camera-status')).toHaveText('Running');
+    await expect(page.locator('.preview-badge')).toHaveText('Preview unavailable');
+    await expect(page.locator('.preview-state')).toHaveText('Preview disconnected.');
+    statusUnavailable = true;
+    await expect(page.locator('#monitor-status')).toHaveText('Reconnecting');
+    await expect(page.getByRole('alert')).toHaveText("Couldn't refresh camera status. Reconnecting…");
+    statusUnavailable = false;
+    data = { ...data, cameras: [{ ...data.cameras[0], preview: { connected: true } }] };
+    await expect(page.locator('#monitor-status')).toHaveText('Running');
+    await expect(page.getByRole('alert')).toBeHidden();
+    await page.emulateMedia({ colorScheme: 'dark' });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await checkPinnedPreview(page);
+    await page.setViewportSize({ width: 320, height: 640 });
+    await checkPinnedPreview(page);
     assert.deepEqual(errors, []);
-    console.log('CCTV workspace passed: pinned video, top-left status, goal disclosure, timeline-only scrolling, filters, evidence expansion, highlights, scroll anchoring, text escaping, empty/error states and wide/narrow resizing.');
+    console.log('CCTV workspace passed for one to four cameras, including summary counts, preview selection, evidence, camera-specific status, and narrow/wide resizing.');
+  } catch (error) {
+    if (output && page) {
+      await fs.mkdir(output, { recursive: true });
+      await page.screenshot({ path: path.join(output, 'failure.png'), fullPage: true });
+    }
+    throw error;
   } finally { await browser.close(); }
 })().catch(error => { console.error(error); process.exitCode = 1; });

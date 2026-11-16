@@ -32,9 +32,8 @@ def _interval(value, duration):
 def playback_alignment(response, text, duration):
     """Never estimate word times or infer identities across independent chunks.
 
-    Transcripts remain authoritative if optional timing evidence is unavailable.
-    A missing/failed/malformed alignment prevents publication of a replay, instead
-    of showing guessed highlights or an invented number of people.
+    Sections with unavailable timing play with the saved transcript text.
+    The report uses validated timing evidence for word and speaker highlights.
     """
     value = response.get("ctc_timestamps")
     if (

@@ -120,7 +120,9 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     if blueprint == 'cctv_operator':
         service = SimpleNamespace(snapshot=lambda: {
             'session': {'status': 'running'}, 'captions': [], 'phase': 'running',
-            'preview': {'connected': True}, 'error': None, 'limitation': 'Sampled video descriptions.'})
+            'cameras': [{'slot': 1, 'status': 'running', 'preview': {'connected': True}}],
+            'preview': {'connected': True}, 'error': None, 'limitation': 'Sampled video descriptions.'},
+            monitoring=SimpleNamespace(ready=True))
         server = module.create_operator_mcp_server(service)
         read_tool = 'get_operator_status'
     else:

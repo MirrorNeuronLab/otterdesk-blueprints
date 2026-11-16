@@ -1,12 +1,25 @@
 """The replacement is a real native Compose + monitored-service blueprint."""
 
 import json
+import os
 from pathlib import Path
+import subprocess
+import sys
 
+import pytest
 import yaml
 from mn_sdk.blueprints import blueprint_definition, compile_blueprint, read_blueprint, resolve_config
 
+from cctv_operator.payloads.domain.settings import camera_settings
+
 ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
+SAMPLE_ROOT = "rtsp://127.0.0.1:8554/stream"
+
+
+def four_cameras():
+    return {"video_source": {"count": 4, "uri": f"{SAMPLE_ROOT}/1", **{
+        f"camera_{slot}": {"uri": f"{SAMPLE_ROOT}/{slot}"} for slot in range(2, 5)
+    }}}
 
 
 def test_replacement_compiles_with_native_ownership_and_secure_setup():
@@ -26,18 +39,55 @@ def test_replacement_compiles_with_native_ownership_and_secure_setup():
     assert compiled["metadata"]["mn_blocks_lock"]["services"]["camera_operator"]["uses"] == "mn.blocks.monitored_service@1"
     config = resolve_config(package).data
     assert config["video_source"]["uri"] == ""
+    assert config["video_source"]["count"] == 1
     assert config["vlm"]["base_url"] == "http://otterdesk-cctv-vlm:8000"
     assert config["source_context"]["enabled"] is True
     assert any(package.startswith("sentence-transformers") for package in operator["config"]["python_environment"]["packages"])
     for guide in [source["metadata"]["setup_guide"], source["metadata"]["init_config_review"]]:
-        field = next(field for field in guide["fields"] if field["path"] == "video_source.uri")
-        assert field["required"] is field["secret"] is True
-        assert set(field["protocols"]) == {"rtsp:", "rtsps:"}
+        fields = {field["path"]: field for field in guide["fields"]}
+        assert [choice["value"] for choice in fields["video_source.count"]["choices"]] == [1, 2, 3, 4]
+        for slot in range(1, 5):
+            path = "video_source.uri" if slot == 1 else f"video_source.camera_{slot}.uri"
+            field = fields[path]
+            assert field["required"] is field["secret"] is True
+            assert set(field["protocols"]) == {"rtsp:", "rtsps:"}
+            if slot > 1:
+                assert [condition["equals"] for condition in field["active_when_any"]] == list(range(slot, 5))
     assert not source["metadata"]["setup_guide"]["sample"]["available"]
     assert not source["runtime"].get("models")
     assert "mn.agentic" not in package.manifest["extensions"]
     assert source["knowledge_rag"]["enabled"] is True
     assert source["knowledge_rag"]["top_k"] == 4
+
+
+@pytest.mark.parametrize("count", [1, 2, 3, 4])
+def test_setup_accepts_one_to_four_active_streams(count):
+    config = four_cameras()
+    config["video_source"]["count"] = count
+    cameras = camera_settings(config)
+    assert [camera.uri for camera in cameras] == [f"{SAMPLE_ROOT}/{slot}" for slot in range(1, count + 1)]
+    assert len({camera.source_id for camera in cameras}) == count
+    assert camera_settings({"video_source": {"uri": cameras[0].uri}})[0].source_id == cameras[0].source_id
+
+
+@pytest.mark.parametrize("overrides,message", [
+    ({"count": 0}, "1 and 4"),
+    ({"count": 5}, "1 and 4"),
+    ({"count": True}, "1 and 4"),
+    ({"camera_4": {}}, "camera 4"),
+    ({"camera_3": {"uri": "https://secret@example.com/live"}}, "camera 3"),
+    ({"camera_2": {"uri": "rtsp://private:secret@127.0.0.1:8554/stream/1"}}, "different stream"),
+])
+def test_setup_and_operator_reject_the_same_invalid_stream_config_without_echoing_input(overrides, message):
+    config = four_cameras()
+    config["video_source"].update(overrides)
+    with pytest.raises(ValueError, match=message):
+        camera_settings(config)
+    result = subprocess.run([sys.executable, "payloads/agents/validation/validate_video_source.py"], cwd=ROOT,
+                            env={**os.environ, "MN_BLUEPRINT_CONFIG_JSON": json.dumps(config)}, capture_output=True, text=True)
+    assert result.returncode == 1, result.stderr
+    assert message in json.loads(result.stdout)["issues"][0]["message"]
+    assert "secret" not in result.stdout + result.stderr
 
 
 def test_vss_recipe_matches_the_sample_and_has_persistent_local_model_caches():

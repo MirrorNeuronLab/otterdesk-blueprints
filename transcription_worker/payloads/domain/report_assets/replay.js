@@ -59,8 +59,11 @@
     $("playback-error").hidden = !message;
   }
   function renderSeats() {
-    const speakers = record.chunks[chunkIndex].alignment.speakers;
-    $("speaker-count").textContent = `${speakers.length} ${speakers.length === 1 ? "speaker" : "speakers"}`;
+    const { status, speakers = [] } = record.chunks[chunkIndex].alignment;
+    $("speaker-count").textContent = status === "ready"
+      ? `${speakers.length} ${speakers.length === 1 ? "speaker" : "speakers"}`
+      : "Timing unavailable";
+    document.querySelector(".table-help").hidden = speakers.length === 0;
     $("section-label").textContent = `Section ${chunkIndex + 1} of ${record.chunks.length}`;
     $("seats").replaceChildren();
     for (const [index, speaker] of speakers.entries()) {
@@ -79,13 +82,16 @@
   }
   function renderTranscript() {
     const chunk = record.chunks[chunkIndex];
+    const { status, words = [] } = chunk.alignment;
+    const hasTiming = status === "ready";
+    $("follow").disabled = !hasTiming;
     transcript.replaceChildren();
     currentWords = new Set();
     wordNodes = [];
     prefixEnds = [];
     lastScrolledRow = null;
     let row, content, previous;
-    for (const [index, word] of chunk.alignment.words.entries()) {
+    for (const [index, word] of words.entries()) {
       if (!previous || previous.speaker !== word.speaker || word.start - previous.end > 1.5 || index % 45 === 0) {
         row = document.createElement("div");
         row.className = "utterance";
@@ -117,10 +123,19 @@
       previous = word;
     }
     if (!wordNodes.length) {
-      const empty = document.createElement("p");
-      empty.className = "muted";
-      empty.textContent = "No transcript text was returned for this section.";
-      transcript.append(empty);
+      const text = hasTiming ? "" : chunk.text;
+      const message = document.createElement("p");
+      message.className = "muted";
+      message.textContent = text
+        ? "Word timing unavailable for this section."
+        : "No transcript text was returned for this section.";
+      transcript.append(message);
+      if (text) {
+        const plain = document.createElement("p");
+        plain.className = "utterance-text untimed-transcript";
+        plain.textContent = text;
+        transcript.append(plain);
+      }
     }
     transcript.scrollTop = 0;
   }
@@ -171,7 +186,7 @@
     $("position").textContent = `${time(chunk.start_seconds + t)} / ${time(record.duration_seconds)}`;
     $("seek").value = String(chunk.start_seconds + t);
     $("seek").setAttribute("aria-valuetext", $("position").textContent);
-    const words = chunk.alignment.words;
+    const { words = [], segments = [] } = chunk.alignment;
     let lo = 0, hi = words.length;
     while (lo < hi) {
       const mid = (lo + hi) >>> 1;
@@ -193,7 +208,7 @@
     }
     currentWords = active;
     const speaking = new Set();
-    if (playing) for (const segment of chunk.alignment.segments) {
+    if (playing) for (const segment of segments) {
       if (segment.start <= t && t < segment.end) speaking.add(segment.speaker);
     }
     for (const seat of $("seats").children) {
@@ -221,8 +236,10 @@
     if (!audio.paused && !audio.ended) frame = requestAnimationFrame(tick);
   }
   function setFollow(value) {
+    const button = $("follow");
+    if (button.disabled) return;
     follow = value;
-    $("follow").setAttribute("aria-pressed", String(follow));
+    button.setAttribute("aria-pressed", String(follow));
     lastScrolledRow = null;
     update();
   }

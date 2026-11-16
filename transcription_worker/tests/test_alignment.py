@@ -43,7 +43,7 @@ def test_measured_words_use_the_diarizer_mapping_and_preserve_overlap(alignment)
 
 
 @pytest.mark.parametrize("value", [None, float("nan"), float("inf"), True, -1, 5])
-def test_invalid_times_never_create_a_playable_report(alignment, value):
+def test_invalid_word_times_are_rejected(alignment, value):
     raw = response()
     raw["ctc_timestamps"]["words"][0]["start"] = value
     assert alignment.playback_alignment(raw, "Hello there.", 1) == {

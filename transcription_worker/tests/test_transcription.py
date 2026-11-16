@@ -212,12 +212,20 @@ def test_optional_replay_failure_does_not_reject_saved_transcripts(worker, monke
         assert not worker.store.path("web/index.html").exists()
 
 
-def test_missing_word_timing_keeps_transcript_but_does_not_invent_replay(worker, monkeypatch):
-    monkeypatch.setattr("mn_sdk.integrations.block_model_request.runtime_model_json_request",
-        lambda *a, **k: {"choices": [{"finish_reason": "stop", "message": {"content": "Saved text"}}]})
+def test_missing_word_timing_still_publishes_the_playback_report(worker, monkeypatch):
+    monkeypatch.setattr(
+        "mn_sdk.integrations.block_model_request.runtime_model_json_request",
+        lambda *a, **k: {
+            "choices": [{"finish_reason": "stop", "message": {"content": "Saved text"}}]
+        },
+    )
     worker.execute()
     assert worker.store.path("transcripts/sample.wav.md").is_file()
-    assert not worker.store.path("web/index.html").exists()
+    record = worker.store.read_path("transcription_result.json")["files"][0]
+    assert all(chunk["alignment"] == {"status": "unavailable"} for chunk in record["chunks"])
+    assert worker.store.path("web/index.html").is_file()
+    assert worker.store.path("web_ui.json").is_file()
+    assert len(list(worker.store.path("web/audio").glob("*.wav"))) == 3
 
 
 def test_empty_folder_never_prepares_model(worker):

@@ -75,10 +75,10 @@ page to bound page size. Audio and names stay local; the report has no remote
 assets, telemetry or runtime controls. Play it from **Full report** in OtterDesk,
 the runtime Web UI, or by opening `web/index.html` in a browser.
 
-Missing, failed, incomplete or malformed alignment withholds the interactive
-report for the batch. Markdown transcripts still complete; the run records a
-diagnostic. Optional rendering/audio-delivery errors likewise cannot invalidate
-the authoritative transcripts. No partial or live report is advertised.
+Every section has audio playback and transcript text. Sections without verified
+timing show the saved text with a timing notice. Word and speaker highlights
+appear in verified sections. Rendering or audio delivery failures leave the
+saved Markdown and index available.
 
 Workers use Python 3.12 and a lightweight Docker image. The independent model
 image uses CUDA 13.2, vLLM 0.32.0 and pinned NeMo Speech.

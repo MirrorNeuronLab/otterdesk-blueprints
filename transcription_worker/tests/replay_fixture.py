@@ -77,6 +77,24 @@ def write_fixture(root):
         {"source": "Silent recording.wav", "page": "empty.html"},
     ]
     (root / "index.html").write_bytes(render(record, recordings, "synthetic-replay"))
+    mixed_timing = {
+        **record,
+        "chunks": [
+            chunks[0],
+            {
+                **chunks[1],
+                "text": 'Saved transcript.\n<img src=x onerror="alert(1)">',
+                "alignment": {"status": "unavailable"},
+            },
+        ],
+    }
+    (root / "mixed.html").write_bytes(
+        render(
+            mixed_timing,
+            [{"source": record["source"], "page": "mixed.html"}],
+            "synthetic-mixed-timing",
+        )
+    )
     many = {
         **record,
         "source": "Eight speakers.wav",

@@ -6,8 +6,12 @@ import json
 import httpx
 import pytest
 
-from cctv_operator.payloads.domain.analysis import Analysis
+from cctv_operator.payloads.domain.analysis import Analysis, request_key
 from cctv_operator.payloads.domain.caption_store import CaptionStore
+from cctv_operator.payloads.domain.errors import CameraStateError
+from cctv_operator.payloads.domain.monitoring import Monitoring
+from cctv_operator.payloads.domain.preview import Preview
+from cctv_operator.payloads.domain.publication import Publisher
 from cctv_operator.payloads.domain.realtime_client import VLMClient, sse_data
 from cctv_operator.payloads.domain.settings import CameraSettings, camera_settings, service_url
 
@@ -43,7 +47,8 @@ def make_analysis(tmp_path, handler=None, *, chunks=None, raw=None):
         if request.url.path == "/v1/models":
             return httpx.Response(200, json={"data": [{"id": "Cosmos3-Edge"}]})
         if request.url.path == "/v1/streams/add":
-            return httpx.Response(200, json={"results": [{"id": "stream-1"}]})
+            stream_id = json.loads(request.content)["streams"][0]["id"]
+            return httpx.Response(200, json={"results": [{"id": stream_id}]})
         if request.method == "POST" and request.url.path == "/v1/generate_captions":
             stream = CaptionStream(chunks, raw)
             streams.append(stream)
@@ -127,13 +132,14 @@ async def test_real_payload_deduplication_and_ordered_request_cleanup(tmp_path):
     assert payload["num_frames_per_second_or_fixed_frames_chunk"] == 8
     assert payload["max_tokens"] == 192
     assert payload["enable_audio"] is payload["enable_reasoning"] is False
-    assert len(analysis.snapshot()["captions"]) == 1
-    assert "private-password" not in json.dumps(analysis.snapshot())
-    assert "private-token" not in json.dumps(analysis.snapshot())
+    observations = analysis.store.history(current_run=True)["observations"]
+    assert len(observations) == 1
+    assert "private-password" not in json.dumps(observations)
+    assert "private-token" not in json.dumps(observations)
     await analysis.stop()
     assert streams[0].closed
-    assert calls[-2:] == [("DELETE", "/v1/generate_captions/stream-1", {"request_id": "request-1"}),
-                          ("DELETE", "/v1/streams/delete/stream-1", {})]
+    assert calls[-2:] == [("DELETE", f"/v1/generate_captions/{analysis.stream_id}", {"request_id": "request-1"}),
+                          ("DELETE", f"/v1/streams/delete/{analysis.stream_id}", {})]
     assert analysis.store.state("active_request") is None
     await analysis.client.http.aclose()
 
@@ -153,7 +159,7 @@ async def test_stop_during_registration_recovers_ownership_before_cleanup(tmp_pa
     assert not stop.done()
     release.set()
     await stop
-    assert calls[-1][1] == "/v1/streams/delete/stream-1"
+    assert calls[-1][1] == f"/v1/streams/delete/{analysis.stream_id}"
     assert analysis.store.state("active_request") is None
     assert analysis.state["status"] == "stopped"
     await analysis.client.http.aclose()
@@ -178,7 +184,7 @@ async def test_upstream_failures_are_explicit_redacted_and_release_stream(tmp_pa
     assert analysis.state["status"] == "error"
     assert "secret" not in analysis.state["error"]
     assert not published
-    assert calls[-1][1] == "/v1/streams/delete/stream-1"
+    assert calls[-1][1] == f"/v1/streams/delete/{analysis.stream_id}"
     await analysis.client.http.aclose()
 
 
@@ -192,12 +198,69 @@ async def test_failed_cleanup_is_durable_and_fences_new_registration(tmp_path):
     await wait_for(lambda: bool(published))
     with pytest.raises(RuntimeError, match="not fully released"):
         await analysis.stop()
-    assert analysis.store.state("active_request")["stream_id"] == "stream-1"
+    assert analysis.store.state("active_request")["stream_id"] == analysis.stream_id
     before = sum(path == "/v1/streams/add" for _, path, _ in calls)
     with pytest.raises(httpx.HTTPStatusError):
         await analysis.start()
     assert sum(path == "/v1/streams/add" for _, path, _ in calls) == before
     await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_restart_cleans_owned_stream_after_lost_registration_reply(tmp_path):
+    active = set()
+    registrations = []
+
+    async def handler(request):
+        if request.url.path == "/v1/streams/add":
+            identity = json.loads(request.content)["streams"][0]["id"]
+            assert previous.store.state("active_request")["stream_id"] == identity
+            assert identity not in active
+            active.add(identity)
+            registrations.append(identity)
+            if len(registrations) == 1:
+                raise httpx.ReadTimeout("The registration response was lost.", request=request)
+        if request.url.path.startswith("/v1/streams/delete/"):
+            if not restarted:
+                return httpx.Response(503)
+            active.remove(request.url.path.rsplit("/", 1)[-1])
+
+    restarted = False
+    previous, _, _, _ = make_analysis(tmp_path, handler)
+    async with previous.client.http:
+        await previous.start()
+        await previous.task
+        assert "timed out registering the camera" in previous.state["error"]
+        assert active == {previous.store.state("active_request")["stream_id"]}
+        with pytest.raises(CameraStateError, match="not fully released"):
+            await previous.stop()
+
+    restarted = True
+    current, calls, _, published = make_analysis(tmp_path, handler)
+    async with current.client.http:
+        await current.start()
+        await wait_for(lambda: bool(published))
+        assert len(registrations) == 2 and registrations[0] == registrations[1]
+        assert calls[1] == ("DELETE", f"/v1/streams/delete/{registrations[0]}", {})
+        await current.stop()
+    assert not active
+    assert current.store.state("active_request") is None
+
+
+@pytest.mark.asyncio
+async def test_stream_identity_mismatch_never_starts_or_deletes_another_stream(tmp_path):
+    async def handler(request):
+        if request.url.path == "/v1/streams/add":
+            return httpx.Response(200, json={"results": [{"id": "other-owner"}]})
+
+    analysis, calls, _, published = make_analysis(tmp_path, handler)
+    async with analysis.client.http:
+        await analysis.start()
+        await analysis.task
+        assert "stream identity" in analysis.state["error"]
+        assert ("POST", "/v1/generate_captions", {}) not in calls
+        assert not any(path.endswith("/other-owner") for _, path, _ in calls)
+        assert not published
 
 
 @pytest.mark.asyncio
@@ -244,7 +307,7 @@ async def test_other_nvidia_400_errors_keep_the_ownership_fence(tmp_path, body):
 async def test_unknown_registration_after_crash_cannot_open_another_stream(tmp_path):
     analysis, calls, _, _ = make_analysis(tmp_path)
     analysis.store.set_state("active_request", {"registration_pending": True})
-    with pytest.raises(ValueError, match="unknown outcome"):
+    with pytest.raises(CameraStateError, match="unknown outcome"):
         await analysis.start()
     assert calls == []
     await analysis.client.http.aclose()
@@ -253,22 +316,112 @@ async def test_unknown_registration_after_crash_cannot_open_another_stream(tmp_p
 @pytest.mark.asyncio
 async def test_goal_change_serializes_cleanup_keeps_history_and_deduplicates_receipt(tmp_path):
     analysis, calls, _, published = make_analysis(tmp_path)
-    await analysis.start()
+    analysis.preview = Preview()
+    monitoring = Monitoring(analysis.client, analysis.store, {1: analysis}, lambda _state: None)
+    await monitoring.start(await analysis.client.model())
     await wait_for(lambda: bool(published))
-    receipt = await analysis.change_goal("change-1", "Watch when the door is NOT closed.")
+    receipt = await monitoring.change_goal("change-1", "Watch when the door is NOT closed.")
     assert receipt["state"] == "completed"
     assert receipt["analysis_ready"] is False
     await wait_for(lambda: len(published) == 2)
     assert published[-1]["instruction"] == "Watch when the door is NOT closed."
     assert published[-1]["instruction_revision"] == 1
-    assert len(analysis.snapshot()["captions"]) == 2
-    assert await analysis.change_goal("change-1", "Watch when the door is NOT closed.") == receipt
+    assert len(monitoring.snapshot()["captions"]) == 2
+    assert await monitoring.change_goal("change-1", "Watch when the door is NOT closed.") == receipt
     with pytest.raises(ValueError, match="another monitoring change"):
-        await analysis.change_goal("change-1", "Different goal")
+        await monitoring.change_goal("change-1", "Different goal")
     registrations = [i for i, (_, path, _) in enumerate(calls) if path == "/v1/streams/add"]
-    assert calls[registrations[1] - 1][1] == "/v1/models"
-    assert any(path == "/v1/streams/delete/stream-1" for _, path, _ in calls[:registrations[1]])
-    await analysis.stop()
+    assert any(path == f"/v1/streams/delete/{analysis.stream_id}" for _, path, _ in calls[:registrations[1]])
+    assert sum(path == "/v1/models" for _, path, _ in calls) == 1
+    await monitoring.close()
+    await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_four_independent_streams_share_one_goal_and_preserve_camera_evidence(tmp_path):
+    from mn_sdk_mcp import JobExchangeStore
+    from test_cctv_realtime_contract import four_cameras
+
+    settings = camera_settings(four_cameras())
+    path = tmp_path / "captions.sqlite3"
+    store = CaptionStore(path, job_id="job", run_id="run", source_ids=[camera.source_id for camera in settings])
+    exchange = JobExchangeStore(tmp_path / "activity.sqlite3", allowed_root=tmp_path, job_id="job", run_id="run")
+    publisher = Publisher(tmp_path / "reports", store, exchange)
+    registrations, captions, deletions = [], [], []
+
+    async def handler(request):
+        if request.url.path == "/v1/streams/add":
+            identity = json.loads(request.content)["streams"][0]["id"]
+            registrations.append(identity)
+            return httpx.Response(200, json={"results": [{"id": identity}]})
+        if request.method == "POST" and request.url.path == "/v1/generate_captions":
+            body = json.loads(request.content)
+            captions.append(body)
+            identity = body["id"]
+            if identity == cameras[4].stream_id and registrations.count(identity) == 1:
+                return httpx.Response(200, stream=CaptionStream(raw=b'data: {"error":"camera disconnected"}\n\n'))
+            event = {"request_id": f"request-{identity}", "chunk_responses": [CHUNK]}
+            return httpx.Response(200, stream=CaptionStream(raw=("data: " + json.dumps(event) + "\n\n").encode()))
+        if request.method == "DELETE":
+            deletions.append((request.url.path, request.url.params.get("request_id")))
+            return httpx.Response(204)
+        raise AssertionError(request.url.path)
+
+    async with httpx.AsyncClient(base_url="http://vlm/", transport=httpx.MockTransport(handler)) as http:
+        client = VLMClient("http://vlm", http)
+        cameras = {
+            camera.slot: Analysis(client, camera, CaptionStore(path, job_id="job", run_id="run", source_id=camera.source_id),
+                                  publisher.caption, lambda _: monitoring.publish_status(), preview=Preview())
+            for camera in settings
+        }
+        monitoring = Monitoring(client, store, cameras, publisher.status)
+        try:
+            await monitoring.start("vision-model")
+            await wait_for(lambda: monitoring.session()["status"] == "degraded" and cameras[4].task.done())
+            assert monitoring.ready and len(captions) == 4
+            assert [camera["status"] for camera in monitoring.snapshot()["cameras"]] == ["running"] * 3 + ["error"]
+            assert {row["camera_slot"] for row in store.history()["observations"]} == {1, 2, 3}
+            assert await monitoring.change_goal("watch-door", "Watch for an open door.") == {
+                "state": "completed", "accepted": True, "command_id": "watch-door", "operation_id": "watch-door",
+                "instruction_revision": 1, "instruction": "Watch for an open door.", "analysis_ready": False,
+                "summary": "Monitoring goal applied. Future video windows will use it.",
+            }
+            await wait_for(lambda: monitoring.session()["total_captions"] == 7)
+            assert all("Watch for an open door." in body["prompt"] for body in captions[4:])
+            assert {row["camera_slot"] for row in monitoring.snapshot()["captions"]
+                    if row["instruction_revision"] == 1} == {1, 2, 3, 4}
+            notices = exchange.updates(after_revision=0, kinds=["result"], include_staged=False)["updates"]
+            assert len(notices) == 7
+            assert {row["payload"]["message"].split(" · ")[0] for row in notices} == {f"Camera {slot}" for slot in range(1, 5)}
+            assert "127.0.0.1" not in json.dumps(monitoring.snapshot())
+        finally:
+            await monitoring.close()
+        assert len(registrations) == 8
+        assert len(set(registrations[:4])) == 4 and registrations[:4] == registrations[4:]
+        assert not any(store.state(request_key(slot)) for slot in range(1, 5))
+        for slot, identity in enumerate(registrations[:4], 1):
+            stop_path = f"/v1/generate_captions/{identity}"
+            delete_path = f"/v1/streams/delete/{identity}"
+            assert [receipt for receipt in deletions if receipt[0] in {stop_path, delete_path}] == [
+                (stop_path, None if slot == 4 else f"request-{identity}"), (delete_path, None),
+                (stop_path, f"request-{identity}"), (delete_path, None),
+            ]
+
+
+@pytest.mark.asyncio
+async def test_removed_camera_lease_is_checked_before_any_new_registration(tmp_path):
+    analysis, calls, _, _ = make_analysis(tmp_path)
+    monitoring = Monitoring(analysis.client, analysis.store, {1: analysis}, lambda _state: None)
+    analysis.store.set_state(request_key(4), {"registration_pending": True})
+    with pytest.raises(CameraStateError, match="unknown outcome"):
+        await monitoring.start("vision-model")
+    assert calls == []
+    analysis.store.set_state(request_key(4), {"stream_id": "retired-camera", "request_id": "old", "origin": "http://vlm"})
+    await monitoring.start("vision-model")
+    assert calls[:2] == [("DELETE", "/v1/generate_captions/retired-camera", {"request_id": "old"}),
+                         ("DELETE", "/v1/streams/delete/retired-camera", {})]
+    assert analysis.store.state(request_key(4)) is None
+    await monitoring.close()
     await analysis.client.http.aclose()
 
 

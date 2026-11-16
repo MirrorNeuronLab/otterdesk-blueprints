@@ -43,6 +43,7 @@
 .utterance-identity .name { white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-weight: 500; }
 .utterance-identity .time { flex-shrink: 0; white-space: nowrap; }
 .utterance-text { min-width: 0; line-height: 1.65; font-size: 14px; }
+.untimed-transcript { white-space: pre-wrap; overflow-wrap: anywhere; }
 .report .word { display: inline; border: 0; border-radius: 3px; background: transparent; color: inherit; padding: 2px 1px; min-height: 0; font: inherit; text-align: left; }
 .report .word[aria-current="true"] { background: var(--od-primary); color: var(--od-primary-foreground); }
 .report .word:hover { text-decoration: underline; }

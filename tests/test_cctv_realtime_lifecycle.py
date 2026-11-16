@@ -16,7 +16,7 @@ from test_cctv_realtime_protocol import CaptionStream
 ROOT = Path(__file__).resolve().parents[1] / "cctv_operator"
 
 
-@pytest.mark.parametrize("failure", [None, "health", "model", "proxy"])
+@pytest.mark.parametrize("failure", [None, "health", "model", "proxy", "registration"])
 def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(tmp_path, monkeypatch, failure):
     bundle = tmp_path / "blueprint"
     shutil.copytree(ROOT, bundle, ignore=shutil.ignore_patterns("__pycache__"))
@@ -35,14 +35,20 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     client_module = importlib.import_module("domain.realtime_client")
     if failure == "proxy":
         monkeypatch.setattr(lifecycle.socket, "gethostbyname", lambda host: "127.0.0.2")
-    calls, operators, previews, control_hosts = [], [], [], []
+    calls, operators, previews, control_hosts, stream_ids = [], [], [], [], []
 
     async def handler(request):
         calls.append((request.method, request.url.path))
         if request.url.path == "/v1/models":
             return httpx.Response(200, json={"data": [] if failure == "model" else [{"id": "Cosmos3-Edge"}]})
         if request.url.path == "/v1/streams/add":
-            return httpx.Response(200, json={"results": [{"id": "camera-1"}]})
+            identity = json.loads(request.content)["streams"][0]["id"]
+            stream_ids.append(identity)
+            if failure == "registration":
+                raise httpx.ReadTimeout("Registration reply was lost.", request=request)
+            return httpx.Response(200, json={"results": [{"id": identity}]})
+        if failure == "registration" and request.method == "DELETE":
+            return httpx.Response(503)
         if request.method == "POST" and request.url.path == "/v1/generate_captions":
             return httpx.Response(200, stream=CaptionStream())
         return httpx.Response(200, text="ok")
@@ -74,7 +80,7 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     monkeypatch.setattr(native.Operator, "__init__", construct)
     monkeypatch.setattr(native, "VLMClient", client)
     monkeypatch.setattr(native, "Preview", Preview)
-    monkeypatch.setattr(native.VisualHistory, "index_next", lambda self: False)
+    monkeypatch.setattr(native.CameraHistory, "index_next", lambda self: False)
     if failure == "health":
         original_health = lifecycle.health
         checks = []
@@ -104,6 +110,9 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
     if failure in {"health", "model"}:
         with pytest.raises((RuntimeError, ValueError)):
             run(context, **parameters)
+    elif failure == "registration":
+        with pytest.raises(RuntimeError, match="NVIDIA timed out registering the camera"):
+            run(context, **parameters)
     else:
         result = run(context, **parameters)
         assert run(context, **parameters) == result
@@ -114,8 +123,13 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
             assert handle["url"].startswith("http://127.0.0.2:")
         report = json.loads((output / "cctv_report.json").read_text())
         assert report["observations"][0]["model"] == "Cosmos3-Edge"
-        assert ("DELETE", "/v1/streams/delete/camera-1") in calls
+        assert len(stream_ids) == 1
+        assert ("DELETE", f"/v1/streams/delete/{stream_ids[0]}") in calls
     assert operators and not operators[0].thread.is_alive()
     assert operators[0].web_socket.fileno() == operators[0].mcp_socket.fileno() == -1
     assert previews and all(preview.stopped for preview in previews)
-    assert operators[0].store.state("active_request") is None
+    lease = operators[0].store.state("active_request")
+    if failure == "registration":
+        assert lease["stream_id"] == stream_ids[0]
+    else:
+        assert lease is None

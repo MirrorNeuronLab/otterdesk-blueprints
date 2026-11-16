@@ -20,14 +20,14 @@
         "type": "local_path"
       }
     ],
-    "introduction": "I'll turn your recordings into Markdown transcripts, with audio playback and word highlights when alignment succeeds. Choose an audio folder or try the included 50-minute recording. Processing requires NVIDIA Blackwell; the default profile needs 96 GiB GPU memory.",
+    "introduction": "I'll turn your recordings into Markdown transcripts and prepare a playback report. The report highlights words when their timing is verified. Choose an audio folder or try the included 50-minute recording. Processing requires NVIDIA Blackwell; the default profile needs 96 GiB GPU memory.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
       "values": {}
     },
     "sample": {
       "available": true,
-      "expected_output": "Complete Markdown, provenance and a finished interactive transcript when word alignment succeeds.",
+      "expected_output": "Complete Markdown, provenance and a playback report with word highlights where timing is verified.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs"
       }

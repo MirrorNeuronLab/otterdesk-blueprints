@@ -196,6 +196,32 @@ test('Unavailable audio gives a recovery action without fabricating playback', a
   } finally { await page.close(); }
 });
 
+test('Sections without verified timing play audio and display the saved text', async () => {
+  const { page, errors } = await open({ viewport: { width: 216, height: 520 } });
+  try {
+    await page.goto(origin + '/mixed.html');
+    const section = page.getByLabel('Transcript section');
+    await section.selectOption('1');
+    const transcript = page.getByRole('region', { name: 'Scrollable transcript' });
+    await expect(transcript).toContainText('Word timing unavailable for this section.');
+    await expect(transcript.getByText('<img src=x onerror="alert(1)">')).toBeVisible();
+    await expect(transcript.locator('img')).toHaveCount(0);
+    await expect(transcript.getByRole('button')).toHaveCount(0);
+    await expect(page.locator('.avatar')).toHaveCount(0);
+    const follow = page.getByRole('button', { name: 'Follow transcript' });
+    await expect(follow).toBeDisabled();
+    await transcript.dispatchEvent('wheel', { deltaY: 100 });
+    await page.getByRole('button', { name: 'Play', exact: true }).click();
+    await expect.poll(() => page.locator('audio').evaluate(audio => audio.currentTime)).toBeGreaterThan(.2);
+    assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    await section.selectOption('0');
+    await expect(follow).toBeEnabled();
+    await expect(follow).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.avatar')).toHaveCount(3);
+    assert.deepEqual(errors, []);
+  } finally { await page.close(); }
+});
+
 test('Eight detected voices fit around the table and overlapping speakers all highlight', async () => {
   const { page } = await open({ viewport: { width: 216, height: 520 } });
   try {

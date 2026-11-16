@@ -31,19 +31,6 @@ def render(record, recordings, run_id):
 
 def publish_replay(block, records):
     """Called only after all authoritative transcripts and their index are delivered."""
-    if any(
-        chunk["alignment"]["status"] != "ready"
-        for record in records
-        for chunk in record["chunks"]
-    ):
-        report_activity(
-            "Transcripts saved. Playback report unavailable: word timing could not be verified.",
-            kind="diagnostic",
-            level="warning",
-            step_id=block.step_id,
-            run_dir=block.store.run_dir,
-        )
-        return
     try:
         _publish_replay(block, records)
     except Exception:

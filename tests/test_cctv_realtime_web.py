@@ -12,7 +12,7 @@ def test_workspace_never_exposes_mutating_camera_endpoints_or_private_configurat
              "error": None, "camera": "Camera", "preview": {"connected": False},
              "limitation": "Sampled video descriptions."}
     operator = SimpleNamespace(failure=None, snapshot=lambda: state,
-                               preview=SimpleNamespace(jpeg=None, last_frame_at=0))
+                               previews={1: SimpleNamespace(jpeg=None, last_frame_at=0)})
     with TestClient(create_app(operator)) as client:
         assert client.get("/").status_code == 200
         response = client.get("/api/status")
@@ -41,7 +41,7 @@ def test_workspace_pages_and_snapshots_stay_in_the_selected_run_and_goal(tmp_pat
     active = CaptionStore(store.path, job_id="job", source_id="camera", run_id="current")
     save(active, "earlier", start, "red")
     save(active, "later", start + timedelta(seconds=4), "blue")
-    with TestClient(create_app(SimpleNamespace(store=active, analysis=SimpleNamespace(revision=2)))) as client:
+    with TestClient(create_app(SimpleNamespace(store=active, monitoring=SimpleNamespace(goal={"revision": 2})))) as client:
         result = client.get("/api/observations", params={"view":"all", "before_id":"later"})
         assert [row["id"] for row in result.json()["observations"]] == ["earlier"]
         assert client.get("/api/observations", params={"view":"goal","revision":1,"before_id":"later"}).status_code == 409
@@ -69,3 +69,18 @@ def test_saved_frame_highlight_is_rendered_without_mutating_original_bytes(tmp_p
             r, g, b = highlighted.getpixel((45, 45))
             assert r > 170 and g > 150 and r - b > 50 and g - b > 30
         assert store.frame("highlight") == original
+
+
+def test_preview_frames_are_routed_only_to_configured_cameras():
+    from time import time
+    from test_cctv_realtime_history import coat
+
+    frames = [coat(color) for color in ("red", "green", "blue", "yellow")]
+    previews = {slot: SimpleNamespace(jpeg=frame, last_frame_at=time()) for slot, frame in enumerate(frames, 1)}
+    with TestClient(create_app(SimpleNamespace(previews=previews))) as client:
+        assert client.get("/api/snapshot.jpg").content == frames[0]
+        for slot, expected in enumerate(frames, 1):
+            assert client.get("/api/snapshot.jpg", params={"camera": slot}).content == expected
+        assert client.get("/api/snapshot.jpg", params={"camera": 5}).status_code == 422
+        del previews[3]
+        assert client.get("/api/preview.mjpeg?camera=3").status_code == 404

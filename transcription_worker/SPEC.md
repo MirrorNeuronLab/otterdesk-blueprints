@@ -55,8 +55,9 @@ The blueprint requests speaker-attributed word timestamps from the same pinned
 model using its bundled NeMo CTC middleware. It validates finite, bounded timing,
 word coverage, diarizer mappings and speaker activity before displaying them.
 It never estimates timing from chunk length or assumes that a repeated speaker
-tag in another chunk identifies the same person. Missing or failed alignment
-withholds the optional replay while preserving completed Markdown.
+tag in another chunk identifies the same person. Sections with missing or failed
+alignment offer audio playback and the saved transcript text. Word and speaker
+highlights require verified timing for that section.
 
 Only after the complete batch's authoritative publication succeeds may the
 blueprint publish its optional static report and handle. It uses the shared

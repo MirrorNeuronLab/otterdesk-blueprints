@@ -19,7 +19,10 @@ async def verify(url, output, timeout):
                 page = await browser.new_page(viewport={"width": 1440, "height": 1000})
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 await page.goto(url, wait_until="domcontentloaded")
-                await page.wait_for_function("() => document.getElementById('camera-image').naturalWidth > 0", timeout=timeout * 1000)
+                await page.wait_for_function("""() => {
+                    const feeds = [...document.querySelectorAll('.camera-image')];
+                    return feeds.length > 0 && feeds.every(feed => feed.naturalWidth > 0);
+                }""", timeout=timeout * 1000)
                 await page.wait_for_function("() => document.querySelectorAll('.caption').length >= 3", timeout=timeout * 1000)
                 initial = (await client.get("api/status")).json()
                 count = initial["session"]["total_captions"]

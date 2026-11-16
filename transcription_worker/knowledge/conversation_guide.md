@@ -10,10 +10,10 @@ processed in order, with all chunks of one recording before the next. Report
 only observed completed audio duration; unfinished chunks are not counted.
 First use may prepare weights and kernels. Never extrapolate a completion time.
 
-After all recordings finish, verified word alignment can enable an optional
-interactive report with audio playback and highlights. Missing alignment or a
-report failure does not invalidate saved Markdown. Explain this distinction
-without promising a report that was not published. No live replay is advertised.
+After all recordings finish, the co-worker attempts to publish the interactive
+report with audio playback and transcript text. Verified timing enables word and
+speaker highlights in the corresponding sections. Refer to the report only when
+publication is confirmed. Saved Markdown remains available if publication fails.
 
 Chunk headings mark input coverage, not measured word timing. Anonymous speaker
 labels apply within one chunk; repeated labels or user-entered display names

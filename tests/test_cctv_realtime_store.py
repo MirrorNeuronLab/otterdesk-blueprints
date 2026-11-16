@@ -83,9 +83,10 @@ async def test_goal_timeline_and_chat_share_the_window_snapshot(tmp_path):
     await analysis.caption({**CHUNK, "chunk_id": 1, "content": '```json\n{"verdict":"matched","summary":"A person has an uncovered head."}\n```'})
     await analysis.caption({**CHUNK, "chunk_id": 2, "content": '{"verdict":"matched","summary":"A head is still uncovered."}'})
     await analysis.caption({**CHUNK, "chunk_id": 3, "content": 'No helmet is visible.\n```json\n[{"bbox_2d":[0,0,812,406]}]\n```'})
-    all_windows = analysis.snapshot()
-    assert len(all_windows["captions"]) == 4 and all_windows["match_count"] == 2
-    match = all_windows["goal_matches"][0]
+    all_windows = analysis.store.history(current_run=True)["observations"]
+    goal_matches = analysis.store.history(current_run=True, goal_revision=2)["observations"]
+    assert len(all_windows) == 4 and len(goal_matches) == 2
+    match = goal_matches[0]
     assert match["summary"] == "A person has an uncovered head."
     assert match["snapshot"]["bbox_2d"] == [210, 100, 620, 600]
     assert analysis.store.frame(match["id"]) == frame
@@ -94,11 +95,10 @@ async def test_goal_timeline_and_chat_share_the_window_snapshot(tmp_path):
     activity = normalize_job_activity(exchange.latest_record("result", include_staged=False)["payload"])
     assert activity["occurred_at"] == match["end_time"] and activity["image"]["title"] == "Window snapshot"
     assert activity["details"][1]["value"] == analysis.settings.prompt
-    assert all_windows["captions"][-1]["content"] == "No helmet is visible."
+    assert all_windows[-1]["content"] == "No helmet is visible."
     assert assessment('{"summary":"Unsure","verdict":true}')[0] == "uncertain"
     assert not any(box_coordinates(value) for value in [[0, 0, 1000, 1000], [2, 3, 1, 8], [0, 0, 700, 1100], [True, 5, 20, 80]])
-    analysis.revision = 3
-    assert analysis.snapshot()["goal_matches"] == []
+    assert analysis.store.history(current_run=True, goal_revision=3)["observations"] == []
     await analysis.client.http.aclose()
 
 

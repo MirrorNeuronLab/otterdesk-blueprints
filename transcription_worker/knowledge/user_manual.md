@@ -38,9 +38,9 @@ run, recording and section; they do not edit the original transcript. Speaker
 identification is anonymous and restarts in each section. The model does not
 establish persistent identities across sections or recordings.
 
-If timing cannot be verified, only the Markdown is published. A failed optional
-report does not invalidate a saved transcript. Keep the complete `web/` folder,
-including audio, when moving the report. For sound, open the runtime web report
-or a browser; the desktop cached report viewer currently blocks audio assets.
+Sections without verified timing play audio and show the saved transcript text.
+Markdown remains available if report publication fails. Keep the complete `web/`
+folder, including audio, when moving the report. For sound, open the runtime web
+report or a browser. The desktop cached report viewer currently blocks audio assets.
 
 For setup help and evidence-aware follow-ups, see the [conversation guide](conversation_guide.md).

@@ -15,7 +15,7 @@ from PIL import Image, ImageDraw
 
 from cctv_operator.payloads.domain.caption_store import CaptionStore
 from cctv_operator.payloads.domain.video_questions import VideoQuestions
-from cctv_operator.payloads.domain.visual_history import VisualHistory, search_interval
+from cctv_operator.payloads.domain.visual_history import CameraHistory, VisualHistory, search_interval
 
 QUESTION = "tell me did you find anyone wearing red coat in past hour"
 CONFIG = {"source_context": {"enabled": True}}
@@ -84,6 +84,27 @@ def test_retry_requires_image_ack_and_reopens_across_runs(tmp_path, text_memory_
     assert not VisualHistory(CONFIG, next_run, embeddings=encoder).index_next()
     other = CaptionStore(store.path, job_id="test", run_id="run-2", source_id="elsewhere")
     assert not VisualHistory(CONFIG, other, embeddings=encoder).search(QUESTION, "", "")["total"]
+
+
+def test_combined_history_interleaves_candidates_and_preserves_existing_camera_indexes(tmp_path, text_memory_transport):
+    path = tmp_path / "camera.db"
+    first = CaptionStore(path, job_id="test", run_id="first", source_id="one")
+    second = CaptionStore(path, job_id="test", run_id="first", source_id="two")
+    other = CaptionStore(path, job_id="test", run_id="first", source_id="other")
+    observed_at = datetime.now(timezone.utc) - timedelta(minutes=2)
+    save(first, "original-camera", observed_at)
+    save(second, "new-camera", observed_at)
+    save(other, "excluded-camera", observed_at)
+    embeddings = Embeddings()
+    assert VisualHistory(CONFIG, first, embeddings=embeddings).index_next()
+    after = CaptionStore(path, job_id="test", run_id="second", source_ids=["one", "two"])
+    active = [CaptionStore(path, job_id="test", run_id="second", source_id=identity) for identity in ("one", "two")]
+    history = CameraHistory(CONFIG, after, active, embeddings=embeddings)
+    assert history.index_next()
+    assert not history.index_next()
+    result = history.search("A person is standing.", *search_interval(QUESTION))
+    assert result["total"] == result["indexed"] == 2
+    assert [row["id"] for row in result["observations"]] == ["original-camera", "new-camera"]
 
 
 @pytest.mark.asyncio
