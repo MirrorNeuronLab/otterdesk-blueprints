@@ -119,7 +119,7 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     spec.loader.exec_module(module)
     if blueprint == 'cctv_operator':
         service = SimpleNamespace(snapshot=lambda: {
-            'session': {'status': 'running'}, 'captions': [], 'phase': 'running',
+            'session': {'status': 'running', 'monitoring_goals': []}, 'captions': [], 'phase': 'running',
             'cameras': [{'slot': 1, 'status': 'running', 'preview': {'connected': True}}],
             'preview': {'connected': True}, 'error': None, 'limitation': 'Sampled video descriptions.'},
             monitoring=SimpleNamespace(ready=True))

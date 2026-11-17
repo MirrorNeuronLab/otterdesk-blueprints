@@ -320,25 +320,31 @@ async def test_goal_change_serializes_cleanup_keeps_history_and_deduplicates_rec
     monitoring = Monitoring(analysis.client, analysis.store, {1: analysis}, lambda _state: None)
     await monitoring.start(await analysis.client.model())
     await wait_for(lambda: bool(published))
-    receipt = await monitoring.change_goal("change-1", "Watch when the door is NOT closed.")
+    goals = ["Watch when the door is NOT closed.", "People without safety helmets"]
+    receipt = await monitoring.change_goals("change-1", goals)
     assert receipt["state"] == "completed"
     assert receipt["analysis_ready"] is False
     await wait_for(lambda: len(published) == 2)
-    assert published[-1]["instruction"] == "Watch when the door is NOT closed."
+    assert published[-1]["instruction"] == "\n".join(goals)
     assert published[-1]["instruction_revision"] == 1
     assert len(monitoring.snapshot()["captions"]) == 2
-    assert await monitoring.change_goal("change-1", "Watch when the door is NOT closed.") == receipt
+    assert await monitoring.change_goals("change-1", goals) == receipt
     with pytest.raises(ValueError, match="another monitoring change"):
-        await monitoring.change_goal("change-1", "Different goal")
+        await monitoring.change_goals("change-1", ["Different goal"])
+    with pytest.raises(ValueError, match="up to five"):
+        await monitoring.change_goals("too-many", [str(index) for index in range(6)])
     registrations = [i for i, (_, path, _) in enumerate(calls) if path == "/v1/streams/add"]
     assert any(path == f"/v1/streams/delete/{analysis.stream_id}" for _, path, _ in calls[:registrations[1]])
     assert sum(path == "/v1/models" for _, path, _ in calls) == 1
+    restored = await monitoring.change_goals("restore", [], clear=True)
+    assert restored["instruction"] == ""
+    assert not monitoring.snapshot()["has_target"]
     await monitoring.close()
     await analysis.client.http.aclose()
 
 
 @pytest.mark.asyncio
-async def test_four_independent_streams_share_one_goal_and_preserve_camera_evidence(tmp_path):
+async def test_four_independent_streams_share_goals_and_preserve_camera_evidence(tmp_path):
     from mn_sdk_mcp import JobExchangeStore
     from test_cctv_realtime_contract import four_cameras
 
@@ -381,13 +387,15 @@ async def test_four_independent_streams_share_one_goal_and_preserve_camera_evide
             assert monitoring.ready and len(captions) == 4
             assert [camera["status"] for camera in monitoring.snapshot()["cameras"]] == ["running"] * 3 + ["error"]
             assert {row["camera_slot"] for row in store.history()["observations"]} == {1, 2, 3}
-            assert await monitoring.change_goal("watch-door", "Watch for an open door.") == {
+            goals = ["Watch for an open door.", "People without safety helmets"]
+            assert await monitoring.change_goals("watch-door", goals) == {
                 "state": "completed", "accepted": True, "command_id": "watch-door", "operation_id": "watch-door",
-                "instruction_revision": 1, "instruction": "Watch for an open door.", "analysis_ready": False,
-                "summary": "Monitoring goal applied. Future video windows will use it.",
+                "instruction_revision": 1, "instruction": "\n".join(goals), "analysis_ready": False,
+                "summary": "Monitoring goals applied to future video windows.",
             }
             await wait_for(lambda: monitoring.session()["total_captions"] == 7)
-            assert all("Watch for an open door." in body["prompt"] for body in captions[4:])
+            assert all("1. Watch for an open door.\n2. People without safety helmets" in body["prompt"]
+                       for body in captions[4:])
             assert {row["camera_slot"] for row in monitoring.snapshot()["captions"]
                     if row["instruction_revision"] == 1} == {1, 2, 3, 4}
             notices = exchange.updates(after_revision=0, kinds=["result"], include_staged=False)["updates"]

@@ -3985,21 +3985,21 @@
         "agent_dependencies": "04f9ff5a38a0695e96c40209019a32d92244acb0cd2309b198a2ca0c4dec06e6",
         "agentic_research": "f28a1e0fe56a968af05468feee5b9ef3815fd538691459c30a0b0bb799b713a0",
         "agents": "182f48ef0270546c2cdb23dddf646698091c4d3ae8ca2ccf64c89d8a2abc00bc",
-        "authored_dependencies": "b9d05f114771e408f2229b74c270c2f24581ffa90523b4fe0dd512fb18b8fc4f",
+        "authored_dependencies": "45b3308fdba57a691ae915697827f2fff933b6983bfdf47ad182facc95d3288a",
         "block_contracts": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
         "context_profile": "6d3c62ac8f44360ed5e9092b3cd11fd351b65ee623158f45176366d93609cd1e",
-        "contract": "4892ba622a0dee88dce3174ddc74a33db50d09a66c1474416f1e05da9b47cf2d",
+        "contract": "e1151c64a5a9e35e1d34a029d1d88d786eef6d1f337bbcd26eba28573681cfd8",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "ab53536f1b872fa1bbff05cf1f017c8e9a3088962b788bfeb08f2a4e9836ecaa",
-        "llm": "1e37a2b53752294930c2aab1e6053e10d4bb1bb3f4f124f1e07b50eed1f9c243",
+        "llm": "bf7e5c6f55fef55fcfde8f217c7813002f9e38c783f9af019639b3758ae5de48",
         "mcp": "86c7e8ca808334504453dd5e2b5b60d58e7df3cff6503a0f45a129e3cf624d4f",
         "policies": "4f13b12e4eeb5354d49906fb4b73b866244416a3321b92a988b0d6e5453dbbb9",
         "requirements": "7d28971fe97627c2fed891a3bcd8c79c839520d49e802be0247a5e31e0b7fd68",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
         "runtime_without_inputs": "7fad0b82d072b61d0b131a8e317f19de521dbd3701dbb7ce0dd1ae1bf06c8e12",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "skill_dependencies": "06b6aa7a91f9b11c26bbced7c3e22875ce5075b88f704a5dd6258db97808b734",
+        "skill_dependencies": "05f9fddcfc7322d45b6979a48e832ef2d3a961c76252ebea0ae0165b28d15438",
         "workflow": "babf390d6b7085adc685814b3e12effd0d65e1dea912d51b163caef945c08bfb"
       },
       "configuration_leaves": {
@@ -4148,7 +4148,7 @@
         "/interfaces/channels/resources/artifact": "0a99741900183c34ea533dee589cb62b8767c468d8ff798dcd9f1c60f922fc74",
         "/interfaces/channels/resources/description": "86c83b012fbf8897958894490b7cf4a2ece55ab14f3e7de28ff4992579afda2f",
         "/interfaces/channels/web_ui/artifacts": "2076c8d328fc7f74adaa899161d6a3ef16b6a6001726d584fa330de4c14b07ff",
-        "/interfaces/channels/web_ui/description": "00967aedd315b2504a7314986439c8778a18b45b512942cf32721e2122fc3e8f",
+        "/interfaces/channels/web_ui/description": "0489b00719b1cfcc5e0198eb900182d7086b48a6cd375255fda204759a5544a1",
         "/interfaces/config": "d8e0d9748d32805d941a49382dfd90e8814c1d2405873e680d161d9184c324df",
         "/interfaces/config_sections": "d8e0d9748d32805d941a49382dfd90e8814c1d2405873e680d161d9184c324df",
         "/interfaces/identity": "f5a2dd1f08546c7a257a640159e256d1f34e4846598d0c5f3124b6f34e59adec",
@@ -4209,7 +4209,7 @@
         "/interfaces/outputs": "093e7b3eba00ad36b7b671779734effac65f2df5105e8b0ec6f337f5fad50fe2",
         "/interfaces/response_schema": "5c0cbdc93e8540e2a2e8b53bf93771b799fc2804f9148ec3fa5d6a227f5d249c",
         "/interfaces/run_artifacts": "093e7b3eba00ad36b7b671779734effac65f2df5105e8b0ec6f337f5fad50fe2",
-        "/interfaces/web_ui_adapters": "1d56137f1ddcb7da5e7440c71159ec88948f258d4ced1756710570126fb01785",
+        "/interfaces/web_ui_adapters": "b5ae5595710bacab3d43dd4028b4a07ca926ca3e888fdf5d607173e84f792b26",
         "/internet_research/blocked_inputs": "71a6387e0946a0875ad9d21a13b8701bfdcce9d8d65e84f4a0497c25397202a9",
         "/internet_research/browser_skill": "53472ee382066ce0ee5627923f89fabead18a5c07cb74b4fc15c27b80f6b0516",
         "/internet_research/default_source_urls": "2ff95ff30f701b476f91e5869b09d08229d4eed9e230e2ea7dcd53f323c7626d",
@@ -4312,6 +4312,7 @@
         "/llm/backend": "cb22a409f3e6f53c574124003a590e578cf534b1c8fe65f7db58b136a8cfc81d",
         "/llm/configs/primary/api_base": "634635a2166efa2ae765abd31d4ae807082287e329a8a7fff42b1fb30f65087e",
         "/llm/configs/primary/backend": "cb22a409f3e6f53c574124003a590e578cf534b1c8fe65f7db58b136a8cfc81d",
+        "/llm/configs/primary/install_mode": "2304a3c2de60985b02ec2d12a533e82a7d974eeb4690acc0257754bbcd3aae9a",
         "/llm/configs/primary/max_tokens": "e49ec846db7527df7ff483009fe61700e6435072c8c5b551ab08f0a13fc45a07",
         "/llm/configs/primary/mock_mode": "2eb1dfa43228acd1946b7ee45c7e3ada844d36e3e522d1ae261eb92a7d0764ed",
         "/llm/configs/primary/mode": "844546be553b9dcbf71ae16326983127739feae905c1551d89e328690e57b0ed",
@@ -4424,10 +4425,12 @@
         "/triggers/schedule": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "/triggers/sources": "bac0189c04ae0bbb220c3f32b60beeeb17e35aeeb6f7dbad4b3491d875491612",
         "/triggers/type": "b9f1910ded57741c3a90aaa8158b0fdec0c42a1ef84ed8fd835ed3b5a2468ee2",
+        "/web_ui/adapter": "4e49b054c5fc57904c7c54f22b4e58777f4f103bf78d2c3fca543f4e89587ff1",
         "/web_ui/dashboard/data_source": "bd13f55625946aebb245c851a51cb83ffcf3867cda573a2662029d2f06bfc5b2",
         "/web_ui/dashboard/panels": "44eaf7b9b2bc09d6fba5392782975afeaee52d2a49d649c030db99a34cfa1267",
         "/web_ui/dashboard/reads": "d43a8137ae0a0280d4c5c8ef5cca33abd64db2cc6cab4d9cc72e5da60547de6c",
         "/web_ui/dashboard/standard_panels": "44eaf7b9b2bc09d6fba5392782975afeaee52d2a49d649c030db99a34cfa1267",
+        "/web_ui/description": "43fe9916635e5f49139549cb1b86e31f9c5c60ca297855a259b689cbaf6fc255",
         "/web_ui/enabled": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
         "/web_ui/input/adapter": "30a0924a3360be687d1df9fcbbfdff62c01bc0fd14036ab9076cf7f451568666",
         "/web_ui/input/custom_url": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -4437,11 +4440,9 @@
         "/web_ui/input/port": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "/web_ui/input/share": "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa",
         "/web_ui/input/title": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "/web_ui/output/adapter": "60304d45ea358990b5aac0ee60efd222116d55ec52650f41cb977cce68e89754",
-        "/web_ui/output/auto_generate": "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
-        "/web_ui/output/custom_url": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "/web_ui/output/refresh_seconds": "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
-        "/web_ui/output/title": "bca0396f80fbc297ebbdb25f9839f30f47656d15463b35d4ec923f292abeb846"
+        "/web_ui/kind": "4bbb1f9446ff0829909d2fa9e71d95f6c7df7e30ac16ddf96e9a6b429d6b3ebf",
+        "/web_ui/title": "37b87aa9a3091bde0f0cdac03ef8e8a49962d431e6a54730a72bec0fd6b226af",
+        "/web_ui/workflow_steps": "2494ed2d5eb518ec81e1bf1fb3c92d68164b2b4c227d37e71d7a353b492719b8"
       },
       "output_contract": {
         "artifacts": [
@@ -4564,13 +4565,27 @@
             "type": "resource_samples"
           },
           {
+            "artifact_id": "web_report",
+            "mime_type": "text/html",
+            "path": "web/index.html",
+            "privacy": "confidential",
+            "producer": "workflow",
+            "required": false,
+            "source_refs": [
+              "final_artifact.json"
+            ],
+            "type": "web_report"
+          },
+          {
             "artifact_id": "web_ui",
             "mime_type": "application/json",
             "path": "web_ui.json",
-            "producer": "web_ui",
+            "privacy": "confidential",
+            "producer": "workflow",
+            "required": false,
             "schema_version": "mn.blueprint.web_ui.v1",
             "source_refs": [
-              "run.json"
+              "web/index.html"
             ],
             "type": "web_ui"
           },

@@ -94,12 +94,46 @@ async def test_goal_timeline_and_chat_share_the_window_snapshot(tmp_path):
     assert len(exchange.updates(after_revision=0, kinds=["result"], include_staged=False)["updates"]) == 2
     activity = normalize_job_activity(exchange.latest_record("result", include_staged=False)["payload"])
     assert activity["occurred_at"] == match["end_time"] and activity["image"]["title"] == "Window snapshot"
-    assert activity["details"][1]["value"] == analysis.settings.prompt
+    assert {"label": "Matched goal", "value": analysis.settings.prompt} in activity["details"]
     assert all_windows[-1]["content"] == "No helmet is visible."
     assert assessment('{"summary":"Unsure","verdict":true}')[0] == "uncertain"
     assert not any(box_coordinates(value) for value in [[0, 0, 1000, 1000], [2, 3, 1, 8], [0, 0, 700, 1100], [True, 5, 20, 80]])
     assert analysis.store.history(current_run=True, goal_revision=3)["observations"] == []
     await analysis.client.http.aclose()
+
+
+@pytest.mark.asyncio
+async def test_each_goal_alerts_independently_and_only_on_a_new_possible_sighting(tmp_path):
+    from mn_sdk_mcp.activity import normalize_job_activity
+
+    goals = ["People without safety helmets", "Open loading door", "A vehicle in the walkway",
+             "Spilled liquid", "Smoke"]
+    analysis, _, _, _ = make_analysis(tmp_path)
+    analysis.session_id, analysis.state["model"] = "session", "Cosmos3-Edge"
+    analysis.settings = analysis.settings.model_copy(update={"prompt": "\n".join(goals)})
+    exchange = JobExchangeStore(tmp_path / "activity.sqlite3", allowed_root=tmp_path, job_id="job", run_id="run")
+    analysis.publish = Publisher(tmp_path / "outputs", analysis.store, exchange).caption
+    windows = [
+        ["matched"],  # An incomplete array cannot identify a condition.
+        ["matched", "not_matched", "not_matched", "not_matched", "matched"],
+        ["matched", "matched", "not_matched", "not_matched", "uncertain"],
+        ["matched", "matched", "not_matched", "not_matched", "matched"],
+        ["not_matched", "matched", "not_matched", "not_matched", "matched"],
+        ["matched", "matched", "not_matched", "not_matched", "matched"],
+    ]
+    for index, verdicts in enumerate(windows):
+        await analysis.caption({**CHUNK, "chunk_id": index,
+                                "content": json.dumps({"verdicts": verdicts, "summary": "Sampled scene."})})
+    await analysis.client.http.aclose()
+    history = analysis.store.history(current_run=True)["observations"]
+    assert len(history) == len(windows)
+    assert history[0]["goal_match"] == "uncertain"
+    assert [entry["verdict"] for entry in history[0]["goal_assessments"]] == ["uncertain"] * 5
+    rows = exchange.updates(after_revision=0, kinds=["result"], include_staged=False)["updates"]
+    events = [normalize_job_activity(row["payload"]) for row in rows]
+    assert [event["source"] for event in events] == ["cctv_operator", *(["cctv_operator.goal_match"] * 3)]
+    assert [[item["value"] for item in event["details"] if item["label"] == "Matched goal"]
+            for event in events[1:]] == [[goals[0], goals[4]], [goals[1]], [goals[0]]]
 
 
 def test_history_is_job_camera_scoped_and_has_explicit_capture_bounds(tmp_path):

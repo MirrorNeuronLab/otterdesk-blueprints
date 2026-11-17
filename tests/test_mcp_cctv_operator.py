@@ -15,12 +15,13 @@ def test_cctv_operator_run_controls(tmp_path):
 def test_cctv_operator_domain_operation_is_observed(tmp_path):
     harness = BlueprintMcpHarness("cctv_operator", tmp_path)
     harness.call("start_run", request_id="start")
-    receipt = harness.call("set_monitoring_instruction", request_id="domain", **{'instruction': 'Watch the corridor.', 'clear': False, 'analyze_now': True})
+    args = {"goals": ["Watch the corridor.", "People without safety helmets"], "clear": False, "analyze_now": True}
+    receipt = harness.call("set_monitoring_goals", request_id="domain", **args)
     assert receipt["status"] == "accepted"
-    assert harness.call("set_monitoring_instruction", request_id="domain", **{'instruction': 'Watch the corridor.', 'clear': False, 'analyze_now': True})["operation_id"] == receipt["operation_id"]
+    assert harness.call("set_monitoring_goals", request_id="domain", **args)["operation_id"] == receipt["operation_id"]
     completed = harness.call("get_operation_status", operation_id=receipt["operation_id"])
     assert completed["status"] == "completed"
-    assert len([call for call in harness.calls if call[0] == "set_monitoring_instruction"]) == 1
+    assert len([call for call in harness.calls if call[0] == "set_monitoring_goals"]) == 1
 
 
 def test_real_worker_tools_match_the_authored_contract(tmp_path, monkeypatch):

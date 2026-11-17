@@ -45,6 +45,7 @@ def test_replacement_compiles_with_native_ownership_and_secure_setup():
     assert any(package.startswith("sentence-transformers") for package in operator["config"]["python_environment"]["packages"])
     for guide in [source["metadata"]["setup_guide"], source["metadata"]["init_config_review"]]:
         fields = {field["path"]: field for field in guide["fields"]}
+        assert fields["inputs.payload.monitoring_goal"]["type"] == "textarea"
         assert [choice["value"] for choice in fields["video_source.count"]["choices"]] == [1, 2, 3, 4]
         for slot in range(1, 5):
             path = "video_source.uri" if slot == 1 else f"video_source.camera_{slot}.uri"
@@ -68,6 +69,19 @@ def test_setup_accepts_one_to_four_active_streams(count):
     assert [camera.uri for camera in cameras] == [f"{SAMPLE_ROOT}/{slot}" for slot in range(1, count + 1)]
     assert len({camera.source_id for camera in cameras}) == count
     assert camera_settings({"video_source": {"uri": cameras[0].uri}})[0].source_id == cameras[0].source_id
+
+
+def test_configured_goals_validate_before_a_run(monkeypatch):
+    from cctv_operator.payloads.agents.validation.validate_video_source import main
+
+    config = four_cameras()
+    config["inputs"] = {"payload": {"monitoring_goal": "No safety helmet\r\n\nOpen door"}}
+    assert {camera.prompt for camera in camera_settings(config)} == {"No safety helmet\nOpen door"}
+    config["inputs"]["payload"]["monitoring_goal"] = "\n".join(f"Condition {i}" for i in range(6))
+    monkeypatch.setenv("MN_BLUEPRINT_CONFIG_JSON", json.dumps(config))
+    with pytest.raises(ValueError, match="up to five"):
+        camera_settings(config)
+    assert main() == 1
 
 
 @pytest.mark.parametrize("overrides,message", [
@@ -113,7 +127,8 @@ def test_retired_pipeline_and_inapplicable_tools_are_removed():
     for filename in ["person_detector.py", "live_monitor.py", "vision_model.py", "mobileclip.py", "sampling.py"]:
         assert not (ROOT / "payloads/domain" / filename).exists()
     tools = json.loads((ROOT / "extensions/mcp.json").read_text())["tools"]
-    assert set(tools) == {"get_operator_status", "get_operator_activity", "set_monitoring_instruction", "get_video_history", "answer_video_question", "get_pipeline_benchmarks"}
+    assert set(tools) == {"get_operator_status", "get_operator_activity", "set_monitoring_goals", "get_video_history", "answer_video_question", "get_pipeline_benchmarks"}
+    assert tools["set_monitoring_goals"]["inputSchema"]["properties"]["goals"]["maxItems"] == 5
     assert not (ROOT / "payloads/services/cctv_operator_mcp.py").exists()
     preflight = json.loads((ROOT / "extensions/mcp.json").read_text())["preflight"]
     assert preflight["required_for_effects"] == ["monitoring"]

@@ -372,6 +372,7 @@ def test_manifest_runtime_nodes_carry_default_config_for_batch_sandbox():
     assert config["llm"]["configs"]["primary"] == {
         "provider": "docker_model_runner",
         "backend": "llama.cpp",
+        "install_mode": "cluster_provided",
         "api_base": "auto",
         "timeout_seconds": 60,
         "max_tokens": 1800,
@@ -1089,12 +1090,23 @@ def test_three_bundled_companies_match_deterministic_golden_contract(
         "run_health.json",
         "run_summary.md",
         "watch_state.json",
+        "web",
+        "web_ui.json",
     }
     import hashlib
+    page = (outputs / "web/index.html").read_bytes()
+    handle = json.loads((outputs / "web_ui.json").read_bytes())
+    assert handle["adapter"] == "static_html"
+    assert handle["metadata"]["optional"] is True
+    assert handle["metadata"]["sha256"] == hashlib.sha256(page).hexdigest()
+    assert b"VC screening report" in page
+    assert b"Boreal Robotics" in page
     inventory = json.loads((outputs / ".mn-published-files.json").read_bytes())
     assert inventory["schema_version"] == "mn.published_outputs/v1"
     assert inventory["output_files"]
-    assert "final_artifact.json" in {item["path"] for item in inventory["output_files"]}
+    assert {"final_artifact.json", "web/index.html", "web_ui.json"} <= {
+        item["path"] for item in inventory["output_files"]
+    }
     for item in inventory["output_files"]:
         assert not item["path"].startswith(".")
         body = (outputs / item["path"]).read_bytes()

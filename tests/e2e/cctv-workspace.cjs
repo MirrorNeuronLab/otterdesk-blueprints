@@ -10,14 +10,17 @@ const { chromium } = createRequire(path.join(app, 'package.json'))('playwright')
 const { expect } = createRequire(path.join(app, 'package.json'))('@playwright/test');
 const assets = path.resolve(__dirname, '../../cctv_operator/payloads/web_assets');
 const output = process.argv[2];
+const goals = ['People without safety helmets', 'Open loading door'];
 const image = '<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540"><rect width="960" height="540" fill="#26313b"/><path d="M0 420L400 200H560L960 420V540H0" fill="#59636d"/><g fill="#9b8060" stroke="#26313b" stroke-width="12"><path d="M0 40H240V420H0Z M720 40H960V420H720Z"/></g><g stroke="#60717e" stroke-width="12"><path d="M0 160H240M0 280H240M720 160H960M720 280H960"/></g><circle cx="500" cy="260" r="20" fill="#c9a586"/><path d="M470 285H530L545 370H455Z" fill="#bc5156"/><path d="M478 365V440M520 365V440" stroke="#242e38" stroke-width="18"/></svg>';
 const rows = Array.from({ length: 35 }, (_, i) => ({ id: `window-${i}`, start_time: new Date(Date.UTC(2026, 10, 4, 18, 0, i * 4)).toISOString(),
   end_time: new Date(Date.UTC(2026, 10, 4, 18, 0, i * 4 + 4)).toISOString(), received_at: '2026-11-04T18:02:30Z',
   content: i === 33 ? 'A person without a visible safety helmet walks through the aisle. The head is partly obscured; review the source video.' : 'A person walks through the aisle. No change in the monitored area is visible.',
-  goal_match: i === 33 ? 'matched' : 'not_matched', snapshot: i === 1 ? null : { received_at: '2026-11-04T18:02:14Z', ...(i === 33 ? { bbox_2d: [470, 430, 580, 830] } : {}) }
+  goal_match: i === 33 ? 'matched' : 'not_matched',
+  goal_assessments: goals.map((goal, index) => ({ goal, verdict: i === 33 && index === 0 ? 'matched' : 'not_matched' })),
+  snapshot: i === 1 ? null : { received_at: '2026-11-04T18:02:14Z', ...(i === 33 ? { bbox_2d: [470, 430, 580, 830] } : {}) }
 }));
 let data = { run_id: 'run', camera: 'Warehouse · aisle 3', preview: { connected: true }, has_target: true,
-  session: { status: 'running', total_captions: 35, instruction_revision: 2, instruction: 'Watch for people without a visible safety helmet.', last_caption_at: '2026-11-04T18:02:30Z', inference_ms: 1930 },
+  session: { status: 'running', total_captions: 35, instruction_revision: 2, instruction: goals.join('\n'), last_caption_at: '2026-11-04T18:02:30Z', inference_ms: 1930 },
   captions: rows, goal_matches: rows.filter(row => row.goal_match === 'matched'), match_count: 1, omitted_count: 0,
   history: { summary: 'Saved footage search · 35 of 35 windows indexed.' } };
 let statusUnavailable = false;
@@ -76,8 +79,8 @@ async function checkPinnedPreview(page) {
     await page.goto('https://cctv.test/jobs/camera/ui/');
     await expect(page.locator('.caption')).toHaveCount(35);
     await expect(page.locator('.camera-status')).toHaveText('Running');
-    const goalToggle = page.locator('summary').and(page.getByLabel('Monitoring goal', { exact: true }));
-    const goal = page.getByRole('region', { name: 'Monitoring goal' });
+    const goalToggle = page.locator('summary').and(page.getByLabel('Monitoring goals', { exact: true }));
+    const goal = page.getByRole('region', { name: 'Monitoring goals' });
     const video = await page.locator('.video-stage').boundingBox();
     const toggleBounds = await goalToggle.boundingBox();
     assert(video && toggleBounds && toggleBounds.y < video.y && toggleBounds.x + toggleBounds.width > video.x + video.width - 16);
@@ -97,6 +100,8 @@ async function checkPinnedPreview(page) {
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await page.getByRole('radio', { name: 'Goal matches' }).check();
     await expect(page.locator('.caption')).toHaveCount(1);
+    await page.getByText('Analysis details', { exact: true }).click();
+    await expect(page.getByRole('list', { name: 'Possible goal matches' })).toHaveText(goals[0]);
     await expect(page.getByText('View highlighted frame')).toBeVisible();
     await page.getByRole('button', { name: /View saved frame/ }).click();
     await expect(page.locator('#evidence-caption')).toContainText('Box estimated on this image.');
@@ -144,7 +149,7 @@ async function checkPinnedPreview(page) {
     await page.getByRole('radio', { name: 'Goal matches' }).check();
     await expect(page.locator('#empty')).toHaveText('Set a monitoring goal in Chat to see matches here.');
     data = { ...data, has_target: true };
-    await expect(page.locator('#empty')).toHaveText('No matches reported for this goal yet.');
+    await expect(page.locator('#empty')).toHaveText('No matches reported for these goals yet.');
     data = { ...data, captions: [{ ...rows[0], id: 'untrusted', content: '<img src=x onerror=alert(1)>', snapshot: null }] };
     await page.getByRole('radio', { name: 'Everything' }).check();
     await expect(page.locator('.caption')).toHaveCount(1);
