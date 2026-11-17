@@ -106,6 +106,8 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     import importlib.util
     import sys
 
+    from mn_sdk_job_response.tool_arguments import matches_worker_schema
+
     payload = ROOT / blueprint / 'payloads'
     monkeypatch.syspath_prepend(str(payload))
     if blueprint == 'cctv_operator':
@@ -134,12 +136,7 @@ def assert_worker_registry(blueprint, tmp_path, monkeypatch):
     tools = asyncio.run(server.list_tools())
     assert {tool.name for tool in tools} == expected.keys()
     for tool in tools:
-        properties = tool.input_schema['properties']
-        assert properties.keys() == expected[tool.name]['arguments'].keys()
-        for argument, schema in expected[tool.name]['arguments'].items():
-            assert all(properties[argument].get(key) == value or (
-                key == 'enum' and len(value) == 1 and properties[argument].get('const') == value[0]
-            ) for key, value in schema.items())
+        assert matches_worker_schema(expected[tool.name], tool.input_schema), tool.name
         assert tool.output_schema
     result = asyncio.run(server.call_tool(read_tool, {}))
     assert result.is_error is not True
