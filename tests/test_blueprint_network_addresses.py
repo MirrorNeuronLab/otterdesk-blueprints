@@ -34,9 +34,14 @@ def _source_files(blueprint: str):
 
 
 def test_catalog_payloads_have_no_deployment_specific_addresses():
-    # D3's minified JavaScript uses .local property access, which is not DNS.
-    # Permit only this audited upstream bundle, and reject any changed bytes.
-    vendored = {"software_architecture_advisor/payloads/domain/workspace_assets/vendor/d3.v7.min.js": "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539"}
+    # D3 uses .local property access and the NVIDIA binding imports
+    # google.protobuf.internal. Pin the reviewed upstream bytes.
+    vendored = {
+        "software_architecture_advisor/payloads/domain/workspace_assets/vendor/d3.v7.min.js":
+            "f2094bbf6141b359722c4fe454eb6c4b0f0e42cc10cc7af921fc158fceb86539",
+        "deepstream_hotel_tracker/payloads/domain/nvidia_mv3dt_schema_pb2.py":
+            "5151c05dc8aec3df21ba6ccc92175d3d4ca853aab71810d79bc6ecac010e2265",
+    }
     violations = []
     for blueprint in json.loads((ROOT / "index.json").read_text(encoding="utf-8")):
         for path in _source_files(blueprint):

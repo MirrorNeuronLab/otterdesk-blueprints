@@ -1,0 +1,37 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "deepstream_hotel_tracker_v4",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1
+  },
+  "steps": [
+    {
+      "id": "check_lobby_setup",
+      "kind": "stage",
+      "label": "Check the lobby setup",
+      "goal": "Check that the hotel scene is available and this computer can run it.",
+      "needs": []
+    },
+    {
+      "id": "prepare_guest_detection",
+      "kind": "stage",
+      "label": "Prepare guest detection",
+      "goal": "Get guest detection ready to analyze the live camera views.",
+      "needs": ["check_lobby_setup"]
+    },
+    {
+      "id": "monitor_live_lobby",
+      "kind": "stage",
+      "label": "Monitor the live lobby",
+      "goal": "Track guests across the live camera views and count arrivals and departures by door.",
+      "needs": ["prepare_guest_detection"],
+      "control": {
+        "retry": {
+          "max_attempts": 1
+        }
+      }
+    }
+  ]
+}

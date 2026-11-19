@@ -1,0 +1,46 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
+  "id": "deepstream_hotel_tracker",
+  "name": "Hotel 3D tracker",
+  "tagline": "Count arrivals and departures in a live 3D hotel",
+  "version": "0.4.1",
+  "payload_api": "mn.blueprint.v1",
+  "description": "Watch guests queue at reception in NVIDIA Isaac Sim. DeepStream tracks visitors across four live cameras and counts crossings at the main entrance and two exits.",
+  "workflow": "workflow.json",
+  "execution": "execution.json",
+  "contracts": "contracts.json",
+  "config": "config/default.json",
+  "dependencies": "dependencies.json",
+  "license": "LICENSE.md",
+  "terms": "TERM.md",
+  "extensions": {
+    "mn.blocks": {
+      "file": "extensions/blocks.json",
+      "required": true
+    },
+    "mn.product": {
+      "file": "extensions/product.json",
+      "required": false
+    },
+    "mn.context": {
+      "file": "extensions/context.json",
+      "required": true
+    },
+    "mn.response": {
+      "file": "extensions/response.json",
+      "required": true
+    },
+    "mn.mcp": {
+      "file": "extensions/mcp.json",
+      "required": true
+    },
+    "mn.rag": {
+      "file": "extensions/rag.json",
+      "required": true
+    },
+    "mn.ui": {
+      "file": "extensions/ui.json",
+      "required": false
+    }
+  }
+}

@@ -11,5 +11,6 @@
   "ct_reader",
   "web_lab_operator",
   "ocr_worker",
-  "transcription_worker"
+  "transcription_worker",
+  "deepstream_hotel_tracker"
 ]

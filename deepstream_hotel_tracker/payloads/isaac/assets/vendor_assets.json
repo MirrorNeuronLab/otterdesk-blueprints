@@ -1,0 +1,697 @@
+{
+  "people/Characters/F_Business_02/F_Business_02.usd": {
+    "sha256": "a1dceaae15e59e1cda4b4697a1e233c0cc570279178a418e544289b202c78201",
+    "size": 728407,
+    "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/People/Characters/F_Business_02/F_Business_02.usd"
+  },
+  "people/Characters/F_Business_02/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/source_assets/OmniPBR.mdl"
+  },
+  "people/Characters/F_Business_02/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials/OmniPBRBase.mdl"
+  },
+  "people/Characters/F_Business_02/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl"
+  },
+  "people/Characters/F_Business_02/textures/female_adult_business_02_BaseColor.png": {
+    "sha256": "630dda3dbae04d00ff6a78cbf77d9098e78d08642c9035bcfbb7a073ef961695",
+    "size": 9544662,
+    "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/People/Characters/F_Business_02/textures/female_adult_business_02_BaseColor.png"
+  },
+  "people/Characters/F_Business_02/textures/female_adult_business_02_Normal.png": {
+    "sha256": "c5b8667dfedf6f29f6323755fd8a9378d7ec9e677568731f01c6c7951262eda0",
+    "size": 15569859,
+    "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/People/Characters/F_Business_02/textures/female_adult_business_02_Normal.png"
+  },
+  "people/Characters/F_Business_02/textures/female_adult_business_02_ORM.png": {
+    "sha256": "e66c02515206e50e7248c7b058fe03d30d8544cdfc50a6e9c8d2166962c85b98",
+    "size": 10994424,
+    "url": "https://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/5.1/Isaac/People/Characters/F_Business_02/textures/female_adult_business_02_ORM.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_Albedo.png": {
+    "sha256": "52ec9de5fea0d09cbed66080337b2719adb5ff1c5664b49d7c6d65b1fea05fae",
+    "size": 658089,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_Albedo.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_Normal.png": {
+    "sha256": "b1030e311040ba2f2a1a36112ba12fcbf09d03d1103f9e8f7368671e30a50bd1",
+    "size": 595268,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_Normal.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_ORM.png": {
+    "sha256": "ac2e926b2b4005e5d77c1e50dbb176d19f38340e04848e465597e93703feb8f3",
+    "size": 477336,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Aluminium_Brushed_A1_ORM.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_Albedo_1.png": {
+    "sha256": "4e233488d3d42d94fc8889dde78ca8e546cd5fed08d51f5373384964c9b3a6e5",
+    "size": 634053,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_Albedo_1.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_Normal_1.png": {
+    "sha256": "e8254a2ca1b07a70fd151f752acb75b763bbcafb38681ddbb8a000f3452d2da3",
+    "size": 56586,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_Normal_1.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_ORM_1.png": {
+    "sha256": "48f7f6d85358d271f393382ee013635e970bf1ff4d5d66d91537a2f423f1361c",
+    "size": 531802,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Metal_Glossy_A_ORM_1.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Polyester_Gray_Glossy_A_Normal.png": {
+    "sha256": "a6dc843dbc3b398ca8fb4bf42e94e41d0aecb62994f2869579f1e9d0d0386ca8",
+    "size": 9892246,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Polyester_Gray_Glossy_A_Normal.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Polyester_Gray_Glossy_A_ORM.png": {
+    "sha256": "b4714e1d5a2504e9cdd8faa167e2cb50d66176e8e8902f402790e825144ccc46",
+    "size": 6541509,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Polyester_Gray_Glossy_A_ORM.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Rubber_Black_Glossy_A_Normal.png": {
+    "sha256": "21a6d36dc7a3f23e72e2886bf39da39ba17a6ce4a8751d5a1a73ee0bac3d848f",
+    "size": 492391,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Rubber_Black_Glossy_A_Normal.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/Textures/T_Rubber_Black_Glossy_A_ORM.png": {
+    "sha256": "956abf8e162b955c8a642a09e7d9b7f3287c3aeea8673227e1def9a5ec88f52c",
+    "size": 867781,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/Textures/T_Rubber_Black_Glossy_A_ORM.png"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/MuJoCo/disabled.usda": {
+    "sha256": "c640dd3784670fd17774537ed13d0be5cd06bade875f308d02f7eef698f4d7dc",
+    "size": 4248,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/MuJoCo/disabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/MuJoCo/enabled.usda": {
+    "sha256": "acbf54f26297b2974e72977a8098652f7d99973f5fd0c956d3a1b55988389621",
+    "size": 7189,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/MuJoCo/enabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/Newton/disabled.usda": {
+    "sha256": "c640dd3784670fd17774537ed13d0be5cd06bade875f308d02f7eef698f4d7dc",
+    "size": 4248,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/Newton/disabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/Newton/enabled.usda": {
+    "sha256": "6a594ec90302f6e06b08e0e36d15653c6e573e08880c2dcd09e3b6edc703fc14",
+    "size": 6784,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/Newton/enabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/PhysX/disabled.usda": {
+    "sha256": "c640dd3784670fd17774537ed13d0be5cd06bade875f308d02f7eef698f4d7dc",
+    "size": 4248,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/PhysX/disabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/PhysX/enabled.usda": {
+    "sha256": "b33f7c1fda858182844a96a516eabb3f854e07cf9c947b2795d800c4bd6d182f",
+    "size": 5488,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/PhysX/enabled.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/Physics/physics.usda": {
+    "sha256": "3fc67e68be136aeb90067eb4d75ffb2baa83108323cb4bb9b9c869a73f5095db",
+    "size": 11156,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/Physics/physics.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/base.usda": {
+    "sha256": "ee0f2aa677287badecac5e8aa1a85887fafae413c724c0c847d929ce4dd6dd4d",
+    "size": 18588,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/base.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/geometries.usd": {
+    "sha256": "cb148a4b18d0057c40ca57db379df8e05c66338d7cdceeaa8dba1526447dbe7e",
+    "size": 10414196,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/geometries.usd"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/instances.usda": {
+    "sha256": "400fa78c542beb1bfd7581a99b00674c79fb6c73986102459093e0468ec6807d",
+    "size": 21730,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/instances.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/instances_mujoco.usda": {
+    "sha256": "af544e860d5fe04b7f9fd40c7d16c01d79c66c75566f1766b7990c5d4672fae6",
+    "size": 23401,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/instances_mujoco.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/instances_newton.usda": {
+    "sha256": "cccbc43402d823268cb3562ac68375b1be80b3f1ccb9b87c66474e815c2b3cd5",
+    "size": 22507,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/instances_newton.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/instances_physx.usda": {
+    "sha256": "6a4040345e5888619125df802aa8d3f8642f361a534b97b8af08ed12e3f0d912",
+    "size": 22930,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/instances_physx.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/payloads/materials.usda": {
+    "sha256": "86b9652470b49d132d955ad9107654df69e4e6e7b8eded890aada567e8031cab",
+    "size": 30292,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/payloads/materials.usda"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/sm_cart_luggage_platform_a01_01.usd": {
+    "sha256": "56f1cf43e7d1b5c1e6229a6474a47ed2080a2980cf904ed3dc9dcc1711156802",
+    "size": 21413,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/sm_cart_luggage_platform_a01_01.usd"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBR.mdl"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBRBase.mdl"
+  },
+  "simready/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/cart_luggage_platform_a01/simready_usd/source_assets/OmniPBR_ClearCoat.mdl"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_Albedo.png": {
+    "sha256": "4e233488d3d42d94fc8889dde78ca8e546cd5fed08d51f5373384964c9b3a6e5",
+    "size": 634053,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_Albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_Normal.png": {
+    "sha256": "e8254a2ca1b07a70fd151f752acb75b763bbcafb38681ddbb8a000f3452d2da3",
+    "size": 56586,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_Normal.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_ORM.png": {
+    "sha256": "48f7f6d85358d271f393382ee013635e970bf1ff4d5d66d91537a2f423f1361c",
+    "size": 531802,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Metal_Glossy_A_ORM.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_Albedo.png": {
+    "sha256": "00ad88d4a87014911c9bbbf554544621595c44313197a5d2004a7df340f69cdd",
+    "size": 839417,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_Albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_Normal.png": {
+    "sha256": "531220b1e6d692b3f6f72a31f73c36cf9fe4a233a195e350156afaac81b5abf2",
+    "size": 750316,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_Normal.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_ORM.png": {
+    "sha256": "86a06701c6898c5d0026c92432c01a06ca43b34eb37f08376b9746f0ffa8b6b5",
+    "size": 844997,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Black_A_ORM.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_Albedo.png": {
+    "sha256": "9a414b0d8551193f129ee80ea61c736a990c130fc19ac256d31dde1749d04e16",
+    "size": 822814,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_Albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_Normal.png": {
+    "sha256": "b276207f782c029f34dfd6034a9c718467e35e5aa6c8ba2dbcba1de25f045559",
+    "size": 909580,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_Normal.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_ORM.png": {
+    "sha256": "dff7a9ec311c68b779576bbbf7ab1d121fcd784d49d3f1f730a7fe2ac647fbc9",
+    "size": 743855,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Blue_A_ORM.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_Albedo.png": {
+    "sha256": "41b2ed241d07a23cda60ed5f7bca1b67cf49aaa195a9e7391f08d5c2c05de2f3",
+    "size": 5335,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_Albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_Normal.png": {
+    "sha256": "9cabb2f91d006f9ecca17dd14e4e568505f5e29a231c39d886952943a08a3145",
+    "size": 565686,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_Normal.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_ORM.png": {
+    "sha256": "230ac43de27e78878c2cb8f1cefc7fe5250a0b8f71fc6fdf83b0a48df4db72e5",
+    "size": 598864,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/T_Plastic_Glossy_Black_A_ORM.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/t_officemonitor_a01_decal_albedo.png": {
+    "sha256": "1f4bfac33ccba9fb9a13302170dc48c80a8e5f698ddbbdffe7c52566089c0393",
+    "size": 143884,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/t_officemonitor_a01_decal_albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/Textures/t_officemonitor_a01_screen_emissive_albedo.png": {
+    "sha256": "8109362b9ce3c06a69834bad10a1ed1034d3072609fa56aed195dce1eb3462c1",
+    "size": 1394698,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/Textures/t_officemonitor_a01_screen_emissive_albedo.png"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/MuJoCo/disabled.usda": {
+    "sha256": "dcab807f0b13edbf5ffd44e8fd72538d0bc326464a95c4fdb0f44ddb6eea4cd2",
+    "size": 4410,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/MuJoCo/disabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/MuJoCo/enabled.usda": {
+    "sha256": "2008a1aab398b96500c21d64d657e0d11402d020d87006122c5735f6523e2411",
+    "size": 5584,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/MuJoCo/enabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/Newton/disabled.usda": {
+    "sha256": "dcab807f0b13edbf5ffd44e8fd72538d0bc326464a95c4fdb0f44ddb6eea4cd2",
+    "size": 4410,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/Newton/disabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/Newton/enabled.usda": {
+    "sha256": "1d7aa118915ea44a4ab33cc207ee08a20708c7165dd8ddd39e6bce1ead71abda",
+    "size": 6246,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/Newton/enabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/PhysX/disabled.usda": {
+    "sha256": "dcab807f0b13edbf5ffd44e8fd72538d0bc326464a95c4fdb0f44ddb6eea4cd2",
+    "size": 4410,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/PhysX/disabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/PhysX/enabled.usda": {
+    "sha256": "f989f5e523cb4ba9a44e85ee46fac2cab97c7cee4f007c12c50dd68917ce740a",
+    "size": 4732,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/PhysX/enabled.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/Physics/physics.usda": {
+    "sha256": "432f463814a16b96bd197fe1e5507974bc0e70057fea3f4ff37ef620d1089170",
+    "size": 6572,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/Physics/physics.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/base.usda": {
+    "sha256": "c7fa43720211a6c92f538c527eafbe561b9fec88822ceae2762a8f0ff43a14a3",
+    "size": 9041,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/base.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/geometries.usd": {
+    "sha256": "3dd0a32c0a2aa6935680462f2b2d316050071b7d4ba81a9a4c86b0518d4d0812",
+    "size": 634410,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/geometries.usd"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/instances.usda": {
+    "sha256": "ffc21284c80381f9455b2ef1f5055f3991b15873463811e16ac50d8826419cdb",
+    "size": 8724,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/instances.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/instances_mujoco.usda": {
+    "sha256": "cd3b5607c109e0bdb5283710fe8e0ea1e8c74cccacc6f454ec4107015f818612",
+    "size": 8996,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/instances_mujoco.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/instances_newton.usda": {
+    "sha256": "7fc0828ffeb050d55ee0b4059851e72372aba8880061c0e6094edafd778c80c4",
+    "size": 8847,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/instances_newton.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/instances_physx.usda": {
+    "sha256": "4a8f2610bd50643caebd9162f9383ab7cb68f51f3ec1b9902584a2015ad974b9",
+    "size": 8971,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/instances_physx.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/payloads/materials.usda": {
+    "sha256": "f0dc2045064d76a30beaedcb314f570b876692e36a1ce8da7d178daa56af51af",
+    "size": 34017,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/payloads/materials.usda"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/sm_computer_monitor_office_a01_01.usd": {
+    "sha256": "5167fbf30ee6a190ab927a9635d11de8d37b006c27898c9bfa299ebf67453e5f",
+    "size": 22881,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/sm_computer_monitor_office_a01_01.usd"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/source_assets/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/source_assets/OmniPBR.mdl"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/source_assets/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/source_assets/OmniPBRBase.mdl"
+  },
+  "simready/computer_monitor_office_a01/simready_usd/source_assets/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/computer_monitor_office_a01/simready_usd/source_assets/OmniPBR_ClearCoat.mdl"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_alb_resized.png": {
+    "sha256": "caea38849ce44dde56ff5a2887ee4de62579b7192da6127bebf68842e869a51c",
+    "size": 1224303,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_alb_resized.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_nor_resized.png": {
+    "sha256": "7ea86c21a73bb2cb64565e658101fa75812a505a208bbf00cb1fa5e76f5578c3",
+    "size": 1334486,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_nor_resized.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_orm_resized.png": {
+    "sha256": "e59db347c5165fb97c4bf7fcaba290f6da846d2719284023650d490fc69551b1",
+    "size": 574581,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedBark_c01_orm_resized.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_alb.png": {
+    "sha256": "d3438d03546947896ace3876d60723b91319696ccb9e750e26060dfa1b66e7cb",
+    "size": 97415,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_alb.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_nor.png": {
+    "sha256": "e41e1e347bedca53fda8f5f207d4390f6c8d1e3e9950fada1fb7139c905b4ee7",
+    "size": 670160,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_nor.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_orm.png": {
+    "sha256": "598fee2d75c6383bd19c76e0775d1b92d081ecda0f21eaba42e7540f1897cfaa",
+    "size": 4781256,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedJug_c01_orm.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_alb.png": {
+    "sha256": "a32b84966386d9e02310b3d858519e3012e7fefc73b5a0193be68a494b1408ec",
+    "size": 19880996,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_alb.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_nor.png": {
+    "sha256": "dfe219cf2026a713e6a0eef58e4e3d79852049938e443ed087ba7e8dda5dcadd",
+    "size": 64006361,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_nor.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_orm.png": {
+    "sha256": "310bf3f1ae9c11ea092032360993cfc6cef19d5d1f5cbc9e2e78ff99c8f208ad",
+    "size": 4812539,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedLeaf_c01_orm.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_alb.png": {
+    "sha256": "0cc688dff38deac7a30b352d5d5d3334710a9dd1584e6d9d1a158f7292df518e",
+    "size": 5956034,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_alb.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_nor.png": {
+    "sha256": "8df9818bdf533a0039e4e6fe6569d299b7ff0489d577bc7a9874fd0a0674c475",
+    "size": 9615635,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_nor.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_orm.png": {
+    "sha256": "60c1f47e0a49d3b67e0a00fb11c129e1c472e8366919cd9e232f281e14a466fb",
+    "size": 5546583,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedSoil_c02_orm.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_alb.png": {
+    "sha256": "33010e88c5eb74168536e915090652bec5da72891cfd5063b9fc75d5933622a6",
+    "size": 4716901,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_alb.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_nor.png": {
+    "sha256": "70ed37df9631aa1df478fca4d5ca5514e1ccb859b258fe4c3a0b6541d0b376a0",
+    "size": 5485595,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_nor.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_orm.png": {
+    "sha256": "268f6b6dbd7f7cd7113e139f353798278b4413b4a6dc3094c327ef182c584cae",
+    "size": 2144111,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedStem_c01_orm.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_alb.png": {
+    "sha256": "cf8e82fe6586b353eae5ff01eb75355dd9d4ec6a3e38dcc65afbce6531ef90c3",
+    "size": 29444127,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_alb.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_nor.png": {
+    "sha256": "b6bb4ee1914e0da54dbcba5fdc8c3b2050f0eb14c3b007d3e17e06178d90b027",
+    "size": 35295299,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_nor.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_orm.png": {
+    "sha256": "4f2601bdde179bfc4503e0f68b33dc230fd1c1b5454a3d323fbfc46490129a8d",
+    "size": 14230013,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/Textures/t_plantBigPottedWood_c01_orm.png"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/Physics/physics.usda": {
+    "sha256": "5d095dfd66b6ed1eb48497c789e68b2aff429694d95880d612ee1c648232a086",
+    "size": 3501,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/Physics/physics.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/base.usda": {
+    "sha256": "6129918fc43bef2de5029f8df4589a34fdd32993e92e59cb22ec1da07e790b6e",
+    "size": 3972,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/base.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/geometries.usd": {
+    "sha256": "c010ec7ee008d0f54253bca07e92a185149d63ce7bc45073e4e1a96a17ee8796",
+    "size": 18011291,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/geometries.usd"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/instances.usda": {
+    "sha256": "3b62012ba922b0b848ea8c51e5005d11a590d6a01d4fddb9c99e9ec65dcd70b8",
+    "size": 43384032,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/instances.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/instances_mujoco.usda": {
+    "sha256": "a72af92570c35c45fe32be64c19bb62563267621086441ba10b4a217d410f2e9",
+    "size": 43384201,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/instances_mujoco.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/instances_newton.usda": {
+    "sha256": "f50333422b4c386ff84a9604afcf726b372f45b543f2b5ec8a6c30b8388b1806",
+    "size": 43384105,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/instances_newton.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/instances_physx.usda": {
+    "sha256": "fa9570b23e22fe9ea730ccb2759f5801151c05647b82b73da49f8a2eac50e100",
+    "size": 43384093,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/instances_physx.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/materials.usda": {
+    "sha256": "5917393d2f2959c5c4fa8b1ca80cfc97edee13c8618792a776067232e4c76f1f",
+    "size": 38326,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/materials.usda"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBR.mdl"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBRBase.mdl"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/runnables/physics/mujoco.usd": {
+    "sha256": "5b3e4d9ddfe069daba19845e71d2152d728c46c23da8559068212503b49f760a",
+    "size": 1987,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/runnables/physics/mujoco.usd"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/runnables/physics/newton.usd": {
+    "sha256": "5d3f6c44bee7275e205cd5a192bbefcff58442bf988b06e1f13071e0660b3138",
+    "size": 2106,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/runnables/physics/newton.usd"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/runnables/physics/physx.usd": {
+    "sha256": "836b373ffb62dc3e1fad7d83d3ababab60944c9cae0eb87bffea4943a04f9b7d",
+    "size": 1673,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/runnables/physics/physx.usd"
+  },
+  "simready/decor_plant_big_potted_c01/simready_usd/sm_decor_plant_big_potted_c01_01.usda": {
+    "sha256": "577cc192bd0caebe0eb6d8acf0a2be5508af61b1ad92175c96892abf98f7d321",
+    "size": 10576,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/decor_plant_big_potted_c01/simready_usd/sm_decor_plant_big_potted_c01_01.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_alb.png": {
+    "sha256": "17c0f1b0ca620852415902eee8be55dfe9046bff9fc7ba85144a4aa4a4634927",
+    "size": 25989629,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_alb.png"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_nor.png": {
+    "sha256": "d53897c0e4250977200b0f96c4669c23b10ce7a8b8c2d14bff0810f496c2bb07",
+    "size": 7692435,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_nor.png"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_orm.png": {
+    "sha256": "13aafbc76305f874f81a1638a972b9218acf2c0de1714f744ba61948062f5bfc",
+    "size": 14978277,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/Textures/t_furniture_coffeetable_a01_orm.png"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/Physics/physics.usda": {
+    "sha256": "02b7c04c68bfd0772de43d28c5498ea43d5f61894021312c9a5df2838ae21efe",
+    "size": 2170,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/Physics/physics.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/base.usda": {
+    "sha256": "6d0702f52c62668816d33c2c6ba7d12b48047d85c0b9c9ad757df92c633c6409",
+    "size": 3468,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/base.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/geometries.usd": {
+    "sha256": "87561e51fde2ca4b63dfdff347111db4ccfb6045b4c4f327f21f99213e679e6e",
+    "size": 2850224,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/geometries.usd"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/instances.usda": {
+    "sha256": "d4e9452a90b4c3e6d8d5bf92da1ab003941f89a13f6006f93c81af61d210302b",
+    "size": 3462,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/instances.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/instances_mujoco.usda": {
+    "sha256": "2de780ccfb42f40720df7bbe669912c315b98d6d8bcc71693cedd28bd8efb612",
+    "size": 3631,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/instances_mujoco.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/instances_newton.usda": {
+    "sha256": "f05d29b4c2cee0fbaf00df181762679d6fa48e510d11e919c78a0070bc5eb348",
+    "size": 3585,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/instances_newton.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/instances_physx.usda": {
+    "sha256": "63742c8d11578dd27aa80c5b3d318c1c7db9f4a2f90d41a07c8a7784375e47dd",
+    "size": 3523,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/instances_physx.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/materials.usda": {
+    "sha256": "05c91eb9e7b1c46564f4b054071dcfec40ec6234c7baf69da14cc0c9264e298e",
+    "size": 13581,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/materials.usda"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBR.mdl"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBRBase.mdl"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/runnables/physics/mujoco.usd": {
+    "sha256": "8d59ee64f912255ae8f612ee86d53a111132bc23705a9c3d8653d0e69c40f8f2",
+    "size": 1918,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/runnables/physics/mujoco.usd"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/runnables/physics/newton.usd": {
+    "sha256": "027314751ba53c39e355cd0ede5faee22a5522ed834375f4258c68781d802b8a",
+    "size": 2005,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/runnables/physics/newton.usd"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/runnables/physics/physx.usd": {
+    "sha256": "60e9bfdd3969853806297dddb2015f2d32ffdaaa506874e2b701646e2911cc39",
+    "size": 1686,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/runnables/physics/physx.usd"
+  },
+  "simready/furniture_coffeeTable_a01/simready_usd/sm_furniture_coffeeTable_a01_01.usda": {
+    "sha256": "226c89d4a6119816e039302751c9c4ed3821c58d00100928a94118aef05dce96",
+    "size": 9684,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_coffeeTable_a01/simready_usd/sm_furniture_coffeeTable_a01_01.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_fabric_cotton_gray_a01_tile_nor.png": {
+    "sha256": "0a4f4f3736492b46f06b3450aa6d9ca6e59fca366ee045c41873cc798bee540f",
+    "size": 34314631,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_fabric_cotton_gray_a01_tile_nor.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_fabric_cotton_gray_a01_tile_orm.png": {
+    "sha256": "3065f5b156f93180a333f196e854a7c81c0369242552e8a1cfd9844232588177",
+    "size": 22981697,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_fabric_cotton_gray_a01_tile_orm.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_furniture_couch_fabric_tinted_a01_alb.png": {
+    "sha256": "b1ebd31504979b77663fd68bbe9b2835398dd8ac2ae93c977cbe0879eb5392eb",
+    "size": 36057772,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_furniture_couch_fabric_tinted_a01_alb.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_alb.png": {
+    "sha256": "194ad479225d70650fd2e2f92563e48999c0deb0a2753260acbaefe38bc0940a",
+    "size": 58790,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_alb.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_nor.png": {
+    "sha256": "fad9200910ecffd087f3e6004549fe71cc5d0f50c005cd8c9a19d81be3f03436",
+    "size": 1233737,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_nor.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_orm.png": {
+    "sha256": "ef42bfa0e588806865a94a3206b0dc256e216e700e2c426ad850c7343f7b9cae",
+    "size": 2692672,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/Textures/t_metal_chromeClean_a01_tile_orm.png"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/Physics/physics.usda": {
+    "sha256": "39ad95a6ebdf5a2459efe4e6c9c1c6590cc07da9be5e296a8de1bd456ab2e375",
+    "size": 2124,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/Physics/physics.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/base.usda": {
+    "sha256": "1940651f9be1a752c08450417fcc24d86bd7dfc4d591a5fe57f37bb9bfce25d6",
+    "size": 3646,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/base.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/geometries.usd": {
+    "sha256": "0a339b8f689dade201d2b68934e6354f59b5b2178677be8a87e00a29bf0cdfe9",
+    "size": 45261634,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/geometries.usd"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/instances.usda": {
+    "sha256": "c2bd29d90efc26fb05856fae9f347673e10f1d1f49cce481483088a81d60be92",
+    "size": 3348,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/instances.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/instances_mujoco.usda": {
+    "sha256": "f7167d265f2a8d8c6b15e85784a3233bcf5bd7279b0937054cf46faf631fed99",
+    "size": 3517,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/instances_mujoco.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/instances_newton.usda": {
+    "sha256": "a30dc2f770b77bf4af77f98a22d670d637904dea60ad8feb61cb56537660e23e",
+    "size": 3421,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/instances_newton.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/instances_physx.usda": {
+    "sha256": "e2439666e23fe2df165b326baf584fe2d52263ecc2094be024b8183644007d82",
+    "size": 3409,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/instances_physx.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/materials.usda": {
+    "sha256": "6b091203fd53f288efe37ebbbe32dd35bc662c0fda18676c1ef8c1f45eac2e54",
+    "size": 13392,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials.usda"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/materials/OmniPBR.mdl": {
+    "sha256": "6e6b3acbccd236e21a6c29964a431d2a53e77251cc6b8b1bc975eb1c62da1781",
+    "size": 16010,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials/OmniPBR.mdl"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/materials/OmniPBRBase.mdl": {
+    "sha256": "a8fd9fe174e91892e94d06da90ba453a124024c2ce2c033be9d82c9e2f76a3b7",
+    "size": 19369,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials/OmniPBRBase.mdl"
+  },
+  "simready/furniture_couch_a01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl": {
+    "sha256": "d84c5ba482561c0eaea2e0c5b607358af549e36cd921773462f92dbc4f32cbc3",
+    "size": 29789,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/payloads/materials/OmniPBR_ClearCoat.mdl"
+  },
+  "simready/furniture_couch_a01/simready_usd/runnables/physics/mujoco.usd": {
+    "sha256": "3a6dbf310785043c13124bf163f5990b5d9ae549320b1f36c9152ba8bcc698c0",
+    "size": 1917,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/runnables/physics/mujoco.usd"
+  },
+  "simready/furniture_couch_a01/simready_usd/runnables/physics/newton.usd": {
+    "sha256": "73449b46c393b134f648431f222fa8fe76059d2ea0e6bae2d2295d64e70341e8",
+    "size": 2005,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/runnables/physics/newton.usd"
+  },
+  "simready/furniture_couch_a01/simready_usd/runnables/physics/physx.usd": {
+    "sha256": "b1c6bb00cbde06f18159a97494158c30cc57aba1ec62fd090778a1ff4087b7d7",
+    "size": 1666,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/runnables/physics/physx.usd"
+  },
+  "simready/furniture_couch_a01/simready_usd/sm_furniture_couch_a01_01.usda": {
+    "sha256": "b5da9acfb813b4173a3e0a219cc997e457dff755d505554b04c5cd61bca62837",
+    "size": 10431,
+    "url": "https://huggingface.co/datasets/nvidia/simready-assets/resolve/21b045a878e13d4ca922f0f8ebc2ff1e84bb06d4/furniture_couch_a01/simready_usd/sm_furniture_couch_a01_01.usda"
+  }
+}

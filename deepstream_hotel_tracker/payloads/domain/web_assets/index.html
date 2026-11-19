@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hotel lobby live</title>
+  <link rel="stylesheet" href="hotel.css">
+  <script type="module" src="hotel.js"></script>
+</head>
+<body>
+  <main>
+    <header class="top">
+      <h1>Hotel lobby live</h1>
+      <p id="status" role="status">Connecting to the lobby…</p>
+    </header>
+
+    <dl class="totals" aria-label="Observed crossings this run">
+      <div><dt>People entered</dt><dd id="entered">—</dd></div>
+      <div><dt>People left</dt><dd id="left">—</dd></div>
+    </dl>
+
+    <div class="workspace">
+      <section aria-labelledby="cameras-heading">
+        <div class="section-heading"><h2 id="cameras-heading">Live cameras</h2></div>
+        <div class="cameras">
+          <figure><canvas width="480" height="270" aria-label="Live view of the west exit"></canvas><figcaption>West exit</figcaption></figure>
+          <figure><canvas width="480" height="270" aria-label="Live view of the east exit"></canvas><figcaption>East exit</figcaption></figure>
+          <figure><canvas width="480" height="270" aria-label="Live view of the main entrance"></canvas><figcaption>Main entrance</figcaption></figure>
+          <figure><canvas width="480" height="270" aria-label="Live view across the lobby"></canvas><figcaption>Lobby</figcaption></figure>
+        </div>
+      </section>
+      <section aria-labelledby="plan-heading">
+        <div class="section-heading">
+          <h2 id="plan-heading">Floor plan</h2>
+          <div class="plan-views" role="group" aria-label="Floor plan view">
+            <button type="button" data-plan-view="2d" aria-controls="map" aria-pressed="true">2D</button>
+            <button type="button" data-plan-view="3d" aria-controls="map" aria-pressed="false">3D</button>
+          </div>
+        </div>
+        <figure class="floor-plan">
+          <canvas id="map" width="560" height="475" data-view="2d" role="img" aria-label="2D floor plan with colored movement trails for guests and AgiBot" aria-describedby="tracks track-details"></canvas>
+          <figcaption id="tracks">Waiting for tracking…</figcaption>
+        </figure>
+        <p id="track-details" class="visually-hidden"></p>
+      </section>
+    </div>
+
+    <section class="door-details" aria-labelledby="doors-heading">
+      <div>
+        <h2 id="doors-heading">Counts by door</h2>
+        <table>
+          <thead><tr><th scope="col">Door</th><th scope="col">Entered</th><th scope="col">Left</th></tr></thead>
+          <tbody id="doors"></tbody>
+        </table>
+      </div>
+      <div>
+        <h2>Recent crossings</h2>
+        <p id="empty-crossings">Waiting for the first crossing…</p>
+        <ol id="crossings"></ol>
+      </div>
+    </section>
+    <p class="note">DeepStream estimates crossings from the live synthetic cameras. Occlusion can affect the counts.</p>
+  </main>
+</body>
+</html>
