@@ -1,6 +1,7 @@
 """Optional completed-run replay, composed with the shared runtime report shell."""
 
 import json
+from hashlib import sha256
 from pathlib import Path
 
 from mn_sdk.blueprint.hooks import fingerprint, report_activity
@@ -92,6 +93,17 @@ def _publish_replay(block, records):
             key: record[key] for key in ("source", "source_sha256", "duration_seconds")
         }
         projection["chunks"] = chunks
+        # Hash canonical JSON for the publication receipt. The static renderer
+        # enforces the report's document size limit.
+        revision = sha256(
+            json.dumps(
+                projection,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+                allow_nan=False,
+            ).encode("utf-8")
+        ).hexdigest()
         # Stage non-entry pages first. No discoverable report exists until the
         # complete batch, all media and every recording page have been verified.
         pages.append(
@@ -101,7 +113,7 @@ def _publish_replay(block, records):
                 lambda value=projection: render(value, recordings, block.run_id),
                 kind="html",
                 required=False,
-                revision=fingerprint(projection),
+                revision=revision,
             )
         )
     for index, page in enumerate([*pages[1:], pages[0]]):

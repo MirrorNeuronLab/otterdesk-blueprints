@@ -100,6 +100,8 @@ def test_export_preserves_sample_metadata_and_excludes_expected_model_fixture(tm
         names = set(bundle.namelist())
         assert {'examples/sample_inputs/procedure.md', 'examples/sample_inputs/README.md',
                 'examples/sample_inputs/SAMPLE_DATASET_MANIFEST.json'} <= names
+        assert {'payloads/web_assets/vendor/three.min.js', 'payloads/web_assets/vendor/three.LICENSE.txt',
+                'payloads/web_assets/equipment.js', 'payloads/web_assets/deck.js'} <= names
         assert bundle.read('examples/sample_inputs/procedure.md') == SAMPLE_PROCEDURE.read_bytes()
         assert not any(name.endswith('expected_plan.json') for name in names)
 
@@ -291,7 +293,7 @@ def ui_transport(domain, monkeypatch, tmp_path):
     monkeypatch.setenv('MN_JOB_DATA_DIR', str(job))
 
     class Monitor:
-        def __init__(self, resource, projection):
+        def __init__(self, projection):
             self.projection = projection
         async def start(self, host, port):
             calls['phases'].append(copy.deepcopy(self.projection()))
@@ -350,6 +352,7 @@ def test_compiled_handlers_execute_publish_and_replay_without_more_model_calls(d
     phases = simulated_io['phases']
     assert [view['status'] for view in phases] == ['preparing', 'planning', 'running']
     assert not phases[0]['state']['wells'] and not phases[1]['state']['wells']
+    assert [view['plates'] for view in phases] == [[], [], ['source', 'destination']]
     assert phases[2]['state']['wells']['source/A2']['volume_ul'] == 200
     assert simulated_io['claimed'] == simulated_io['closed'] == 3
     assert simulated_io['final_status'] == 'stopped'
@@ -810,50 +813,39 @@ def test_replay_escapes_untrusted_text_and_needs_no_live_listener(domain, plan):
     state = domain('protocol').initial_state(plan)
     page = domain('presentation').render({
         'summary': '</script><img src=x onerror=alert(1)>', 'status': 'needs_review',
-        'goals': [], 'limitations': ['Synthetic qualification.']}, {'initial': state, 'events': []})
+        'goals': [], 'limitations': ['Synthetic qualification.']},
+        {'initial': state, 'events': []}, plan['plates'])
     assert '</script><img' not in page
     assert '\\u003c/script\\u003e' in page
     assert '<script src=' not in page
-    assert 'innerHTML' not in page
+    assert '<canvas id="deck"' in page and 'three.js authors' in page
 
 
-def test_live_visualizer_uses_local_assets_and_same_origin_websocket(domain, tmp_path):
-    import pylabrobot.visualizer.visualizer as native
+def test_live_visualizer_serves_only_bundled_assets_and_the_monitor_socket(domain):
+    from types import SimpleNamespace
+
     module = domain('visualizer')
-    manifest = json.loads((ROOT / 'payloads/docker_worker/visualizer-assets.json').read_text())
-    (tmp_path / 'assets.json').write_text(json.dumps(manifest))
-    native_root = Path(native.__file__).parent
-    # The Job proxy canonicalizes directory separators. The actual iframe must
-    # address a document that can be served without a trailing slash or redirect.
-    from xml.etree import ElementTree
-    line = next(line for line in (module.ASSETS / 'index.html').read_text().splitlines() if '<iframe ' in line)
-    source = ElementTree.fromstring(line.strip()).attrib['src']
-    assert source.startswith('visualizer/') and not source.endswith('/')
-    page, mime = module.visualizer_asset(source.removeprefix('visualizer/'), native_root, tmp_path)
-    assert mime.startswith('text/html') and b'https://' not in page
-    code, _ = module.visualizer_asset('vis.js', native_root, tmp_path)
-    assert module.WS_CONSTRUCTOR.encode() not in code
-    assert module.LOCAL_CONSTRUCTOR.encode() in code
-    with pytest.raises(FileNotFoundError):
-        module.visualizer_asset('../../manifest.json', native_root, tmp_path)
 
-
-def test_viewer_disconnect_does_not_break_state_notifications(domain, plan):
-    from websockets.exceptions import ConnectionClosedOK
-    from websockets.frames import Close
-    closed = ConnectionClosedOK(Close(1000, ''), Close(1000, ''), True)
-    class DisconnectedViewer:
-        async def send(self, value):
-            raise closed
     async def exercise():
-        lab = domain('lab').SimulatedLab(plan)
-        viewer = domain('visualizer').LabVisualizer(lab.lh, lambda: {})
-        viewer._websocket = DisconnectedViewer()
-        assert await viewer.send_command('state_updated', {}, wait_for_response=False) is None
-        assert not viewer.has_connection()
-        viewer._websocket = DisconnectedViewer()
-        with pytest.raises(ConnectionClosedOK):
-            await viewer.send_command('state_updated', {}, wait_for_response=True)
+        viewer = module.LabVisualizer(lambda: {})
+
+        async def request(path, headers=None):
+            return await viewer.http(None, SimpleNamespace(path=path, headers=headers or {}))
+
+        page = await request('/')
+        assert page.status_code == 200
+        assert b'<canvas id="deck"' in page.body and b'https://' not in page.body
+        for source in module.SCRIPTS:
+            assert f'src="{source}"'.encode() in page.body
+            asset = await request('/' + source)
+            assert asset.status_code == 200 and asset.body and asset.headers['Content-Type'].startswith('text/javascript')
+        assert (await request('/style.css')).headers['Content-Type'].startswith('text/css')
+        assert (await request('/vendor/../../domain/simulation.py')).status_code == 404
+        assert (await request('/visualizer/index.html')).status_code == 404
+        upgrade = {'Upgrade': 'websocket'}
+        assert await request('/monitor/ws', upgrade) is None
+        assert (await request('/visualizer/ws', upgrade)).status_code == 403
+
     asyncio.run(exercise())
 
 
@@ -1052,10 +1044,16 @@ def test_live_operations_preserve_mix_half_cycles_before_step_completion(domain,
         'Aspirated 100 uL from source/A2', 'Dispensed 100 uL into destination/A1',
         'Discarded the used tip']
     assert all(view['steps_completed'] == 0 for view in transfer)
+    assert [view['operation'].get('kind') for view in transfer] == [
+        None, 'pick_up_tip', 'aspirate', 'dispense', 'discard_tip']
+    assert transfer[1]['operation']['tip_index'] == 0
+    assert transfer[2]['operation']['well'] == 'source/A2'
+    assert transfer[3]['operation']['well'] == 'destination/A1'
+    assert [view['tip_attached'] for view in transfer] == [False, True, True, True, False]
     mixing = [view for view in operations if view['operation']['label'].startswith('Mix ')]
     assert [view['state']['wells']['destination/A1']['volume_ul'] for view in mixing] == [50, 100, 50, 100]
     assert all(view['steps_completed'] == 1 for view in mixing)
-    assert all(view['operation']['resource'] for view in mixing)
+    assert all(view['operation']['well'] == 'destination/A1' for view in mixing)
     assert views[-1]['status'] == 'completed' and views[-1]['steps_completed'] == 4
     assert views[-1]['operation'] is None
 
@@ -1093,14 +1091,21 @@ def test_rich_bundled_sample_executes_all_instructions_and_final_goals(domain, s
 
 def test_monitor_socket_streams_current_snapshot_and_recovers_after_disconnect(domain, plan):
     from websockets.asyncio.client import connect
+    from websockets.exceptions import ConnectionClosedError
 
     async def exercise():
         lab = domain('lab').SimulatedLab(plan)
         await lab.setup()
         projection = {'status': 'running', 'state': lab.observe(), 'steps_completed': 0, 'operation': None}
-        viewer = domain('visualizer').LabVisualizer(lab.lh, lambda: projection)
+        viewer = domain('visualizer').LabVisualizer(lambda: projection)
         port = await viewer.start('127.0.0.1', 0)
         try:
+            async with connect(f'ws://127.0.0.1:{port}/monitor/ws') as socket:
+                assert json.loads(await socket.recv()) == projection
+                await socket.send('{"command":"start"}')
+                with pytest.raises(ConnectionClosedError) as rejected:
+                    await asyncio.wait_for(socket.recv(), timeout=2)
+                assert rejected.value.rcvd.code == 1008
             async with connect(f'ws://127.0.0.1:{port}/monitor/ws') as socket:
                 assert json.loads(await socket.recv()) == projection
 

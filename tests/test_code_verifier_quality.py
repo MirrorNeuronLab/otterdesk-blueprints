@@ -42,6 +42,21 @@ def test_configuration_only_proves_an_explicit_setting_and_example_requires_matc
     assert modules['verification'].admit(result, {'id':'R', 'scope':'examples/client.py'}, index, [span])['status'] == 'pass'
 
 
+def test_scoped_behavior_requires_the_configuration_consumer(modules):
+    verify = modules['verification']
+    index = TextSearchIndex({'profiles/default.json': '{"retries":3}\n',
+                             'src/latest_retry.py': 'if attempts >= profile.retries:\n    return None\n'})
+    config = index.read('profiles/default.json', 1, 1)
+    code = index.read('src/latest_retry.py', 1, 2)
+    rule = {'id': 'RETRY-LIMIT', 'scope': 'profiles', 'requirement_kind': 'behavior'}
+    for status in ('pass', 'fail'):
+        assert verify.admit(finish_for(verify, config, status), rule, index, [config])['status'] == 'unknown'
+    result = finish_for(verify, code)
+    assert verify.admit(result, rule, index, [code])['status'] == 'unknown'
+    result['evidence'].append({**config, 'quote': config['text']})
+    assert verify.admit(result, rule, index, [code, config])['status'] == 'pass'
+
+
 def test_status_cannot_disagree_with_structured_assessment(modules):
     index = TextSearchIndex({'src/a.py':'return_value = True\n'})
     span = index.read('src/a.py', 1, 1)
@@ -129,6 +144,29 @@ def test_dedup_keeps_conditions_and_all_origins_and_flags_conflicts(modules):
     distinct, _ = policy.consolidate([{**deepcopy(base), 'statement':'Call Foo("a  b").'},
         {**deepcopy(base), 'id':'B', 'statement':'Call foo("a b").'}])
     assert len(distinct) == 2  # Identifier case and literal whitespace are significant.
+
+
+def test_generation_preserves_conditions_before_consolidation_and_handles_legacy_overrides(modules):
+    rules = modules['rules']
+    doc = 'Warn after three failures.\nWarn on timeout.\nWarn after three failures.\n'
+    index = TextSearchIndex({'SPEC.md': doc})
+    packet = next(rules.document_packets(index, 'SPEC.md', doc))
+    statement = 'The console must show a warning.'
+    candidates = [{'statement': statement, 'quote': index.read('SPEC.md', n, n)['text'],
+                   'start_line': n, 'end_line': n, 'scope': 'product', 'subject': 'console',
+                   'modality': 'must', 'conditions': [condition], 'requirement_kind': 'behavior'}
+                  for n, condition in enumerate(['after three failures', 'on timeout', 'after three failures'], 1)]
+    extracted = rules.packet_rules(index, packet, {'complete': True, 'rules': candidates})
+    first, second = extracted.values()
+    assert first['id'] != second['id']
+    assert first['additional_origins'][0]['source']['start_line'] == 3
+    legacy_id = rules.generated_id('SPEC.md', statement)
+    custom = {legacy_id: {'id': legacy_id, 'statement': 'An explicit override.', 'origin': 'custom'}}
+    with pytest.raises(ValueError, match='matches several scoped rules'):
+        rules.apply_custom_rules(extracted, custom)
+    single = {first['id']: first}
+    rules.apply_custom_rules(single, custom)
+    assert single == custom
 
 
 def test_project_map_is_bounded_without_limiting_retrieval(modules):

@@ -183,12 +183,12 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`ct_reader`](ct_reader/README.md) | Research | Experimental NVIDIA CT reader with Chat uploads and local NIfTI preview. Not for real diagnosis. Requires one NVIDIA GPU with 48 GiB memory. |
 | [`ocr_worker`](ocr_worker/README.md) | Other | Extracts text and page regions from images and PDFs using lazy Nemotron OCR v2. Requires a 48 GiB NVIDIA GPU. |
 | [`transcription_worker`](transcription_worker/README.md) | Other | Transcribes an audio folder to Markdown using lazy Nemotron 3.5 NVFP4 on Blackwell. Includes the full Bdb001 WAV sample; defaults to 96 GiB GPU memory. |
-| [`web_lab_operator`](web_lab_operator/README.md) | Research | Turns Markdown procedures into a PyLabRobot liquid-handling simulation with live visualization, Membrane experience recall, bounded source adaptation and saved review evidence. |
+| [`web_lab_operator`](web_lab_operator/README.md) | Research | Turns Markdown procedures into a PyLabRobot liquid-handling simulation with a live 3D workcell, Membrane experience recall, bounded source adaptation and saved review evidence. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
 | [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |
 | [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
-| [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Reviews local Mac unified logs across user-initiated scans with source receipts and saved reports, without inspecting OS files. Pilot; see its current limits. |
+| [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Watches new macOS security log events during each run and publishes a web report with assessments, supporting records, and coverage. |
 | [`cctv_operator`](cctv_operator/README.md) | Physical AI | Up to four RTSP cameras with live previews, NVIDIA video captions, saved observations and a shared monitoring goal. |
 | [`microduck_controller`](microduck_controller/README.md) | Physical AI | Lets an OtterDesk user control the live Microduck MuJoCo simulation in ordinary language through bounded MCP actions, deterministic ball navigation, and stoppable continuous free play. |
 | [`litigation_analyst`](litigation_analyst/README.md) | Business | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
@@ -518,6 +518,8 @@ contract. Focused suites exercise worker replay, verified publication barriers,
 human approvals, child-round tasks, partial service startup and cleanup. Offline
 sample fixtures execute compiled worker bindings; they do not replace Core's
 scheduler or establish live model, CUDA, camera or robot qualification.
+
+Open a completed run’s report to read the assessment against its source records and coverage. Camera and hotel monitors also offer a downloadable snapshot while running. At shutdown, those monitors and the warehouse simulation save a standalone `report.html`.
 
 Stage-aware OtterDesk conversation guidance and each blueprint's saved-instruction boundary are documented in [conversation experience](docs/conversation-experience.md). These assets extend the app and packages using the existing runtime contracts.
 

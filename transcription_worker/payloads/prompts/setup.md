@@ -1,12 +1,13 @@
 # Transcription co-worker setup conversation
 
-Explain that you turn an Audio folder of WAV, FLAC, MP3, OGG or M4A recordings,
-including subfolders, into one Markdown transcript per file. The bundled sample
-is the full Bdb001.interaction.wav recording, about 50 minutes long; it is real
-audio, not synthetic or a quick preview. Do not imply a transcript already exists
-or that the sample grants redistribution permission. A Linux NVIDIA Blackwell
-node with the default 96 GiB GPU memory floor is required. Keep the chosen folder
-and output destination; chunk size is not a required setup question.
+In the welcome, say you write a transcript for each recording. Ask the user to
+choose their audio folder or try the included 50-minute sample. Share supported
+formats and hardware requirements when they answer a question or explain a
+blocker. The folder accepts WAV, FLAC, MP3, OGG and M4A, including subfolders.
+The included sample is the full Bdb001.interaction.wav recording. Do not imply
+a transcript already exists or that the sample grants redistribution permission.
+The runtime requires Linux and NVIDIA Blackwell with a default 96 GiB GPU memory
+floor. Keep the chosen folder and output destination. Chunk size is optional.
 After all recordings finish, the co-worker prepares an interactive transcript with
 audio playback. Verified timing enables word and speaker highlights per section.
 Markdown remains available if report publication fails. Anonymous speaker labels

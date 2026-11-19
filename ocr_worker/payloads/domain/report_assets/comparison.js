@@ -122,6 +122,16 @@
     byId("page-select").append(option);
   }
   const counts = data.summary;
+  const emptyPages = record.pages.filter((page) => !page.text.trim());
+  const extracted = record.pages.length - emptyPages.length;
+  byId("extraction-assessment").textContent = record.status === "completed"
+    ? `Text detected on ${extracted} of ${record.pages.length} ${record.pages.length === 1 ? "page" : "pages"}.` +
+      (emptyPages.length ? ` Compare page ${emptyPages[0].page_number} with the original to check for omitted text.` : "")
+    : "This file produced no verified OCR result. Check the original and the file status.";
+  if (counts.failed_count || counts.skipped_count) {
+    byId("extraction-assessment").textContent +=
+      ` This run has ${counts.failed_count} failed and ${counts.skipped_count} skipped files. See Files for their status.`;
+  }
   byId("batch-counts").textContent =
     `${counts.completed_count} completed · ${counts.failed_count} failed · ${counts.skipped_count} skipped`;
   function showFiles() {

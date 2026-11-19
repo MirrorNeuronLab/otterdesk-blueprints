@@ -398,4 +398,7 @@ def test_compose_stop_record_uses_stock_block_and_durable_replay(tmp_path, monke
     result = store.read(first['outputs']['result'])
     assert store.read(result['artifact']) == store.read_path('final_artifact.json')
     assert result['status'] == 'stopped'
+    review = store.path('report.html').read_text()
+    assert 'Service shutdown completed' in review and result['evidence']['workflow_step'] in review
+    assert 'Check navigation telemetry' in review and 'final_artifact.json' in review
     assert not (BLUEPRINT / 'payloads/worker/finish_service.sh').exists()

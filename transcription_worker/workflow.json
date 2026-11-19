@@ -13,11 +13,41 @@
         },
         "timeout_seconds": 3600
       },
-      "goal": "Transcribe every recording completely and publish Markdown with source/coverage receipts.",
+      "goal": "Find supported recordings in the selected folder and capture them for this run.",
+      "id": "scan_audio_folder",
+      "kind": "source",
+      "label": "Scan audio folder",
+      "needs": []
+    },
+    {
+      "control": {
+        "retry": {
+          "max_attempts": 1
+        },
+        "timeout_seconds": 3600
+      },
+      "goal": "Convert the recordings to a consistent audio format and split them into sections for transcription.",
+      "id": "prepare_recordings",
+      "kind": "stage",
+      "label": "Prepare recordings",
+      "needs": [
+        "scan_audio_folder"
+      ]
+    },
+    {
+      "control": {
+        "retry": {
+          "max_attempts": 1
+        },
+        "timeout_seconds": 3600
+      },
+      "goal": "Transcribe every recording and save the transcripts.",
       "id": "transcribe_audio_folder",
       "kind": "stage",
-      "label": "Transcribe audio folder",
-      "needs": []
+      "label": "Transcribe recordings",
+      "needs": [
+        "prepare_recordings"
+      ]
     }
   ],
   "workflow_id": "transcription_worker_v1"

@@ -4,6 +4,7 @@
 .report .report-main { display: flex; flex: 1; max-width: 1440px; margin-inline: auto; }
 .transcript-view { display: grid; flex: 1; grid-template-rows: auto minmax(0, 1fr); gap: 10px; min-width: 0; }
 .replay-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 16px; }
+.report #transcript-coverage { margin: 4px 5px 8px; }
 .recording-picker { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .recording-picker [data-slot="native-select-wrapper"] { flex: 1; }
 .playback-controls { display: flex; align-items: center; gap: 6px; min-width: 0; }

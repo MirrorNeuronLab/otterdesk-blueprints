@@ -126,6 +126,9 @@ def test_native_block_claims_ui_saves_real_protocol_output_and_cleans_listeners(
         assert len(stream_ids) == 1
         assert ("DELETE", f"/v1/streams/delete/{stream_ids[0]}") in calls
     assert operators and not operators[0].thread.is_alive()
+    review = (output / "report.html").read_text()
+    assert "Window evidence" in review and "Coverage" in review
+    assert "rtsp://" not in review and "private-password" not in review
     assert operators[0].web_socket.fileno() == operators[0].mcp_socket.fileno() == -1
     assert previews and all(preview.stopped for preview in previews)
     lease = operators[0].store.state("active_request")

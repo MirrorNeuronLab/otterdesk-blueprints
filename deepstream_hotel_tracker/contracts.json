@@ -10,6 +10,18 @@
   },
   "outputs": {
     "profile": "standard_run_store",
+    "artifacts": [
+      {
+        "artifact_id": "review",
+        "path": "report.html",
+        "mime_type": "text/html",
+        "type": "domain_report",
+        "required": false,
+        "source_refs": [
+          "people_counts.json"
+        ]
+      }
+    ],
     "primary": {
       "id": "people_counts",
       "path": "people_counts.json",

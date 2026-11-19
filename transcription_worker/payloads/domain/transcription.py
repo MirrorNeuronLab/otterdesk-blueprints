@@ -1,92 +1,20 @@
-"""Folder transcription policy; the SDK journals model calls and publication."""
+"""Transcribe prepared recordings using the SDK's durable model journal."""
 
-from pathlib import Path
-
-from mn_folder_files_skill import ScanLimits, scan_folder
 from mn_nvidia_transcribe_skill import (
     MODEL_REVISION,
     SOURCE_MODEL,
     build_transcription_request,
     parse_completion,
-    prepare_audio,
 )
-from mn_sdk.blueprint.context import load_runtime_config, source_manifest
+from mn_sdk.blueprint.context import source_manifest
 from mn_sdk.blueprint.hooks import ProcessingProgress, fingerprint
-from mn_sdk.blueprint.inputs import capture_declared_inputs
 from mn_sdk.blueprint.models import model_request
-from mn_sdk.blueprint.outputs import capture_file, materialize_file, publish_artifact_bundle
+from mn_sdk.blueprint.outputs import publish_artifact_bundle
 from mn_sdk_common.publication import ArtifactWrite
 
 from .alignment import playback_alignment, request_timestamps
+from .audio_preparation import read_prepared_audio
 from .reporting import publish_replay
-
-
-def _snapshot(block, folder):
-    staging = load_runtime_config(__file__)["local_inputs"]["folders"]
-    extensions = next(
-        item["allowed_extensions"]
-        for item in staging
-        if item["config_path"] == "inputs.payload.input_folder"
-    )
-    inventory = scan_folder(
-        folder,
-        suffixes=extensions,
-        limits=ScanLimits(max_files=100, max_file_bytes=256 * 1024**2),
-        check=block.check,
-    )
-    if not inventory.files:
-        raise ValueError("Audio folder contains no supported audio files")
-    records = []
-    for item in inventory.files:
-        block.check()
-        relative = item.relative_path
-        ref = capture_file(block, item.path, key=relative)
-        info = block.store.read(ref)
-        records.append(
-            {
-                "source": relative,
-                "source_sha256": info["sha256"],
-                "size_bytes": info["size_bytes"],
-                "file": ref.to_dict(),
-            }
-        )
-    return records
-
-
-def _chunks(block, item, seconds):
-    source = materialize_file(
-        block,
-        item["file"],
-        path=block.root
-        + "/audio-inputs/"
-        + fingerprint(item["source"])
-        + Path(item["source"]).suffix,
-    )
-    with prepare_audio(source, chunk_seconds=seconds) as document:
-        if document.source_sha256 != item["source_sha256"]:
-            raise ValueError("Audio snapshot does not match its source hash")
-        chunks = []
-        for chunk in document.chunks():
-            block.check()
-            ref = block.store.commit_bytes(
-                block.root
-                + "/audio-chunks/"
-                + fingerprint(item["source"])
-                + "/"
-                + str(chunk.index)
-                + ".wav",
-                chunk.wav_bytes,
-                kind="transcription_chunk",
-            )
-            chunks.append(
-                {
-                    "index": chunk.index,
-                    "start_seconds": chunk.start_seconds,
-                    "end_seconds": chunk.end_seconds,
-                    "audio": ref.to_dict(),
-                }
-            )
-        return {"duration_seconds": document.duration_seconds, "chunks": chunks}
 
 
 def _time(seconds):
@@ -98,28 +26,11 @@ def _time(seconds):
 
 
 def run(block, inputs):
-    inputs = capture_declared_inputs(block, inputs, runtime_file=__file__)
-    folder = Path(inputs.get("input_folder") or "")
-    if not folder.is_absolute():
-        raise ValueError("An absolute staged audio folder is required")
-    seconds = inputs.get("chunk_seconds", 300)
-    if type(seconds) is not int or not 1 <= seconds <= 300:
-        raise ValueError("chunk_seconds must be 1–300")
-    inventory_path = block.root + "/audio-inventory.json"
-    inventory = block.read_checkpoint(
-        block.freeze_checkpoint(inventory_path, lambda: _snapshot(block, folder)),
-        expected_path=inventory_path,
-    )
+    prepared_inputs = [
+        (item, read_prepared_audio(block, item))
+        for item in inputs["prepared_audio"]["recordings"]
+    ]
     declaration = source_manifest(__file__)["runtime"]["models"]["transcribe"]
-    prepared_inputs = []
-    for item in inventory:
-        block.check()
-        prepared_path = block.root + "/prepared-audio/" + fingerprint(item["source"]) + ".json"
-        prepared = block.read_checkpoint(
-            block.freeze_checkpoint(prepared_path, lambda item=item: _chunks(block, item, seconds)),
-            expected_path=prepared_path,
-        )
-        prepared_inputs.append((item, prepared))
     if sum(len(prepared["chunks"]) for _, prepared in prepared_inputs) >= block.max_calls:
         raise ValueError("Audio inventory exceeds the declared model call budget")
     writes, records = [], []

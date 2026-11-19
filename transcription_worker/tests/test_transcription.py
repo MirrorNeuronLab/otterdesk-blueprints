@@ -30,13 +30,14 @@ def worker(tmp_path, monkeypatch):
     compiled = compile_blueprint(package, config).manifest
     descriptor = tmp_path / "manifest.json"
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, config)))
-    node = next(
-        n
-        for n in compiled["agents"]["nodes"]
-        if n.get("config", {}).get("environment", {}).get("MN_WORKFLOW_STEP_HANDLER")
-        == "mn_sdk.integrations.block_worker"
-    )
-    parameters = json.loads(node["config"]["environment"]["MN_WORKFLOW_STEP_WITH_JSON"])
+    nodes = {node["node_id"]: node for node in compiled["agents"]["nodes"]}
+    workers = {}
+    for node_id, node in nodes.items():
+        worker_env = node.get("config", {}).get("environment", {})
+        if worker_env.get("MN_WORKFLOW_STEP_HANDLER") == "mn_sdk.integrations.block_worker":
+            parameters = json.loads(worker_env["MN_WORKFLOW_STEP_WITH_JSON"])
+            workers[parameters["block_step_id"]] = (node_id, parameters)
+    steps = compiled["workflow"]["steps"]
     environment = {
         "MN_RUN_DIR": str(tmp_path / "run"),
         "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor),
@@ -83,27 +84,64 @@ def worker(tmp_path, monkeypatch):
     )
     inputs = {"input_folder": str(folder), "chunk_seconds": 1}
 
-    def execute():
+    def execute_step(step_id, completed):
+        ports = {}
+        for name, binding in nodes[f"{step_id}__start"]["config"]["fields"].items():
+            field, = binding["path"]
+            if binding["$ref"] == "run_input":
+                ports[name] = inputs[field]
+            else:
+                upstream = binding["step_id"]
+                sink = nodes[f"{upstream}__end"]["config"]["fields"]
+                output, = sink[field]["path"]
+                ports[name] = completed[upstream].outputs[output]
+        node_id, parameters = workers[step_id]
         return run(
             StepContext(
-                step_id="transcribe_audio_folder",
-                agent_id=node["node_id"],
+                step_id=step_id,
+                agent_id=node_id,
+                job_id="audio-job",
                 run_id="audio-test",
-                idempotency_key="audio-test/transcribe",
+                idempotency_key=f"audio-test/{step_id}",
                 config=config.data,
                 environment=environment,
-                message={"body": {"step_input": inputs}},
+                message={"body": {"step_input": ports}},
             ),
             **parameters,
         )
 
+    def execute():
+        completed = {}
+        for step in steps:
+            step_id = step["id"]
+            completed[step_id] = execute_step(step_id, completed)
+        return completed["transcribe_audio_folder"]
+
     return SimpleNamespace(
         execute=execute,
+        execute_step=execute_step,
+        steps=steps,
         calls=calls,
         store=CommittedJsonStore(tmp_path / "run"),
         folder=folder,
-        inputs=inputs,
     )
+
+
+def test_preparation_steps_use_captured_audio_before_transcription(worker):
+    assert [(step["id"], step["label"], step["needs"]) for step in worker.steps] == [
+        ("scan_audio_folder", "Scan audio folder", []),
+        ("prepare_recordings", "Prepare recordings", ["scan_audio_folder"]),
+        ("transcribe_audio_folder", "Transcribe recordings", ["prepare_recordings"]),
+    ]
+    scanned = worker.execute_step("scan_audio_folder", {})
+    (worker.folder / "sample.wav").unlink()
+    prepared = worker.execute_step("prepare_recordings", {"scan_audio_folder": scanned})
+    assert not worker.calls
+    assert not worker.store.path("transcription_result.json").exists()
+
+    worker.execute_step("transcribe_audio_folder", {"prepare_recordings": prepared})
+    assert len(worker.calls) == 3
+    assert worker.store.read_path("transcription_result.json")["file_count"] == 1
 
 
 def test_complete_markdown_transcripts_and_replay(worker):
@@ -228,10 +266,42 @@ def test_missing_word_timing_still_publishes_the_playback_report(worker, monkeyp
     assert len(list(worker.store.path("web/audio").glob("*.wav"))) == 3
 
 
+def test_large_timing_report_is_published_with_the_completed_batch(worker, monkeypatch):
+    # Each model response fits the block journal. The recording's combined
+    # timing data exceeds that limit and still fits the static report.
+    segments = [
+        {"start": 0.0123456789, "end": 0.0987654321, "speaker": 0}
+    ] * 30_000
+    monkeypatch.setattr(
+        "mn_sdk.integrations.block_model_request.runtime_model_json_request",
+        lambda *args, **kwargs: {
+            "choices": [{"finish_reason": "stop", "message": {"content": "Hello"}}],
+            "ctc_timestamps": {
+                "error": None,
+                "words": [{"word": "Hello", "start": 0, "end": 0.1, "speaker": "0"}],
+                "diarization": segments,
+                "speaker_tag_to_diarization_speaker": {"0": 0},
+            },
+        },
+    )
+
+    worker.execute()
+
+    recording = worker.store.read_path("transcription_result.json")["files"][0]
+    assert all(chunk["alignment"]["status"] == "ready" for chunk in recording["chunks"])
+    page = worker.store.path("web/index.html")
+    size = page.stat().st_size
+    assert size > 4 * 1024 * 1024
+    handle = worker.store.read_path("web_ui.json")
+    assert handle["adapter"] == "static_html"
+    assert handle["url"] == page.as_uri()
+    assert handle["metadata"]["size_bytes"] == size
+
+
 def test_empty_folder_never_prepares_model(worker):
     (worker.folder / "sample.wav").unlink()
     with pytest.raises(ValueError, match="no supported"):
-        worker.execute()
+        worker.execute_step("scan_audio_folder", {})
     assert not worker.calls
 
 

@@ -20,19 +20,26 @@
         "type": "local_path"
       }
     ],
-    "introduction": "I'll turn your recordings into Markdown transcripts and prepare a playback report. The report highlights words when their timing is verified. Choose an audio folder or try the included 50-minute recording. Processing requires NVIDIA Blackwell; the default profile needs 96 GiB GPU memory.",
+    "introduction": "Try the included 50-minute recording to see how audio becomes a transcript, or choose your own audio folder. You can review the Markdown even when timed playback is unavailable.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
-      "values": {}
+      "values": {},
+      "introduction": "Choose the folder containing the recordings you want transcribed."
     },
     "sample": {
       "available": true,
-      "expected_output": "Complete Markdown, provenance and a playback report with word highlights where timing is verified.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs"
-      }
+      },
+      "description": "Transcribe the bundled 50-minute Bdb001 recording on a compatible Blackwell computer.",
+      "expected_output": "A Markdown transcript of the recording and playback where timing can be verified."
     },
-    "schema": "otterdesk.setup_guide.v1"
+    "schema": "otterdesk.setup_guide.v1",
+    "run_guidance": {
+      "on_start": "I’ll prepare the speech model and transcribe each recording in sections so you can check what was covered.",
+      "web_ui_ready": "Open the audio transcript and select a recording. Where timing is available, play a passage to check its wording.",
+      "output_ready": "Open the transcripts folder in the output to read the Markdown for a recording."
+    }
   },
   "starter_questions": [
     "How do I transcribe a folder?",

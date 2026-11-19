@@ -407,6 +407,10 @@ def test_live_hooks_publish_counts_and_release_the_worker_on_stop(tmp_path):
     assert json.loads(receipt)["status"] == "stopped"
     assert json.loads(receipt)["entered"] == 1
     assert (output_dir / "people_counts.json").read_bytes() == receipt
+    review = (run_dir / "report.html").read_text()
+    assert (output_dir / "report.html").read_text() == review
+    assert "1 of 1 recorded door crossings" in review
+    assert json.loads(receipt)["recent_crossings"][0]["observed_at"] in review
     assert (output_dir / "people_counts.json").stat().st_mode & 0o777 == 0o644
 
 

@@ -18,6 +18,8 @@ def test_summary_keeps_saved_findings_and_coverage_without_inventing_defects(tmp
     assert summary['overview'] == workspace['executive']
     assert summary['highlights'][0]['title'] == workspace['findings'][0]['statement']
     assert 'Provisional' in summary['highlights'][0]['detail']
+    cited = next(item for item in workspace['evidence'] if item['id'] in workspace['findings'][0]['evidence_ids'])
+    assert f"{cited['path']}, lines {cited['start_line']}–{cited['end_line']}" in summary['highlights'][0]['detail']
     assert '2 files participate' in summary['highlights'][1]['detail']
     assert 'does not establish a defect' in summary['highlights'][1]['detail']
     assert '1/1 selected topics' in summary['limitation']

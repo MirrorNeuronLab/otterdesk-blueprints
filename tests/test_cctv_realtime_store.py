@@ -29,6 +29,10 @@ def test_completed_sources_reports_and_activity_survive_reopening(tmp_path):
     reference = value["source_refs"][0]
     assert (tmp_path / "outputs" / reference).is_file()
     assert CHUNK["content"] in (tmp_path / "outputs/cctv_report.md").read_text()
+    from cctv_operator.payloads.domain.review_report import render
+    review = render(analysis.store, "running")
+    assert reference in review and value["start_time"] in review and "1 of 1 completed windows" in review
+    assert "private-password" not in review
     source = next((tmp_path / "outputs/context_sources/outputs").glob("*.md"))
     assert value["start_time"] in source.read_text()
     assert value["end_time"] in source.read_text()

@@ -18,11 +18,18 @@ case-insensitive audio extensions, with this blueprint's existing limits. Files
 are transcribed sequentially in sorted relative-path order; every chunk and the
 saved transcript for one recording precede inference on the next recording.
 
-One stock domain-operation step owns folder policy and reporting. Reusable audio
-preparation and model request construction belong to `nvidia_transcribe_skill`.
-The SDK owns immutable file snapshots, per-chunk effect journals, model admission,
-placement, installation and result delivery. Domain hooks never invoke Docker or
-implement workflow routing, retries, ACKs or logical completion.
+Three serial stock domain-operation steps expose the work in Run progress.
+**Scan audio folder** discovers supported files and captures immutable snapshots.
+**Prepare recordings** converts captured audio to 16 kHz mono and saves sections
+with their coverage. **Transcribe recordings** consumes those committed sections
+and publishes results. Model loading stays lazy on the first request and appears
+as runtime-reported preparation within the transcription step.
+
+Reusable audio preparation and model request construction belong to
+`nvidia_transcribe_skill`. The SDK owns immutable file snapshots, per-chunk
+effect journals, model admission, placement, installation and result delivery.
+Domain hooks never invoke Docker or implement workflow routing, retries, ACKs or
+logical completion.
 
 Limits are 100 files, 2 GiB total, 256 MiB and two hours per file. Every decoded
 sample is included exactly once in ordered chunks of up to 300 seconds. Native
@@ -40,10 +47,12 @@ committed responses, including when original files change after capture.
 
 Requirements: Linux, NVIDIA Blackwell, conservative 96 GiB GPU memory floor,
 8 CPU cores, 16 GiB CPU RAM and 100 GiB disk. Serving startup checks actual
-Blackwell capability. Python 3.12 workers use a separate image from the
-upstream model environment. Model weights are installed lazily on first
-required request; images contain serving code only. The admitted Job allocation
-covers all worker/model work. Inputs and transcripts are confidential.
+Blackwell capability. All three steps run in the Job's Python 3.12 Docker worker
+sandbox on the admitted node. The worker reads audio from staged inputs and
+writes private run artifacts. FFmpeg decoding has a 180-second deadline. The
+separate model image contains serving code and loads weights on the first
+required request. The admitted Job allocation covers all worker and model work.
+Inputs and transcripts are confidential.
 First-use FlashInfer builds use at most four parallel compilation jobs and one
 NVCC thread per job to bound host memory pressure on unified-memory nodes.
 

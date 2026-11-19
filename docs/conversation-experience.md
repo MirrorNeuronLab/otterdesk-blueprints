@@ -68,8 +68,18 @@ declarations with the existing SDK projection to prevent hidden settings or
 changed sample paths; normal configuration and startup behavior are retained.
 Their sample cards name the actual example, explain what it demonstrates and
 describe the expected handoff without presenting it as a completed result.
-No execution code, runtime schema, tool permissions,
-sample-mode availability, configuration defaults or approval gates change.
+Code verifier and Architecture Advisor also declare explicit sample profiles
+that select their bundled source folders. Own-data setup still starts empty.
+Their usual review and approval steps apply to both sources.
+
+In the setup guide, `run_guidance.on_start` explains what the co-worker will
+do after a confirmed start and why. `web_ui_ready` gives one action for the
+verified primary web UI. `output_ready` gives a first check for a completed
+run with a published output folder. `report_ready` guides the reader through
+a published text report in Chat. Use a short sentence for each supported
+destination. Chat attaches these to existing updates so routine polling stays
+quiet. For roles without sample data, offer the smallest authorized first
+input or a walkthrough. For simulation-only roles, ask only for the simulation.
 
 An introduction explains the responsibility, the useful deliverable and one next
 missing input in two or three short sentences. It keeps confirmed answers and
@@ -89,14 +99,15 @@ explicit.
 | --- | --- | --- |
 | Computer Use (local) | Give a Mac task; optional instructions and native screen/input permissions use their existing controls. No synthetic desktop. | Observed result against the task, action audit and any unfinished or uncertain action. |
 | Procurement Manager | Choose the existing fictional offline quote sample or a real purchasing brief. | Comparable known costs, requirements, missing terms and assumptions; no supplier contact or order. |
-| Architecture Advisor | Choose a local source folder; the synthetic repository is an ordinary folder-selection option, without a sample button. | Priority finding, affected components, source support, counterevidence and proposed engineering validation. |
-| Code verifier | Choose source/docs and rule source; the bundled synthetic folder uses the same approval flow. | Pass/Fail/Unknown coverage, exact approved rule, evidence and an engineering check. |
+| Architecture Advisor | Start with the bundled payment project or choose an authorized local folder. | Priority finding, affected components, source support, counterevidence and proposed engineering validation. |
+| Code verifier | Start with the bundled task app or choose source/docs and rule source. Both paths ask for approval of the exact rules. | Pass/Fail/Unknown coverage, exact approved rule, evidence and an engineering check. |
 | Litigation Analyst | Choose the public synthetic EMC-2 download or authorized matter sources. | Draft support and counterevidence, chronology, partial coverage and a counsel-review question. |
 | VC Assistant | Keep the synthetic startup packets or configure approved company folders. | Dated claims, method assumptions or disagreement, missing diligence and a human review question. |
 | Drug Discovery Research Assistant | Review BACE1 and synthetic seed inputs or approved targets and research profile. | Cycle, candidate identity, actual ranking basis, stage coverage and missing scientific validation. |
 | CT reader | Upload a de-identified volume and choose anatomy; no bundled scan. A format walkthrough needs no inference. | Faithful explanation of saved wording, negation, uncertainty, crop and research limits. |
 | Mac security investigator | Automatic bounded local collection; no source upload or runnable sample mode. | Report availability and generic guidance on coverage; private findings stay in the local report. |
 | CCTV Operator | Secure approved RTSP/RTSPS camera and optional visible goal; no sample camera. | Completed captions and reviewed snapshots when available, capture intervals, citations, index coverage and uncertainty; preview is separate. |
+| Hotel 3D tracker | Start the four-camera simulated lobby. | Check a crossing against the corresponding door count in Hotel lobby live. |
 | ROS AMR Controller | Included warehouse simulation with approved zones and fresh status. | Requested zone, observed arrival/failure/unknown and restrictions; admission is not arrival. |
 | Web Lab Operator | Synthetic dilution series or Markdown text/file with explicit inventory, operations and final volume goals. | Observed simulated steps, source adaptations, final checks and available replay; no experimental validation. |
 | OCR worker | Source folder or supplied newspaper clipping, with optional text grouping. | Completed/failed/skipped counts, per-file text and page comparison when published; partial coverage stays explicit. |

@@ -1,8 +1,4 @@
-"""Opt-in browser gate: real PLR trackers, assets, sockets and Job UI proxy; no model.
-
-Run with the blueprint test environment and pinned PLR dependencies installed.
-WEB_LAB_VISUALIZER_VENDOR selects the build-time vendor folder (assets.json + files).
-"""
+"""Opt-in browser gate with real trackers, the 3D deck and the Job UI proxy."""
 import asyncio
 import contextlib
 import json
@@ -20,10 +16,11 @@ sys.path.insert(0, str(conftest.WORKSPACE / 'mn-api'))
 sys.path.insert(0, str(ROOT / 'web_lab_operator/payloads'))
 from domain.lab import SimulatedLab  # noqa: E402
 from domain.visualizer import LabVisualizer  # noqa: E402
-from domain.protocol import action_for, candidates, goal_results, initial_state  # noqa: E402
+from domain.protocol import WELL_CAPACITY, action_for, candidates, goal_results, initial_state  # noqa: E402
 from domain.supervision import event_rows, risks_for  # noqa: E402
 from domain.presentation import render  # noqa: E402
 from mn_api.web_ui_server import create_app  # noqa: E402
+from mn_sdk_web_ui.readiness import probe_web_ui  # noqa: E402
 import uvicorn  # noqa: E402
 
 
@@ -33,12 +30,14 @@ async def main():
     plan = json.loads((ROOT / 'tests/fixtures/web_lab_operator/expected_sample_plan.json').read_text())
     lab = SimulatedLab(plan)
     await lab.setup()
-    projection = {'status':'running', 'summary':'Synthetic live operation acceptance',
+    projection = {'status':'planning', 'summary':'Synthetic live operation acceptance', 'plates':[],
                   'reason':'', 'current_step':'',
-                  'steps_completed':0, 'steps_total':len(plan['steps']), 'events':[], 'state':lab.observe(), 'operation':None}
-    viewer = LabVisualizer(lab.lh, lambda: projection,
-                           vendor_root=Path(os.environ['WEB_LAB_VISUALIZER_VENDOR']))
+                  'steps_completed':0, 'steps_total':len(plan['steps']), 'events':[],
+                  'state':{'wells':{}, 'tips_remaining':None}, 'operation':None}
+    viewer = LabVisualizer(lambda: {**projection, 'tip_attached':lab.tip_attached})
     port = await viewer.start('127.0.0.1', 0)
+    readiness = await asyncio.to_thread(probe_web_ui, f'http://127.0.0.1:{port}/')
+    assert readiness['ready'], readiness
     handle = {'url':f'http://127.0.0.1:{port}/', 'status':'running',
               'metadata':{'proxy':{'http_ports':[port], 'websocket_ports':[port]},
                           'readiness':{'ready':True}}}
@@ -84,15 +83,21 @@ async def main():
                 if actual != expected:
                     raise AssertionError(f'Expected browser {expected!r}, got {actual!r}')
 
+            await receipt('planning')
+            projection.update(status='running', plates=plan['plates'], state=lab.observe(),
+                              well_capacity_ul=WELL_CAPACITY)
+            await viewer.publish()
             await receipt('ready')
 
             async def tick(operation):
-                projection.update(operation=operation, state=lab.observe())
+                state = lab.observe()
+                projection.update(operation=operation, state=state)
                 await viewer.publish()
-                wells = {lab.well(name).name: state['volume_ul'] for name,state in lab.observe()['wells'].items()
+                wells = {name: value['volume_ul'] for name,value in state['wells'].items()
                          if name in {step.get('source'), step.get('destination'), step.get('well'),
                                      *step.get('alternate_sources', [])}}
                 process.stdin.write((json.dumps({'operation':operation,'wells':wells,
+                                                'tips_remaining':state['tips_remaining'],
                                                 'steps_completed':projection['steps_completed'],
                                                 'steps_total':len(plan['steps'])})+'\n').encode())
                 await process.stdin.drain()
@@ -121,10 +126,11 @@ async def main():
             assert all(goal['met'] for goal in goal_results(plan, lab.observe()))
             final = {'status':'completed', 'steps_total':len(plan['steps']), 'summary':plan['summary'],
                      'reason':'All simulated steps and final volume goals passed.'}
-            (output / 'replay.html').write_text(render(final, {'initial':initial_state(plan), 'events':trace}))
+            (output / 'replay.html').write_text(render(final, {'initial':initial_state(plan), 'events':trace},
+                                                       plan['plates']), encoding='utf-8')
             (output / 'empty.html').write_text(render({'status':'needs_review', 'steps_total':0,
                 'reason':'Clarify the procedure before starting.'},
-                {'initial':{'wells':{}, 'tips_remaining':None}, 'events':[]}))
+                {'initial':{'wells':{}, 'tips_remaining':None}, 'events':[]}, []), encoding='utf-8')
             projection.update(**final, operation=None)
             await viewer.publish()
             process.stdin.write(b'{"done":true}\n')
@@ -135,7 +141,7 @@ async def main():
             await process.stdin.drain()
             await receipt('verified')
             assert await asyncio.wait_for(process.wait(), timeout=10) == 0
-            print('Verified all 20 sample steps, two shortage warnings, live volumes, mix half-cycles, replay, resizing, reconnect and terminal cleanup through the Job UI proxy.')
+            print('Verified the 3D deck, 20 sample steps, live volumes and tips, two shortage warnings, offline replay, resizing and terminal cleanup through the Job UI proxy.')
         finally:
             if process is not None and process.returncode is None:
                 process.kill()

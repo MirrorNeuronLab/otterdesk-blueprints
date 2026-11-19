@@ -19,8 +19,8 @@ and choose a Spark execution PC. Run progress checks the lobby setup, prepares
 guest detection, starts the simulation, and checks the live cameras and tracking.
 Monitoring begins when the co-worker receives live frames and tracking data.
 Open **Hotel lobby live** when it is ready.
-To set up your own cameras, share your camera configuration and a 3D scan of
-your space. Real-camera deployments are configured separately.
+The sample supplies all four cameras. A separate real-camera deployment needs
+a camera configuration and a 3D scan of the space.
 Pause or stop the co-worker to stop simulation and tracking. Resume keeps the
 observed totals for that run and starts fresh guest trips.
 
@@ -29,6 +29,8 @@ From a catalog checkout, run the co-worker on a compatible execution node.
     mn blueprint run ./deepstream_hotel_tracker --detached --follow-seconds 0
 
 ## Review guest traffic
+
+Use **Save crossing report** to download a snapshot of the synthetic lobby. Shutdown saves `report.html` beside `people_counts.json`. The review shows per-door totals, the latest tracking timestamp and up to 16 recent crossings.
 
 The dashboard shows the four live views, current track locations on the floor
 plan, cumulative **People entered** and **People left**, and recent crossings

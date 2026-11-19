@@ -43,6 +43,7 @@ tbody th { font-weight: 500; }
 #crossings li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 7px 0; }
 time { font-size: .875rem; color: #b4bfd1; }
 .note { margin-top: 18px; }
+main > a { color: #9de3c8; }
 
 @media (max-width: 760px) {
   .workspace { grid-template-columns: minmax(0, 1fr); }

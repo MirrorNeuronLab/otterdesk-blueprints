@@ -39,6 +39,11 @@ function cell(tag, value) {
 
 function showCounts(data) {
   const { layout, recent_crossings: recent } = data;
+  const evidence = document.querySelector("#crossing-coverage");
+  const total = data.entered + data.left;
+  evidence.textContent = data.observed_at
+    ? `Last observation ${clock.format(new Date(data.observed_at))}. Showing ${recent.length} of ${total} recorded crossings.`
+    : "Waiting for the first tracking observation.";
   for (const [direction, display] of Object.entries(counters)) {
     display.textContent = data[direction].toLocaleString();
   }

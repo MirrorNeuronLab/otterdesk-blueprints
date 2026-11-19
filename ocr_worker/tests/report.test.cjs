@@ -189,6 +189,9 @@ test("Files list accounts for failures, skipped formats and empty Office pages",
       page.getByText("No text was detected on this page.", { exact: true }),
     ).toBeVisible();
     await expect(page.locator("#document-note")).toContainText("Office pages");
+    await expect(page.locator("#extraction-assessment")).toContainText("Text detected on 0 of 1 page.");
+    await expect(page.locator("#extraction-assessment")).toContainText("Compare page 1 with the original");
+    await expect(page.locator("#extraction-assessment")).toContainText("1 failed and 1 skipped");
     for (const width of [1440, 800, 360, 1280, 360]) {
       await page.setViewportSize({ width, height: 900 });
       assert.equal(

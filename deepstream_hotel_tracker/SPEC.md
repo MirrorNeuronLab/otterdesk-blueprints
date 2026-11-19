@@ -29,6 +29,8 @@ cameras at the same simulation time.
 
 ## Counts and evidence
 
+Use **Save crossing report** to download a snapshot of the synthetic lobby. Shutdown saves `report.html` beside `people_counts.json`. The review shows per-door totals, the latest tracking timestamp and up to 16 recent crossings.
+
 - Use NVIDIA Multi-View 3D Tracking with a 1.7 m person model and calibrated
   camera positions and projection matrices in meters.
 - Count a directional crossing when a tracked trajectory reaches opposite

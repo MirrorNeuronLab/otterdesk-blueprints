@@ -1,9 +1,9 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
   "steps": {
-    "transcribe_audio_folder": {
+    "scan_audio_folder": {
       "hooks": {
-        "operation": "domain.transcription:run"
+        "operation": "domain.audio_preparation:scan"
       },
       "input_schema": {
         "additionalProperties": false,
@@ -35,6 +35,103 @@
           "path": [
             "input_folder"
           ]
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3600
+      },
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "chunk_seconds": {
+            "maximum": 300,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "inventory": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "chunk_seconds",
+          "inventory"
+        ],
+        "type": "object"
+      },
+      "uses": "mn.blocks.domain_operation@1"
+    },
+    "prepare_recordings": {
+      "hooks": {
+        "operation": "domain.audio_preparation:prepare"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "scan": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "scan"
+        ],
+        "type": "object"
+      },
+      "inputs": {
+        "scan": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "scan_audio_folder"
+        }
+      },
+      "limits": {
+        "max_calls": 1,
+        "timeout_seconds": 3600
+      },
+      "output_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "recordings": {
+            "maxItems": 100,
+            "minItems": 1,
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "recordings"
+        ],
+        "type": "object"
+      },
+      "uses": "mn.blocks.domain_operation@1"
+    },
+    "transcribe_audio_folder": {
+      "hooks": {
+        "operation": "domain.transcription:run"
+      },
+      "input_schema": {
+        "additionalProperties": false,
+        "properties": {
+          "prepared_audio": {
+            "type": "object"
+          }
+        },
+        "required": [
+          "prepared_audio"
+        ],
+        "type": "object"
+      },
+      "inputs": {
+        "prepared_audio": {
+          "$ref": "upstream",
+          "path": [
+            "result"
+          ],
+          "step_id": "prepare_recordings"
         }
       },
       "limits": {

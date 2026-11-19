@@ -1,5 +1,12 @@
 # Transcription worker
 
+Run progress shows **Scan audio folder**, **Prepare recordings**, and
+**Transcribe recordings**. The first step captures supported recordings from
+the selected folder. The second converts them to a consistent audio format and
+splits them into sections. Model loading appears under **Transcribe recordings**
+when the runtime reports it. For an existing co-worker, refresh its blueprint
+while it is idle, then start a new run.
+
 While a batch runs, OtterDesk shows audio duration processed and average audio
 seconds per second in Chat's run monitor and workflow detail. Each completed
 audio chunk updates the measurement; an unfinished chunk is not counted. The

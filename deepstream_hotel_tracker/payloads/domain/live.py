@@ -9,7 +9,8 @@ from tempfile import TemporaryDirectory
 from mn_sdk.blueprint.hooks import report_activity
 from mn_sdk.blueprint.services import claim_service_web_ui
 from mn_sdk_common.beacon import mark_agent_progress
-from mn_sdk_common.files import atomic_write_json
+from mn_sdk_common.committed_artifacts import CommittedJsonStore
+from mn_sdk_common.files import atomic_write_json, atomic_write_text
 from mn_sdk_web_ui import resolve_web_ui_binding
 
 from .counting import COUNTS_PATH
@@ -109,7 +110,16 @@ class Hotel:
         finally:
             if self.phase != "failed":
                 self.phase = "stopped"
-            self.publish(self.snapshot())
+            snapshot = self.snapshot()
+            self.publish(snapshot)
+            try:
+                from .review_report import render
+                page = render(snapshot)
+                for path in self.count_locations:
+                    atomic_write_text(CommittedJsonStore(path.parent).path("report.html"), page, mode=0o644)
+            except Exception:
+                report_activity("The crossing counts were saved. The web report could not be published.",
+                                kind="diagnostic", level="warning", run_dir=self.block.store.run_dir)
 
 
 def start(block, _inputs):

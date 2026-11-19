@@ -204,6 +204,8 @@ test('Sections without verified timing play audio and display the saved text', a
     await section.selectOption('1');
     const transcript = page.getByRole('region', { name: 'Scrollable transcript' });
     await expect(transcript).toContainText('Word timing unavailable for this section.');
+    await expect(transcript).toContainText('Audio alignment available for 1 of 2 sections.');
+    await expect(transcript).toContainText(/Listen from \d+:\d{2} to check the first section/);
     await expect(transcript.getByText('<img src=x onerror="alert(1)">')).toBeVisible();
     await expect(transcript.locator('img')).toHaveCount(0);
     await expect(transcript.getByRole('button')).toHaveCount(0);

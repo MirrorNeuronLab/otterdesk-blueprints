@@ -160,6 +160,7 @@ def test_research_rejects_unsupported_claims():
         research.study(context,browser=browser,model=lambda *_:{'facts':[{'quote':'Invented discount'}]})
     result=research.study(context,browser=browser,model=lambda *_:{'facts':[{'quote':'Personalized stories.'}]})
     assert result['facts'][0]['source_url']=='https://bibblio.app'
+    assert research.public_citation('https://bibblio.app/news?access=private#detail') == 'https://bibblio.app/news (query omitted)'
 
 
 def test_peer_identity_and_goal_isolation(monkeypatch):
@@ -279,3 +280,54 @@ def test_group_consumer_scopes_cursors_and_published_members(role, monkeypatch, 
     context['payload']['collaboration_peers'] = peers * 3
     with pytest.raises(ValueError, match='group role'):
         collaboration.peer_updates(context, {})
+
+@pytest.mark.parametrize("role", ["planner", "executor"])
+def test_cycle_reports_replace_the_previous_assessment_and_keep_private_data_out(role, tmp_path, monkeypatch):
+    from hashlib import sha256
+    from types import SimpleNamespace
+    from mn_sdk.blueprints import blueprint_definition, read_blueprint
+
+    service = load(role, "service")
+    cycle = load(role, "cycle")
+    definition = blueprint_definition(read_blueprint(ROOT / ("gtm_" + role)))
+    run, output = tmp_path / "run", tmp_path / "output"
+    runtime = {"run_dir": run, "output_folder": output, "job_data_dir": tmp_path / "job", "config": {},
+               "bundle_layout": SimpleNamespace(source_manifest=lambda: definition)}
+    checked = {"status": "running", "peer": "connected", "website_checked_at": 42, "pending_ideas": 1,
+               "public_facts": [{"claim": "A checked quotation", "source_url": "https://bibblio.app/"}],
+               "pending": 1, "sent": 4, "needs_review": 2}
+    private = "private-recipient@example.invalid"
+    monkeypatch.setattr(service, "source_manifest", lambda _: definition)
+    monkeypatch.setattr(service, "receive_input", lambda *_args, **_kwargs: SimpleNamespace(payload={}))
+    monkeypatch.setattr(service, "current_job_id", lambda: "job")
+    monkeypatch.setattr(service, "runtime_context_for_step", lambda **_: runtime)
+    pages = []
+
+    def observe(context, stop_event):
+        if pages:
+            stop_event.set()
+            raise ValueError(private)
+        return checked
+
+    def run_two_cycles(spec):
+        def execute_cycles(*, context):
+            for _ in range(2):
+                spec.cycle(context)
+                page = (output / "web/index.html").read_bytes()
+                for directory in (run, output):
+                    assert (directory / "web/index.html").read_bytes() == page
+                    handle = json.loads((directory / "web_ui.json").read_text())
+                    assert Path(handle["path"]) == directory / "web/index.html"
+                    assert handle["metadata"]["sha256"] == sha256(page).hexdigest()
+                assert private not in page.decode()
+                pages.append(page.decode())
+        return execute_cycles
+
+    monkeypatch.setattr(service, "create_agent", run_two_cycles)
+    monkeypatch.setattr(cycle, "cycle", observe)
+    service.run_service(SimpleNamespace(config={}))
+    evidence = "A checked quotation" if role == "planner" else "Provider-accepted recipients"
+    assert evidence in pages[0] and evidence not in pages[1]
+    assert "cycle could not finish" in pages[1]
+    status = (output / "marketing_status.json").read_text()
+    assert json.loads(status)["status"] == "needs_review" and private not in status

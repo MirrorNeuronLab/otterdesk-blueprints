@@ -140,6 +140,7 @@ def judgment(status='pass', score=.95, path='store.py', quote='if not name:'):
     handle = 'SRC-' + sha256(json.dumps([path, source_hash, 1, 4]).encode()).hexdigest()[:20]
     return {'action': 'finish', 'status': status, 'confidence': score,
             'explanation': 'The inspected implementation directly establishes this scoped observation.',
+            'recommended_check': '',
             'assessment': {'support': {'pass':'supported', 'fail':'contradicted', 'unknown':'unresolved'}[status],
                 'scope_matches': True, 'conditions_checked': True, 'requirement_kind': 'behavior',
                 'enforcement_evidence_ids': [] if status == 'unknown' else [handle], 'missing_evidence': '', 'reason_code': 'insufficient_evidence'},
@@ -268,9 +269,14 @@ def test_initial_source_folder_is_required_and_has_no_suggested_path():
     field = definition['init_config_review']['fields'][0]
     assert field['path'] == 'inputs.payload.input_folder'
     assert field['required'] is True and field['default'] == ''
-    assert definition['setup_guide']['sample']['available'] is False
+    sample = definition['setup_guide']['sample']
+    assert sample['available'] and sample['values'] == {
+        field['path']: '@/examples/sample_inputs', 'review.rules_mode': 'augment'}
+    assert (PACKAGE / sample['values'][field['path']][2:] / 'SPEC.md').is_file()
     assert definition['setup_guide']['real']['values'][field['path']] == ''
     assert package.document('config')['inputs']['payload']['input_folder'] == ''
+    spec_field = next(item for item in definition['init_config_review']['fields'] if item['path'] == 'review.spec_paths')
+    assert spec_field['type'] == 'textarea' and not spec_field['required']
 
 
 def test_editable_shared_markdown_retains_host_readable_permissions(modules, context):
@@ -937,7 +943,7 @@ def test_optional_web_view_failure_preserves_authoritative_report(modules, conte
     authority.approve(context)
     modules['verification'].verify(context, phase_inputs(context), llm=Model([reading(), judgment(), reading(), judgment()]))
     web = importlib.import_module('domain.workspace_web')
-    def fail(*args):
+    def fail(*args, **kwargs):
         raise RuntimeError('private renderer context')
     monkeypatch.setattr(web, 'render', fail)
     result = modules['reporting'].publish(context, phase_inputs(context))
@@ -977,6 +983,20 @@ def test_doc_selection_preserves_legitimate_specs_and_docs(modules, scope):
     selection = modules['rules'].select_documents({'documents': paths}, scope)
     assert selection['selected_documents'] == (paths[:-1] if scope == 'project_docs' else paths)
     assert len(selection['excluded_documents']) == (1 if scope == 'project_docs' else 0)
+
+
+@pytest.mark.parametrize('prefix', ['', 'repository/'])
+def test_spec_patterns_select_only_matching_documents_under_the_source_root(modules, prefix):
+    paths = ['docs/first.md', 'docs/second.md', 'docs/nested/third.md', 'another/docs/fourth.md', 'docs/notes.txt']
+    capture = {'repository_prefix': prefix, 'documents': [prefix + path for path in paths]}
+    select = modules['rules'].select_documents
+    selection = select(capture, 'current_requirements', ['docs/second.md', 'docs/*.md'])
+    assert selection['selected_documents'] == [prefix + 'docs/second.md', prefix + 'docs/first.md']
+    assert selection['excluded_documents'] == [
+        {'path': prefix + path, 'reason': 'outside_selected_specs'} for path in paths[2:]
+    ]
+    with pytest.raises(ValueError, match=r'docs/\*\.rst'):
+        select(capture, 'current_requirements', ['docs/*.md', 'docs/*.rst'])
 
 
 @pytest.mark.parametrize('key,value', [('max_extraction_packets', 0), ('max_extraction_packets', 2049),

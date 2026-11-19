@@ -7,7 +7,7 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "The sample uses four cameras to track guest movement in a simulated hotel lobby. To set this up with your own cameras, share your camera configuration and a 3D scan of your space.",
+    "introduction": "Start the simulated hotel lobby to follow guests through four camera views. You can watch a crossing and see which entrance or exit it adds to.",
     "sample": {
       "available": true,
       "title": "Live hotel simulation",
@@ -30,7 +30,12 @@
         "description": "Save the latest guest counts here."
       }
     ],
-    "prompt_file": "@/payloads/prompts/setup.md"
+    "prompt_file": "@/payloads/prompts/setup.md",
+    "run_guidance": {
+      "on_start": "I’ll prepare the simulated lobby and connect its four cameras so crossings can be counted by door.",
+      "web_ui_ready": "Open Hotel lobby live to watch a crossing and compare it with the count for that door.",
+      "output_ready": "Open the output folder and check the observation time alongside the saved entry and exit counts."
+    }
   },
   "web_ui": {
     "enabled": true,

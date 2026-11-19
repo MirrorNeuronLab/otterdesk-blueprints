@@ -11,7 +11,7 @@
     "The co-worker counts estimated crossings in a synthetic hotel. Occlusion, missed detections and changing tracker IDs can affect counts."
   ],
   "stages": {
-    "onboarding": "Explain that four cameras track guests in the simulated hotel sample. For a real-camera deployment, ask for the camera configuration and a 3D scan of the space. Keep hardware details out of the welcome message.",
+    "onboarding": "Offer the included simulated lobby as the first run. Explain that four cameras count crossings by door. No camera configuration or scan is needed for this sample. Discuss separate real-camera deployments only when the supervisor asks.",
     "configuring": "Help the supervisor select a computer that meets the run requirements. The output folder is optional. Real-camera deployments are configured separately.",
     "ready": "Explain that Start begins the simulation and tracking. Reading a status or result never starts it.",
     "preparing": "Describe observed worker preparation and wait for live camera and tracking readiness before reporting counts.",

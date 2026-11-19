@@ -50,6 +50,9 @@ class Workspace:
                 elif path == "/status.json":
                     mime = "application/json"
                     body = json.dumps({"layout": layout, **snapshot()}, allow_nan=False).encode()
+                elif path == "/report.html":
+                    from .review_report import render
+                    mime, body = "text/html; charset=utf-8", render(snapshot()).encode()
                 elif path == "/cameras.jpg":
                     mime, body = "image/jpeg", preview()
                     if body is None:
@@ -60,6 +63,8 @@ class Workspace:
                     return
                 self.send_response(200)
                 self.send_header("Content-Type", mime)
+                if path == "/report.html":
+                    self.send_header("Content-Disposition", 'attachment; filename="hotel-crossings.html"')
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Cache-Control", "no-store")
                 self.send_header("X-Content-Type-Options", "nosniff")

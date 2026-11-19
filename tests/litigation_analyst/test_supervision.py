@@ -23,6 +23,11 @@ def test_conflicting_claims_are_questioned_before_ordinary_drafts(workspace):
     assert summary['review']['question'] == handoff['next_review']['question']
     assert 'does not approve' in markdown(result)
     assert 'transaction_appendix.md#evidence-' in markdown(result)
+    from domain.run_summary import render
+    from urllib.parse import quote
+    passage = handoff['next_review']['evidence_ids'][0]
+    assert 'evidence_appendix.md#evidence-' + quote(passage, safe='') in render(result, appendix_ids={passage})
+    assert 'evidence_appendix.md#evidence-' not in render(result, appendix_ids=set())
     assert result['reading_reports'][0]['markdown'].index('## Your next review') < result['reading_reports'][0]['markdown'].index('## What the transaction records show')
 
 

@@ -41,7 +41,11 @@ def test_workspace_pages_and_snapshots_stay_in_the_selected_run_and_goal(tmp_pat
     active = CaptionStore(store.path, job_id="job", source_id="camera", run_id="current")
     save(active, "earlier", start, "red")
     save(active, "later", start + timedelta(seconds=4), "blue")
-    with TestClient(create_app(SimpleNamespace(store=active, monitoring=SimpleNamespace(goal={"revision": 2})))) as client:
+    with TestClient(create_app(SimpleNamespace(store=active, phase="running", monitoring=SimpleNamespace(goal={"revision": 2})))) as client:
+        review = client.get("/api/report.html")
+        assert review.status_code == 200 and "attachment" in review.headers["content-disposition"]
+        assert "captions/earlier.json" in review.text and "captions/later.json" in review.text
+        assert "previous-run" not in review.text and "2 of 2 completed windows" in review.text
         result = client.get("/api/observations", params={"view":"all", "before_id":"later"})
         assert [row["id"] for row in result.json()["observations"]] == ["earlier"]
         assert client.get("/api/observations", params={"view":"goal","revision":1,"before_id":"later"}).status_code == 409

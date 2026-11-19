@@ -42,19 +42,26 @@
         "type": "local_path"
       }
     ],
-    "introduction": "I'll extract text from PDFs, images and Office documents and show which files need review. Choose a source folder or try the included newspaper clipping. Processing requires a Linux NVIDIA computer with at least 48 GiB GPU memory.",
+    "introduction": "Try the included newspaper clipping to compare the printed page with its extracted text, or choose your own document folder. Processing uses a Linux NVIDIA computer with at least 48 GiB of GPU memory.",
     "prompt_file": "@/payloads/prompts/setup.md",
     "real": {
-      "values": {}
+      "values": {},
+      "introduction": "Choose the folder of PDFs, scans or Office files you want to read."
     },
     "sample": {
       "available": true,
-      "expected_output": "Text from the Nasdaq & AMEX newspaper clipping, including the heading and stock listings, with page regions.",
+      "expected_output": "Extracted stock listings and page regions to compare with the clipping.",
       "values": {
         "inputs.payload.input_folder": "@/examples/sample_inputs"
-      }
+      },
+      "description": "Read the bundled Nasdaq & AMEX newspaper clipping."
     },
-    "schema": "otterdesk.setup_guide.v1"
+    "schema": "otterdesk.setup_guide.v1",
+    "run_guidance": {
+      "on_start": "I’ll prepare the OCR model and read the pages so you can compare the extracted words with the original document.",
+      "web_ui_ready": "Open the OCR report, pick a page, and compare the extracted text with the original.",
+      "output_ready": "Open document.md in the output folder to check which files were read and which need review."
+    }
   },
   "starter_questions": [
     "Which file formats can you read?",

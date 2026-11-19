@@ -66,6 +66,12 @@ def test_delivery_retry_preserves_five_call_budget(purchase, monkeypatch):
     final = block.store.read_path('final_artifact.json')
     assert final['llm_generation']['calls_made'] == 5 and result['recommended_action'] == 'consider'
     assert block.store.read(result['state'])['llm_generation']['calls_made'] == 5
+    from hashlib import sha256
+    page = (block.output_directory / "web/index.html").read_bytes()
+    assert block.store.read_path("web_ui.json")["metadata"]["sha256"] == sha256(page).hexdigest()
+    case = final["procurement_case"]
+    assert "fictional suppliers and prices" in page.decode() and case["selected_supplier_id"] in page.decode()
+    assert all((quote.get("supplier_name") or quote["supplier_id"]) in page.decode() for quote in case["quote_outcomes"])
 
 
 def test_checkpoint_cannot_replace_audited_economics(purchase, monkeypatch):

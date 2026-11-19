@@ -114,7 +114,7 @@ def test_ct_compiled_worker_dispatches_exact_native_model_and_publishes_bounded_
     assert saved["model_revision"] == "pinned" and len(result["artifacts"]) == 2
     assert "Not for real diagnosis" in worker.store.path("report.md").read_text()
     from mn_sdk.run_outputs import output_metadata
-    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md'}
+    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md', 'web_ui.json', 'index.html'}
     assert len(json.dumps(first.outputs).encode()) < 2048
     assert "Synthetic model output" not in json.dumps(first.outputs)
     worker.scan.write_bytes(b"changed local file after capture")
@@ -189,8 +189,13 @@ def test_ct_fake_mode_uses_shared_native_schema_and_registers_reports(worker, mo
     report = worker.store.read(result['report'])
     assert report['model_revision'] == 'simulated' and report['answer'].startswith('Simulated output')
     assert report['research_only'] is True and 'Not for real diagnosis' in report['notice']
+    page = worker.store.path("web/index.html").read_bytes()
+    handle = worker.store.read_path("web_ui.json")
+    assert handle["metadata"]["sha256"] == hashlib.sha256(page).hexdigest()
+    assert report["input_sha256"] in page.decode() and report["model_revision"] in page.decode()
+    assert "Simulated model response" in page.decode() and "volume_base64" not in page.decode()
     from mn_sdk.run_outputs import output_metadata
-    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md'}
+    assert {item['name'] for item in output_metadata(worker.store.run_dir)} == {'final_artifact.json', 'report.md', 'web_ui.json', 'index.html'}
     assert worker.execute() == first and worker.calls == []
 
 
@@ -262,3 +267,13 @@ def test_disabling_prepared_sources_preserves_the_native_ct_report(worker):
     result = worker.store.read(worker.execute().outputs["result"])
     assert len(result["artifacts"]) == 2 and worker.store.path("report.md").is_file()
     assert not list(worker.store.path("context_sources").rglob("*.md"))
+
+def test_optional_ct_report_failure_preserves_research_outputs(worker, monkeypatch):
+    import mn_web_report_skill
+    def fail(_document):
+        raise OSError("optional render failure")
+    monkeypatch.setattr(mn_web_report_skill, "render_report_html", fail)
+    result = worker.store.read(worker.execute().outputs["result"])
+    assert worker.store.read(result["report"])["answer"]
+    assert worker.store.path("report.md").is_file() and not worker.store.path("web_ui.json").exists()
+    assert len(worker.calls) == 1

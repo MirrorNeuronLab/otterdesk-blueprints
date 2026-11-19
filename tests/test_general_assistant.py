@@ -145,7 +145,7 @@ def test_native_local_mac_24gb_default_model_and_memory_contract():
     package = read_blueprint(BLUEPRINT)
     compiled = compile_blueprint(package).manifest
     assert package.manifest["name"] == "Computer Use"
-    assert package.manifest["version"] == "3.0.0"
+    assert package.manifest["version"] == "3.1.0"
     assert "general_assistant" in json.loads((ROOT / "index.json").read_text())
     execution = package.document("execution")
     assert execution["requirements"]["os"] == "darwin"
@@ -163,7 +163,9 @@ def test_native_local_mac_24gb_default_model_and_memory_contract():
     # The real native host rejects a longer invocation before any worker starts.
     assert 0 < solve["timeout_seconds"] <= 3600
     assert solve["environment"]["MN_WORKFLOW_STEP_HANDLER"] == "mn_sdk.integrations.block_worker"
-    assert {s["name"] for s in package.document("dependencies")["skills"]} == {"mirrorneuron-computer-use-skill"}
+    assert {s["name"] for s in package.document("dependencies")["skills"]} == {
+        "mirrorneuron-computer-use-skill", "mirrorneuron-web-report-skill"
+    }
     from mn_sdk.version_constraints import version_satisfies
     skill = package.document("dependencies")["skills"][0]
     assert skill["setup"] == "on_install"
@@ -254,11 +256,14 @@ def test_gmail_help_suspends_then_observes_and_completes_once(domain, monkeypatc
     from mn_sdk.integrations.block_publication_files import deliver_files, verified_files
     block = context(tmp_path, step="publish_task")
     exported = verified_files(block, published["published_files"])
-    assert {"result.json", "answer.md", "computer-use-audit.json"} <= set(exported)
+    assert {"result.json", "answer.md", "computer-use-audit.json", "web/index.html", "web_ui.json"} <= set(exported)
     assert not any("private" in name or ".jpg" in name for name in exported)
     block.environment = {"MN_JOB_OUTPUT_DIR": str(tmp_path / "delivered")}
     deliver_files(block, published["published_files"])
     assert (tmp_path / "delivered/answer.md").is_file()
+    review = (tmp_path / "delivered/web/index.html").read_text()
+    assert "Gmail shows Message sent" in review and "Recorded actions" in review
+    assert "synthetic confidential" not in review
 
 
 def test_default_system_provider_is_used_for_vision(domain, monkeypatch, tmp_path):

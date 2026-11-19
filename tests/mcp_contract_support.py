@@ -25,9 +25,9 @@ class BlueprintMcpHarness:
         self.runs, self.calls = {}, []
         self.operations = OperationStore(tmp_path / 'mcp.sqlite3')
         self.runtime = SimpleNamespace(get_job=lambda job_id: self.job, get_run=lambda run_id: self.runs[run_id],
-                                       pause_run=lambda run_id: self.transition(run_id, 'paused'),
-                                       resume_run=lambda run_id: self.transition(run_id, 'running'),
-                                       cancel_run=lambda run_id: self.transition(run_id, 'cancelled'))
+                                       pause_run=lambda run_id, *, request_id: self.transition(run_id, 'paused', request_id),
+                                       resume_run=lambda run_id, *, request_id: self.transition(run_id, 'running', request_id),
+                                       cancel_run=lambda run_id, *, request_id: self.transition(run_id, 'cancelled', request_id))
         self.context = SimpleNamespace(get_profile=lambda job_id: {'mission': self.package.manifest['description']},
                                        get_context=lambda job_id, **kw: {'identity': {'job_id': job_id}, 'evidence': []},
                                        get_run_results=lambda job_id, run_id: {'run_id': run_id, 'results': []})
@@ -43,9 +43,9 @@ class BlueprintMcpHarness:
         self.runs['execution'] = {'run_id': 'execution', 'job_id': self.job_id, 'status': 'running'}
         return self.runs['execution']
 
-    def transition(self, run_id, state):
+    def transition(self, run_id, state, request_id):
         self.runs[run_id]['status'] = state
-        return dict(self.runs[run_id])
+        return {'run_id': run_id, 'request_id': request_id, 'status': 'completed'}
 
     def domain_call(self, config, tool, arguments):
         self.calls.append((tool, arguments))

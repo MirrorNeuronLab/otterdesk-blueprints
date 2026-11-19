@@ -41,6 +41,19 @@ def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
     # A stage profile alone would leave the generic welcome visible.
     assert 20 < len(entry['setup_guide']['introduction']) <= 2000
     assert entry['setup_guide']['introduction'] == package.extension('mn.ui')['setup_guide']['introduction']
+    guidance = entry['setup_guide']['run_guidance']
+    assert guidance == package.extension('mn.ui')['setup_guide']['run_guidance']
+    assert 'on_start' in guidance and ('web_ui_ready' in guidance or 'output_ready' in guidance)
+    assert ('web_ui_ready' in guidance) == bool(entry.get('web_ui', {}).get('enabled'))
+    has_text_report = any(item.startswith('conversation_result_text:') for item in entry.get('capabilities', []))
+    assert ('report_ready' in guidance) == has_text_report
+    assert all(isinstance(line, str) and 15 < len(line) <= 240 and '\n' not in line for line in guidance.values())
+    sample = entry['setup_guide']['sample']
+    if sample['available']:
+        assert sample['description'] and sample['expected_output']
+        for value in sample.get('values', {}).values():
+            if isinstance(value, str) and value.startswith('@/'):
+                assert (root / value[2:]).exists()
     prompt_file = entry['setup_guide']['prompt_file']
     assert prompt_file == '@/payloads/prompts/setup.md'
     prompt = root / prompt_file.removeprefix('@/')

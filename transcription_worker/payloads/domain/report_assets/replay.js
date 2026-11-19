@@ -37,6 +37,12 @@
   };
   const name = (speaker, section = chunkIndex) => speaker === null ? "Unidentified speaker"
     : names[`${section}:${speaker}`] || `Speaker ${record.chunks[section].alignment.speakers.indexOf(speaker) + 1}`;
+  const timed = record.chunks.filter((chunk) => chunk.alignment.status === "ready");
+  const firstUntimed = record.chunks.findIndex((chunk) => chunk.alignment.status !== "ready");
+  const coverage = $("transcript-coverage");
+  coverage.textContent = `Audio alignment available for ${timed.length} of ${record.chunks.length} sections.` +
+    (firstUntimed < 0 ? " Compare important wording with the recording." :
+      ` Listen from ${time(record.chunks[firstUntimed].start_seconds)} to check the first section without word timing.`);
   const report = MNWebReport.createReport({
     actions: [{ id: "details", label: "Recording details", icon: "info" }],
     onAction(id, trigger) {
@@ -44,7 +50,7 @@
       editor = null;
       report.openInspector("Recording details", `<p>${escape(record.source)}</p>
         <p>${time(record.duration_seconds)} · ${record.chunks.length} sections</p>
-        <p>Generated transcript. Review important wording against the recording.</p>
+        <p>${escape(coverage.textContent)}</p>
         <p>Word highlights use the model’s audio alignment. Overlapping speakers can be active together.</p>
         <p>Speaker labels restart in each section. They do not identify a person across sections or recordings.</p>
         <p>Custom names are saved only in this browser for this run. They do not change the original transcript.</p>
@@ -85,7 +91,7 @@
     const { status, words = [] } = chunk.alignment;
     const hasTiming = status === "ready";
     $("follow").disabled = !hasTiming;
-    transcript.replaceChildren();
+    transcript.replaceChildren(coverage);
     currentWords = new Set();
     wordNodes = [];
     prefixEnds = [];

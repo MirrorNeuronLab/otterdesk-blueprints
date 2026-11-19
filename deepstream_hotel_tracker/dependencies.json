@@ -1,6 +1,13 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/dependencies.schema.json",
-  "skills": [],
+  "skills": [
+    {
+      "type": "pip",
+      "source": "gar",
+      "name": "mirrorneuron-web-report-skill",
+      "version": ">=1.4.1.dev14,<2"
+    }
+  ],
   "agents": [
     {
       "type": "pip",

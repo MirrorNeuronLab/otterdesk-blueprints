@@ -156,7 +156,9 @@ def test_structural_baseline_has_source_linked_edges_cycles_and_bounded_dsm(modu
 def test_desktop_setup_only_asks_for_an_unfilled_source_folder(modules):
     ui=catalog_record(read_blueprint(BLUEPRINT), 'software_architecture_advisor')
     guide=ui['setup_guide']
-    assert guide['sample']['available'] is False
+    sample = guide['sample']
+    assert sample['available'] and sample['values'] == {'inputs.payload.input_folder': '@/examples/sample_repository'}
+    assert (BLUEPRINT / sample['values']['inputs.payload.input_folder'][2:] / 'src/payments/checkout.py').is_file()
     fields = [field for field in guide['fields'] if field['path'] != 'inputs.payload.supervisor_instructions']
     assert len(fields) == 1
     memory = next(field for field in guide['fields'] if field['path'] == 'inputs.payload.supervisor_instructions')
