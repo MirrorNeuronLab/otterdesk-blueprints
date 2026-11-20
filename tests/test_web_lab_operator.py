@@ -31,7 +31,7 @@ def equipment(monkeypatch):
     })
 
 
-def test_bundle_compiles_preflight_and_live_service_and_exports_both_usd_layers(tmp_path):
+def test_bundle_compiles_preflight_and_live_service_and_exports_all_usd_layers(tmp_path):
     blueprint = read_blueprint(ROOT)
     compiled = compile_blueprint(blueprint)
     assert compiled.manifest["service"]["run_until"] == "manual_stop"
@@ -42,10 +42,15 @@ def test_bundle_compiles_preflight_and_live_service_and_exports_both_usd_layers(
     assert blueprint.extension("mn.ui")["web_ui"]["adapter"] == "external-url"
     assert set(blueprint.document("contracts")["inputs"]) == {"supervisor_instructions"}
     with ZipFile(export_blueprint(blueprint, tmp_path / "workcell.zip")) as bundle:
-        assert sorted(name for name in bundle.namelist() if name.endswith(".usda")) == [
+        assert sorted(name for name in bundle.namelist() if name.endswith((".usda", ".usdc"))) == [
             "payloads/isaac/assets/andrew_plus.usda",
+            "payloads/isaac/assets/dilution_station.usda",
+            "payloads/isaac/assets/vendor/erlenmeyer_flask.usdc",
+            "payloads/isaac/assets/vendor/mk3_frame.usdc",
             "payloads/isaac/assets/web_lab.usda",
         ]
+        assert "payloads/isaac/assets/vendor/CERN-OHL-S-2.0.txt" in bundle.namelist()
+        assert "payloads/isaac/assets/vendor/NOTICE.txt" in bundle.namelist()
 
 
 def test_actual_stage_joints_remain_editable_in_the_session_layer(equipment):
@@ -67,6 +72,92 @@ def test_actual_stage_joints_remain_editable_in_the_session_layer(equipment):
     assert not UsdUtils.ComputeAllDependencies(str(path))[2]
 
 
+def test_dilution_moves_tip_and_changes_the_composed_stage(equipment):
+    pytest.importorskip("pxr")
+    from pxr import Usd, UsdGeom, UsdShade
+    from domain.dilution import WELLS
+    from domain.dilution_scene import STATION, StageDilution, liquid_color
+    from domain.isaac_scene import StageEquipment
+
+    path = ROOT / "payloads" / "isaac" / "assets" / "web_lab.usda"
+    stage = Usd.Stage.Open(str(path))
+    StageEquipment(stage)
+    station = StageDilution(stage)
+    tip = UsdGeom.Imageable.Get(stage, f"{STATION}/Carriage/Head/Loaded")
+    well_paths = [f"{STATION}/Wells/{name}" for name, _ in WELLS]
+    liquids = [UsdGeom.Cylinder.Get(stage, f"{well}/Liquid") for well in well_paths]
+    assert stage.GetPrimAtPath(f"{STATION}/Frame/Extrusions").IsA(UsdGeom.Mesh)
+    assert stage.GetPrimAtPath("/World/Flask/Glass").IsA(UsdGeom.Mesh)
+
+    station.apply(equipment.sample.observe().pose)
+    initial_head_height = station.head.Get()[2]
+    starting_volume = liquids[0].GetHeightAttr().Get()
+    assert tip.ComputeVisibility() == "invisible"
+    equipment.sample.advance(3.4)
+    station.apply(equipment.sample.observe().pose)
+    assert station.head.Get()[2] < initial_head_height
+    assert liquids[0].GetHeightAttr().Get() < starting_volume
+    assert tip.ComputeVisibility() == "inherited"
+
+    equipment.sample.advance(3.2)
+    station.apply(equipment.sample.observe().pose)
+    assert station.carriage.Get()[0] == pytest.approx(-.0725)
+
+    equipment.sample.advance(100)
+    station.apply(equipment.sample.observe().pose)
+    for well, liquid, expected in zip(well_paths, liquids, (1.0, .5, .25, .125)):
+        bound, _ = UsdShade.MaterialBindingAPI(liquid.GetPrim()).ComputeBoundMaterial()
+        assert str(bound.GetPath()) == f"{well}/Mixture"
+        tint = UsdShade.Shader.Get(stage, f"{well}/Mixture/Preview").GetInput("diffuseColor").Get()
+        assert tuple(tint) == pytest.approx(liquid_color(expected))
+    assert tip.ComputeVisibility() == "invisible"
+    fresh_stage = Usd.Stage.Open(str(path))
+    reloaded = StageDilution(fresh_stage)
+    assert reloaded.carriage.Get()[0] == pytest.approx(-.2175)
+
+
+def test_sample_builds_a_dye_gradient_and_conserves_mixtures(equipment):
+    sample = equipment.sample
+    actions = set()
+    for _ in range(170):
+        observed = sample.observe()
+        actions.add(observed.action)
+        liquids = (*observed.pose.mixtures, observed.pose.tip)
+        assert sum(liquid.volume for liquid in liquids) == pytest.approx(5.0)
+        assert sum(liquid.dye for liquid in liquids) == pytest.approx(2.0)
+        sample.advance(.17)
+    assert {"Drawing from Stock", "Moving to 1:2", "Dispensing and mixing 1:8"} <= actions
+    result = sample.observe().snapshot()
+    assert result["status"] == "complete"
+    assert result["completed_transfers"] == result["total_transfers"] == 3
+    assert [well["concentration_percent"] for well in result["wells"]] == [100, 50, 25, 12.5]
+
+
+def test_sample_stop_and_replay_follow_the_rendered_revision(equipment):
+    from domain.equipment import CommandError
+    from domain.workspace import LiveFrames
+
+    frames = LiveFrames(equipment.joints)
+    equipment.advance(3.4)
+    before = equipment.sample.observe().pose
+    frames.publish(equipment.snapshot(1, equipment.position, False), {})
+    with pytest.raises(CommandError, match="Stop the current sample"):
+        frames.submit({"revision": 0, "command": {"action": "restart_sample"}})
+    assert frames.submit({"revision": 0, "command": {"action": "stop_sample"}}) == 1
+    equipment.apply(*frames.command())
+    equipment.advance(2)
+    assert equipment.sample.observe().pose == before
+    stopped = equipment.snapshot(2, equipment.position, False)
+    assert stopped["sample"]["status"] == "stopped"
+    frames.publish(stopped, {})
+    assert frames.submit({"revision": 1, "command": {"action": "restart_sample"}}) == 2
+    equipment.apply(*frames.command())
+    restarted = equipment.snapshot(3, equipment.position, False)
+    assert restarted["sample"]["status"] == "running"
+    assert restarted["sample"]["completed_transfers"] == 0
+    assert [well["concentration_percent"] for well in restarted["sample"]["wells"]] == [100, 0, 0, 0]
+
+
 @pytest.mark.parametrize("message", [
     [],
     {"action": "move", "joint": "lift", "target": True},
@@ -77,6 +168,7 @@ def test_actual_stage_joints_remain_editable_in_the_session_layer(equipment):
     {"action": "move", "joint": ["lift"], "target": 540},
     {"action": "light", "enabled": "false"},
     {"action": "home", "path": "/World"},
+    {"action": "restart_sample", "steps": []},
 ])
 def test_rejects_values_and_fields_outside_manual_controls(equipment, message):
     from domain.equipment import CommandError, command_from_message

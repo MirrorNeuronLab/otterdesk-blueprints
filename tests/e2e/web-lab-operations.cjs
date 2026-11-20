@@ -23,6 +23,16 @@ async function main() {
     await waitLive();
     await page.getByRole('img', {name: 'Overview camera of the simulated workcell'}).waitFor();
     await page.waitForFunction(() => document.querySelector('#frame').naturalWidth > 0);
+
+    const sampleStatus = page.locator('#sample-status');
+    await sampleStatus.filter({hasText: /^Complete$/}).waitFor({timeout: 120000});
+    assert.deepEqual(await page.locator('#sample-wells dd').allTextContents(), ['100%', '50%', '25%', '12.5%']);
+    await button('Run sample again').click();
+    await waitForText(sampleStatus, /^Running$/);
+    assert.deepEqual(await page.locator('#sample-wells dd').allTextContents(), ['100%', '0%', '0%', '0%']);
+    await button('Stop sample').click();
+    await waitForText(sampleStatus, /^Stopped$/);
+
     await button('Home arm').click();
     await waitReady();
     await waitForText(reading('lift'), /^450 mm$/);
@@ -83,7 +93,7 @@ async function main() {
     await button('Turn light off').click();
     await waitForText(page.locator('#light-state'), /^Off$/);
     assert.deepEqual(errors, []);
-    console.log('Verified live views, motion, hold, reconnect, lid, light and responsive controls.');
+    console.log('Verified dye dilution, replay, stop, live views, manual controls and resizing.');
   } finally {
     await browser.close();
   }
