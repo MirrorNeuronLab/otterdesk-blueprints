@@ -58,7 +58,11 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
 
 @pytest.mark.parametrize(
     ("blueprint_id", "display_name"),
-    [("ocr_worker", "OCR worker"), ("transcription_worker", "Transcription worker")],
+    [
+        ("ocr_worker", "OCR worker"),
+        ("transcription_worker", "Transcription worker"),
+        ("deepstream_hotel_tracker", "Hotel 3D tracker"),
+    ],
 )
 def test_worker_catalog_exposes_identity_and_default_output_folder(blueprint_id, display_name):
     root = Path(__file__).resolve().parents[1]
@@ -168,9 +172,9 @@ def test_catalog_categories_use_five_supervisory_groups():
     ]
     expected = {
         "Business": {"vc_assistant", "litigation_analyst", "procurement_manager", "gtm_planner", "gtm_executor"},
-        "Research": {"research_assistant", "drug_discovery_research_assistant"},
+        "Research": {"ct_reader", "drug_discovery_research_assistant"},
         "Engineering": {"software_architecture_advisor", "mac_security_investigator"},
-        "Physical AI": {"cctv_operator", "ros_amr_controller"},
+        "Physical AI": {"cctv_operator", "ros_amr_controller", "deepstream_hotel_tracker"},
     }
     allowed = {item["name"] for item in categories}
     for entry in read_catalog(root / "index.json"):
