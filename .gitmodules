@@ -10,6 +10,10 @@
 	path = ct_reader
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-ct_reader.git
 	branch = main
+[submodule "deepstream_hotel_tracker"]
+	path = deepstream_hotel_tracker
+	url = https://github.com/MirrorNeuronLab/mn-blueprint-deepstream_hotel_tracker.git
+	branch = main
 [submodule "drug_discovery_research_assistant"]
 	path = drug_discovery_research_assistant
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-drug_discovery_research_assistant.git

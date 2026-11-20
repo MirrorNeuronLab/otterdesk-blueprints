@@ -1,1 +1,0 @@
-"""Blueprint-specific domain behavior."""
