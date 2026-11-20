@@ -8,7 +8,7 @@ its own manifest, configuration, payloads, README, and user-facing `SPEC.md`.
 Domain hooks access models through `mn_sdk.blueprint.models`. Each blueprint declares its product behavior, skills and SDK components. RAG and OCR components own the model specifications for their operations.
 
 All published blueprints declare the Markdown context profile.
-Architecture, Litigation, VC, Computer Use, Web Lab Operator and Mac security investigator use Membrane v2
+Architecture, Litigation, VC, Computer Use and Mac security investigator use Membrane v2
 runtime recall. Drug Discovery uses Membrane source intelligence for input, output
 and procedure questions; other blueprints disable worker context consumers. Computer
 Use retains Job-private navigation hints through its memory engine. See
@@ -183,7 +183,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`ct_reader`](ct_reader/README.md) | Research | Experimental NVIDIA CT reader with Chat uploads and local NIfTI preview. Not for real diagnosis. Requires one NVIDIA GPU with 48 GiB memory. |
 | [`ocr_worker`](ocr_worker/README.md) | Other | Extracts text and page regions from images and PDFs using lazy Nemotron OCR v2. Requires a 48 GiB NVIDIA GPU. |
 | [`transcription_worker`](transcription_worker/README.md) | Other | Transcribes an audio folder to Markdown using lazy Nemotron 3.5 NVFP4 on Blackwell. Includes the full Bdb001 WAV sample; defaults to 96 GiB GPU memory. |
-| [`web_lab_operator`](web_lab_operator/README.md) | Research | Turns Markdown procedures into a PyLabRobot liquid-handling simulation with a live 3D workcell, Membrane experience recall, bounded source adaptation and saved review evidence. |
+| [`web_lab_operator`](web_lab_operator/README.md) | Research | Monitors a live OpenUSD workcell in Isaac Sim and lets the operator position the simulated arm and inspection equipment from two camera views. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
 | [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |

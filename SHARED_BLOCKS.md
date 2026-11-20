@@ -43,7 +43,7 @@ copied into input artifacts.
 | CCTV Operator | Native NVIDIA DockerCompose service plus one SDK-monitored streaming operator, durable caption accounts and final activity publication |
 | Microduck Controller | Existing controlled-operation, event-processing and monitored-service blocks; shared atomic state publication; simulator and operator command policy retained |
 | ROS AMR Controller | Already uses stock Compose lifecycle; only robot-specific result content remains in its finalizer |
-| Web Lab Operator | Shared input capture/staging, structured assessment, managed model journals, scoped checkpoints, Membrane TextMemory/typed recall, Web UI binding/claims and verified publication; liquid-handling and experience-selection policy remain domain-owned |
+| Web Lab Operator | Stock monitored service, Web UI binding and claims, and atomic snapshot publication. The blueprint owns USD assets, simulated controls and observed equipment state. |
 | GTM Planner | Existing shared runtime configuration, workflow storage and monitored lifecycle; campaign planning/approval policy retained |
 | GTM Executor | Existing shared runtime configuration and monitored lifecycle; recipient suppression, transactional send receipts and uncertain-send policy retained |
 

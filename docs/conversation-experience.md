@@ -15,7 +15,7 @@ All published packages expose optional app guidance at `payloads/prompts/convers
 | Mac security investigator | Explanation preferences | Capabilities-only Chat; private evidence remains in local ledger/Membrane. |
 | CCTV Operator | Bounded Job caption history | Secure camera source, monitoring goals and completed NVIDIA video-window observations. |
 | ROS AMR Controller | Existing bounded Job memory | Existing zone aliases and restrictive rules; live motion and operation receipts. |
-| Web Lab Operator | Explanation preferences | Frozen Markdown, observed simulation state and saved checks; no physical lab or assay evidence. |
+| Web Lab Operator | Explanation preferences | Current or saved Isaac Sim equipment observations and applied controls. |
 | OCR worker | No app-managed persistent instructions | Saved per-file text, page regions, source coverage and explicit failed/skipped inputs. |
 | Transcription worker | No app-managed persistent instructions | Saved transcripts, complete chunk coverage and verified optional alignment; speaker identity is not established. |
 | GTM planner (local) | No app-managed persistent instructions | Public evidence, idea review and bounded aggregate status; no contacts or inbox contents. |
@@ -109,7 +109,7 @@ explicit.
 | CCTV Operator | Secure approved RTSP/RTSPS camera and optional visible goal; no sample camera. | Completed captions and reviewed snapshots when available, capture intervals, citations, index coverage and uncertainty; preview is separate. |
 | Hotel 3D tracker | Start the four-camera simulated lobby. | Check a crossing against the corresponding door count in Hotel lobby live. |
 | ROS AMR Controller | Included warehouse simulation with approved zones and fresh status. | Requested zone, observed arrival/failure/unknown and restrictions; admission is not arrival. |
-| Web Lab Operator | Synthetic dilution series or Markdown text/file with explicit inventory, operations and final volume goals. | Observed simulated steps, source adaptations, final checks and available replay; no experimental validation. |
+| Web Lab Operator | Start the bundled live workcell on a compatible NVIDIA computer. | Overhead and overview cameras, observed joint positions, manual controls and a saved state snapshot. |
 | OCR worker | Source folder or supplied newspaper clipping, with optional text grouping. | Completed/failed/skipped counts, per-file text and page comparison when published; partial coverage stays explicit. |
 | Transcription worker | Audio folder or full 50-minute Bdb001 recording on compatible Blackwell hardware. | Markdown coverage first; optional playback requires verified alignment, and speaker labels are local to a chunk. |
 | GTM planner (local) | Website and goal, with co-worker membership managed in Collaboration. | Source-backed idea and actual review/handoff status; planned metrics are not results. |
