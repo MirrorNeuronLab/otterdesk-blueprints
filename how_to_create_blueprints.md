@@ -61,7 +61,7 @@ Worker groups can select a platform worker with their existing `uses` declaratio
 | `host_local` | A native worker, its declared Python environment and any host requirements. |
 | `docker_worker` | A worker image or build context and the command or Python block that runs inside the container. |
 | `openshell` | An image or build context and a scoped sandbox policy for the required executables and destinations. |
-| `docker_compose` | A payload-relative Compose context, its file, services and readiness checks. See `ros_amr_controller/execution.json` for a complete example. |
+| `docker_compose` | A payload-relative Compose context, its file, services and readiness checks. See the [ROS AMR Controller execution manifest](https://github.com/MirrorNeuronLab/mn-blueprint-ros_amr_controller/blob/main/execution.json) for a complete example. |
 
 Keep the platform lifecycle out of Python hooks. Start, pause, resume and stop go through the Job and Run controls used by the desktop and `mn`. An adapter prepares or stops only resources owned by the corresponding definition or Run. For a service, wait for its serving receipt before treating it as ready. For a batch, wait for the terminal Run and verify the required artifacts.
 

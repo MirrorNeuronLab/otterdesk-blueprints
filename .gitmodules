@@ -42,10 +42,6 @@
 	path = procurement_manager
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-procurement_manager.git
 	branch = main
-[submodule "ros_amr_controller"]
-	path = ros_amr_controller
-	url = https://github.com/MirrorNeuronLab/mn-blueprint-ros_amr_controller.git
-	branch = main
 [submodule "software_architecture_advisor"]
 	path = software_architecture_advisor
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-software_architecture_advisor.git

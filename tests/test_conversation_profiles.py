@@ -72,7 +72,7 @@ def test_stage_profile_and_memory_contract_are_consumed_by_desktop(folder):
         # feature. Both bounded responders and ordinary read-only roles may
         # intentionally have no app-managed supervisor instructions.
         assert 'supervisor_instructions' not in package.document('contracts')['inputs']
-        if folder in {'cctv_operator', 'ros_amr_controller'}:
+        if folder == 'cctv_operator':
             assert entry['response_service']['agent']['kind'] == 'bounded_mcp'
 
 

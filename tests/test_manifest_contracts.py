@@ -33,27 +33,26 @@ def test_indexed_blueprints_leave_host_output_copy_to_runtime():
             source = json.loads((package / document).read_text(encoding="utf-8"))
             assert "output_copy" not in json.dumps(source), (name, document)
         config = json.loads((package / "config/default.json").read_text(encoding="utf-8"))
-        if name != "ros_amr_controller":
-            execution = json.loads((package / "execution.json").read_text(encoding="utf-8"))
-            folder_path = config["outputs"]["folder_path"]
-            # Computer Use keeps its task result and audit in Documents.
-            output_root = "~/Documents" if name == "general_assistant" else "~/Downloads"
-            assert folder_path == f"{output_root}/{execution['job_name']}", name
-            payload_folder = config.get("inputs", {}).get("payload", {}).get("output_folder")
-            if payload_folder:
-                assert payload_folder == folder_path, name
-            contract = json.loads((package / "contracts.json").read_text(encoding="utf-8"))
-            example = contract.get("inputs", {}).get("output_folder", {}).get("example")
-            if example:
-                assert example == folder_path, name
-            ui_path = package / "extensions/ui.json"
-            if ui_path.is_file():
-                ui = json.loads(ui_path.read_text(encoding="utf-8"))
-                guides = [ui.get("init_config_review", {}), ui.get("setup_guide", {})]
-                for guide in guides:
-                    for field in guide.get("fields", []):
-                        if field.get("path") == "outputs.folder_path" and field.get("default"):
-                            assert field["default"] == folder_path, name
+        execution = json.loads((package / "execution.json").read_text(encoding="utf-8"))
+        folder_path = config["outputs"]["folder_path"]
+        # Computer Use keeps its task result and audit in Documents.
+        output_root = "~/Documents" if name == "general_assistant" else "~/Downloads"
+        assert folder_path == f"{output_root}/{execution['job_name']}", name
+        payload_folder = config.get("inputs", {}).get("payload", {}).get("output_folder")
+        if payload_folder:
+            assert payload_folder == folder_path, name
+        contract = json.loads((package / "contracts.json").read_text(encoding="utf-8"))
+        example = contract.get("inputs", {}).get("output_folder", {}).get("example")
+        if example:
+            assert example == folder_path, name
+        ui_path = package / "extensions/ui.json"
+        if ui_path.is_file():
+            ui = json.loads(ui_path.read_text(encoding="utf-8"))
+            guides = [ui.get("init_config_review", {}), ui.get("setup_guide", {})]
+            for guide in guides:
+                for field in guide.get("fields", []):
+                    if field.get("path") == "outputs.folder_path" and field.get("default"):
+                        assert field["default"] == folder_path, name
 
 
 @pytest.mark.parametrize(
@@ -95,7 +94,7 @@ def test_catalog_blueprints_declare_job_response_service():
         assert entry["response_service"]["enabled"] == manifest["response_service"]["enabled"], blueprint_id
         assert entry["mcp"]["profile"] == manifest["mcp"]["profile"] == "mn.mcp.supervision.v1", blueprint_id
         assert manifest["response_service"]["enabled"] is True, blueprint_id
-        if blueprint_id in {"ros_amr_controller", "cctv_operator"}:
+        if blueprint_id == "cctv_operator":
             assert manifest["response_service"]["agent"]["kind"] == "bounded_mcp"
         else:
             assert manifest["response_service"] == {"enabled": True}, blueprint_id
@@ -174,7 +173,7 @@ def test_catalog_categories_use_five_supervisory_groups():
         "Business": {"vc_assistant", "litigation_analyst", "procurement_manager", "gtm_planner", "gtm_executor"},
         "Research": {"ct_reader", "drug_discovery_research_assistant"},
         "Engineering": {"software_architecture_advisor", "mac_security_investigator"},
-        "Physical AI": {"cctv_operator", "ros_amr_controller", "deepstream_hotel_tracker"},
+        "Physical AI": {"cctv_operator", "deepstream_hotel_tracker"},
     }
     allowed = {item["name"] for item in categories}
     for entry in read_catalog(root / "index.json"):

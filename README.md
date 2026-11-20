@@ -194,7 +194,6 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`litigation_analyst`](litigation_analyst/README.md) | Business | Investigates legal-document folders with exact citations, bounded hypotheses, graph tools, and a draft audit trail. Defaults to public EMC2 sample data on Docker workers. |
 | [`financial_advisor`](financial_advisor/README.md) | Business | Reviews financial documents and prepares a grounded advisory packet. |
 | [`vc_assistant`](vc_assistant/README.md) | Business | Produces early diligence reports from startup document packets. |
-| [`ros_amr_controller`](ros_amr_controller/README.md) | Physical AI | Operates the warehouse robot simulation through bounded MCP controls. |
 
 ## Folder Contract
 
