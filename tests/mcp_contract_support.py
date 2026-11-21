@@ -65,7 +65,10 @@ class BlueprintMcpHarness:
 
     def assert_shared_contract(self):
         tools = asyncio.run(self.server.list_tools())
-        assert {tool.name for tool in tools} == COMMON_TOOLS | self.declaration['tools'].keys()
+        expected_tools = COMMON_TOOLS | self.declaration['tools'].keys()
+        if self.declaration.get('mailbox'):
+            expected_tools |= {'list_mailbox_messages', 'send_mailbox_message', 'acknowledge_mailbox_message'}
+        assert {tool.name for tool in tools} == expected_tools
         assert all(tool.input_schema and tool.output_schema and tool.description for tool in tools)
         manual = self.call('get_user_manual')['data']
         raw = (self.package.root / 'knowledge/user_manual.md').read_bytes()
