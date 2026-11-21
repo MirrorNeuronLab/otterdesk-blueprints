@@ -4,6 +4,7 @@ from copy import deepcopy
 import importlib
 import json
 import math
+import shutil
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from hashlib import sha256
@@ -135,8 +136,8 @@ def reading(path='store.py', start=1, end=4):
     return {'action': 'read', 'path': path, 'start_line': start, 'end_line': end}
 
 
-def judgment(status='pass', score=.95, path='store.py', quote='if not name:'):
-    source_hash = sha256((IMPLEMENTATION if quote in IMPLEMENTATION else quote).encode()).hexdigest()
+def judgment(status='pass', score=.95, path='store.py', quote='if not name:', implementation=IMPLEMENTATION):
+    source_hash = sha256((implementation if quote in implementation else quote).encode()).hexdigest()
     handle = 'SRC-' + sha256(json.dumps([path, source_hash, 1, 4]).encode()).hexdigest()[:20]
     return {'action': 'finish', 'status': status, 'confidence': score,
             'explanation': 'The inspected implementation directly establishes this scoped observation.',
@@ -270,8 +271,10 @@ def test_initial_source_folder_is_required_and_has_no_suggested_path():
     assert field['path'] == 'inputs.payload.input_folder'
     assert field['required'] is True and field['default'] == ''
     sample = definition['setup_guide']['sample']
-    assert sample['available'] and sample['values'] == {
-        field['path']: '@/examples/sample_inputs', 'review.rules_mode': 'augment'}
+    assert sample['available'] and sample['values'][field['path']] == '@/examples/sample_inputs'
+    assert sample['values']['review.rules_mode'] == 'augment'
+    checks = json.loads(sample['values']['inputs.payload.verification_scope'])['checks']
+    assert {c['kind'] for c in checks} == {'schema_cases', 'json_contract', 'schema_workload'}
     assert (PACKAGE / sample['values'][field['path']][2:] / 'SPEC.md').is_file()
     assert definition['setup_guide']['real']['values'][field['path']] == ''
     assert package.document('config')['inputs']['payload']['input_folder'] == ''
@@ -1112,10 +1115,12 @@ def test_catalog_compiles_and_boundary_contracts():
     assert definition['mcp']['profile'] == 'mn.mcp.supervision.v1'
     assert definition['metadata']['web_ui']['adapter'] == 'static_html'
     compiled = compile_blueprint(package).manifest
-    assert len(compiled['workflow']['steps']) == 5
+    assert len(compiled['workflow']['steps']) == 6
     steps = {s['id']: s for s in definition['workflow']['steps']}
     assert steps['review_software_rules']['needs'] == ['extract_software_rules']
     assert steps['verify_software_rules']['needs'] == ['review_software_rules']
+    assert steps['coordinate_verification']['needs'] == ['review_software_rules']
+    assert set(steps['publish_rules_report']['needs']) == {'verify_software_rules', 'coordinate_verification'}
     registry = definition['agents']['registry']
     assert set(registry).isdisjoint(s['id'] for s in definition['workflow']['steps'])
     for ident in registry:
@@ -1204,7 +1209,7 @@ def test_activity_compilation_has_no_hidden_phase_block_or_runner_deadlines():
     assert all('timeout_seconds' not in step['control'] for step in compiled['workflow']['steps'])
     assert all('timeout_seconds' not in block['limits'] for block in compiled['metadata']['mn_blocks_lock']['steps'].values())
     workers = [node for node in compiled['agents']['nodes'] if node.get('agent_type') == 'executor']
-    assert len(workers) == 5
+    assert len(workers) == 6 + len(compiled['workflow']['child_workflows']['coordinate_verification']['templates'])
     assert all('timeout_seconds' not in node['config'] for node in workers)
     assert all(node['config']['agent_beacon_required'] for node in workers)
 
@@ -1524,7 +1529,35 @@ def test_a_new_pending_review_invalidates_even_a_matching_older_approval(modules
         modules['rule_review'].require_approved_rules(context, rules)
 
 
-def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, context, authority, monkeypatch, tmp_path):
+def workflow_comparison(source, tmp_path, rule_id, scenario):
+    from domain.ci_evidence import junit_receipt
+    from domain.git_comparison import BUNDLE_NAME, BUNDLE_SCHEMA, source_digest
+
+    folder = tmp_path / 'comparison'
+    folder.mkdir()
+    descriptor = {'schema_version': BUNDLE_SCHEMA}
+    if scenario == 'ci-conflict':
+        junit = tmp_path / 'ci.xml'
+        junit.write_text('<testsuite><testcase name="reject_empty_name"><failure/></testcase></testsuite>')
+        mapping = tmp_path / 'ci-map.json'
+        mapping.write_text(json.dumps({rule_id: ['reject_empty_name']}))
+        descriptor['ci'] = junit_receipt(junit, mapping, 'b' * 40)
+    for side, commit in [('base', 'a' * 40), ('head', 'b' * 40)]:
+        revision = shutil.copytree(source, folder / side)
+        if side == 'base' and scenario == 'ci-conflict':
+            with (revision / 'client.py').open('a') as stream:
+                stream.write('\n')
+        if side == 'head' and scenario == 'weakened-test':
+            test_source = revision / 'test_name.py'
+            test_source.write_text(test_source.read_text().replace(' == "Ada"', ''))
+        sources = {p.name: p.read_text() for p in revision.iterdir()}
+        descriptor[side] = {'commit': commit, 'sha256': source_digest(sources), 'omitted': 0}
+    (folder / BUNDLE_NAME).write_text(json.dumps(descriptor))
+    return folder
+
+
+@pytest.mark.parametrize("scenario", ["narrow", "all-pass", "product-failure", "missing-receipt", "lost-report", "ci-conflict", "weakened-test"])
+def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, context, authority, monkeypatch, tmp_path, scenario):
     from mn_sdk.blueprints import compile_blueprint, read_blueprint
     from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
     from mn_sdk.integrations.block_worker import run
@@ -1532,8 +1565,27 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
     from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
     context.config['inputs']['payload']['input_folder'] = context.resources['inputs']['input_folder']
-
     package = read_blueprint(PACKAGE)
+    source = Path(context.resources['inputs']['input_folder'])
+    scope = {}
+    name_rule = modules['rules'].generated_id('SPEC.md', extracted()['rules'][0]['statement'],
+                                              ('software', 'product', 'must', (), 'behavior'))
+    if scenario != "narrow":
+        values = package.extension('mn.ui')['setup_guide']['sample']['values']
+        scope = json.loads(values['inputs.payload.verification_scope'])
+        name_check = next(c for c in scope['checks'] if c['id'] == 'names')
+        name_check['cases'].append({'id': 'empty-name', 'input': {'name': ''}, 'accept': False})
+        name_check['rule_ids'] = [name_rule]
+        for path in ('client.py', 'wire.json', 'input.schema.json', 'test_name.py', 'names.py'):
+            (source / path).write_bytes((PACKAGE / 'examples/sample_inputs' / path).read_bytes())
+    if scenario == "product-failure":
+        (source / 'input.schema.json').write_text('{}')
+    if scenario == "missing-receipt":
+        scope['checks'].append({'id': 'recovery', 'kind': 'execution_record', 'requirement': 'Resume queued work.',
+            'specialist': 'reliability', 'target': 'linux', 'suite_sha256': 'a' * 64, 'receipt_sha256': 'b' * 64,
+            'cases': ['resume']})
+    context.config['inputs']['payload']['verification_scope'] = json.dumps(scope)
+    context.resources['inputs']['verification_scope'] = json.dumps(scope)
     compiled = compile_blueprint(package).manifest
     descriptor = tmp_path / 'block-worker.json'
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled)))
@@ -1541,22 +1593,123 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
         'MN_JOB_OUTPUT_DIR': context.resources['output_folder'], 'MN_RUN_DIR': context.store.run_dir,
         'MN_BLUEPRINT_MANIFEST_PATH': descriptor, 'MN_SDK_COMPONENTS_JSON': '["blueprint-blocks"]'}.items():
         monkeypatch.setenv(key, str(value))
-    models = [None, Model([extracted()]), None,
-        Model([reading(), judgment(), reading(), judgment('fail', .8, quote='store.write(password)')]), None]
+    implementation = IMPLEMENTATION
+    if scenario in {'all-pass', 'ci-conflict', 'weakened-test'}:
+        safe_write = 'store.write({"name": name})'
+        implementation = implementation.replace('store.write(password)', safe_write)
+        (source / 'store.py').write_text(implementation)
+        second_judgment = judgment(quote=safe_write, implementation=implementation)
+    else:
+        second_judgment = judgment('fail', .8, quote='store.write(password)')
+    first_review = [reading(), judgment(implementation=implementation)]
+    second_review = [reading(), second_judgment]
+    if scenario in {'ci-conflict', 'weakened-test'}:
+        comparison = workflow_comparison(source, tmp_path, name_rule, scenario)
+        context.config['inputs']['payload']['input_folder'] = str(comparison)
+        context.resources['inputs']['input_folder'] = str(comparison)
+        first_review *= 2
+        second_review *= 2
+    models = {'extract_software_rules': Model([extracted()]),
+              'verify_software_rules': Model(first_review + second_review)}
     store = CommittedJsonStore(context.store.run_dir)
-    previous = None
-    for step, model in zip(compiled['workflow']['steps'], models, strict=True):
-        invocation = StepContext(step_id=step['id'], run_id=context.run_id, job_id=context.job_id,
-            idempotency_key=step['id'], config=context.config,
-            message={'body': {'step_input': context.resources['inputs'] if previous is None else {'previous': previous}}})
-        options = {'block_step_id': step['id'], 'revision': compiled['metadata']['mn_blocks_lock']['revision'],
-                   'resources': {'llm': model} if model else {}}
+    outputs = {}
+    def invoke(ident, key, inputs, options):
+        invocation = StepContext(step_id=ident, run_id=context.run_id, job_id=context.job_id, idempotency_key=key,
+            config=context.config, message={'body': {'step_input': inputs}})
         first = run(invocation, **options)
-        assert store.read(first.outputs['result'])
         assert run(invocation, **options) == first
-        previous = first.outputs['result']
+        return first.outputs
+
+    for step in compiled['workflow']['steps']:
+        ident = step['id']
+        model = models.get(ident)
+        inputs = {'previous': outputs[step['needs'][0]]} if step['needs'] else context.resources['inputs']
+        if ident == 'publish_rules_report':
+            inputs['specialists'] = outputs['coordinate_verification']
+        options = {'block_step_id': ident, 'revision': compiled['metadata']['mn_blocks_lock']['revision'],
+                   'resources': {'llm': model} if model else {}}
+        reference = invoke(ident, ident, inputs, options)['result']
+        assert store.read(reference)
+        if ident == 'coordinate_verification':
+            templates = compiled['workflow']['child_workflows'][ident]['templates']
+            planner = templates['plan_verification_round']['implementation']['with']
+            for revision in range(5):
+                work = {'seed': reference, '_child': {'round': revision, 'revision': revision}}
+                decision = invoke(ident, f'plan-{revision}', work, planner)['child_plan']
+                if decision['decision'] == 'stop':
+                    reference = decision['output']['result']
+                    break
+                for task in decision['steps']:
+                    if scenario == 'lost-report' and task['id'] == 'report-security':
+                        continue
+                    binding = templates[task['template']]['implementation']['with']
+                    if scenario == 'all-pass' and task['id'] == 'name-workload-1':
+                        # Interrupt after measuring, before advertising completion to the planner.
+                        class WorkerInterrupted(BaseException):
+                            pass
+                        checkpoint = 'specialists/attempts/name-workload-1.json'
+                        commit = CommittedJsonStore.commit
+                        def interrupt_handoff(store, path, *args, **kwargs):
+                            if path == checkpoint + '.receipt.json':
+                                raise WorkerInterrupted()
+                            return commit(store, path, *args, **kwargs)
+                        with monkeypatch.context() as pause:
+                            pause.setattr(CommittedJsonStore, 'commit', interrupt_handoff)
+                            with pytest.raises(WorkerInterrupted):
+                                invoke(task['template'], task['id'], task['input'], binding)
+                        retained = store.path(checkpoint).read_bytes()
+                        assert not store.path(checkpoint + '.receipt.json').exists()
+                        invoke(task['template'], task['id'], task['input'], binding)
+                        assert store.path(checkpoint).read_bytes() == retained
+                        continue
+                    invoke(task['template'], task['id'], task['input'], binding)
+            else:
+                pytest.fail("The bounded child workflow did not finish")
+        outputs[ident] = reference
     final = store.read_path('final_artifact.json')
-    assert final['summary'] == {'pass': 1, 'fail': 1}
+    assert final['summary'] == ({'pass': 2} if scenario in {'all-pass', 'ci-conflict', 'weakened-test'} else {'pass': 1, 'fail': 1})
+    expected = {'all-pass': 'PASS', 'narrow': 'INCONCLUSIVE', 'product-failure': 'FAIL',
+                'missing-receipt': 'BLOCKED', 'lost-report': 'INCONCLUSIVE', 'ci-conflict': 'INCONCLUSIVE',
+                'weakened-test': 'INCONCLUSIVE'}
+    assert final['verdict'] == expected[scenario]
+    views = {s['id']: s for s in final['specialists']}
+    assert set(views) == {'functional', 'security', 'compatibility', 'reliability'}
+    for role, view in views.items():
+        if 'report_ref' in view:
+            received = store.read(view['report_ref'])
+            assert received['scope']['run_id'] == context.run_id
+            assert received['data']['view']['document'] == view['document']
+    checks = {c['id']: c for c in final['specialist_report']['checks']}
+    if scenario == 'narrow':
+        assert {r: v['verdict'] for r, v in views.items()} == {
+            'functional': 'PASS', 'security': 'SKIPPED', 'compatibility': 'SKIPPED', 'reliability': 'SKIPPED'}
+    elif scenario == 'all-pass':
+        assert all(v['verdict'] == 'PASS' and v['report_ref'] for v in views.values())
+        assert final['rule_checks'][name_rule] == ['names']
+        assert 'names (passed)' in store.path('report.md').read_text()
+        rounds = [store.read_path(f'specialists/rounds/{i}.json')['tasks'] for i in range(3)]
+        assert {t['template'] for t in rounds[0]} == {'inspect_functional', 'inspect_security', 'inspect_compatibility'}
+        assert [t['id'] for t in rounds[1]] == ['name-workload-1']
+        assert len(rounds[2]) == 4 and all(t['id'].startswith('report-') for t in rounds[2])
+    elif scenario == 'product-failure':
+        assert checks['names']['status'] == 'failed'
+        assert checks['name-workload']['status'] == 'blocked' and not checks['name-workload']['attempts']
+    elif scenario == 'missing-receipt':
+        assert [a['attempt'] for a in checks['recovery']['attempts']] == [1, 2]
+        assert views['reliability']['verdict'] == 'BLOCKED'
+    elif scenario == 'weakened-test':
+        assert views['functional']['verdict'] == 'INCONCLUSIVE'
+        assert checks['auto-test-changes']['status'] == 'inconclusive'
+        issue, = [f for f in final['specialist_report']['findings'] if 'auto-test-changes' in f['check_ids']]
+        assert issue['evidence']['path'] == 'test_name.py' and issue['evidence']['line'] == 5
+        assert any(ref.get('side') == 'base' and ref['line'] == 5 for ref in issue['supporting_evidence'])
+        assert 'truthy' in issue['observed']
+    elif scenario == 'ci-conflict':
+        assert all(v['verdict'] == 'PASS' for v in views.values())
+        assert final['reasons'] == [f'Imported CI reported a failed or mixed result for approved rule {name_rule}.']
+        assert final['attention_rule_ids'] == [name_rule]
+    else:
+        assert views['security']['verdict'] == 'INCONCLUSIVE' and 'report_ref' not in views['security']
     assert len(authority.published) > 0
     assert 'SHA-256' in (context.store.run_dir / 'report.md').read_text()
 

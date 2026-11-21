@@ -23,7 +23,8 @@ def test_all_phases_start_at_the_uploaded_root_with_live_supervision():
     normalize_host_local_uploads(manifest)
     workers = [node['config'] for node in manifest['agents']['nodes']
                if node.get('agent_type') == 'executor']
-    assert len(workers) == len(manifest['workflow']['steps']) == 5
+    assert len(manifest['workflow']['steps']) == 6
+    assert len(workers) == 6 + len(manifest['workflow']['child_workflows']['coordinate_verification']['templates'])
     assert manifest['workflow']['execution']['supervision'] == 'activity'
     for worker in workers:
         assert worker['runner_module'] == 'MirrorNeuron.Runner.HostLocal'

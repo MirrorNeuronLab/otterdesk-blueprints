@@ -134,9 +134,16 @@
         ]
       },
       {
+        "id": "coordinate_verification",
+        "needs": [
+          "review_software_rules"
+        ]
+      },
+      {
         "id": "publish_rules_report",
         "needs": [
-          "verify_software_rules"
+          "verify_software_rules",
+          "coordinate_verification"
         ]
       }
     ],
@@ -467,6 +474,98 @@
       {
         "id": "read_ct_volume",
         "needs": []
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "functional_verifier": {
+    "steps": [
+      {
+        "id": "capture_subject",
+        "needs": []
+      },
+      {
+        "id": "evaluate_checks",
+        "needs": [
+          "capture_subject"
+        ]
+      },
+      {
+        "id": "publish_report",
+        "needs": [
+          "evaluate_checks"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "security_verifier": {
+    "steps": [
+      {
+        "id": "capture_subject",
+        "needs": []
+      },
+      {
+        "id": "evaluate_checks",
+        "needs": [
+          "capture_subject"
+        ]
+      },
+      {
+        "id": "publish_report",
+        "needs": [
+          "evaluate_checks"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "compatibility_verifier": {
+    "steps": [
+      {
+        "id": "capture_subject",
+        "needs": []
+      },
+      {
+        "id": "evaluate_checks",
+        "needs": [
+          "capture_subject"
+        ]
+      },
+      {
+        "id": "publish_report",
+        "needs": [
+          "evaluate_checks"
+        ]
+      }
+    ],
+    "edges": [],
+    "collaboration": {},
+    "native": {}
+  },
+  "reliability_verifier": {
+    "steps": [
+      {
+        "id": "capture_subject",
+        "needs": []
+      },
+      {
+        "id": "evaluate_checks",
+        "needs": [
+          "capture_subject"
+        ]
+      },
+      {
+        "id": "publish_report",
+        "needs": [
+          "evaluate_checks"
+        ]
       }
     ],
     "edges": [],

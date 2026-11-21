@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-$script_hash'; style-src 'sha256-$style_hash'; base-uri 'none'; form-action 'none'">
+  <title>$title</title>
+  <style>$style</style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>$title</h1>
+      <p>$point_summary <span aria-hidden="true">·</span> $dimensions</p>
+    </header>
+    <section aria-label="3D point cloud">
+      <canvas tabindex="0" aria-label="Registered LiDAR point cloud" aria-describedby="controls-help">
+        Your browser couldn’t display the point cloud. Open scene.usdc in an OpenUSD viewer.
+      </canvas>
+      <footer>
+        <div role="group" aria-label="View controls">
+          <button id="reset" type="button">Reset view</button>
+          <button id="top" type="button">Top view</button>
+          <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+          <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+        </div>
+        <p id="controls-help">Drag or use arrow keys to rotate. Scroll or use + and − to zoom.</p>
+      </footer>
+    </section>
+    <p id="status" role="status">Loading scene preview.</p>
+  </main>
+  <script type="application/json" id="scene">$data</script>
+  <script>$script</script>
+</body>
+</html>

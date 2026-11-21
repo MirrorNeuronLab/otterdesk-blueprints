@@ -1,0 +1,10 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/product.schema.json",
+  "category": "Physical AI",
+  "product": {
+    "agent_role": "LiDAR scene specialist",
+    "how_it_works": "Uses NVIDIA Omniverse NuRec to export the registered points and their scene scale to OpenUSD on a Linux NVIDIA node.",
+    "input": "One registered PLY point cloud with Z up and coordinates in metres",
+    "output": "An OpenUSD scene, a conversion receipt and a 3D web preview"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "Which checks ran?",
+    "What evidence supports this verdict?",
+    "What still needs review?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "introduction": "Trace requirements from analysis documents to generated tests, check behavior on both revisions, and identify weakened or missing assertions. Join Software verifier for assignments, choose a standalone source folder, or try the sample.",
+    "sample": {
+      "available": true,
+      "title": "Sample verification",
+      "description": "Inspect the bundled fixture with its recorded criteria.",
+      "expected_output": "A passing scoped verdict with evidence for each applicable check.",
+      "values": {
+        "inputs.payload.input_folder": "@/examples/sample_inputs",
+        "inputs.payload.verification_scope": "{\"checks\":[{\"id\":\"names\",\"kind\":\"schema_cases\",\"file\":\"input.schema.json\",\"requirement\":\"Accept named requests and reject requests without a name.\",\"cases\":[{\"id\":\"valid-name\",\"input\":{\"name\":\"Ada\"},\"accept\":true},{\"id\":\"missing-name\",\"input\":{},\"accept\":false}]}]}"
+      }
+    },
+    "real": {
+      "values": {
+        "inputs.payload.input_folder": "",
+        "inputs.payload.verification_scope": ""
+      }
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.goal_id",
+        "label": "Exchange goal",
+        "type": "text",
+        "required": false,
+        "default": "software-verification"
+      },
+      {
+        "path": "inputs.payload.common_goal",
+        "label": "Shared goal",
+        "type": "textarea",
+        "required": false,
+        "default": ""
+      },
+      {
+        "path": "inputs.payload.collaboration_group_id",
+        "label": "Collaboration group",
+        "type": "text",
+        "required": false,
+        "default": ""
+      },
+      {
+        "path": "inputs.payload.collaboration_peers",
+        "label": "Group members",
+        "type": "textarea",
+        "required": false,
+        "default": [],
+        "value_type": "array"
+      }
+    ],
+    "prompt_file": "@/payloads/prompts/setup.md",
+    "run_guidance": {
+      "on_start": "I’ll freeze the selected source and apply the checks in scope.",
+      "web_ui_ready": "Open the verification report to inspect the checks and supporting evidence.",
+      "output_ready": "Open report.md or final_artifact.json for the verdict and attempt history."
+    }
+  },
+  "web_ui": {
+    "enabled": true,
+    "kind": "output",
+    "adapter": "static_html",
+    "title": "Functional verifier",
+    "description": "Review check outcomes, findings and evidence.",
+    "registration": {
+      "artifact": "web/index.html",
+      "scope": "run",
+      "writes": "static-html web_ui.json handle in the run output"
+    }
+  },
+  "init_config_review": {
+    "required": true,
+    "title": "Choose verification inputs",
+    "fields": [
+      {
+        "path": "inputs.payload.input_folder",
+        "label": "Source folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "input",
+        "required": true,
+        "default": "",
+        "description": "Select the source files for a standalone review.",
+        "activeWhenAny": [{ "key": "inputs.payload.collaboration_group_id", "equals": "" }]
+      },
+      {
+        "path": "inputs.payload.verification_scope",
+        "label": "Verification scope",
+        "type": "textarea",
+        "required": false,
+        "default": "",
+        "description": "Enter approved checks as JSON. Leave blank for checks selected from the captured project."
+      },
+      {
+        "path": "inputs.payload.evidence_folder",
+        "label": "Runner evidence folder",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "input",
+        "required": false,
+        "default": "",
+        "description": "Select only when the scope uses independently pinned execution records.",
+        "requiredModes": []
+      },
+      {
+        "path": "inputs.payload.goal_id",
+        "label": "Exchange goal",
+        "type": "text",
+        "required": false,
+        "default": "software-verification"
+      },
+      {
+        "path": "inputs.payload.common_goal",
+        "label": "Shared goal",
+        "type": "textarea",
+        "required": false,
+        "default": ""
+      },
+      {
+        "path": "inputs.payload.collaboration_group_id",
+        "label": "Collaboration group",
+        "type": "text",
+        "required": false,
+        "default": ""
+      },
+      {
+        "path": "inputs.payload.collaboration_peers",
+        "label": "Group members",
+        "type": "textarea",
+        "required": false,
+        "default": [],
+        "value_type": "array"
+      }
+    ]
+  }
+}

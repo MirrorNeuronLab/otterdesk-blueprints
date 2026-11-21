@@ -1,0 +1,102 @@
+{
+  "inputs": {
+    "payload": {
+      "input_folder": "",
+      "verification_scope": "",
+      "evidence_folder": "",
+      "goal_id": "software-verification",
+      "common_goal": "",
+      "collaboration_group_id": "",
+      "collaboration_peers": []
+    }
+  },
+  "outputs": {
+    "folder_path": "~/Downloads/functional-verifier"
+  },
+  "local_inputs": {
+    "folders": [
+      {
+        "config_path": "inputs.payload.input_folder",
+        "linked_config_paths": [
+          "inputs.payload.input_folder"
+        ],
+        "payload_path": "runtime/mn_local_inputs/software_sources",
+        "runtime_path": "mn_local_inputs/software_sources",
+        "excluded_directories": [
+          ".git",
+          ".svn",
+          ".venv",
+          "venv",
+          "node_modules",
+          "vendor",
+          "dist",
+          "build",
+          "__pycache__",
+          ".next",
+          "coverage",
+          ".idea",
+          ".vscode",
+          ".pytest_cache",
+          ".mypy_cache",
+          ".ruff_cache",
+          ".tox"
+        ],
+        "allowed_extensions": [
+          ".c",
+          ".cc",
+          ".cfg",
+          ".cjs",
+          ".cpp",
+          ".cs",
+          ".css",
+          ".cts",
+          ".cxx",
+          ".go",
+          ".h",
+          ".hh",
+          ".hpp",
+          ".html",
+          ".hxx",
+          ".ini",
+          ".java",
+          ".js",
+          ".json",
+          ".jsx",
+          ".kt",
+          ".kts",
+          ".md",
+          ".mjs",
+          ".mts",
+          ".php",
+          ".py",
+          ".pyi",
+          ".rb",
+          ".rs",
+          ".rst",
+          ".sh",
+          ".sql",
+          ".swift",
+          ".toml",
+          ".ts",
+          ".tsx",
+          ".txt",
+          ".yaml",
+          ".yml"
+        ]
+      },
+      {
+        "config_path": "inputs.payload.evidence_folder",
+        "linked_config_paths": [
+          "inputs.payload.evidence_folder"
+        ],
+        "payload_path": "runtime/mn_local_inputs/runner_evidence",
+        "runtime_path": "mn_local_inputs/runner_evidence",
+        "allowed_extensions": [
+          ".json",
+          ".artifact"
+        ],
+        "required": false
+      }
+    ]
+  }
+}

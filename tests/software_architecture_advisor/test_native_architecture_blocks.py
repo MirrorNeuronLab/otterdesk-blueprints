@@ -3,6 +3,8 @@
 import hashlib
 import json
 from pathlib import Path
+import shutil
+import subprocess
 
 import pytest
 
@@ -18,7 +20,7 @@ from mn_sdk_common.committed_artifacts import (
 
 
 @pytest.fixture
-def native(tmp_path, monkeypatch, architecture_paths):
+def native(tmp_path, monkeypatch, architecture_paths, request):
     from mn_graph_analysis_skill import GraphClient
 
     root = Path(__file__).resolve().parents[2] / "software_architecture_advisor"
@@ -27,6 +29,8 @@ def native(tmp_path, monkeypatch, architecture_paths):
     config["text_memory"]["enabled"] = False
     config["source_search"]["mode"] = "lexical"
     config["inputs"]["payload"]["repository_url"] = ""
+    if hasattr(request, "param"):
+        config["ingest"]["source_roots"] = request.param
     package = read_blueprint(root)
     configuration = resolve_config(package, config)
     config = configuration.data
@@ -85,11 +89,11 @@ def native(tmp_path, monkeypatch, architecture_paths):
     return store, source, marker, imports, invoke
 
 
-def prepare(native):
+def prepare(native, *, input_folder=None):
     store, source, _, _, invoke = native
     capture = invoke(
         "capture_repository",
-        {"input_folder": str(source), "goal": "Inspect captured functions"},
+        {"input_folder": str(source if input_folder is None else input_folder), "goal": "Inspect captured functions"},
     )
     structure = invoke("analyze_dependency_structure", {"previous": capture.outputs})
     initialized = invoke("investigate_architecture", {"previous": structure.outputs})
@@ -182,6 +186,82 @@ def test_compiled_native_capture_to_publication_preserves_evidence_and_replay(na
     assert imports == before
     assert store.read_path("catalog/terminal.json")["usage"]["catalog_models"] == 0
     assert (store.run_dir.parents[3] / "delivery/reports/report.md").is_file()
+
+
+@pytest.mark.parametrize("native", [["src", "."], ["packages/python", "."]], indirect=True)
+def test_payments_sample_agrees_across_review_evidence_history_and_chat(native):
+    store, parent, _, _, invoke = native
+    source = parent / "payments-example"
+    folder = invoke.config["ingest"]["source_roots"][0] + "/payments"
+    sample = Path(__file__).resolve().parents[2] / "software_architecture_advisor/examples/sample_repository"
+    shutil.copytree(sample / "src/payments", source / folder)
+    subprocess.run(["git", "init", "-q", str(source)], check=True)
+    subprocess.run(["git", "add", "."], cwd=source, check=True)
+    subprocess.run(["git", "-c", "user.name=Fixture", "-c", "user.email=fixture@example.invalid",
+                    "-c", "commit.gpgsign=false", "commit", "-qm", "Capture payment modules"], cwd=source, check=True)
+
+    _, _, publish_input = prepare(native, input_folder=source)
+    invoke("publish_architecture_review", publish_input)
+    pairs = {("checkout", "payment_service"), ("controller", "payment_service"),
+             ("refunds", "payment_service"), ("payment_service", "ledger"),
+             ("payment_service", "notifications")}
+    expected_files = {(f"{folder}/{a}.py", f"{folder}/{b}.py", "import", 1) for a, b in pairs}
+    graph = store.read_path("data/static-code.json")
+    assert graph["coverage"]["files"] == 7
+    assert {(e["source"], e["target"], e["kind"], e["sites"]) for e in graph["component_edges"]} == expected_files
+    for edge in graph["component_evidence"]:
+        loc = edge["evidence"]
+        content = (source / loc["path"]).read_bytes()
+        assert loc["sha256"] == hashlib.sha256(content).hexdigest()
+        assert content[loc["start_byte"]:loc["end_byte"]].startswith(b"from ")
+    history = store.read_path("data/function-evolution.json")
+    assert {tuple(row) for row in history["timeline"]["frames"][-1]["component_edges"]} == expected_files
+    structural = store.read_path("analysis/dependencies.json")
+    assert {(r["source"], r["target"]) for r in structural["dependencies"]} == {
+        ("payments." + a, "payments." + b) for a, b in pairs
+    }
+    assert store.read_path("data/architecture-score.json")["extractor"] == graph["analysis_version"]
+    brief = store.path("reports/code-map.md").read_text()
+    for name in ("checkout", "controller", "refunds"):
+        assert f"{folder}/{name}.py:1" in brief
+    summary = store.read_path("data/chat-summary.json")
+    assert summary["status"] == "Static analysis only"
+    assert "A second revision is needed to measure change." in summary["overview"]
+    assert summary["highlights"][0]["title"] == "Review direct dependents"
+    assert f"{folder}/payment_service.py" in summary["highlights"][0]["detail"]
+    assert "3 referring files" in summary["highlights"][0]["detail"]
+    assert f"{folder}/checkout.py, line 1" in summary["highlights"][0]["detail"]
+
+
+def test_type_stub_imports_publish_the_same_implementation_and_stub_evidence(native):
+    store, parent, _, _, invoke = native
+    source = parent / "typed-project"
+    package = source / "src/pkg"
+    (package / "types").mkdir(parents=True)
+    (package / "client.pyi").write_text("from . import service, types\n")
+    (package / "client.py").write_text("from pkg.types import model\n")
+    (package / "service.py").write_text("value = 1\n")
+    (package / "service.pyi").write_text("from .types import *\n")
+    (package / "types/__init__.pyi").write_text("")
+    (package / "types/model.pyi").write_text("class Model: ...\n")
+
+    _, _, work = prepare(native, input_folder=source)
+    invoke("publish_architecture_review", work)
+    graph = store.read_path("data/static-code.json")
+    expected = {
+        ("src/pkg/client.pyi", "src/pkg/service.py"),
+        ("src/pkg/client.pyi", "src/pkg/types/__init__.pyi"),
+        ("src/pkg/client.py", "src/pkg/types/model.pyi"),
+        ("src/pkg/service.pyi", "src/pkg/types/__init__.pyi"),
+    }
+    assert graph["coverage"]["unresolved_imports"] == 0
+    assert {(e["source"], e["target"]) for e in graph["component_edges"]} == expected
+    structural = store.read_path("analysis/dependencies.json")
+    module_ids = {"src/pkg/service.py": "pkg.service", "src/pkg/client.py": "pkg.client"}
+    assert {(e["source"], e["target"]) for e in structural["dependencies"]} == {
+        (module_ids.get(a, a), module_ids.get(b, b)) for a, b in expected
+    }
+    assert "src/pkg/client.pyi:1" in store.path("reports/code-map.md").read_text()
 
 
 @pytest.mark.parametrize("fault", ["snapshot", "sources", "config", "scope"])

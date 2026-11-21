@@ -24,6 +24,7 @@ from mn_sdk.submission_preparation import (
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINTS = json.loads((ROOT / "index.json").read_text())
+VERIFIER_FAMILY = {"code_verifier", "functional_verifier", "security_verifier", "compatibility_verifier", "reliability_verifier"}
 SDK_DISTRIBUTIONS = {"mirrorneuron-python-sdk", *(spec.distribution for spec in SDK_COMPONENTS.values())}
 
 
@@ -133,13 +134,17 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
     if not requirements:
         # Compose, host and OpenShell workers prepare dependencies outside the
         # ordinary Python Docker worker build context.
-        assert blueprint_id in {'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'code_verifier', 'general_assistant', 'cctv_operator'}
+        assert blueprint_id in VERIFIER_FAMILY | {'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'general_assistant', 'cctv_operator'}
         assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
         if local:
             sources = prepared['metadata']['mn_local_skill_dependencies']['sources']
             assert any(r['package'] == 'mirrorneuron-python-sdk' for r in sources)
             assert all(any(r['package'] == component.distribution for r in sources)
                        for component in component_requirements(prepared))
+            if blueprint_id in VERIFIER_FAMILY:
+                assert {'mirrorneuron-verification-checks-skill', 'mirrorneuron-web-report-skill'} <= {
+                    row['package'] for row in sources
+                }
             if blueprint_id == 'code_verifier':
                 assert {'mirrorneuron-code-search-skill', 'mirrorneuron-static-code-analysis-skill'} <= {
                     r['package'] for r in sources

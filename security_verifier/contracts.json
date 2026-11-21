@@ -1,0 +1,97 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "Review permission changes, credential handling, dependencies and privileged workflows with evidence of source context and remaining exposure.",
+  "inputs": {
+    "input_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Source folder for a standalone review. A manager assignment supplies its captured source."
+    },
+    "verification_scope": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Supervisor-owned JSON scope with paths, requirements, checks and optional independently pinned test records."
+    },
+    "evidence_folder": {
+      "type": "local_path",
+      "path_kind": "directory",
+      "required": false,
+      "privacy": "confidential",
+      "description": "Optional independent runner records and package bytes identified by their approved SHA-256 digests."
+    },
+    "goal_id": {
+      "type": "string",
+      "required": false,
+      "description": "Exchange goal for co-worker collaboration."
+    },
+    "common_goal": {
+      "type": "string",
+      "required": false,
+      "description": "Shared goal for co-worker collaboration."
+    },
+    "collaboration_group_id": {
+      "type": "string",
+      "required": false,
+      "description": "Collaboration group for co-worker collaboration."
+    },
+    "collaboration_peers": {
+      "type": "array",
+      "required": false,
+      "description": "Group members for co-worker collaboration."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "final_artifact",
+      "path": "final_artifact.json",
+      "schema_version": "mn.verification.v1.report",
+      "required_fields": [
+        "plan",
+        "checks",
+        "findings",
+        "verdict",
+        "blockers"
+      ]
+    },
+    "artifacts": [
+      {
+        "artifact_id": "final_artifact",
+        "path": "final_artifact.json",
+        "mime_type": "application/json",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "report",
+        "path": "report.md",
+        "mime_type": "text/markdown",
+        "required": true,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_report",
+        "path": "web/index.html",
+        "mime_type": "text/html",
+        "required": false,
+        "privacy": "confidential"
+      },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "required": false,
+        "privacy": "confidential",
+        "source_refs": [
+          "web/index.html"
+        ]
+      }
+    ]
+  },
+  "privacy": {
+    "external_sharing": "disabled"
+  }
+}

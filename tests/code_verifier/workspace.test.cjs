@@ -60,6 +60,78 @@ function render(view, report, query = "", inspectId = "", options = {}) {
   return content.innerHTML;
 }
 
+test("each specialist tab renders its returned report and preserves a skip reason", () => {
+  const specialists = ["functional", "security", "compatibility", "reliability"].map((id) => ({
+    id, label: id, verdict: id === "reliability" ? "SKIPPED" : "PASS",
+    document: {
+      title: id, summary: id === "reliability" ? "Outside the selected change" : "Completed",
+      sections: [{ title: "Evidence", blocks: [{ type: "table", columns: ["Source"],
+        rows: [[id + "-<fixture>.json"]] }] }],
+    },
+  }));
+  for (const specialist of specialists) {
+    const html = render(specialist.id, { rules: [], results: [], coverage: {}, specialists });
+    assert.ok(html.includes(specialist.id + "-&lt;fixture&gt;.json"));
+    assert.ok(html.includes(specialist.document.summary));
+  }
+});
+
+test("the overview stays readable when a specialist ledger is unavailable", () => {
+  const html = render("overview", { rules: [], results: [], coverage: {},
+    specialists: [{ id: "functional", label: "Functional verifier", verdict: "INCONCLUSIVE" }] });
+  assert.match(html, /No rules to verify/);
+});
+
+test("a specialist opens the named specification, generated test and implementation in the captured tree", () => {
+  const specialist = { id: "functional", label: "Functional verifier", check_ids: ["amount"],
+    document: { title: "Functional verifier", summary: "Scoped review",
+      sections: [{ id: "review", title: "Does the implementation meet the specification?", blocks: [] }] } };
+  const trace = { specialist: "functional", expectation: "Keep the amount.", change: "Passed on both revisions",
+    status: "passed", observed: "3 passed.", setup: "Fixed amount.", uncertainty: "One currency.",
+    specification: {path:"specs.md",line:3}, test_location: {path:"test_total.py",line:4,symbol:"test_total"},
+    locations: [{path:"amount.py",line:2}] };
+  const html = render("functional", {rules: [], results: [], coverage: {}, specialists: [specialist],
+    specialist_report: {requirement_traces: [trace]}}, "", "", { data:{repositoryPrefix:"repository/",
+        sources: {"repository/specs.md":"A specification", "repository/test_total.py":"A test", "repository/amount.py":"A module"}}});
+  for (const path of ["specs.md", "test_total.py", "amount.py"]) assert.ok(html.includes('data-path="repository/' + path + '"'));
+  assert.match(html, /Generated test/);
+  assert.match(html, /Passed on both revisions/);
+  const failed = render("functional", {rules: [], results: [], coverage: {}, specialists: [specialist],
+    specialist_report: {requirement_traces: [{...trace, status:"failed", change:"Not comparable",
+      assertion:{path:"test_total.py",line:7}}]}}, "", "", {data:{sources:{"test_total.py":"Test source"}}});
+  assert.match(failed, /Failed assertion/);
+  assert.match(failed, /test_total\.py:7/);
+});
+
+test("approved rule details link to the specialist that returned the check", () => {
+  const report = {
+    rules: [{ id: "R1", statement: "Reject empty names", source: {} }],
+    results: [{ rule_id: "R1", status: "pass", confidence: 0.8, evidence: [] }],
+    coverage: {},
+    rule_checks: { R1: ["names"] },
+    specialist_report: { checks: [{ id: "names", status: "failed", specialist: "functional" }] },
+  };
+  const details = () => render("results", report, "", "R1");
+  assert.match(details(), /data-action="view" data-id="functional">names · failed<\/button>/);
+  report.rule_checks.R1 = [];
+  assert.match(details(), /No specialist check was linked to this rule/);
+  delete report.rule_checks;
+  assert.doesNotMatch(details(), /Specialist checks/);
+});
+
+test("coordinator overview shows the candidate commit and links to unresolved rules", () => {
+  const report = {
+    rules: [{ id: "R1", statement: "Keep stable request IDs" }],
+    results: [{ rule_id: "R1", status: "unknown", confidence: 0, evidence: [] }],
+    coverage: {}, verdict: "INCONCLUSIVE", attention_rule_ids: ["R1"],
+    specialists: [{ id: "functional", label: "Functional verifier", verdict: "PASS" }],
+    specialist_report: { plan: { revision: "123456789abc123456789abc", decision: "development" } },
+  };
+  const html = render("overview", report);
+  assert.match(html, /<code>123456789abc<\/code>/);
+  assert.match(html, /data-action="filter" data-id="attention">Review 1 rule<\/button>/);
+});
+
 for (const view of ["overview", "results", "rules"]) {
   test(`${view} explains model failure when there are no results`, () => {
     const html = render(view, {

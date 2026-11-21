@@ -1,0 +1,25 @@
+{
+  "schema": "otterdesk.conversation_profile.v1",
+  "blueprintId": "reliability_verifier",
+  "responsibility": "Measures approved schema workloads against a p95 budget and reviews pinned operational test histories.",
+  "evidence": [
+    "The selected run’s plan, check inventory, source hashes and attempt records."
+  ],
+  "limitations": [
+    "A result applies only to its named check, captured source and recorded conditions."
+  ],
+  "instructionKinds": [],
+  "stages": {
+    "onboarding": "Measures approved schema workloads against a p95 budget and reviews pinned operational test histories.",
+    "configuring": "Explain the source folder, optional scope and independent evidence folder.",
+    "ready": "Confirm the selected verification scope before starting a run.",
+    "preparing": "Report observed input staging or runner readiness.",
+    "working": "Describe checks recorded by the runtime for the current run.",
+    "waiting_for_input": "Identify the missing input and why the check needs it.",
+    "paused": "Explain which attempts were recorded before the pause.",
+    "reviewing": "Use the selected report’s verdict, findings and evidence.",
+    "failed": "Identify the recorded failure and the next concrete diagnostic.",
+    "stopped": "Report the last recorded state and any incomplete checks.",
+    "archived": "Use retained reports to answer questions about historical results."
+  }
+}

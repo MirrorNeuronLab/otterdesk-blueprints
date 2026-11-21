@@ -3,6 +3,10 @@
   "drug_discovery_research_assistant",
   "software_architecture_advisor",
   "code_verifier",
+  "functional_verifier",
+  "security_verifier",
+  "compatibility_verifier",
+  "reliability_verifier",
   "litigation_analyst",
   "vc_assistant",
   "procurement_manager",
@@ -11,5 +15,6 @@
   "web_lab_operator",
   "ocr_worker",
   "transcription_worker",
-  "deepstream_hotel_tracker"
+  "deepstream_hotel_tracker",
+  "lidar_scene_builder"
 ]

@@ -1,5 +1,6 @@
 """Live workcell source, observations, controls and workspace lifecycle."""
 
+import asyncio
 import json
 import time
 from pathlib import Path
@@ -19,19 +20,32 @@ from mn_sdk_common.committed_artifacts import CommittedJsonStore
 ROOT = Path(__file__).resolve().parents[1] / "web_lab_operator"
 
 
+ASSETS = ROOT / "payloads" / "isaac" / "assets"
+
+
 @pytest.fixture
-def equipment(monkeypatch):
+def sample_run(monkeypatch):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
-    from domain.equipment import Equipment, Joint
+    from domain.sample_run import SampleRun
 
-    return Equipment({
-        "lift": Joint("Lift", "mm", 330, 540, 450, 100),
-        "shoulder": Joint("Shoulder", "°", -146, -72, -127, 40),
-        "lid": Joint("Inspection lid", "°", -72, 0, 0, 105),
-    })
+    return SampleRun()
 
 
-def test_bundle_compiles_preflight_and_live_service_and_exports_all_usd_layers(tmp_path):
+def snapshot(run, frame):
+    observation = run.sample.observe()
+    return run.snapshot(frame, observation, observation.pose.mixtures)
+
+
+def at_step(run, label):
+    from domain.dilution import STEPS
+
+    index = next(index for index, step in enumerate(STEPS) if step.label == label)
+    run.sample.restart()
+    run.sample.advance(sum(step.seconds for step in STEPS[:index]) + STEPS[index].seconds / 2)
+    return run.sample.observe()
+
+
+def test_bundle_compiles_and_exports_the_single_mk3_workcell(tmp_path):
     blueprint = read_blueprint(ROOT)
     compiled = compile_blueprint(blueprint)
     assert compiled.manifest["service"]["run_until"] == "manual_stop"
@@ -40,193 +54,175 @@ def test_bundle_compiles_preflight_and_live_service_and_exports_all_usd_layers(t
     assert compiled.manifest["workflow"]["edges"]
     assert blueprint.extension("mn.blocks")["steps"]["monitor_live_workcell"]["uses"] == "mn.blocks.monitored_service@1"
     assert blueprint.extension("mn.ui")["web_ui"]["adapter"] == "external-url"
-    assert set(blueprint.document("contracts")["inputs"]) == {"supervisor_instructions"}
+    contract = blueprint.document("contracts")
+    assert set(contract["inputs"]) == {"supervisor_instructions"}
+    assert contract["outputs"]["primary"]["schema_version"] == "mn.web_lab.state.v2"
     with ZipFile(export_blueprint(blueprint, tmp_path / "workcell.zip")) as bundle:
-        assert sorted(name for name in bundle.namelist() if name.endswith((".usda", ".usdc"))) == [
-            "payloads/isaac/assets/andrew_plus.usda",
-            "payloads/isaac/assets/dilution_station.usda",
-            "payloads/isaac/assets/vendor/erlenmeyer_flask.usdc",
-            "payloads/isaac/assets/vendor/mk3_frame.usdc",
-            "payloads/isaac/assets/web_lab.usda",
-        ]
-        assert "payloads/isaac/assets/vendor/CERN-OHL-S-2.0.txt" in bundle.namelist()
-        assert "payloads/isaac/assets/vendor/NOTICE.txt" in bundle.namelist()
+        assets = {name.removeprefix("payloads/isaac/assets/") for name in bundle.namelist()
+                  if name.startswith("payloads/isaac/assets/")}
+        assert assets == {"web_lab.usda", "dilution_station.usda", "sample_labels.png", "vendor/mk3_cell.usdc",
+                          "vendor/CERN-OHL-S-2.0.txt", "vendor/NOTICE.txt"}
 
 
-def test_actual_stage_joints_remain_editable_in_the_session_layer(equipment):
+def test_mk3_stage_moves_the_cad_gantry_and_shows_dispensing_and_reading(sample_run):
     pytest.importorskip("pxr")
     from pxr import Usd, UsdGeom, UsdUtils
-    from domain.isaac_scene import CAMERAS, StageEquipment
+    from domain.dilution_scene import STATION, StageDilution
+    from domain.workspace import CAMERAS
 
-    path = ROOT / "payloads" / "isaac" / "assets" / "web_lab.usda"
+    path = ASSETS / "web_lab.usda"
     stage = Usd.Stage.Open(str(path))
-    rig = StageEquipment(stage)
-    starting_pose, light = rig.observe()
-    assert not light
-    target = {"lift": 512, "shoulder": -100, "elbow": 50, "wrist": 25, "lid": -72}
-    rig.apply(target, True)
-    assert rig.observe() == (target, True)
-    assert stage.GetEditTarget().GetLayer() == stage.GetSessionLayer()
-    assert StageEquipment(Usd.Stage.Open(str(path))).observe() == (starting_pose, False)
-    assert all(UsdGeom.Camera.Get(stage, path) for path in CAMERAS.values())
-    assert not UsdUtils.ComputeAllDependencies(str(path))[2]
-
-
-def test_dilution_moves_tip_and_changes_the_composed_stage(equipment):
-    pytest.importorskip("pxr")
-    from pxr import Usd, UsdGeom, UsdShade
-    from domain.dilution import WELLS
-    from domain.dilution_scene import STATION, StageDilution, liquid_color
-    from domain.isaac_scene import StageEquipment
-
-    path = ROOT / "payloads" / "isaac" / "assets" / "web_lab.usda"
-    stage = Usd.Stage.Open(str(path))
-    StageEquipment(stage)
+    assert stage.HasAuthoredTimeCodeRange()
+    assert stage.GetEndTimeCode() > stage.GetStartTimeCode()
     station = StageDilution(stage)
-    tip = UsdGeom.Imageable.Get(stage, f"{STATION}/Carriage/Head/Loaded")
-    well_paths = [f"{STATION}/Wells/{name}" for name, _ in WELLS]
-    liquids = [UsdGeom.Cylinder.Get(stage, f"{well}/Liquid") for well in well_paths]
-    assert stage.GetPrimAtPath(f"{STATION}/Frame/Extrusions").IsA(UsdGeom.Mesh)
-    assert stage.GetPrimAtPath("/World/Flask/Glass").IsA(UsdGeom.Mesh)
+    assert stage.GetPrimAtPath(f"{STATION}/Frame/FrameExtrusions").IsA(UsdGeom.Mesh)
+    carriage = f"{STATION}/Gantry/Carriage"
+    mount = stage.GetPrimAtPath(f"{carriage}/Tool/Mechanism/ToolMount")
+    assert mount.IsA(UsdGeom.Mesh)
+    assert not stage.GetPrimAtPath("/World/Equipment")
+    assert all(UsdGeom.Camera.Get(stage, camera) for camera in CAMERAS.values())
+    _, assets, missing = UsdUtils.ComputeAllDependencies(str(path))
+    assert not missing
+    assert {Path(asset).name for asset in assets} == {"sample_labels.png"}
 
-    station.apply(equipment.sample.observe().pose)
-    initial_head_height = station.head.Get()[2]
-    starting_volume = liquids[0].GetHeightAttr().Get()
-    assert tip.ComputeVisibility() == "invisible"
-    equipment.sample.advance(3.4)
-    station.apply(equipment.sample.observe().pose)
-    assert station.head.Get()[2] < initial_head_height
-    assert liquids[0].GetHeightAttr().Get() < starting_volume
-    assert tip.ComputeVisibility() == "inherited"
+    def world_position(prim):
+        return UsdGeom.XformCache().GetLocalToWorldTransform(prim).ExtractTranslation()
 
-    equipment.sample.advance(3.2)
-    station.apply(equipment.sample.observe().pose)
-    assert station.carriage.Get()[0] == pytest.approx(-.0725)
+    station.apply(sample_run.sample.observe())
+    start = world_position(mount)
+    assert station.tip.GetVisibilityAttr().Get() == "invisible"
+    station.apply(at_step(sample_run, "Drawing from Stock"))
+    assert world_position(mount)[2] < start[2]
+    assert station.tip.GetVisibilityAttr().Get() == "inherited"
+    assert station.observe()[0].volume < 2
 
-    equipment.sample.advance(100)
-    station.apply(equipment.sample.observe().pose)
-    for well, liquid, expected in zip(well_paths, liquids, (1.0, .5, .25, .125)):
-        bound, _ = UsdShade.MaterialBindingAPI(liquid.GetPrim()).ComputeBoundMaterial()
-        assert str(bound.GetPath()) == f"{well}/Mixture"
-        tint = UsdShade.Shader.Get(stage, f"{well}/Mixture/Preview").GetInput("diffuseColor").Get()
-        assert tuple(tint) == pytest.approx(liquid_color(expected))
-    assert tip.ComputeVisibility() == "invisible"
-    fresh_stage = Usd.Stage.Open(str(path))
-    reloaded = StageDilution(fresh_stage)
-    assert reloaded.carriage.Get()[0] == pytest.approx(-.2175)
+    station.apply(at_step(sample_run, "Dispensing into 1:2"))
+    assert stage.GetEditTarget().GetLayer() == stage.GetSessionLayer()
+    assert world_position(mount)[0] > start[0]
+    assert station.stream.GetVisibilityAttr().Get() == "inherited"
+    assert station.stream.GetHeightAttr().Get() > 0
+    tip = stage.GetPrimAtPath(f"{carriage}/Tool/TipEnd")
+    stream = station.stream.GetPrim()
+    assert tuple(world_position(tip))[:2] == pytest.approx(tuple(world_position(stream))[:2])
+    assert .0 < station.observe()[1].concentration < .5
+
+    station.apply(at_step(sample_run, "Checking 1:4"))
+    assert station.stream.GetVisibilityAttr().Get() == "invisible"
+    assert station.focus_rings[2].ComputeVisibility() == "inherited"
+    assert station.focus_rings[1].ComputeVisibility() == "invisible"
+
+    fresh = Usd.Stage.Open(str(path))
+    assert world_position(fresh.GetPrimAtPath(mount.GetPath())) == start
 
 
-def test_sample_builds_a_dye_gradient_and_conserves_mixtures(equipment):
-    sample = equipment.sample
-    actions = set()
-    for _ in range(170):
-        observed = sample.observe()
-        actions.add(observed.action)
-        liquids = (*observed.pose.mixtures, observed.pose.tip)
-        assert sum(liquid.volume for liquid in liquids) == pytest.approx(5.0)
-        assert sum(liquid.dye for liquid in liquids) == pytest.approx(2.0)
+def test_reference_check_uses_rendered_usd_color_and_fill(sample_run):
+    pytest.importorskip("pxr")
+    from pxr import Gf, Usd
+    from domain.dilution_scene import StageDilution, liquid_color
+
+    stage = Usd.Stage.Open(str(ASSETS / "web_lab.usda"))
+    station = StageDilution(stage)
+    sample_run.sample.advance(100)
+    observation = sample_run.sample.observe()
+    station.apply(observation)
+    result = observation.snapshot(station.observe())
+    assert result["check"]["status"] == "passed"
+    assert [well["concentration_percent"] for well in result["wells"]] == [100, 50, 25, 12.5, 0]
+
+    liquid, _, tint = station.liquids[2]
+    tint.Set(Gf.Vec3f(*liquid_color(.4)))
+    station.liquids[-1][0].GetHeightAttr().Set(.008)
+    result = observation.snapshot(station.observe())
+    assert result["check"]["status"] == "needs_review"
+    assert result["wells"][2]["concentration_percent"] == 40
+    assert result["wells"][2]["issues"] == ["Color differs from target"]
+    assert result["wells"][-1]["issues"] == ["Fill differs from target"]
+    assert liquid.GetHeightAttr().Get() > 0
+
+
+def test_sample_conserves_the_mixtures_and_checks_each_vessel(sample_run):
+    sample = sample_run.sample
+    checked = set()
+    for _ in range(240):
+        observation = sample.observe()
+        liquids = (*observation.pose.mixtures, observation.pose.tip)
+        assert sum(liquid.volume for liquid in liquids) == pytest.approx(6)
+        assert sum(liquid.dye for liquid in liquids) == pytest.approx(2)
+        if observation.reading_index is not None:
+            assert observation.transfers == 3
+            checked.add(observation.reading_index)
         sample.advance(.17)
-    assert {"Drawing from Stock", "Moving to 1:2", "Dispensing and mixing 1:8"} <= actions
-    result = sample.observe().snapshot()
+    result = snapshot(sample_run, 1)["sample"]
+    assert checked == {0, 1, 2, 3, 4}
     assert result["status"] == "complete"
     assert result["completed_transfers"] == result["total_transfers"] == 3
-    assert [well["concentration_percent"] for well in result["wells"]] == [100, 50, 25, 12.5]
-
-
-def test_sample_stop_and_replay_follow_the_rendered_revision(equipment):
-    from domain.equipment import CommandError
-    from domain.workspace import LiveFrames
-
-    frames = LiveFrames(equipment.joints)
-    equipment.advance(3.4)
-    before = equipment.sample.observe().pose
-    frames.publish(equipment.snapshot(1, equipment.position, False), {})
-    with pytest.raises(CommandError, match="Stop the current sample"):
-        frames.submit({"revision": 0, "command": {"action": "restart_sample"}})
-    assert frames.submit({"revision": 0, "command": {"action": "stop_sample"}}) == 1
-    equipment.apply(*frames.command())
-    equipment.advance(2)
-    assert equipment.sample.observe().pose == before
-    stopped = equipment.snapshot(2, equipment.position, False)
-    assert stopped["sample"]["status"] == "stopped"
-    frames.publish(stopped, {})
-    assert frames.submit({"revision": 1, "command": {"action": "restart_sample"}}) == 2
-    equipment.apply(*frames.command())
-    restarted = equipment.snapshot(3, equipment.position, False)
-    assert restarted["sample"]["status"] == "running"
-    assert restarted["sample"]["completed_transfers"] == 0
-    assert [well["concentration_percent"] for well in restarted["sample"]["wells"]] == [100, 0, 0, 0]
+    assert result["check"]["checked"] == result["check"]["total"] == 5
 
 
 @pytest.mark.parametrize("message", [
-    [],
-    {"action": "move", "joint": "lift", "target": True},
-    {"action": "move", "joint": "lift", "target": 10**400},
-    {"action": "move", "joint": "lift", "target": float("nan")},
-    {"action": "move", "joint": "lift", "target": 541},
-    {"action": "move", "joint": "lid", "target": 0},
-    {"action": "move", "joint": ["lift"], "target": 540},
-    {"action": "light", "enabled": "false"},
-    {"action": "home", "path": "/World"},
-    {"action": "restart_sample", "steps": []},
+    [], {"action": None}, {"action": "move", "joint": "lift", "target": 450},
+    {"action": "home"}, {"action": "hold"}, {"action": "lid", "enabled": True},
+    {"action": "light", "enabled": True}, {"action": "restart_sample", "steps": []},
 ])
-def test_rejects_values_and_fields_outside_manual_controls(equipment, message):
-    from domain.equipment import CommandError, command_from_message
+def test_rejects_commands_outside_sample_controls(sample_run, message):
+    from domain.sample_run import CommandError, command_from_message
 
-    with pytest.raises(CommandError):
-        command_from_message(message, equipment.joints)
-
-
-def test_motion_hold_and_home_use_current_pose_and_keep_independent_controls(equipment):
-    equipment.apply(1, {"action": "move", "joint": "lift", "target": 540})
-    equipment.advance(.2)
-    assert equipment.position["lift"] == 470
-    assert equipment.snapshot(1, equipment.position, False)["motion"] == "moving"
-    equipment.apply(2, {"action": "hold"})
-    equipment.advance(1)
-    held = equipment.snapshot(2, equipment.position, False)
-    assert held["motion"] == "held"
-    assert held["joints"]["lift"]["value"] == held["joints"]["lift"]["target"] == 470
-    equipment.apply(3, {"action": "lid", "enabled": True})
-    equipment.apply(4, {"action": "light", "enabled": True})
-    equipment.apply(5, {"action": "home"})
-    equipment.advance(1)
-    assert equipment.position == {"lift": 450, "shoulder": -127, "lid": -72}
-    assert equipment.light_on
+    with pytest.raises(CommandError, match="Stop sample or Run sample again"):
+        command_from_message(message)
 
 
-def test_stale_or_concurrent_commands_cannot_overwrite_an_observed_command(equipment):
-    from domain.equipment import CommandError
+def test_sample_stop_and_replay_follow_the_rendered_revision(sample_run):
+    from domain.sample_run import CommandError
     from domain.workspace import LiveFrames
 
-    frames = LiveFrames(equipment.joints)
-    request = {"revision": 0, "command": {"action": "home"}}
+    frames = LiveFrames()
+    stop = {"revision": 0, "command": {"action": "stop_sample"}}
     with pytest.raises(CommandError, match="current Isaac Sim frame"):
-        frames.submit(request)
-    frames.publish(equipment.snapshot(1, equipment.position, False), {})
-    assert frames.submit(request) == 1
+        frames.submit(stop)
+    before = at_step(sample_run, "Dispensing into 1:2").pose
+    frames.publish(snapshot(sample_run, 1), {})
+    with pytest.raises(CommandError, match="Stop the current sample"):
+        frames.submit({"revision": 0, "command": {"action": "restart_sample"}})
+    assert frames.submit(stop) == 1
     with pytest.raises(CommandError, match="controls changed"):
-        frames.submit(request)
-    equipment.apply(*frames.command())
-    frames.publish(equipment.snapshot(2, equipment.position, False), {})
+        frames.submit(stop)
+    sample_run.apply(*frames.command())
+    sample_run.sample.advance(10)
+    assert sample_run.sample.observe().pose == before
+    assert not sample_run.sample.observe().flow
+    stopped = snapshot(sample_run, 2)
+    assert stopped["sample"]["status"] == "stopped"
+    frames.publish(stopped, {})
     assert frames.command() is None
     with pytest.raises(CommandError, match="controls changed"):
-        frames.submit(request)
+        frames.submit(stop)
+    assert frames.submit({"revision": 1, "command": {"action": "restart_sample"}}) == 2
+    sample_run.apply(*frames.command())
+    restarted = snapshot(sample_run, 3)
+    assert restarted["sample"]["status"] == "running"
+    assert restarted["sample"]["check"]["checked"] == 0
+    assert [well["concentration_percent"] for well in restarted["sample"]["wells"]] == [100, 0, 0, 0, 0]
+    frames.publish(restarted, {})
     frames.last_frame_at -= 10
     with pytest.raises(CommandError, match="current Isaac Sim frame"):
-        frames.submit({**request, "revision": 1})
+        frames.submit({**stop, "revision": 2})
 
 
-def test_workspace_streams_current_observations_and_manual_receipts(equipment):
+def test_workspace_streams_camera_and_observed_sample_control(sample_run, monkeypatch):
     from domain.workspace import LiveFrames, Workspace
 
-    frames = LiveFrames(equipment.joints)
-    frames.publish(equipment.snapshot(1, equipment.position, False), {"overview": b"overview", "deck": b"deck"})
+    def kit_run(coroutine):
+        coroutine.close()
+        raise RuntimeError("The workspace must leave Kit's asyncio.run wrapper alone.")
+
+    monkeypatch.setattr(asyncio, "run", kit_run)
+    frames = LiveFrames()
+    frames.publish(snapshot(sample_run, 1), {"overview": b"overview", "samples": b"samples"})
     workspace = Workspace("127.0.0.1", 0, frames)
     base = f"127.0.0.1:{workspace.port}"
     try:
         with urlopen(f"http://{base}/", timeout=3) as response:
-            assert b"Web lab live" in response.read()
+            assert b"OLA MK3 workcell" in response.read()
         with urlopen(f"http://{base}/session.json", timeout=3) as response:
             assert response.headers["Cache-Control"] == "no-store"
             assert response.headers["Cross-Origin-Resource-Policy"] == "same-origin"
@@ -241,19 +237,18 @@ def test_workspace_streams_current_observations_and_manual_receipts(equipment):
             viewer.send(json.dumps({"key": key}))
             assert json.loads(viewer.recv(timeout=3))["state"]["frame"] == 1
             assert viewer.recv(timeout=3) == b"overview"
-            viewer.send('{"camera":"deck"}')
-            assert json.loads(viewer.recv(timeout=3))["camera"] == "deck"
-            assert viewer.recv(timeout=3) == b"deck"
+            viewer.send('{"camera":"samples"}')
+            assert json.loads(viewer.recv(timeout=3))["camera"] == "samples"
+            assert viewer.recv(timeout=3) == b"samples"
 
-            viewer.send('{"revision":0,"command":{"action":"light","enabled":true}}')
+            viewer.send('{"revision":0,"command":{"action":"stop_sample"}}')
             assert json.loads(viewer.recv(timeout=3)) == {"type": "accepted", "id": 1}
-            equipment.apply(*frames.command())
-            frames.publish(equipment.snapshot(2, equipment.position, equipment.light_on),
-                           {"overview": b"next overview", "deck": b"next deck"})
+            sample_run.apply(*frames.command())
+            frames.publish(snapshot(sample_run, 2), {"overview": b"next overview", "samples": b"next samples"})
             observed = json.loads(viewer.recv(timeout=3))["state"]
-            assert observed["inspection_light"]
+            assert observed["sample"]["status"] == "stopped"
             assert observed["recent_actions"][0]["id"] == 1
-            assert viewer.recv(timeout=3) == b"next deck"
+            assert viewer.recv(timeout=3) == b"next samples"
 
         with connect(f"ws://{base}/control", open_timeout=3) as next_viewer:
             next_viewer.send(json.dumps({"key": key}))
@@ -264,7 +259,7 @@ def test_workspace_streams_current_observations_and_manual_receipts(equipment):
     assert not workspace.thread.is_alive()
 
 
-def test_service_claim_requires_a_render_and_shutdown_publishes_the_last_observation(equipment, monkeypatch, tmp_path):
+def test_service_claim_requires_a_render_and_shutdown_publishes_the_last_observation(sample_run, monkeypatch, tmp_path):
     from domain import live
 
     claims, stopped = [], []
@@ -283,7 +278,7 @@ def test_service_claim_requires_a_render_and_shutdown_publishes_the_last_observa
     assert live.ready(block, {}) is False
     assert not claims
 
-    observed = equipment.snapshot(2, equipment.position, False)
+    observed = snapshot(sample_run, 2)
     (tmp_path / "state.json").write_text(json.dumps({"port": 5100, "state": observed}))
     assert live.ready(block, {}) and live.ready(block, {})
     assert len(claims) == 1
@@ -302,7 +297,7 @@ def test_service_claim_requires_a_render_and_shutdown_publishes_the_last_observa
         assert json.loads(path.read_text()) == {**observed, "status": "stopped"}
 
 
-def test_render_heartbeat_failure_remains_visible(equipment, tmp_path):
+def test_render_heartbeat_failure_remains_visible(sample_run, tmp_path):
     from domain import live
 
     block = SimpleNamespace(config={}, environment={}, store=CommittedJsonStore(tmp_path / "run"),
@@ -310,7 +305,7 @@ def test_render_heartbeat_failure_remains_visible(equipment, tmp_path):
     lab = live.LabSession(block)
     lab.work = tmp_path
     lab.process = SimpleNamespace(poll=lambda: None)
-    lab.state = equipment.snapshot(1, equipment.position, False)
+    lab.state = snapshot(sample_run, 1)
     lab.last_frame_at = time.monotonic() - live.FRAME_TIMEOUT - 1
     with pytest.raises(RuntimeError, match="stopped sending live camera frames"):
         lab.check()

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/ui.schema.json",
+  "starter_questions": [
+    "How do I try the sample scan?",
+    "What format should I export from my mapping tool?",
+    "Where can I open the OpenUSD scene?"
+  ],
+  "setup_guide": {
+    "schema": "otterdesk.setup_guide.v1",
+    "prompt_file": "@/payloads/prompts/setup.md",
+    "introduction": "Try the included street-corner scan or choose your own registered PLY. Conversion runs on a Linux x86-64 computer with an NVIDIA GPU and at least 48 GiB of GPU memory.",
+    "sample": {
+      "available": true,
+      "values": { "inputs.payload.scan_file": "@/examples/sample_inputs/street-corner.ply" },
+      "description": "Use the small synthetic SLIM-style street corner.",
+      "expected_output": "An OpenUSD scene and a web preview you can rotate and zoom."
+    },
+    "real": {
+      "values": {},
+      "introduction": "Choose one registered PLY point cloud with coordinates in metres and Z up."
+    },
+    "fields": [
+      {
+        "path": "inputs.payload.scan_file",
+        "label": "LiDAR scan",
+        "description": "Choose a registered PLY point cloud with coordinates in metres and Z up.",
+        "type": "local_path",
+        "path_kind": "file",
+        "role": "input",
+        "required": true
+      },
+      {
+        "path": "outputs.folder_path",
+        "label": "Output folder",
+        "description": "Save the scene, receipt and web preview here.",
+        "type": "local_path",
+        "path_kind": "directory",
+        "role": "output",
+        "required": false
+      }
+    ],
+    "run_guidance": {
+      "on_start": "I’ll convert the registered points with NVIDIA NuRec and prepare a 3D preview.",
+      "web_ui_ready": "Open the LiDAR scene preview to rotate and zoom the point cloud.",
+      "output_ready": "Open scene.usdc in Omniverse or another OpenUSD viewer."
+    }
+  },
+  "web_ui": {
+    "enabled": true,
+    "adapter": "static_html",
+    "kind": "output",
+    "title": "LiDAR scene preview",
+    "description": "Inspect the exported point cloud from any angle."
+  }
+}

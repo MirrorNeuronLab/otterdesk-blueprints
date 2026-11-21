@@ -1,0 +1,14 @@
+{
+  "inputs": { "payload": { "scan_file": "@/examples/sample_inputs/street-corner.ply" } },
+  "local_inputs": {
+    "files": [
+      {
+        "config_path": "inputs.payload.scan_file",
+        "payload_path": "mn_local_inputs/scan.ply",
+        "runtime_path": "mn_local_inputs/scan.ply",
+        "max_bytes": 268435456
+      }
+    ]
+  },
+  "outputs": { "folder_path": "~/Downloads/lidar-scene-builder" }
+}

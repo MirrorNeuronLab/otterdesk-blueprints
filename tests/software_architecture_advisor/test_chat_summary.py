@@ -41,3 +41,15 @@ def test_empty_static_review_and_long_source_text_stay_bounded_and_honest(tmp_pa
     assert len(summary['overview']) <= 600
     assert len(summary['highlights']) <= 3
     assert all(len(row['title']) <= 180 and len(row['detail']) <= 320 for row in summary['highlights'])
+
+
+def test_change_impact_counts_distinct_files_and_prefers_literal_source_sites():
+    from domain.change_impact import direct_dependents
+
+    sites = [{'source': f'{i}.c', 'target': 'shared.h', 'kind': kind, 'evidence': {'line_start': line}}
+             for i in reversed(range(7)) for kind, line in [('call', 1), ('include', 4), ('include', 2)]]
+    facts = {'components': [{'id': 'shared.h', 'fan_in': 7}], 'component_evidence': sites}
+    impact = direct_dependents(facts)
+    assert impact['total'] == 7
+    assert impact['sites'] == [{'source': f'{i}.c', 'line': 2, 'kind': 'include'} for i in range(5)]
+    assert direct_dependents({**facts, 'component_evidence': []}) is None

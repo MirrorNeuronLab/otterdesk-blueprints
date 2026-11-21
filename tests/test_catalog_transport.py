@@ -35,9 +35,7 @@ def package_root(record):
     "record", BASELINE, ids=lambda row: f"{row['repository']}/{row['path']}"
 )
 def test_migrated_behavior_and_transport_parity(record, tmp_path):
-    from mn_api.blueprints import local_blueprint_from_path
-    from mn_cli.libs.blueprint_cmds import _load_blueprint_manifest
-    from mn_sdk.blueprints.definition import blueprint_definition
+    from mn_runtime.services.blueprints import local_blueprint_from_path
 
     root = package_root(record)
     package = read_blueprint(root)
@@ -93,7 +91,7 @@ def test_migrated_behavior_and_transport_parity(record, tmp_path):
         assert contracts.get("artifacts") == (
             {"schema": expected} if isinstance(expected, str) else expected
         )
-    assert _load_blueprint_manifest(root, record["id"]) == blueprint_definition(package)
+    # The CLI and API send bundle paths to the same runtime-owned loader.
     _, api_record = local_blueprint_from_path(str(root))
     assert api_record["id"] == package.manifest["id"]
     moved = tmp_path / "relocated" / "package"

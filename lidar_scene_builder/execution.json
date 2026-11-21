@@ -1,0 +1,43 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/execution.schema.json",
+  "type": "batch",
+  "mode": "compiled",
+  "job_name": "lidar-scene-builder",
+  "requirements": {
+    "os": "linux",
+    "cpu": { "min_cores": 4 },
+    "memory": { "min_gb": 8 },
+    "disk": { "min_gb": 40 },
+    "gpu": {
+      "min_count": 1,
+      "vendor": "nvidia",
+      "driver": "cuda",
+      "enforcement": "hard",
+      "memory_operator": ">=",
+      "min_memory_mb": 49152
+    },
+    "network": {
+      "egress": "Worker preparation pulls NVIDIA NuRec and installs Ubuntu and Python packages. Scan processing and preview run on the selected MirrorNeuron node."
+    }
+  },
+  "policies": {
+    "constraints": [{ "attribute": "cpu.arch", "operator": "in", "value": ["x86_64", "amd64"] }]
+  },
+  "agents": { "registry": {} },
+  "defaults": {
+    "worker": {
+      "uses": "mn-agents.worker.python_docker@1",
+      "with": {
+        "docker_worker_image": "docker_worker",
+        "build_context": ".",
+        "dockerfile": "docker_worker/Dockerfile",
+        "image": "mirror-neuron/lidar-scene-builder:0.1.0",
+        "python_executable": "/opt/mn-venv/bin/python3",
+        "gpus": "all",
+        "stereotype": ["blueprint_docker_worker", "internal_write_worker"],
+        "upload_paths": [{ "source": "domain", "target": "domain" }],
+        "workdir": "/app"
+      }
+    }
+  }
+}

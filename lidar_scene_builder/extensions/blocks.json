@@ -1,0 +1,52 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "check_scan": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": { "operation": "domain.conversion:check_scan" },
+      "inputs": { "scan_file": { "$ref": "run_input", "path": ["scan_file"] } },
+      "limits": { "max_calls": 1, "timeout_seconds": 60 },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scan_file", "point_count"],
+        "properties": {
+          "scan_file": { "type": "string", "minLength": 1 },
+          "point_count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    },
+    "convert_scan": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": { "operation": "domain.conversion:convert_scan" },
+      "inputs": { "scan": { "$ref": "upstream", "step_id": "check_scan", "path": ["result"] } },
+      "input_schema": {
+        "type": "object",
+        "required": ["scan"],
+        "properties": {
+          "scan": {
+            "type": "object",
+            "required": ["scan_file", "point_count"],
+            "properties": {
+              "scan_file": { "type": "string", "minLength": 1 },
+              "point_count": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "limits": { "max_calls": 1, "timeout_seconds": 900 },
+      "output_schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scene", "report", "point_count"],
+        "properties": {
+          "scene": { "type": "object" },
+          "report": { "type": "object" },
+          "point_count": { "type": "integer", "minimum": 1 }
+        }
+      }
+    }
+  }
+}

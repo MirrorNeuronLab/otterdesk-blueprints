@@ -1,0 +1,24 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "lidar_scene_builder_v1",
+  "mode": "static_dag",
+  "execution": { "strategy": "serial", "max_parallel_steps": 1 },
+  "steps": [
+    {
+      "id": "check_scan",
+      "kind": "stage",
+      "label": "Check LiDAR scan",
+      "goal": "Validate the staged point cloud header before running the exporter.",
+      "needs": [],
+      "control": { "timeout_seconds": 60, "retry": { "max_attempts": 1 } }
+    },
+    {
+      "id": "convert_scan",
+      "kind": "stage",
+      "label": "Convert LiDAR scan",
+      "goal": "Write the registered scan as an OpenUSD scene and publish an orbit preview.",
+      "needs": ["check_scan"],
+      "control": { "timeout_seconds": 900, "retry": { "max_attempts": 1 } }
+    }
+  ]
+}

@@ -200,7 +200,7 @@ def test_capture_uses_declared_staged_configuration_without_a_shadowing_empty_po
     assert 'store.py' in captured['sources']
     compiled = compile_blueprint(read_blueprint(PACKAGE)).manifest
     source_block = compiled['metadata']['mn_blocks_lock']['steps']['capture_software_sources']
-    assert source_block['inputs'] == {}
+    assert source_block['inputs'] == {'verification_scope': {'$ref': 'run_input', 'path': ['verification_scope']}}
 
 
 def test_policy_change_cannot_reuse_an_old_verified_result(modules, context, authority):

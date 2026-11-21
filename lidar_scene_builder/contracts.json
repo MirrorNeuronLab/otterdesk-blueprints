@@ -1,0 +1,51 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
+  "summary": "A registered LiDAR point cloud in, an OpenUSD scene and an interactive point preview out.",
+  "inputs": {
+    "scan_file": {
+      "type": "local_path",
+      "path_kind": "file",
+      "required": true,
+      "description": "A registered PLY point cloud in metres with Z up. ASCII and binary PLY are accepted, up to 1 million vertices and 256 MiB."
+    }
+  },
+  "outputs": {
+    "profile": "standard_run_store",
+    "primary": {
+      "id": "scan_result",
+      "path": "scan_result.json",
+      "schema_version": "otterdesk.lidar_scene.v1",
+      "schema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["schema", "point_count", "bounds_m", "input_sha256", "scene"],
+        "properties": {
+          "schema": { "const": "otterdesk.lidar_scene.v1" },
+          "point_count": { "type": "integer", "minimum": 1, "maximum": 1000000 },
+          "bounds_m": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": { "type": "array", "minItems": 3, "maxItems": 3, "items": { "type": "number" } }
+          },
+          "input_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "scene": { "type": "object" }
+        }
+      }
+    },
+    "artifacts": [
+      { "artifact_id": "openusd_scene", "path": "scene.usdc", "mime_type": "model/vnd.usd", "required": true },
+      {
+        "artifact_id": "web_ui",
+        "path": "web_ui.json",
+        "mime_type": "application/json",
+        "schema_version": "mn.blueprint.web_ui.v1",
+        "type": "web_ui",
+        "source_refs": ["web/index.html"],
+        "required": false
+      },
+      { "artifact_id": "web_preview", "path": "web/index.html", "mime_type": "text/html", "type": "report", "required": false }
+    ]
+  },
+  "privacy": { "classification": "confidential", "external_sharing": "disabled" }
+}

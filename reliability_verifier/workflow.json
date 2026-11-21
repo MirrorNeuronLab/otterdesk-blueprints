@@ -1,0 +1,52 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/workflow.schema.json",
+  "workflow_id": "reliability_verifier_v1",
+  "mode": "static_dag",
+  "execution": {
+    "strategy": "serial",
+    "max_parallel_steps": 1,
+    "supervision": "activity"
+  },
+  "steps": [
+    {
+      "id": "capture_subject",
+      "kind": "source",
+      "label": "Capture source and plan",
+      "goal": "Freeze the selected source, scope and applicable criteria.",
+      "needs": [],
+      "control": {
+        "retry": {
+          "max_attempts": 2
+        }
+      }
+    },
+    {
+      "id": "evaluate_checks",
+      "kind": "stage",
+      "label": "Perform verification",
+      "goal": "Record each required attempt against its immutable assignment.",
+      "needs": [
+        "capture_subject"
+      ],
+      "control": {
+        "retry": {
+          "max_attempts": 2
+        }
+      }
+    },
+    {
+      "id": "publish_report",
+      "kind": "sink",
+      "label": "Publish verification report",
+      "goal": "Publish the verdict, evidence and unresolved work.",
+      "needs": [
+        "evaluate_checks"
+      ],
+      "control": {
+        "retry": {
+          "max_attempts": 2
+        }
+      }
+    }
+  ]
+}

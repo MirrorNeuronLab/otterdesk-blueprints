@@ -1,0 +1,79 @@
+{
+  "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/extensions/blocks.schema.json",
+  "steps": {
+    "capture_subject": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.review:capture"
+      },
+      "inputs": {
+        "verification_scope": {
+          "$ref": "run_input",
+          "path": [
+            "verification_scope"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1
+      }
+    },
+    "evaluate_checks": {
+      "uses": "mn.blocks.domain_operation@1",
+      "hooks": {
+        "operation": "domain.review:inspect"
+      },
+      "inputs": {
+        "previous": {
+          "$ref": "upstream",
+          "step_id": "capture_subject",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "outputs": {
+        "result": {
+          "$ref": "flow_output",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1
+      }
+    },
+    "publish_report": {
+      "uses": "mn.blocks.report_publication@1",
+      "config": {
+        "artifact_ids": [
+          "final_artifact",
+          "report",
+          "web_report",
+          "web_ui"
+        ]
+      },
+      "inputs": {
+        "report": {
+          "$ref": "upstream",
+          "step_id": "evaluate_checks",
+          "path": [
+            "result"
+          ]
+        }
+      },
+      "limits": {
+        "max_calls": 1
+      }
+    }
+  }
+}

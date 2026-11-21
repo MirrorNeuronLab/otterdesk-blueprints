@@ -184,9 +184,14 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`ocr_worker`](ocr_worker/README.md) | Other | Extracts text and page regions from images and PDFs using lazy Nemotron OCR v2. Requires a 48 GiB NVIDIA GPU. |
 | [`transcription_worker`](transcription_worker/README.md) | Other | Transcribes an audio folder to Markdown using lazy Nemotron 3.5 NVFP4 on Blackwell. Includes the full Bdb001 WAV sample; defaults to 96 GiB GPU memory. |
 | [`web_lab_operator`](web_lab_operator/README.md) | Research | Monitors a live OpenUSD workcell in Isaac Sim and lets the operator position the simulated arm and inspection equipment from two camera views. |
+| [`lidar_scene_builder`](lidar_scene_builder/README.md) | Physical AI | Converts a registered SLIM LiDAR point cloud to OpenUSD with NVIDIA NuRec and publishes an interactive preview. Requires one NVIDIA GPU with at least 48 GiB of memory. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
-| [`code_verifier`](code_verifier/README.md) | Engineering | Creates editable software rules, waits for your approval in Chat, then verifies each with source evidence and confidence. |
+| [`code_verifier`](code_verifier/README.md) | Engineering | Coordinates four specialist reports, waits for rule approval and publishes one tabbed verification verdict. |
+| [`functional_verifier`](functional_verifier/README.md) | Engineering | Traces analysis documents to generated tests and implementation, checks assertions and compares behavior across revisions. |
+| [`security_verifier`](security_verifier/README.md) | Engineering | Reviews access controls, credential handling, dependency evidence and privileged workflows in context. |
+| [`compatibility_verifier`](compatibility_verifier/README.md) | Engineering | Compares public interfaces, package entry points, schemas and target-specific integration evidence. |
+| [`reliability_verifier`](reliability_verifier/README.md) | Engineering | Checks failure recovery and compares repeated workload measurements against approved resource limits. |
 | [`procurement_manager`](procurement_manager/README.md) | Business | Procurement Manager compares supplier evidence, lifecycle costs, and purchase options and prepares a review-only decision packet. Its stable blueprint ID remains `purchasing_manager`. |
 | [`mac_security_investigator`](mac_security_investigator/README.md) | Engineering | Watches new macOS security log events during each run and publishes a web report with assessments, supporting records, and coverage. |
 | [`cctv_operator`](cctv_operator/README.md) | Physical AI | Up to four RTSP cameras with live previews, NVIDIA video captions, saved observations and a shared monitoring goal. |
@@ -364,8 +369,9 @@ owns authentication, endpoint identity, and owner routing.
 This is a coordinated replacement with no public compatibility aliases.
 `get_latest_run` is replaced by `get_run_status`; `free_play` is renamed
 `start_free_play`. Configuration, scheduling, approvals, retries, and destructive
-data management retain their existing APIs. GTM peer collaboration retains its
-separate read-only capability and gains no lifecycle authority.
+data management retain their existing APIs. GTM peers can still read each other's
+published work. Their stable Job mailboxes also accept addressed notes while a
+peer is stopped.
 
 ## MCP Skills
 
@@ -396,8 +402,8 @@ tools and an installed supervision Skill. Optional conversation tools follow
 | ROS AMR controller | Read robot status, navigate to a zone, cancel navigation, adjust motion |
 | CT reader | Common supervision |
 | Drug discovery research assistant | Common supervision |
-| GTM executor | Common supervision; separate read-only peer collaboration |
-| GTM planner | Common supervision; separate read-only peer collaboration |
+| GTM executor | Common supervision, peer reads and a group mailbox |
+| GTM planner | Common supervision, peer reads and a group mailbox |
 | Litigation analyst | Common supervision |
 | Mac security investigator | Common supervision |
 | Procurement manager | Common supervision |
@@ -413,7 +419,18 @@ checks. Domain control tests also exercise forwarding and worker registration.
 
 The MCP-enabled packages require the coordinated SDK family from `1.3.61.dev12` onward, below `2.0`. That floor accepts the matching local source revision and final `1.3.61` release; local installs keep their real SCM versions.
 
-## Code verifier
+## Software verifier family
+
+Each standalone specialist requests one CPU core, 1 GiB of memory and 1 GiB of disk using Core’s shared allocation mode. Specialists inside a coordinated run use that job’s allocation.
+
+On an OtterDesk collaboration board, add Software verifier as the manager and
+the dedicated verifiers you want to involve. After rule approval, the manager
+queues only matching independent checks. Each specialist can work from its
+mailbox on its next normal run using the source captured for that assignment.
+The manager records outstanding checks and reviews late results against their
+original assignments.
+
+Run any specialist independently, or run the coordinator for one web report with four specialist tabs. Give either a source folder or a prepared Git comparison. The report connects a requirement in an analysis document to the generated test, the implementation, and the observed result where that mapping is available. It preserves suite-level provenance when a case has no recorded passage. The shared verification skill can collect named pytest cases in a local, network-isolated container and also accepts independently recorded CI results. The coordinator publishes findings, coverage gaps, and the verdict in JSON, Markdown and HTML.
 
 [`code_verifier`](code_verifier/README.md) reads a local
 repository checkout or source/docs folder, extracts software expectations into
@@ -426,7 +443,7 @@ uses only a supervisor-edited list. Source and tests are never executed.
 The blueprint uses the static-code-analysis and code-search skills. Its additive
 offline `TextSearchIndex` API needs the code-search skill release
 `>=1.3.61.dev5,<2` before binary distribution; local mode uses current sibling
-skill source. No runtime changes are required.
+skill source. Managed delegation also requires the stable Job mailbox contract.
 
 ## Reusable block composition
 
