@@ -34,7 +34,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_mailbox_is_in_compiled_stable_job(name):
     package = read_blueprint(ROOT / name)
     declaration = compile_blueprint(package).manifest["mcp"]["mailbox"]
-    assert declaration["delivery"] == "mailbox" and declaration["sameRuntime"]
+    assert declaration["delivery"] == "mailbox"
+    assert declaration["sameRuntime"] is False
     if name.endswith("_verifier"):
         assert declaration["managerBlueprintId"] == "code_verifier"
 

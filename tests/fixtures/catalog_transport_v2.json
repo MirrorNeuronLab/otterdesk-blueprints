@@ -567,23 +567,23 @@
       "fields": {
         "agent_dependencies": "ee673e45f4c5cf404b17350223aa4b4437af36799fae06e557c6c42613b2bc86",
         "agentic_research": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "agents": "3951593e0cc55719c8c379f530451166d812c2e0270fb87aa3ab4d39ecfa163c",
+        "agents": "10412c4ccd5ebfe4c2eb59e5ac789fe8d41c2ba649219cbe7d0e7ed44def3d94",
         "authored_dependencies": "0689dd36d677abd18454960924af948ec9bd6a1ef13389d217c49dcabdaf663e",
-        "block_contracts": "ac898973615cfee49922e95ac90b9cd7e650d2407c641e80a75a2d91d1d4e5e8",
+        "block_contracts": "8b838ea8d348404ee9ff81cc97129bcd8bceb81c418202084695e6207b603ab3",
         "context_profile": "9635d495c23d13037761fdb01447e6b8e909b7f61ebb4f78bcef14b276aff233",
         "contract": "ed5e4fa742f066dd480ecfc28eda279cdd76eb159c9b0e73b660d2e4b91c2b99",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "4457417dda38f94d11b1f92049e521bd65f0c2a2541c94120c5b28baca9a4c55",
         "llm": "395c2c1aa732cdbca7c170dec2e7d80138a68999025095c0020dd92e64992598",
-        "mcp": "2db7d8398c233c54b273d3f40ef225b2406c0c18ed3de78b0d77fa88743de42a",
+        "mcp": "da99907d5b9828bfd99f596a8e1c0287e500daa7fb2285bdc5e1a917672c64be",
         "policies": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "requirements": "f6ce49f5025b668714c7185fa90778bce80f50b1902e5cafe6040fce7f07c371",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
-        "runtime_without_inputs": "bab04e8c873f8c2d68cc3a5cb2977ff3ebd9b046171870feba232dfa45348353",
+        "runtime_without_inputs": "d89802aab0fbb1e6fe54669e351bb9b95eac77dd912b5ad5705cd0adaa7fdd02",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "skill_dependencies": "0396fb477e88957e59124ea898e1647a167cc7f4de889faeb3dd675eeb24ad8b",
-        "workflow": "8c2dd2d85bf2f4951ec947735b92cb0345e049c8f07af22566057534bd076b7c"
+        "workflow": "8f8ada494cc85056f8af3517266d37376f302e872ae90954fdcb76fe9c122e64"
       },
       "configuration_leaves": {
         "/human_control/allowed_decisions": "f63fc2dbb341701e18ae3aba2f67b91823ec8aee382a7c56b71a1cdbeefdb0e7",
@@ -862,20 +862,20 @@
       "fields": {
         "agent_dependencies": "ee673e45f4c5cf404b17350223aa4b4437af36799fae06e557c6c42613b2bc86",
         "agentic_research": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "agents": "00f922bd301ff7a9e052b1d39716678e40993f4b3af5bbb2cb7e656dc4a6c8ce",
+        "agents": "dd7b7ed79a0d114889a7a4b0d256afa04717af6eea322de67ed0af99c07724d0",
         "authored_dependencies": "bbaa1a3627f184b2c9428462934fce542c3611f10dbbd8d8d01f34c1e1a39119",
-        "block_contracts": "8e375e1767041350cdea34e5b266c8847209de1c3061392a96a67b04befd880a",
+        "block_contracts": "a6348395247f5713f47dd21e591971c3d1cd475e1863c8680127f5d7213cd31f",
         "context_profile": "9d6bc3dcd9bf353b83a31d3444d4b9d2424d1eb764a1a1582d8ba01a82042701",
         "contract": "9382d031f07ba27c3308defd8af8e8829b833b4e2b0c917df606c2e0ce996af8",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "6a33ed43bbe276f00d8cfba57abcb1975cc52af81b9148c2b56d987ae3b9125e",
         "llm": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "mcp": "2acbf1ed93a54f8f15ebf796b95dff0cff94034d9f7ea6c4f6442df261bee30f",
+        "mcp": "889723a9bffc6f3f751623226770786b0705a7971b175bec179d869fb50b305a",
         "policies": "90e5cf1b55b92c52e76a6923e02446a88f804913cf64843e8d25853af9f10284",
         "requirements": "e1f49038653e35c818e95d7e9c367400832e1ced1546ade38dda173866645e4f",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
-        "runtime_without_inputs": "a606c00c0bf1fc4a103fb772582b4a54ff50756bd6058d481a939dc422d7d7d1",
+        "runtime_without_inputs": "c74f48a83263a30ac529ff2aab55cc8b9fcb21677a0bc5bbb6ccfa81cf85f76e",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "skill_dependencies": "b823d7f84d1c968c6a601dedb5c69c17ca597d43530412b38304c84c1ec89063",
         "workflow": "3362ff73fb33ec9c3c75f8e89e263a9300d86b95aa737ad34789bac9362a9d50"
@@ -995,20 +995,20 @@
       "fields": {
         "agent_dependencies": "ee673e45f4c5cf404b17350223aa4b4437af36799fae06e557c6c42613b2bc86",
         "agentic_research": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "agents": "8f0384f93fd0158624561dfc98acbb2ace55c245775e844b7be4a96f229dc317",
+        "agents": "48fbd64c6a367601bbd117d82b1d5c3e306b717eb6a809c6454efb0395c331e2",
         "authored_dependencies": "bbaa1a3627f184b2c9428462934fce542c3611f10dbbd8d8d01f34c1e1a39119",
-        "block_contracts": "bb8f1670976b56edbc3a9ae31919dc68f252677085e2f5ae36ac9d49c5d1afb0",
+        "block_contracts": "33d39059e38ee1f1109d92eed319856e4a86ded77449d9a4e0fb59ac88953e1d",
         "context_profile": "9d6bc3dcd9bf353b83a31d3444d4b9d2424d1eb764a1a1582d8ba01a82042701",
         "contract": "9d6564ce3cd18259baa001dca69a730c7e4f52003dfb54457bcc660c94445d20",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "6a33ed43bbe276f00d8cfba57abcb1975cc52af81b9148c2b56d987ae3b9125e",
         "llm": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "mcp": "0a3eda59c2f5603038aa27d391e85984ca749f1a867e1fd908b4a42b49be68df",
+        "mcp": "bdbd0e537c650898083f24b7c8fe489229047fec6e288f3d0f2dfaedb0c11ddd",
         "policies": "90e5cf1b55b92c52e76a6923e02446a88f804913cf64843e8d25853af9f10284",
         "requirements": "e1f49038653e35c818e95d7e9c367400832e1ced1546ade38dda173866645e4f",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
-        "runtime_without_inputs": "b807aa3d4849a12296886c48981f74f8cfe474895393ae51adaf567a9e058d81",
+        "runtime_without_inputs": "7b345d65d7331e1a071ccaf19ffd81573906f9f9029733de25e6735bb90e8537",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "skill_dependencies": "b823d7f84d1c968c6a601dedb5c69c17ca597d43530412b38304c84c1ec89063",
         "workflow": "ac2c206e99bbb0ee505ad8f738f5163500077db6808380087a6b152d1a515619"
@@ -1128,20 +1128,20 @@
       "fields": {
         "agent_dependencies": "ee673e45f4c5cf404b17350223aa4b4437af36799fae06e557c6c42613b2bc86",
         "agentic_research": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "agents": "72934a6ecd7d438b76c080540da2dd26233994a4861512a2c5157cdc8f2433eb",
+        "agents": "16cc2f345932265fdb07d2a6dbacbdbf0eb09a2e857e300147cc21c81b023414",
         "authored_dependencies": "bbaa1a3627f184b2c9428462934fce542c3611f10dbbd8d8d01f34c1e1a39119",
-        "block_contracts": "ca3959eace58eb8c94e5a418924320a41fa9a0c53c367821273fa092d47969bd",
+        "block_contracts": "aa3c271534e193dda437c2f1dcca5b56f97f74ed8c54232dec06de144c389be8",
         "context_profile": "9d6bc3dcd9bf353b83a31d3444d4b9d2424d1eb764a1a1582d8ba01a82042701",
         "contract": "0674f0a8ad58f3a355fac03215a190e2746372243d19f72773f6575c5b3e6423",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "6a33ed43bbe276f00d8cfba57abcb1975cc52af81b9148c2b56d987ae3b9125e",
         "llm": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "mcp": "9d1f781d88414075ab2b2c67a8c757fcad4a26da96a1b96573b872a741095b25",
+        "mcp": "c55c626600725c3b566f31971bfe50b2381dda91ea49f6031e0c5bcbdf5eea6e",
         "policies": "90e5cf1b55b92c52e76a6923e02446a88f804913cf64843e8d25853af9f10284",
         "requirements": "e1f49038653e35c818e95d7e9c367400832e1ced1546ade38dda173866645e4f",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
-        "runtime_without_inputs": "631fb264d0aec6db42d06c12cddea69ea579077cac88b712263f73cfd58e9910",
+        "runtime_without_inputs": "7d0d6d14620ee2e734f8e57e0d6ac1d7b9bf8fdfb631d9952eb1688f57d89a7e",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "skill_dependencies": "b823d7f84d1c968c6a601dedb5c69c17ca597d43530412b38304c84c1ec89063",
         "workflow": "42c3642e0759261bfce783348e36b1604f93a5ee07552fab7d892f4b21389570"
@@ -1261,20 +1261,20 @@
       "fields": {
         "agent_dependencies": "ee673e45f4c5cf404b17350223aa4b4437af36799fae06e557c6c42613b2bc86",
         "agentic_research": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "agents": "dc9a5d59514b79ca318ab74284d27799d22b52ca87c305a111c2af321f194157",
+        "agents": "77e798e7f560db9e218aa6aa142bc72ccc5cb342fdabff1f463659e5415fa0b3",
         "authored_dependencies": "bbaa1a3627f184b2c9428462934fce542c3611f10dbbd8d8d01f34c1e1a39119",
-        "block_contracts": "0d3070c2cb3fb8b4f8aa920d04c0eccecfcea809f84d7a1ea6e274eaf8436744",
+        "block_contracts": "c581b3ebcc8b0eb546f57779bb523d31b2e5eadd9c6c5f3100894bb79f6e9ea1",
         "context_profile": "9d6bc3dcd9bf353b83a31d3444d4b9d2424d1eb764a1a1582d8ba01a82042701",
         "contract": "7eb9df787390be42eaffa781608209e2a2918eebab00aa4aa96f16e63a6f6de8",
         "input_validation": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "6a33ed43bbe276f00d8cfba57abcb1975cc52af81b9148c2b56d987ae3b9125e",
         "llm": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-        "mcp": "3029856933e71f338a08226654b26e731fa30d74b6c202850516d7d61dbb0090",
+        "mcp": "5f3652fc2ca979806399ada5e7c36d3670c62f21c463af0893865cf27c471721",
         "policies": "90e5cf1b55b92c52e76a6923e02446a88f804913cf64843e8d25853af9f10284",
         "requirements": "e1f49038653e35c818e95d7e9c367400832e1ced1546ade38dda173866645e4f",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
-        "runtime_without_inputs": "4859473ff73e5c478ca52e80330fc057169e5899cdf2db43e74537f2d64ae960",
+        "runtime_without_inputs": "ace0118fd8487f7588aabd0fcce1b45d835b8664310136e7c4879ccd65f4a08f",
         "services": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "skill_dependencies": "b823d7f84d1c968c6a601dedb5c69c17ca597d43530412b38304c84c1ec89063",
         "workflow": "c37f653df84a14ec21ea464f7be1a7ed685ecd61181cf9999d9fed06bbb82d93"
@@ -2467,7 +2467,7 @@
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "607974f305bdc669faba23720986b2dc6ec0730f5655f0ce9aafb89572639769",
         "llm": "9bbae0f80ee25cf7582b4fe6e4352b96c32aac3d5d69e911e50d5da4ab31015b",
-        "mcp": "04b681e56ebc17daa5fe9fb69312b724f396938a9b45f797b4c39fbe60b92e5a",
+        "mcp": "9db13ddd8e57d637deeec2cf959680017ff10d3cda8410ed45dcc17e84535462",
         "policies": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "requirements": "7d28971fe97627c2fed891a3bcd8c79c839520d49e802be0247a5e31e0b7fd68",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
@@ -2625,7 +2625,7 @@
         "interfaces": "0750d52325276fc055a88d8e63db23aa5678bda33401cc41cd745d618f2180a6",
         "knowledge_rag": "607974f305bdc669faba23720986b2dc6ec0730f5655f0ce9aafb89572639769",
         "llm": "efcfea2dd80bd8a86a5988bb34fb84a32128844e5ea7d00d55ec87a6f5dce04e",
-        "mcp": "ea8362f363a1bde63fe5074f8a9723d69fbf9ab9bc9c578b012de3dfb0efd890",
+        "mcp": "bcb4266ac188173e96dfb851e1795990e730823fd55f038b8a86a588a431f8e7",
         "policies": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
         "requirements": "7d28971fe97627c2fed891a3bcd8c79c839520d49e802be0247a5e31e0b7fd68",
         "response_service": "26b3426b2593763c96d0890b4a77a0bbf66d13fc512b0c6b138a23c290f30a2a",
@@ -6868,6 +6868,203 @@
           "after": "ce04b42094becd7b62dcc9edec01ba7963674984b1e3af82e0bbf80eda24154e"
         }
       }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "code_verifier",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "2db7d8398c233c54b273d3f40ef225b2406c0c18ed3de78b0d77fa88743de42a",
+          "after": "da99907d5b9828bfd99f596a8e1c0287e500daa7fb2285bdc5e1a917672c64be"
+        },
+        "agents": {
+          "before": "3951593e0cc55719c8c379f530451166d812c2e0270fb87aa3ab4d39ecfa163c",
+          "after": "10412c4ccd5ebfe4c2eb59e5ac789fe8d41c2ba649219cbe7d0e7ed44def3d94"
+        },
+        "workflow": {
+          "before": "8c2dd2d85bf2f4951ec947735b92cb0345e049c8f07af22566057534bd076b7c",
+          "after": "8f8ada494cc85056f8af3517266d37376f302e872ae90954fdcb76fe9c122e64"
+        },
+        "runtime_without_inputs": {
+          "before": "bab04e8c873f8c2d68cc3a5cb2977ff3ebd9b046171870feba232dfa45348353",
+          "after": "d89802aab0fbb1e6fe54669e351bb9b95eac77dd912b5ad5705cd0adaa7fdd02"
+        },
+        "block_contracts": {
+          "before": "ac898973615cfee49922e95ac90b9cd7e650d2407c641e80a75a2d91d1d4e5e8",
+          "after": "8b838ea8d348404ee9ff81cc97129bcd8bceb81c418202084695e6207b603ab3"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "code_verifier/extensions/product.json": {
+          "before": "2869a274a468058dcadc7f38765983107bcdf70cef47d75925896c14a122fedc",
+          "after": "f1d00bf3f7891836792fb1e4056a4a93d4a7e77cba35df5f827186b74847aab4"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "functional_verifier",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "2acbf1ed93a54f8f15ebf796b95dff0cff94034d9f7ea6c4f6442df261bee30f",
+          "after": "889723a9bffc6f3f751623226770786b0705a7971b175bec179d869fb50b305a"
+        },
+        "agents": {
+          "before": "00f922bd301ff7a9e052b1d39716678e40993f4b3af5bbb2cb7e656dc4a6c8ce",
+          "after": "dd7b7ed79a0d114889a7a4b0d256afa04717af6eea322de67ed0af99c07724d0"
+        },
+        "runtime_without_inputs": {
+          "before": "a606c00c0bf1fc4a103fb772582b4a54ff50756bd6058d481a939dc422d7d7d1",
+          "after": "c74f48a83263a30ac529ff2aab55cc8b9fcb21677a0bc5bbb6ccfa81cf85f76e"
+        },
+        "block_contracts": {
+          "before": "8e375e1767041350cdea34e5b266c8847209de1c3061392a96a67b04befd880a",
+          "after": "a6348395247f5713f47dd21e591971c3d1cd475e1863c8680127f5d7213cd31f"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "functional_verifier/extensions/product.json": {
+          "before": "86753188916984c45527aa33fb871b62fe97a9fdbd8eadd1e944ae44b44dcb91",
+          "after": "ad96658a390e6addbebd69e3eb633edb758add5a7ee67fd7597663a02e301f99"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "security_verifier",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "0a3eda59c2f5603038aa27d391e85984ca749f1a867e1fd908b4a42b49be68df",
+          "after": "bdbd0e537c650898083f24b7c8fe489229047fec6e288f3d0f2dfaedb0c11ddd"
+        },
+        "agents": {
+          "before": "8f0384f93fd0158624561dfc98acbb2ace55c245775e844b7be4a96f229dc317",
+          "after": "48fbd64c6a367601bbd117d82b1d5c3e306b717eb6a809c6454efb0395c331e2"
+        },
+        "runtime_without_inputs": {
+          "before": "b807aa3d4849a12296886c48981f74f8cfe474895393ae51adaf567a9e058d81",
+          "after": "7b345d65d7331e1a071ccaf19ffd81573906f9f9029733de25e6735bb90e8537"
+        },
+        "block_contracts": {
+          "before": "bb8f1670976b56edbc3a9ae31919dc68f252677085e2f5ae36ac9d49c5d1afb0",
+          "after": "33d39059e38ee1f1109d92eed319856e4a86ded77449d9a4e0fb59ac88953e1d"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "security_verifier/extensions/product.json": {
+          "before": "315b406c93b12e9306e588171a7788849ebf75cf12e4c28525dda8fb3f79bf4e",
+          "after": "d319230760ddd42cd42a05b8e8b4c1ecd461c814bbe909a9eeed08cfe60602ae"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "compatibility_verifier",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "9d1f781d88414075ab2b2c67a8c757fcad4a26da96a1b96573b872a741095b25",
+          "after": "c55c626600725c3b566f31971bfe50b2381dda91ea49f6031e0c5bcbdf5eea6e"
+        },
+        "agents": {
+          "before": "72934a6ecd7d438b76c080540da2dd26233994a4861512a2c5157cdc8f2433eb",
+          "after": "16cc2f345932265fdb07d2a6dbacbdbf0eb09a2e857e300147cc21c81b023414"
+        },
+        "runtime_without_inputs": {
+          "before": "631fb264d0aec6db42d06c12cddea69ea579077cac88b712263f73cfd58e9910",
+          "after": "7d0d6d14620ee2e734f8e57e0d6ac1d7b9bf8fdfb631d9952eb1688f57d89a7e"
+        },
+        "block_contracts": {
+          "before": "ca3959eace58eb8c94e5a418924320a41fa9a0c53c367821273fa092d47969bd",
+          "after": "aa3c271534e193dda437c2f1dcca5b56f97f74ed8c54232dec06de144c389be8"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "compatibility_verifier/extensions/product.json": {
+          "before": "1d1f8f9d1b0dd263348dfcf12943a2c582990bd3678d084971c425e28be14f60",
+          "after": "44203a7b80c9f6ba96ce57c9839fbaf6d59707a954dbdd3cf07e8dc9d4228ab6"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "reliability_verifier",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "3029856933e71f338a08226654b26e731fa30d74b6c202850516d7d61dbb0090",
+          "after": "5f3652fc2ca979806399ada5e7c36d3670c62f21c463af0893865cf27c471721"
+        },
+        "agents": {
+          "before": "dc9a5d59514b79ca318ab74284d27799d22b52ca87c305a111c2af321f194157",
+          "after": "77e798e7f560db9e218aa6aa142bc72ccc5cb342fdabff1f463659e5415fa0b3"
+        },
+        "runtime_without_inputs": {
+          "before": "4859473ff73e5c478ca52e80330fc057169e5899cdf2db43e74537f2d64ae960",
+          "after": "ace0118fd8487f7588aabd0fcce1b45d835b8664310136e7c4879ccd65f4a08f"
+        },
+        "block_contracts": {
+          "before": "0d3070c2cb3fb8b4f8aa920d04c0eccecfcea809f84d7a1ea6e274eaf8436744",
+          "after": "c581b3ebcc8b0eb546f57779bb523d31b2e5eadd9c6c5f3100894bb79f6e9ea1"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "reliability_verifier/extensions/product.json": {
+          "before": "f73c6657feff1dfd6654d2d20654532cfba22b9f087b572523e943ac23286dc6",
+          "after": "aa0884bf4e456e9c671a04c020f2aa0a6f0705a89d4f1f6ba314b2cb080967ea"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "gtm_executor",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "04b681e56ebc17daa5fe9fb69312b724f396938a9b45f797b4c39fbe60b92e5a",
+          "after": "9db13ddd8e57d637deeec2cf959680017ff10d3cda8410ed45dcc17e84535462"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "gtm_executor/extensions/product.json": {
+          "before": "86cb6c76695c95b9e914ac3f9e077412d5fb5f39d39b0924fbaf63ea78af2452",
+          "after": "cac3bcf734a1173b0bd33fafbb3aa185023cf462b155d3cfc515de052d624e11"
+        }
+      }
+    },
+    {
+      "repository": "otterdesk-blueprints",
+      "path": "gtm_planner",
+      "added": false,
+      "reason": "Permit mailbox group members on different runtime computers.",
+      "fields": {
+        "mcp": {
+          "before": "ea8362f363a1bde63fe5074f8a9723d69fbf9ab9bc9c578b012de3dfb0efd890",
+          "after": "bcb4266ac188173e96dfb851e1795990e730823fd55f038b8a86a588a431f8e7"
+        }
+      },
+      "configuration_leaves": {},
+      "source_files": {
+        "gtm_planner/extensions/product.json": {
+          "before": "ce04b42094becd7b62dcc9edec01ba7963674984b1e3af82e0bbf80eda24154e",
+          "after": "60dfb0672943b86d362fecc283c0feb721bf995cfa782019de55aeaad8ac1602"
+        }
+      }
     }
   ],
   "published_inventory": {
@@ -6990,7 +7187,7 @@
       "code_verifier/extensions/context.json": "347fbcf040bf3ca991d7c30011b438acc93c42e25ae8ff665cf228d90b592e85",
       "code_verifier/extensions/llm.json": "4ef33595f6a72fb7c07bef469c0896fd704eeadf51bad6ad10e31b0e41a62961",
       "code_verifier/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "code_verifier/extensions/product.json": "2869a274a468058dcadc7f38765983107bcdf70cef47d75925896c14a122fedc",
+      "code_verifier/extensions/product.json": "f1d00bf3f7891836792fb1e4056a4a93d4a7e77cba35df5f827186b74847aab4",
       "code_verifier/extensions/rag.json": "447e10bd9bf8eb0a1be1334c7a78976475ee8019d619e3cc1219dd159bdb0bb3",
       "code_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "code_verifier/extensions/storage.json": "57638c9a33ceca2c968cf0cfbfa1edb5f6ac2a452d5a7203806227138a7d93ea",
@@ -7167,7 +7364,7 @@
       "gtm_executor/extensions/context.json": "347fbcf040bf3ca991d7c30011b438acc93c42e25ae8ff665cf228d90b592e85",
       "gtm_executor/extensions/llm.json": "5bc5ba9d89f0ab168e86c8990034cd873c89284dea1364ad16b9eb7a4fbb7d81",
       "gtm_executor/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "gtm_executor/extensions/product.json": "86cb6c76695c95b9e914ac3f9e077412d5fb5f39d39b0924fbaf63ea78af2452",
+      "gtm_executor/extensions/product.json": "cac3bcf734a1173b0bd33fafbb3aa185023cf462b155d3cfc515de052d624e11",
       "gtm_executor/extensions/rag.json": "6e16732ae95e6c6543086ceb6441f6fbec18590f19a8c27ce7ce98567bff2365",
       "gtm_executor/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "gtm_executor/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
@@ -7213,7 +7410,7 @@
       "gtm_planner/extensions/context.json": "347fbcf040bf3ca991d7c30011b438acc93c42e25ae8ff665cf228d90b592e85",
       "gtm_planner/extensions/llm.json": "937c40e5efb8ca7eb14bcb56276dade4d7bb10e3a481996aa5a95bda87e6d7e1",
       "gtm_planner/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "gtm_planner/extensions/product.json": "ce04b42094becd7b62dcc9edec01ba7963674984b1e3af82e0bbf80eda24154e",
+      "gtm_planner/extensions/product.json": "60dfb0672943b86d362fecc283c0feb721bf995cfa782019de55aeaad8ac1602",
       "gtm_planner/extensions/rag.json": "6e16732ae95e6c6543086ceb6441f6fbec18590f19a8c27ce7ce98567bff2365",
       "gtm_planner/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "gtm_planner/extensions/storage.json": "5bca54891769b5c6a1859abd7010daef77497ba556ef6caedc81c15e2e86aa6d",
@@ -9557,7 +9754,7 @@
       "functional_verifier/extensions/blocks.json": "b41c4b21e0f17d23f502fdfccb64c8ec3feab6b5f9b169d709f542aabfbbfcdb",
       "functional_verifier/extensions/context.json": "48f444b4008e16a62281758a9072639fd49d86f8c93494933493f3d4a42506fd",
       "functional_verifier/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "functional_verifier/extensions/product.json": "86753188916984c45527aa33fb871b62fe97a9fdbd8eadd1e944ae44b44dcb91",
+      "functional_verifier/extensions/product.json": "ad96658a390e6addbebd69e3eb633edb758add5a7ee67fd7597663a02e301f99",
       "functional_verifier/extensions/rag.json": "feea94036c8d66b1c3e15d46a4d0e193773f787b14fe852898e96c64155e4723",
       "functional_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "functional_verifier/extensions/ui.json": "2e4980a5ef4ea388c7393c0137e9c0f4f4240812cd6f8dee6c0c0a0f384ab249",
@@ -9581,7 +9778,7 @@
       "security_verifier/extensions/blocks.json": "b41c4b21e0f17d23f502fdfccb64c8ec3feab6b5f9b169d709f542aabfbbfcdb",
       "security_verifier/extensions/context.json": "48f444b4008e16a62281758a9072639fd49d86f8c93494933493f3d4a42506fd",
       "security_verifier/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "security_verifier/extensions/product.json": "315b406c93b12e9306e588171a7788849ebf75cf12e4c28525dda8fb3f79bf4e",
+      "security_verifier/extensions/product.json": "d319230760ddd42cd42a05b8e8b4c1ecd461c814bbe909a9eeed08cfe60602ae",
       "security_verifier/extensions/rag.json": "feea94036c8d66b1c3e15d46a4d0e193773f787b14fe852898e96c64155e4723",
       "security_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "security_verifier/extensions/ui.json": "3472d7c8a31c3d40acfccc132adff25ff1d11265a0d58f56ac6fac6338b3ee88",
@@ -9605,7 +9802,7 @@
       "compatibility_verifier/extensions/blocks.json": "b41c4b21e0f17d23f502fdfccb64c8ec3feab6b5f9b169d709f542aabfbbfcdb",
       "compatibility_verifier/extensions/context.json": "48f444b4008e16a62281758a9072639fd49d86f8c93494933493f3d4a42506fd",
       "compatibility_verifier/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "compatibility_verifier/extensions/product.json": "1d1f8f9d1b0dd263348dfcf12943a2c582990bd3678d084971c425e28be14f60",
+      "compatibility_verifier/extensions/product.json": "44203a7b80c9f6ba96ce57c9839fbaf6d59707a954dbdd3cf07e8dc9d4228ab6",
       "compatibility_verifier/extensions/rag.json": "feea94036c8d66b1c3e15d46a4d0e193773f787b14fe852898e96c64155e4723",
       "compatibility_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "compatibility_verifier/extensions/ui.json": "2efbd4069ebe625214baad261bed4f7452349d3b1522ed58f53ffa49f1f36a46",
@@ -9629,7 +9826,7 @@
       "reliability_verifier/extensions/blocks.json": "b41c4b21e0f17d23f502fdfccb64c8ec3feab6b5f9b169d709f542aabfbbfcdb",
       "reliability_verifier/extensions/context.json": "48f444b4008e16a62281758a9072639fd49d86f8c93494933493f3d4a42506fd",
       "reliability_verifier/extensions/mcp.json": "9269f27ae898c32c8c9e3a6e4859fa8c155fc916bb9e39622a3c608a49874569",
-      "reliability_verifier/extensions/product.json": "f73c6657feff1dfd6654d2d20654532cfba22b9f087b572523e943ac23286dc6",
+      "reliability_verifier/extensions/product.json": "aa0884bf4e456e9c671a04c020f2aa0a6f0705a89d4f1f6ba314b2cb080967ea",
       "reliability_verifier/extensions/rag.json": "feea94036c8d66b1c3e15d46a4d0e193773f787b14fe852898e96c64155e4723",
       "reliability_verifier/extensions/response.json": "85bdb76e20b143f7ad84065925ddc95743a8618d11846c1df85090c7e404d880",
       "reliability_verifier/extensions/ui.json": "b978312af251f74c84ab3ef60b5aa9b3a3829d7b84e3517f9063a513d6c79f57",

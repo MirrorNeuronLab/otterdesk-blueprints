@@ -22,7 +22,7 @@
       "groupKey": "inputs.payload.collaboration_group_id",
       "peersKey": "inputs.payload.collaboration_peers",
       "maxMembers": 5,
-      "sameRuntime": true,
+      "sameRuntime": false,
       "managerBlueprintId": "code_verifier",
       "delivery": "mailbox"
     }
