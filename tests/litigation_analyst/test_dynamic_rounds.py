@@ -87,6 +87,69 @@ def test_default_child_workflow_replans_and_publishes_reviewed_evidence(dynamic_
     assert (context['run_dir']/'case/rounds/r01-H01-assessment.json').exists()
 
 
+def test_large_search_witnesses_reach_collector_and_independent_reviewer(dynamic_case, monkeypatch):
+    from domain import source_query
+    from domain.round_planning import plan_round
+    from mn_sdk.blueprint.storage import CommittedJsonStore
+
+    context, ref = dynamic_case
+    root = context["run_dir"]
+    search = source_query.search
+    diagnostic = "索" * 24000
+
+    def large_search(*args, **kwargs):
+        result = search(*args, **kwargs)
+        return {**result, "receipt": {**result["receipt"], "diagnostic": diagnostic}}
+
+    monkeypatch.setattr(source_query, "search", large_search)
+    model = RoundModel()
+    planned = plan_round(context, {"context": ref, "_child": {"revision": 0}}, llm_client=model)
+    execute_round(context, ref, planned, model)
+    records = json.loads((root / "case/rounds/r01-H01-evidence.json").read_text())["records"]
+    independent = json.loads((root / "case/rounds/r01-H01-review-search.json").read_text())
+    searches = [r for r in records if r["purpose"] in {"support", "counter"}] + [independent]
+    assert {r["purpose"] for r in searches} == {"support", "counter", "independent_counter"}
+    for record in searches:
+        observation = record["result"]
+        reference = observation["receipt"]["search_result_ref"]
+        assert 65536 < reference["size_bytes"]
+        original = CommittedJsonStore(root).read(reference)
+        assert original["receipt"]["diagnostic"] == diagnostic
+        assert observation["passages"] and observation["support_groups"]
+        assert {**observation, "receipt": original["receipt"]} == original
+    assert (root / "case/rounds/r01-H01-review.json").is_file()
+    assert all(diagnostic not in json.dumps(call, ensure_ascii=False) for call in model.calls)
+
+
+def test_search_skill_size_boundary_and_verified_replay(modules, tmp_path):
+    from domain.app.skill_bindings import CaseSkills, DOC
+    from domain.app.evidence_tools import descriptor
+    from mn_sdk.blueprint.storage import CommittedArtifactError
+
+    case = tmp_path / "case"
+    case.mkdir()
+    result = {"passages": [{"text": "éé🙂"}], "receipt": {"parts": []}}
+    runtime = CaseSkills(case, [descriptor()], {
+        (DOC, "search"): lambda query: runtime.search_observation(result)
+    })
+    runtime.read_skill(DOC)
+    arguments = {"query": "example"}
+    runtime.max_output_bytes = len(json.dumps(result, ensure_ascii=False).encode())
+    assert runtime.invoke_skill(DOC, "search", arguments) == result
+    assert not (case / "search-results").exists()
+    runtime.max_output_bytes = 65536
+    result["passages"][0]["text"] *= 10000
+    reply = runtime.invoke_skill(DOC, "search", arguments)
+    assert len(json.dumps(reply).encode()) < runtime.max_output_bytes
+    assert runtime.invoke_skill(DOC, "search", arguments) == reply
+    assert runtime.invoke_case_skill(DOC, "search", arguments)["passages"] == result["passages"]
+    # Check integrity on the receiving side independently of publication.
+    runtime.bindings[DOC, "search"] = lambda query: reply
+    (tmp_path / reply["search_result_ref"]["path"]).write_bytes(b"corrupt")
+    with pytest.raises(CommittedArtifactError, match="mismatch"):
+        runtime.invoke_case_skill(DOC, "search", arguments)
+
+
 def test_cancel_before_planning_writes_explicit_partial_draft(dynamic_case, modules):
     from domain.round_planning import plan_round
     context,ref=dynamic_case
