@@ -164,9 +164,27 @@
         ]
       },
       {
-        "id": "investigate_case_evidence",
+        "id": "scope_case_review",
         "needs": [
           "build_case_indexes"
+        ]
+      },
+      {
+        "id": "draft_case_questions",
+        "needs": [
+          "scope_case_review"
+        ]
+      },
+      {
+        "id": "review_case_questions",
+        "needs": [
+          "draft_case_questions"
+        ]
+      },
+      {
+        "id": "investigate_case_evidence",
+        "needs": [
+          "review_case_questions"
         ]
       },
       {

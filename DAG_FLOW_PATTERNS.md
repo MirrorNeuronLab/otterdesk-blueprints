@@ -54,7 +54,7 @@ mn-manifest-converter check manifest.json --against build/manifest.executable.js
 
 ## Litigation Analyst (`litigation_analyst`)
 
-`prepare_case_sources` → `build_case_indexes` → `investigate_case_evidence` → `write_review_draft`. The investigation parent owns bounded child rounds: plan, collect evidence, assess, independently review, summarize, then replan or stop. The autonomous explorer remains preserved but is not the default DAG.
+Plan runs `prepare_case_sources` → `build_case_indexes` → `scope_case_review` → `draft_case_questions` → `review_case_questions`. A Core input receipt binds the supervisor's edited questions. Execute runs `investigate_case_evidence` → `write_review_draft`. Each question fans out to collection and an independent counter-search. The assessor follows collection. The reviewer joins both branches, and a round summary joins all question reviews. A later round can open a linked follow-up and send a nonblocking Chat notice.
 
 ## Marketing services
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 import pytest
 from workspace_paths import companion_workspace
+from litigation_native_test_support import review_chat
 
 @pytest.fixture(autouse=True)
 def litigation_import_paths(monkeypatch):

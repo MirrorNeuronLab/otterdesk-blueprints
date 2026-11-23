@@ -81,6 +81,11 @@ def test_blueprint_dependencies_accept_owning_sources_and_required_contracts(roo
     compiled = compile_blueprint(package).manifest
     for group in ("skill_dependencies", "agent_dependencies", "packages"):
         for dependency in compiled.get(group, []):
+            if dependency.get("type") in {"npm", "agent_skill"}:
+                from mn_sdk.dependencies.skills import third_party_record
+                assert group == "skill_dependencies"
+                assert third_party_record(dependency) == dependency
+                continue
             if dependency.get("source") == "payload":
                 project = tomllib.loads(
                     (

@@ -266,7 +266,20 @@ External dependencies remain declared; offline vendoring is optional.
 The `software_architecture_advisor` blueprint accepts a public HTTPS GitHub repository URL or local source folder and combines structural analysis with bounded OpenCode review tasks inside OpenShell. It publishes 23 report sections covering 150 aspects. See [Architecture Advisor](software_architecture_advisor/README.md).
 
 SDK workflow capabilities are declared in the `packages` array in
-`dependencies.json`; domain skills remain in `skills` and agents in `agents`.
+`dependencies.json`. Domain skills belong in `skills` and agents in `agents`.
+
+A Docker blueprint can mix Python skills, npm libraries and GitHub Agent Skills in the same `skills` array. Keep the existing `pip` record for Python. For example, these declarations prepare the Vercel SDK for worker imports and make Slack available for a job to connect:
+
+```json
+{
+  "skills": [
+    { "type": "npm", "source": "npmjs", "name": "@vercel/connect", "version": "^2.5.0" },
+    { "type": "agent_skill", "source": "github", "repo": "vercel/vercel-plugin", "ref": "main", "name": "vercel-connect", "integrations": ["slack"] }
+  ]
+}
+```
+
+Preparation locks npm versions and integrity hashes and stages the Agent Skill from an exact Git commit. A new Agent Skill stays disabled until `mn job skills enable vercel-connect --job-id <job-id>` or a successful explicit Slack connection. Use `mn job integrations add slack --job-id <job-id>` to make Slack visible without enabling delivery. Use `mn job connect slack --name acme-slack --job-id <job-id>` to authorize and select a public channel. CCTV declares the Agent Skill and runs Slack calls through OtterDesk’s managed service.
 Every package and skill declaration uses `type: "pip"`, `source: "gar"`, its full
 Python distribution name, and a pinned release version. For example:
 

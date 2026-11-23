@@ -3,7 +3,11 @@
 import json
 import inspect
 import os
+from contextlib import contextmanager
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
@@ -13,6 +17,42 @@ from mn_sdk.step_runtime import StepContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 
 ROOT = Path(__file__).resolve().parents[1] / "litigation_analyst"
+
+
+@pytest.fixture
+def review_chat(monkeypatch):
+    """Use the SDK's actual request and receipt mapping with an isolated Core transport."""
+    from mn_sdk.human import interactions
+    chat = SimpleNamespace(records={}, waits=[], answer=lambda record: {
+        "option_id": "start", "text": record["metadata"]["default_answer"]["text"]})
+
+    def publish(*, interaction_id, **record):
+        return chat.records.setdefault(interaction_id, {
+            **record, "id": interaction_id, "created_at": 1000, "updated_at": 1000,
+            "state": "pending", "effect": "not_started", "revision": 1})
+
+    def wait(interaction_id, *, timeout):
+        record = chat.records[interaction_id]
+        assert record["kind"] == "input" and record["blocking"] and timeout > 0
+        chat.waits.append(interaction_id)
+        answer = chat.answer(record)
+        record.update(state="responded", revision=2, receipt={"answer": answer, "received_at": 2000})
+        return record
+
+    def command(op, *, id, expected_revision, command_id, effect):
+        record = chat.records[id]
+        assert op == "effect" and record["state"] == "responded" and record["revision"] == expected_revision
+        record.update(effect=effect, revision=expected_revision + 1)
+        return record
+
+    @contextmanager
+    def transport():
+        yield None, SimpleNamespace(publish=publish, await_decision=wait, get=chat.records.__getitem__, command=command)
+
+    monkeypatch.setattr(interactions, "runtime_interactions", transport)
+    monkeypatch.setattr(interactions, "_scope", lambda client, run: {
+        "job_id": os.environ["MN_JOB_ID"], "execution_id": "test-execution-" + run, "runtime_run_id": run})
+    return chat
 
 
 def block_context(context):
@@ -48,14 +88,15 @@ def phase(original, step_id):
         ports = dict(context["payload"])
         if context.get("output_folder"):
             ports["output_folder"] = str(context["output_folder"])
-        if step_id == "build_case_indexes":
-            ports["previous"] = {"result": context["_native_prepare_case_sources"]}
-        elif step_id == "investigate_case_evidence":
-            ports["previous"] = {"result": context["_native_build_case_indexes"]}
-        elif step_id == "write_review_draft":
+        if step_id == "write_review_draft":
             ports["previous"] = {"result": context["_native_terminal"]}
         elif step_id == "preserved_autonomous_explorer":
             ports["previous"] = {"result": context["_native_build_case_indexes"]}
+        else:
+            step = next(step for step in compiled["workflow"]["steps"] if step["id"] == step_id)
+            if step["needs"]:
+                parent, = step["needs"]
+                ports["previous"] = {"result": context["_native_" + parent]}
         native = block_context(context)
         invocation = StepContext(step_id=step_id, job_id=native.job_id, run_id=native.run_id,
             job_data_dir=native.job_data_dir, config=cached["config"], environment=env,
@@ -73,6 +114,17 @@ def phase(original, step_id):
     return invoke
 
 
+def reviewed_seed(context, model):
+    """Run the same plan, human-review and execution handoff as the compiled DAG."""
+    if "_native_investigate_case_evidence" not in context:
+        from domain import question_plan
+        for fn, step in ((question_plan.draft_questions, "draft_case_questions"),
+                         (question_plan.review_questions, "review_case_questions"),
+                         (question_plan.start_execution, "investigate_case_evidence")):
+            phase(fn, step)(context, llm_client=model)
+    return context["_native_investigate_case_evidence"]
+
+
 def round_worker(original, template=None):
     """Use real stock planner/task bindings; decode replies for policy fixtures."""
     def invoke(context, work, *, llm_client=None):
@@ -85,8 +137,9 @@ def round_worker(original, template=None):
         env = {**os.environ, "MN_RUN_DIR": str(native.store.run_dir),
             "MN_BLUEPRINT_MANIFEST_PATH": str(descriptor), "MN_SDK_COMPONENTS_JSON": '["blueprint-blocks"]'}
         if template is None:
-            seed = native.store.commit("fixtures/seed-" + work['context']['sha256'] + ".json", {"context": work["context"]})
-            ports = {"seed": seed.to_dict(), "_child": {"round": work["_child"]["revision"], **work["_child"]}}
+            seed = reviewed_seed(context, llm_client)
+            assert native.store.read(seed)["context"] == work["context"]
+            ports = {"seed": seed, "_child": {"round": work["_child"]["revision"], **work["_child"]}}
             parameters = {"block_step_id": "investigate_case_evidence", "phase": "plan",
                 "revision": compiled["metadata"]["mn_blocks_lock"]["revision"]}
             identity = f"plan/{work['_child']['revision']}/{work['context']['sha256']}"

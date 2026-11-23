@@ -15,6 +15,7 @@ from mn_sdk.blueprints import (
 )
 from mn_sdk.step_runtime import StepContext
 from workspace_paths import companion_workspace
+from litigation_native_test_support import review_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINT = ROOT / "litigation_analyst"
@@ -30,7 +31,7 @@ def test_catalog_offers_downloadable_emc2_sample():
 
 
 @pytest.fixture
-def modules(monkeypatch, text_memory_transport):
+def modules(monkeypatch, text_memory_transport, review_chat):
     monkeypatch.syspath_prepend(str(BLUEPRINT / "payloads"))
     for repo in ["mn-skills", "mn-agents"]:
         for path in (WORKSPACE / repo).glob("*/src"):
@@ -46,11 +47,12 @@ def modules(monkeypatch, text_memory_transport):
             ("research", "investigate", "preserved_autonomous_explorer")):
         monkeypatch.setattr(values[module], function, phase(getattr(values[module], function), step))
     rounds = importlib.import_module("domain.round_state")
-    monkeypatch.setattr(rounds, "initialize", phase(rounds.initialize, "investigate_case_evidence"))
+    monkeypatch.setattr(rounds, "initialize", phase(rounds.initialize, "scope_case_review"))
     planner = importlib.import_module("domain.round_planning")
     monkeypatch.setattr(planner, "plan_round", round_worker(planner.plan_round))
     tasks = importlib.import_module("domain.round_tasks")
     for function, template in (("collect_evidence", "collect_litigation_evidence"),
+            ("check_counterevidence", "check_counterevidence"),
             ("assess_hypothesis", "assess_litigation_hypothesis"),
             ("review_finding", "review_litigation_finding"), ("summarize_round", "summarize_litigation_round")):
         monkeypatch.setattr(tasks, function, round_worker(getattr(tasks, function), template))

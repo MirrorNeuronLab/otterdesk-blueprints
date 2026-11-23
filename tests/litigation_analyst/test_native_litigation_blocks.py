@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2] / "litigation_analyst"
 
 
 @pytest.fixture
-def native_case(tmp_path, monkeypatch, request):
+def native_case(tmp_path, monkeypatch, request, review_chat):
     monkeypatch.syspath_prepend(str(ROOT / "payloads"))
     from domain.graph_projection.projector import CaseGraphProjector
     from domain.graph_projection import build_records
@@ -69,7 +69,10 @@ def native_case(tmp_path, monkeypatch, request):
     def investigate(model):
         captured = execute('prepare_case_sources', {'input_folder': str(folder)})
         indexed = execute('build_case_indexes', {'previous': captured.outputs})
-        initialized = execute('investigate_case_evidence', {'previous': indexed.outputs})
+        scoped = execute('scope_case_review', {'previous': indexed.outputs})
+        drafted = execute('draft_case_questions', {'previous': scoped.outputs}, model=model)
+        reviewed = execute('review_case_questions', {'previous': drafted.outputs})
+        initialized = execute('investigate_case_evidence', {'previous': reviewed.outputs}, model=model)
         for revision in range(3):
             inputs = {'seed': initialized.outputs['result'], '_child': {'round': revision, 'revision': revision}}
             identity = f'plan/{revision}'

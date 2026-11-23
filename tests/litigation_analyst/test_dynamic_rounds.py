@@ -51,6 +51,7 @@ def dynamic_case(modules, tmp_path):
 def execute_round(context, ref, result, model):
     from domain import round_tasks
     handlers={'collect_litigation_evidence':round_tasks.collect_evidence,
+        'check_counterevidence':round_tasks.check_counterevidence,
         'assess_litigation_hypothesis':round_tasks.assess_hypothesis,
         'review_litigation_finding':round_tasks.review_finding,
         'summarize_litigation_round':round_tasks.summarize_round}
@@ -236,13 +237,14 @@ def test_task_hash_and_graph_mutations_are_rejected(dynamic_case):
 
 def test_autonomous_explorer_preserved_but_not_default(modules):
     blocks=json.loads((BLUEPRINT/'extensions/blocks.json').read_text())
-    assert blocks['steps']['investigate_case_evidence']['hooks']['initialize']=='domain.round_state:initialize'
+    assert blocks['steps']['scope_case_review']['hooks']['operation']=='domain.round_state:initialize'
+    assert blocks['steps']['investigate_case_evidence']['hooks']['initialize']=='domain.question_plan:start_execution'
     assert callable(importlib.import_module('domain.app.agentic').run_investigation)
     assert callable(modules['research'].investigate)
     workflow=json.loads((BLUEPRINT/'workflow.json').read_text())
     child=workflow['child_workflows']['investigate_case_evidence']
     assert child['planner']=='plan_litigation_round'
-    assert child['max_rounds']==3 and len(child['templates'])==5
+    assert child['max_rounds']==3 and len(child['templates'])==6
 
 
 def test_reviewer_rejection_withholds_dynamic_finding(dynamic_case, modules):
@@ -289,6 +291,7 @@ def test_review_schema_accepts_finding_ids_only(dynamic_case, monkeypatch):
     result=plan_round(context,{'context':ref,'_child':{'revision':0}},llm_client=model)
     work={'context':ref,**result['child_plan']['steps'][0]['input']}
     round_tasks.collect_evidence(context,work)
+    round_tasks.check_counterevidence(context,work)
     round_tasks.assess_hypothesis(context,work,llm_client=model)
     def review(root,frozen,key,stage,instruction,data,schema,client):
         assert schema['properties']['accepted_ids']['items']=={'enum':['r01-H01']}
@@ -449,11 +452,12 @@ def test_compiled_blocks_run_real_child_tasks_and_terminal_summary(dynamic_case,
     for key, value in environment.items():
         monkeypatch.setenv(key, value)
     store = CommittedJsonStore(context['run_dir'])
-    seed = store.commit('test-seed.json', {'context': reference}).to_dict()
+    from litigation_native_test_support import reviewed_seed
+    model = RoundModel()
+    seed = reviewed_seed(context, model)
     options = {'block_step_id': 'investigate_case_evidence',
                'revision': compiled['metadata']['mn_blocks_lock']['revision']}
     child = compiled['workflow']['child_workflows']['investigate_case_evidence']
-    model = RoundModel()
 
     def invoke(identity, inputs, parameters, phase='execute'):
         from litigation_native_test_support import block_context

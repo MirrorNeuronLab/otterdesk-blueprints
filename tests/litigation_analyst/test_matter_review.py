@@ -105,8 +105,11 @@ def test_first_pass_budget_and_structural_index_are_explicit(modules, tmp_path):
     config["review"]["profile"] = "first_pass"
     config["source_relationships"]["mode"] = "hybrid"
     plan = limits(config)
-    assert (plan["max_rounds"], plan["max_decisions"], plan["relationship_call_ceiling"]) == (1, 6, 0)
+    assert (plan["max_rounds"], plan["max_review_questions"], plan["max_decisions"], plan["relationship_call_ceiling"]) == (1, 8, 18, 0)
     assert plan["relationship_mode"] == "structural"
+    assert decision_config(config)["context_memory"]["policy"]["max_calls"] == 18
+    config["investigation"]["max_model_decisions"] = 6
+    assert limits(config)["max_review_questions"] == 2
     assert decision_config(config)["context_memory"]["policy"]["max_calls"] == 6
     assert config["source_relationships"]["mode"] == "hybrid"
     config["review"]["profile"] = "unknown"

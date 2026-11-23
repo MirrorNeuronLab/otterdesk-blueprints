@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const test = require('node:test');
 const assets = path.resolve(__dirname, '../../litigation_analyst/payloads/domain/workspace_assets');
-const scripts = ['navigation.js','workspace.js','reading.js'].map(name=>readFileSync(path.join(assets,name),'utf8')).join('\n');
+const scripts = ['case_graph_model.js','case_graph_view.js','navigation.js','workspace.js','reading.js'].map(name=>readFileSync(path.join(assets,name),'utf8')).join('\n');
 
 function fixture() {
   const source={source_id:'case:notice.eml',relative_path:'notice.eml',media_type:'message/rfc822',text:'Source text',
@@ -50,9 +50,9 @@ function app(workspace=fixture()) {
     }};
 }
 
-test('All original routes and saved views highlight one of eight primary groups',async()=>{
+test('The dedicated graph and existing review routes select their navigation groups',async()=>{
   const a=app();
-  const groups={'Overview':'Overview','Findings':'Findings','Issues & evidence':'Questions','Evidence Explorer':'Evidence',
+  const groups={'Overview':'Overview','Case graph':'Case graph','Findings':'Findings','Issues & evidence':'Questions','Evidence Explorer':'Evidence',
     'Comparisons':'Evidence','People & relationships':'People & events','Chronology':'Timeline','Reports':'Reports',
     'Work product':'Reports','Since last review':'Review history','Activity & audit':'Review history'};
   for(const [route,label] of Object.entries(groups)) {
@@ -62,7 +62,7 @@ test('All original routes and saved views highlight one of eight primary groups'
   }
   a.go('Matter settings');
   assert.equal(a.shell.view,'Matter settings');
-  assert.equal(a.shell.config.tabs.length,9);
+  assert.equal(a.shell.config.tabs.length,10);
   await a.click('save-view');
   a.go('Overview');
   await a.click('open-view','0');
@@ -115,17 +115,70 @@ test('Evidence search is adjacent to documents and technical metadata stays in d
   assert.match(a.html(),/class="document-title"/);
 });
 
-test('Graph selection preserves other nodes and links while highlighting the selected neighborhood',()=>{
+test('Case graph distinguishes hypotheses, citations, copies and documented attribution',()=>{
+  const w=fixture(), first=w.sources[0];
+  const copy={...first,source_id:'case:copy.eml',relative_path:'archive/copy.eml'};
+  const other={...first,source_id:'case:other.eml',content_sha256:'other-hash'};
+  w.sources.push(copy,other);
+  w.evidence.push({...w.evidence[0],evidence_id:'E2',source_id:copy.source_id});
+  w.reading_review.withheld_finding_ids=['F1'];
+  w.issues=[
+    {id:'Q1',question:'Was notice sent?',supporting_evidence:['E1'],contradictory_evidence:['E2'],alternatives:['A later dispatch is possible.']},
+    {id:'Q2',parent_id:'Q1',question:'When was it received?',supporting_evidence:['E1'],contradictory_evidence:[]}
+  ];
+  w.temporal.events=[{source_ids:[first.source_id],time:{earliest:null},fields:{headers:{From:['sender@example.test']}},
+    evidence_refs:[{evidence_id:'E1'}],qualification:'Recorded header.'}];
+  const a=app(w);
+  assert.match(a.html(),/Explore case graph/);assert.doesNotMatch(a.html(),/case-graph-canvas/);
+  a.go('Case graph');
+  const graph=vm.runInContext('caseGraphPage.model',a.ctx);
+  const edges=[...graph.edges.values()], docs=[...graph.nodes.values()].filter(n=>n.kind==='evidence');
+  const edge=(from,to,role)=>edges.find(e=>e.source===from && e.target===to && e.role===role);
+  assert.equal(docs.length,1);assert.deepEqual([...docs[0].sourceIds],[first.source_id,copy.source_id]);
+  assert.equal(graph.nodes.has('finding:F1'),false);
+  assert.equal(edge(graph.goal,'question:Q1','plan').citations.size,0);
+  assert.ok(edge('question:Q1','question:Q2','plan'));
+  assert.deepEqual([...edge('question:Q1',docs[0].id,'support').citations],['E1']);
+  assert.deepEqual([...edge('question:Q1',docs[0].id,'contrary').citations],['E2']);
+  assert.deepEqual([...edge(docs[0].id,'mailbox:sender@example.test','person').citations],['E1']);
+  assert.equal(edge('question:Q1','hypothesis:Q1:0','plan').citations.size,0);
+  assert.equal(vm.runInContext('caseGraphPage.slice.nodes.some(n=>n.kind==="hypothesis")',a.ctx),false);
+  vm.runInContext('state.mapHypotheses=true;render();state.mapSelection="hypothesis:Q1:0";render()',a.ctx);
+  assert.match(a.element('case-graph-detail').innerHTML,/Working hypothesis/);
+  assert.doesNotMatch(a.element('case-graph-detail').innerHTML,/Source passages/);
+  vm.runInContext('state.supportingOnly=true;render()',a.ctx);
+  assert.equal(vm.runInContext('caseGraphPage.slice.edges.some(e=>e.role==="contrary")',a.ctx),false);
+  vm.runInContext('state.sourceIds=["case:other.eml"];render()',a.ctx);
+  assert.equal(vm.runInContext('caseGraphPage.model.nodes.size',a.ctx),1);
+});
+
+test('Case graph search includes late records and keeps every displayed result connected to the goal',()=>{
   const w=fixture();
-  w.case_map={definition:'Source-backed graph',omitted_communications:0,omitted_financial_records:0,
-    nodes:['a','b','c','d'].map(id=>({id,label:id,kind:'correspondent',source_ids:['case:notice.eml'],evidence_ids:['E1'],qualification:'Identity unresolved'})),
-    edges:[{source:'a',target:'b',label:'Header',evidence_ids:['E1']},{source:'c',target:'d',label:'Header',evidence_ids:['E1']}]};
-  const a=app(w);a.go('People & relationships');
-  const before=(a.html().match(/data-action="map-node" data-id="[abcd]"/g)||[]).length;
-  vm.runInContext('state.mapSelection="a";render()',a.ctx);
-  assert.equal((a.html().match(/data-action="map-node" data-id="[abcd]"/g)||[]).length,before);
-  assert.match(a.html(),/muted-node/);assert.match(a.html(),/highlighted/);
-  assert.match(a.html(),/aria-label="Selected graph item"/);
+  w.issues=Array.from({length:50},(_,i)=>{
+    const s={...w.sources[0],source_id:'s'+i,relative_path:'Exhibit '+i,content_sha256:'v'+i};
+    w.sources.push(s);
+    w.evidence.push({...w.evidence[0],source_id:s.source_id,evidence_id:'p'+i,content_sha256:s.content_sha256});
+    return {id:'q'+i,question:'Review document '+i,supporting_evidence:['p'+i],contradictory_evidence:[]};
+  });
+  const a=app(w);a.go('Case graph');
+  const visible=()=>vm.runInContext('caseGraphPage.slice',a.ctx);
+  assert.equal(visible().nodes.length,32);
+  assert.ok(visible().nodes.some(n=>n.kind==='evidence'));
+  vm.runInContext('state.mapQuery="Exhibit 49";render()',a.ctx);
+  assert.equal(visible().nodes.length,3);assert.equal(visible().edges.length,2);
+  assert.ok(visible().nodes.some(n=>n.label==='Exhibit 49'));
+  vm.runInContext('state.mapQuery="Exhibit";render()',a.ctx);
+  for(const n of visible().nodes)if(n.kind!=='goal')assert.ok(visible().edges.some(edge=>edge.target===n.id));
+  vm.runInContext('state.mapQuery="missing item";render()',a.ctx);assert.equal(visible().nodes.length,0);
+});
+
+test('Old graph bookmarks open the case page and recipient briefings omit it',()=>{
+  const w=fixture();w.saved_state={view:'People & relationships',graphMode:'case'};
+  assert.equal(app(w).shell.view,'Case graph');
+  w.package_mode='approved_excerpt_briefing';
+  const a=app(w);a.go('Case graph');
+  assert.equal(a.shell.view,'Overview');assert.equal(a.shell.config.tabs.some(t=>t[0]==='Case graph'),false);
+  assert.doesNotMatch(a.html(),/Explore case graph/);
 });
 
 test('Review edits show a save reminder and the downloaded snapshot retains them',async()=>{
