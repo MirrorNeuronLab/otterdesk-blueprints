@@ -1,0 +1,84 @@
+{
+  "type": "object",
+  "properties": {
+    "complete": {
+      "type": "boolean",
+      "enum": [
+        true,
+        false
+      ]
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "statement": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "subject": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "scope": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "modality": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should",
+              "may",
+              "descriptive"
+            ]
+          },
+          "conditions": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500
+            }
+          },
+          "requirement_kind": {
+            "type": "string",
+            "enum": [
+              "behavior",
+              "configuration",
+              "source_structure"
+            ]
+          }
+        },
+        "required": [
+          "statement",
+          "source_ids",
+          "subject",
+          "scope",
+          "modality",
+          "conditions",
+          "requirement_kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "complete",
+    "rules"
+  ],
+  "additionalProperties": false
+}

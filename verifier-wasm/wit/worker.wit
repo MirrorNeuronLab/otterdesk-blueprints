@@ -1,0 +1,10 @@
+package otterdesk:software-verification@1.0.0;
+
+world verifier {
+  import mirror-neuron:skills/folder-files@1.0.0;
+  import mirror-neuron:skills/code-search@1.0.0;
+  import mirror-neuron:skills/static-code-analysis@1.0.0;
+  import mirror-neuron:skills/comparison-evidence@1.0.0;
+  import mirror-neuron:skills/verification-checks@1.0.0;
+  import mirror-neuron:skills/web-report@1.0.0;
+}

@@ -5,7 +5,7 @@ const vm = require("node:vm");
 const script = readFileSync(
   require("node:path").join(
     __dirname,
-    "../../code_verifier/payloads/domain/workspace_assets/workspace.js",
+    "../../software_verifier_suite/payloads/domain/workspace_assets/workspace.js",
   ),
   "utf8",
 );

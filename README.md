@@ -187,7 +187,7 @@ ordered taxonomy; each manifest references its category in `extensions/product.j
 | [`lidar_scene_builder`](lidar_scene_builder/README.md) | Physical AI | Converts a registered SLIM LiDAR point cloud to OpenUSD with NVIDIA NuRec and publishes an interactive preview. Requires one NVIDIA GPU with at least 48 GiB of memory. |
 | [`research_assistant`](research_assistant/README.md) | Research | A research assistant that combines deterministic evidence and verification stages with an isolated OpenShell worker for autonomous goal refinement, tool-driven exploration, hypothesis generation, and bounded generated-code experiments. |
 | [`software_architecture_advisor`](software_architecture_advisor/README.md) | Engineering | A read-only architecture advisor with hundreds of OpenCode/OpenShell review tasks, dynamic follow-ups, 150 report aspects, cumulative snapshot data, an offline dashboard, evidence and proposed work packages. |
-| [`code_verifier`](code_verifier/README.md) | Engineering | Coordinates four specialist reports, waits for rule approval and publishes one tabbed verification verdict. |
+| [`software_verifier_suite`](software_verifier_suite/README.md) | Engineering | Coordinates four specialist reports, waits for rule approval and publishes one tabbed verification verdict. |
 | [`functional_verifier`](functional_verifier/README.md) | Engineering | Traces analysis documents to generated tests and implementation, checks assertions and compares behavior across revisions. |
 | [`security_verifier`](security_verifier/README.md) | Engineering | Reviews access controls, credential handling, dependency evidence and privileged workflows in context. |
 | [`compatibility_verifier`](compatibility_verifier/README.md) | Engineering | Compares public interfaces, package entry points, schemas and target-specific integration evidence. |
@@ -445,7 +445,7 @@ original assignments.
 
 Run any specialist independently, or run the coordinator for one web report with four specialist tabs. Give either a source folder or a prepared Git comparison. The report connects a requirement in an analysis document to the generated test, the implementation, and the observed result where that mapping is available. It preserves suite-level provenance when a case has no recorded passage. The shared verification skill can collect named pytest cases in a local, network-isolated container and also accepts independently recorded CI results. The coordinator publishes findings, coverage gaps, and the verdict in JSON, Markdown and HTML.
 
-[`code_verifier`](code_verifier/README.md) reads a local
+[`software_verifier_suite`](software_verifier_suite/README.md) reads a local
 repository checkout or source/docs folder, extracts software expectations into
 editable `rules.md`, asks the supervisor to approve the full list in Chat, and
 verifies each approved rule separately against captured source.

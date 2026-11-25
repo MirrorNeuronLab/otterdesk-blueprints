@@ -1,4 +1,4 @@
-"""Offline compiled-handler fixture, without Core scheduling or native execution.
+"""Offline fixture for compiled handlers and Wasmtime components.
 
 Samples run the installed block workers and the compiled source/sink mappings.
 Core's parallel scheduling, durable joins, retry, and child workflows are tested
@@ -12,12 +12,13 @@ from uuid import uuid4
 from mn_sdk.blueprints import compile_blueprint, read_blueprint, resolve_config
 from mn_sdk.blueprints.worker_descriptors import resolved_worker_descriptor
 from mn_sdk.components import ComponentRegistry
+from mn_sdk.dependencies.wit import compose_wit_agents
 from mn_sdk.step_runtime import StepContext, invoke_handler
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
 from mn_sdk.blueprint_support.local_inputs import stage_local_input_payloads, config_path_get, config_path_set, linked_config_paths
 
 
-def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id=None, llm_client=None, through_step=None):
+def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id=None, llm_client=None, through_step=None, wit_service=None):
     inputs = dict(inputs or {})
     root = Path(__file__).resolve().parents[1] / blueprint_id
     package = read_blueprint(root)
@@ -26,7 +27,7 @@ def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id
     run_dir = Path(runs_root) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
     runtime_config = configuration.data
-    run_values = {"inputs": {"payload": inputs}}
+    run_values = {"inputs": {"payload": {**runtime_config.get("inputs", {}).get("payload", {}), **inputs}}}
     specifications = [item for kind in ("folders", "files") for item in runtime_config.get("local_inputs", {}).get(kind, [])]
     for specification in specifications:
         for path in [specification["config_path"], *linked_config_paths(specification)]:
@@ -50,12 +51,16 @@ def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id
                     config_path_set(run_values, linked, selected)
     configuration = resolve_config(package, runtime_config)
     compiled = compile_blueprint(package, configuration).manifest
+    components = {}
+    for target in compose_wit_agents(compiled, components, root):
+        worker.commit_bytes(target, components[target], kind="wit_component")
     descriptor = run_dir / 'fixture-manifest.json'
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled, configuration)))
     environment = {**os.environ, 'MN_WORKDIR': str(worker.run_dir / 'runtime'), 'MN_RUN_ID': run_id, 'MN_RUN_DIR': str(run_dir),
         'MN_RUNS_ROOT': str(run_dir.parent), 'MN_BLUEPRINT_BUNDLE_DIR': str(root),
         'MN_BLUEPRINT_MANIFEST_PATH': str(descriptor),
         'MN_SDK_COMPONENTS_JSON': json.dumps(sorted(ComponentRegistry.from_manifest(compiled).enabled))}
+    environment["MN_BUNDLE_ROOT"] = str(worker.run_dir)
     if inputs.get("output_folder") and not os.environ.get("MN_JOB_OUTPUT_DIR"):
         environment["MN_JOB_OUTPUT_DIR"] = str(Path(inputs["output_folder"]).expanduser().resolve())
     store = CommittedJsonStore(run_dir)
@@ -86,11 +91,20 @@ def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id
         assert flow['type'] == 'agent', 'The fixture does not execute child workflows.'
         call = flow.get('alias', flow['agent_id'])
         node = nodes[f'{step_id}__{call}']
-        binding = node['config']['environment']
+        config = node['config']
+        binding = config['environment']
+        if config['runner_module'] == "MirrorNeuron.Runner.Wasmtime":
+            if "wasm_capabilities" in config:
+                from wit_workflow_fixture import invoke_phase
+                return {"result":invoke_phase(config, payload, environment, service=wit_service)}
+            from mn_sdk.blueprint.wasm import invoke_component
+            value = invoke_component(config["wasm_config"]["operation"], payload,
+                environment={**environment, "MN_WASM_COMPONENT": config["wasm_component"]})
+            return {"result": value}
         context = StepContext(step_id=step_id, agent_id=flow['agent_id'], run_id=run_id,
             job_id=environment.get('MN_JOB_ID') or f'offline:{blueprint_id}',
             invocation_id=binding['MN_WORKFLOW_INVOCATION_ID'],
-            idempotency_key=f'{run_id}/{step_id}/{call}', environment=environment,
+            idempotency_key=f'{run_id}/{step_id}/{call}', environment={**binding, **environment},
             config=configuration.data, message={'body': {'step_input': payload}})
         parameters = json.loads(binding['MN_WORKFLOW_STEP_WITH_JSON'])
         return invoke_handler(binding['MN_WORKFLOW_STEP_HANDLER'], context=context,
@@ -102,6 +116,25 @@ def run_sample(blueprint_id, *, inputs=None, config=None, runs_root=None, run_id
             assert set(step.get('needs', [])) <= set(upstream)
             spec = step['implementation']['step_graph']
             flow = execute(spec['flow'], mapped(spec['input']['fields']), step['id'])
+            child = compiled['workflow'].get('child_workflows', {}).get(step['id'])
+            if child and nodes[step['id']+'__'+spec['flow']['agent_id']]['config']['runner_module'] == 'MirrorNeuron.Runner.Wasmtime':
+                # Drive the compiled planner and declared child templates for this offline fixture.
+                # Core owns graph validation, retries and scheduling in production.
+                from wit_workflow_fixture import invoke_phase
+                seed = flow['result']
+                completed = []
+                for revision in range(child['max_rounds'] + 1):
+                    work = {'seed':seed, '_child':{'revision':revision,'results':completed}}
+                    plan = invoke_phase(nodes[child['planner']]['config'], work, environment, service=wit_service)['child_plan']
+                    assert plan['revision'] == revision
+                    if plan['decision'] == 'stop':
+                        flow = plan['output']
+                        break
+                    assert plan['decision']=='execute' and len(plan['steps']) <= child['max_steps_per_round']
+                    completed = [{'step_id':task['id'], 'output':invoke_phase(nodes[task['template']]['config'],
+                        task['input'], environment, service=wit_service)} for task in plan['steps']]
+                else:
+                    raise AssertionError('Child workflow exceeded its round budget')
             upstream[step['id']] = mapped(spec['output']['fields'], flow)
             if step['id'] == through_step:
                 payload = store.read(flow['result']) if isinstance(flow, dict) and 'result' in flow else flow

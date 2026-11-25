@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import hashlib
 import importlib
 import json
 from pathlib import Path
@@ -24,7 +25,7 @@ from mn_sdk.submission_preparation import (
 
 ROOT = Path(__file__).resolve().parents[1]
 BLUEPRINTS = json.loads((ROOT / "index.json").read_text())
-VERIFIER_FAMILY = {"code_verifier", "functional_verifier", "security_verifier", "compatibility_verifier", "reliability_verifier"}
+VERIFIER_FAMILY = {"software_verifier_suite", "functional_verifier", "security_verifier", "compatibility_verifier", "reliability_verifier"}
 SDK_DISTRIBUTIONS = {"mirrorneuron-python-sdk", *(spec.distribution for spec in SDK_COMPONENTS.values())}
 
 
@@ -36,13 +37,22 @@ def test_catalog_dependencies_use_gar_packages_and_keep_domain_skills(blueprint_
     assert dependencies["packages"]
     for group in ("packages", "skills"):
         for record in dependencies[group]:
+            assert (record["name"] in SDK_DISTRIBUTIONS) == (group == "packages")
+            if group == "skills" and record["type"] == "wit":
+                from mn_sdk_shared.dependencies.wit import wit_record
+                assert wit_record(record) == record
+                data = (root / "payloads" / record["path"]).read_bytes()
+                assert hashlib.sha256(data).hexdigest() == record["sha256"]
+                continue
+            if group == "skills" and record["type"] != "pip":
+                assert (record["type"], record["source"]) in {
+                    ("npm", "npmjs"),
+                    ("agent_skill", "github"),
+                }
+                continue
             assert record["type"] == "pip" and record["source"] == "gar"
             assert record["version"]
             assert not {"path", "format"} & record.keys()
-            if group == "packages":
-                assert record["name"] in SDK_DISTRIBUTIONS
-            else:
-                assert record["name"] not in SDK_DISTRIBUTIONS
     compiled = compile_blueprint(read_blueprint(root)).manifest
     assert compiled["packages"] == dependencies["packages"]
     assert component_requirements(compiled)
@@ -131,24 +141,26 @@ def test_catalog_preparation_stages_the_correct_dependency_mode(
             assert "mirrorneuron-docs-to-markdown-skill>=1.3.58.dev0,<2" in requirements
     python_workers = [n for n in prepared.get('agents', {}).get('nodes', [])
                       if n.get('config', {}).get('runner_module') in {'MirrorNeuron.Runner.DockerWorker', 'MirrorNeuron.Runner.HostLocal'}]
+    if blueprint_id in VERIFIER_FAMILY:
+        from mn_sdk.dependencies.wit import compose_wit_agents
+        workers = [n["config"] for n in prepared["agents"]["nodes"] if n.get("agent_type") == "executor"]
+        skills = {d["name"] for d in prepared["skill_dependencies"]}
+        assert skills == {"code_search_skill_wit", "comparison_evidence_skill_wit", "folder_files_skill_wit",
+                          "static_code_analysis_skill_wit", "verification_checks_skill_wit", "web_report_skill_wit"}
+        assert workers and all(w["runner_module"] == "MirrorNeuron.Runner.Wasmtime" and set(w["wit_skills"]) == skills for w in workers)
+        linked = compose_wit_agents(prepared, payloads, root)
+        assert len(linked) == 2
+        assert all(hashlib.sha256(payloads[w["wasm_component"]]).hexdigest() == Path(w["wasm_component"]).stem for w in workers)
     if not requirements:
         # Compose, host and OpenShell workers prepare dependencies outside the
         # ordinary Python Docker worker build context.
-        assert blueprint_id in VERIFIER_FAMILY | {'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'general_assistant', 'cctv_operator'}
+        assert blueprint_id in VERIFIER_FAMILY | {'gtm_planner', 'gtm_executor', 'mac_security_investigator', 'cctv_operator'}
         assert not any(n.get('config', {}).get('runner_module') == 'MirrorNeuron.Runner.DockerWorker' for n in python_workers)
         if local:
             sources = prepared['metadata']['mn_local_skill_dependencies']['sources']
             assert any(r['package'] == 'mirrorneuron-python-sdk' for r in sources)
             assert all(any(r['package'] == component.distribution for r in sources)
                        for component in component_requirements(prepared))
-            if blueprint_id in VERIFIER_FAMILY:
-                assert {'mirrorneuron-verification-checks-skill', 'mirrorneuron-web-report-skill'} <= {
-                    row['package'] for row in sources
-                }
-            if blueprint_id == 'code_verifier':
-                assert {'mirrorneuron-code-search-skill', 'mirrorneuron-static-code-analysis-skill'} <= {
-                    r['package'] for r in sources
-                }
             if needs_context:
                 assert any(r['package'] == 'mirrorneuron-membrane-python-sdk'
                            and r['extras'] == '[grpc]' for r in sources)

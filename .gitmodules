@@ -3,7 +3,7 @@
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-cctv_operator.git
 	branch = main
 [submodule "code_verifier"]
-	path = code_verifier
+	path = software_verifier_suite
 	url = https://github.com/MirrorNeuronLab/mn-blueprint-code_verifier.git
 	branch = main
 [submodule "ct_reader"]

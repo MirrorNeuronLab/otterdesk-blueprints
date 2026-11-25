@@ -199,8 +199,11 @@ def test_capture_uses_declared_staged_configuration_without_a_shadowing_empty_po
     captured = modules['artifacts'].read(context, 'capture.json')
     assert 'store.py' in captured['sources']
     compiled = compile_blueprint(read_blueprint(PACKAGE)).manifest
-    source_block = compiled['metadata']['mn_blocks_lock']['steps']['capture_software_sources']
-    assert source_block['inputs'] == {'verification_scope': {'$ref': 'run_input', 'path': ['verification_scope']}}
+    step = next(s for s in compiled['workflow']['steps'] if s['id'] == 'capture_software_sources')
+    fields = step['implementation']['step_graph']['input']['fields']
+    for key in ('verification_scope', 'assurance_evidence_sha256', 'assurance_basis_sha256'):
+        assert fields[key] == {'$ref':'upstream','step_id':'admit_verification_scope','path':['result',key]}
+    assert 'input_folder' not in fields
 
 
 def test_policy_change_cannot_reuse_an_old_verified_result(modules, context, authority):

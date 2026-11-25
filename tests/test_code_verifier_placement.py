@@ -11,8 +11,8 @@ def runtime_node(name, memory, *, local):
     return {
         "name": name, "status": "healthy", "self": local, "scheduling_eligible": True,
         "coordination_store": {"identity": "test-cluster", "healthy": True, "writable_primary": True},
-        "devices": [{"id": f"{name}-gpu", "kind": "gpu", "type": "integrated_gpu" if local else "gpu",
-                     "vendor": "apple" if local else "nvidia", "memory_total_mb": memory,
+        "devices": [{"id": f"{name}-gpu", "kind": "gpu", "type": "integrated_gpu" if local else "nvidia/gpu",
+                     "vendor": "apple" if local else "nvidia", "driver": "metal" if local else "cuda", "memory_total_mb": memory,
                      "memory_free_mb": memory}],
         "hardware": {
             "cpu": {"logical_processors": 16}, "memory": {"total_mb": memory},
@@ -20,30 +20,38 @@ def runtime_node(name, memory, *, local):
             "gpu": {"available": True, "count": 1, "vendor": "apple" if local else "nvidia",
                     "memory_total_mb": memory, "memory_free_mb": memory},
             "native_sdk_grpc": {"enabled": True, "target": f"{name}:55052",
-                                "capabilities": ["exclusive_run_v1"]},
+                                "capabilities": ["resource_admission_v2", "docker_worker_prepare_v1", "docker_compose_prepare_v1"]},
         },
     }
 
 
-@pytest.mark.parametrize("spark_available", [True, False])
-def test_code_verifier_requires_large_accelerator_before_placement(tmp_path, monkeypatch, spark_available):
+@pytest.mark.parametrize("name,specialized", [("software_verifier_suite", False), ("cctv_operator", True)])
+def test_owner_placement_uses_the_coworkers_declared_model(tmp_path, monkeypatch, name, specialized):
     monkeypatch.setenv("MN_HOME", str(tmp_path / "mn"))
-    package = read_blueprint(Path(__file__).resolve().parents[1] / "code_verifier")
-    manifest = deepcopy(compile_blueprint(package).manifest)
-    assert manifest["requirements"]["gpu"]["min_memory_mb"] == 48 * 1024
-    nodes = [runtime_node("mini", 24 * 1024, local=True)]
-    if spark_available:
-        nodes.append(runtime_node("spark", 128 * 1024, local=False))
-    options = {"resource_report": {"nodes": nodes}, "system_summary": {"nodes": nodes}, "env": {}}
+    package = read_blueprint(Path(__file__).resolve().parents[1] / name)
+    compiled = compile_blueprint(package).manifest
+    model = package.manifest["model_requirement"]
+    profile = compiled["policies"]["resource_allocation"]
+    assert compiled["metadata"]["model_requirement"] == model
+    assert profile["mode"] == "shared"
+    small = runtime_node("mini", 24 * 1024, local=True)
+    large = runtime_node("spark", 128 * 1024, local=False)
 
-    if not spark_available:
+    def place(nodes):
+        return resolve_and_apply_workflow_placement(
+            deepcopy(compiled), resource_report={"nodes": nodes}, system_summary={"nodes": nodes}, env={}
+        )
+
+    if specialized:
+        assert model == {"model": "nvidia/Cosmos3-Edge", "gpu_memory_mb": 49152}
+        assert profile["devices"][0]["reservation_memory_mb"] == model["gpu_memory_mb"]
+        assert place([small, large])["selected_node"] == "spark"
         with pytest.raises(RuntimeError, match="gpu_memory"):
-            resolve_and_apply_workflow_placement(manifest, **options)
-        return
-
-    placement = resolve_and_apply_workflow_placement(manifest, **options)
-    assert placement["selected_node"] == "spark"
-    assert placement["requirements"]["min_gpu_memory_mb"] == 48 * 1024
-    for worker in manifest["agents"]["nodes"]:
-        assert any(constraint.get("attribute") == "node.name" and constraint.get("value") == "spark"
-                   for constraint in worker["constraints"])
+            place([small])
+    else:
+        assert model == {"model": "default"}
+        assert profile["shared_default_model"] and not profile.get("devices")
+        assert place([small])["selected_node"] == "mini"
+        small.pop("devices")
+        small["hardware"].pop("gpu")
+        assert place([small])["selected_node"] == "mini"

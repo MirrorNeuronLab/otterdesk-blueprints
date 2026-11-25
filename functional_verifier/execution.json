@@ -23,25 +23,133 @@
     }
   },
   "agents": {
-    "registry": {}
+    "registry": {
+      "admit_scope": {
+        "role": "Verification scope admission",
+        "wit": "admit"
+      },
+      "run_capture_subject": {
+        "role": "Capture source and plan",
+        "wit": "specialist-capture"
+      },
+      "run_evaluate_checks": {
+        "role": "Perform verification",
+        "wit": "specialist-evaluate"
+      },
+      "run_publish_report": {
+        "role": "Publish verification report",
+        "wit": "specialist-publish"
+      }
+    }
   },
   "defaults": {
     "worker": {
-      "uses": "mn-agents.worker.python_host@1",
+      "uses": "mn-agents.worker.wasmtime@1",
       "with": {
         "stereotype": [
-          "blueprint_host_worker",
-          "internal_write_worker"
+          "component_worker"
         ],
-        "upload_paths": [
-          {
-            "source": "domain",
-            "target": "domain"
+        "wasm_component": "wasm/verifier-phases.wasm",
+        "wit_skills": [
+          "code_search_skill_wit",
+          "comparison_evidence_skill_wit",
+          "folder_files_skill_wit",
+          "static_code_analysis_skill_wit",
+          "verification_checks_skill_wit",
+          "web_report_skill_wit"
+        ]
+      }
+    }
+  },
+  "workers": {
+    "by_step": {
+      "admit_verification_scope": {
+        "with": {
+          "wasm_component": "wasm/verifier.wasm"
+        }
+      },
+      "capture_subject": {
+        "with": {
+          "wasm_capabilities": [
+            "artifacts.read",
+            "artifacts.commit",
+            "mailbox.list",
+            "mailbox.attachment"
+          ],
+          "wasm_config": {
+            "role": "functional",
+            "extensions": [
+              ".c",
+              ".cc",
+              ".cfg",
+              ".cjs",
+              ".cpp",
+              ".cs",
+              ".css",
+              ".cts",
+              ".cxx",
+              ".go",
+              ".h",
+              ".hh",
+              ".hpp",
+              ".html",
+              ".hxx",
+              ".ini",
+              ".java",
+              ".js",
+              ".json",
+              ".jsx",
+              ".kt",
+              ".kts",
+              ".md",
+              ".mjs",
+              ".mts",
+              ".php",
+              ".py",
+              ".pyi",
+              ".rb",
+              ".rs",
+              ".rst",
+              ".sh",
+              ".sql",
+              ".swift",
+              ".toml",
+              ".ts",
+              ".tsx",
+              ".txt",
+              ".yaml",
+              ".yml"
+            ]
+          },
+          "wasm_inputs": "runtime/mn_local_inputs",
+          "wasm_optional_inputs": true
+        }
+      },
+      "evaluate_checks": {
+        "with": {
+          "wasm_capabilities": [
+            "artifacts.read",
+            "artifacts.commit"
+          ],
+          "wasm_config": {
+            "role": "functional"
           }
-        ],
-        "upload_path": "domain",
-        "upload_as": "domain",
-        "workdir": "/sandbox/job"
+        }
+      },
+      "publish_report": {
+        "with": {
+          "wasm_capabilities": [
+            "artifacts.read",
+            "artifacts.commit",
+            "artifacts.static-report",
+            "artifacts.publish",
+            "mailbox.send",
+            "mailbox.acknowledge"
+          ],
+          "wasm_config": {
+            "role": "functional"
+          }
+        }
       }
     }
   }

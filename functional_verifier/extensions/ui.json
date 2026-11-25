@@ -7,7 +7,7 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Trace requirements from analysis documents to generated tests, check behavior on both revisions, and identify weakened or missing assertions. Join Software verifier for assignments, choose a standalone source folder, or try the sample.",
+    "introduction": "Trace approved requirements to observable outcomes and report which user workflows met their promises. Join Software verifier suite or select a standalone source folder.",
     "sample": {
       "available": true,
       "title": "Sample verification",
@@ -107,6 +107,14 @@
         "default": "",
         "description": "Select only when the scope uses independently pinned execution records.",
         "requiredModes": []
+      },
+      {
+        "path": "inputs.payload.assurance_evidence_sha256",
+        "label": "Case evidence SHA-256",
+        "type": "text",
+        "required": false,
+        "default": "",
+        "description": "Optional digest of the recorded workflow, service, access and test-control evidence."
       },
       {
         "path": "inputs.payload.goal_id",

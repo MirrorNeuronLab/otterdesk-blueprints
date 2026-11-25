@@ -7,7 +7,7 @@
   ],
   "setup_guide": {
     "schema": "otterdesk.setup_guide.v1",
-    "introduction": "Review permission changes, credential handling, dependencies and privileged workflows with evidence of source context and remaining exposure. Join Software verifier for assignments, choose a standalone source folder, or try the sample.",
+    "introduction": "Compare recorded access decisions with approved policy by actor, action and resource. Surface static guard findings separately. Join Software verifier suite or select a standalone source folder.",
     "sample": {
       "available": true,
       "title": "Sample verification",
@@ -107,6 +107,14 @@
         "default": "",
         "description": "Select only when the scope uses independently pinned execution records.",
         "requiredModes": []
+      },
+      {
+        "path": "inputs.payload.assurance_evidence_sha256",
+        "label": "Case evidence SHA-256",
+        "type": "text",
+        "required": false,
+        "default": "",
+        "description": "Optional digest of the recorded workflow, service, access and test-control evidence."
       },
       {
         "path": "inputs.payload.goal_id",

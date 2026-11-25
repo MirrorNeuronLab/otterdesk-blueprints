@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Review permission changes, credential handling, dependencies and privileged workflows with evidence of source context and remaining exposure.",
+  "summary": "Compare recorded access decisions with approved policy by actor, action and resource. Surface static guard findings separately.",
   "inputs": {
     "input_folder": {
       "type": "local_path",
@@ -41,6 +41,12 @@
       "type": "array",
       "required": false,
       "description": "Group members for co-worker collaboration."
+    },
+    "assurance_evidence_sha256": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "SHA-256 of the independent case ledger in the runner evidence folder."
     }
   },
   "outputs": {

@@ -3,8 +3,8 @@ from mcp_contract_support import BlueprintMcpHarness
 
 
 def test_code_verifier_shared_mcp(tmp_path):
-    BlueprintMcpHarness('code_verifier', tmp_path).assert_shared_contract()
+    BlueprintMcpHarness('software_verifier_suite', tmp_path).assert_shared_contract()
 
 
 def test_code_verifier_run_controls(tmp_path):
-    BlueprintMcpHarness('code_verifier', tmp_path).assert_lifecycle()
+    BlueprintMcpHarness('software_verifier_suite', tmp_path).assert_lifecycle()

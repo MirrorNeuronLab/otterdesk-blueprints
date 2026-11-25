@@ -7,7 +7,8 @@
       "goal_id": "software-verification",
       "common_goal": "",
       "collaboration_group_id": "",
-      "collaboration_peers": []
+      "collaboration_peers": [],
+      "assurance_evidence_sha256": ""
     }
   },
   "outputs": {

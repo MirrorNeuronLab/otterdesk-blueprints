@@ -1,0 +1,6 @@
+package otterdesk:software-verification@1.0.0;
+
+world phases {
+    include verifier;
+    include mirror-neuron:run/worker@1.0.0;
+}

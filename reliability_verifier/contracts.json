@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Compare recovery and stateful behavior with controlled fixtures, repeated observations and workload resource budgets.",
+  "summary": "Review test oracles, measured line coverage and independent mutation controls to show which defects the tests can detect.",
   "inputs": {
     "input_folder": {
       "type": "local_path",
@@ -41,6 +41,12 @@
       "type": "array",
       "required": false,
       "description": "Group members for co-worker collaboration."
+    },
+    "assurance_evidence_sha256": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "SHA-256 of the independent case ledger in the runner evidence folder."
     }
   },
   "outputs": {

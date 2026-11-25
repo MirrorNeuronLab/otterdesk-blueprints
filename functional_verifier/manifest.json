@@ -2,10 +2,10 @@
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/manifest.schema.json",
   "id": "functional_verifier",
   "name": "Functional verifier",
-  "tagline": "Check behavior and test quality",
-  "version": "1.2.0",
+  "tagline": "Verify promised behavior",
+  "version": "1.3.0",
   "payload_api": "mn.blueprint.v1",
-  "description": "Trace requirements from analysis documents to generated tests, check behavior on both revisions, and identify weakened or missing assertions.",
+  "description": "Trace approved requirements to observable outcomes and report which user workflows met their promises.",
   "workflow": "workflow.json",
   "execution": "execution.json",
   "contracts": "contracts.json",
@@ -14,10 +14,6 @@
   "license": "LICENSE.md",
   "terms": "TERM.md",
   "extensions": {
-    "mn.blocks": {
-      "file": "extensions/blocks.json",
-      "required": true
-    },
     "mn.product": {
       "file": "extensions/product.json",
       "required": false

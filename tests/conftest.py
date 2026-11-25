@@ -69,3 +69,27 @@ def text_memory_transport(monkeypatch):
     monkeypatch.setattr("mn_sdk.context_session.session.runtime_client", service.client)
     monkeypatch.setattr("mn_sdk.source_query.runtime_client", service.client)
     return service
+
+@pytest.fixture(scope="session")
+def verifier_component_environment(tmp_path_factory):
+    """Stage the real component closure for tests that enter a domain hook directly."""
+    from functools import lru_cache
+    from mn_sdk.blueprints import compile_blueprint, read_blueprint
+    from mn_sdk.dependencies.wit import compose_wit_agents
+
+    @lru_cache
+    def stage(name):
+        package = read_blueprint(Path(__file__).resolve().parents[1] / name)
+        manifest = compile_blueprint(package).manifest
+        payloads = {}
+        targets = compose_wit_agents(manifest, payloads, package.root)
+        assert len(targets) == 2
+        pure = next(node["config"]["wasm_component"] for node in manifest["agents"]["nodes"]
+                    if node.get("config", {}).get("wasm_config", {}).get("operation") == "admit")
+        bundle = tmp_path_factory.mktemp("verifier-wasi")
+        path = bundle / pure
+        path.parent.mkdir(parents=True)
+        path.write_bytes(payloads[pure])
+        return {"MN_BUNDLE_ROOT": str(bundle), "MN_WASM_COMPONENT": pure}
+
+    return stage

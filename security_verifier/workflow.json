@@ -9,14 +9,79 @@
   },
   "steps": [
     {
+      "id": "admit_verification_scope",
+      "kind": "source",
+      "label": "Admit verification scope",
+      "goal": "Validate the bounded verification request and its pinned evidence before intake.",
+      "needs": [],
+      "run": {
+        "definition": "mn_sdk.integrations.wit_step",
+        "with": {
+          "agent_id": "admit_scope",
+          "fields": {
+            "verification_scope": {
+              "$ref": "run_input",
+              "path": [
+                "verification_scope"
+              ]
+            },
+            "assurance_evidence_sha256": {
+              "$ref": "run_input",
+              "path": [
+                "assurance_evidence_sha256"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
       "id": "capture_subject",
       "kind": "source",
       "label": "Capture source and plan",
       "goal": "Freeze the selected source, scope and applicable criteria.",
-      "needs": [],
+      "needs": [
+        "admit_verification_scope"
+      ],
       "control": {
         "retry": {
           "max_attempts": 2
+        }
+      },
+      "run": {
+        "definition": "mn_sdk.integrations.wit_step",
+        "with": {
+          "agent_id": "run_capture_subject",
+          "fields": {
+            "verification_scope": {
+              "$ref": "upstream",
+              "step_id": "admit_verification_scope",
+              "path": [
+                "result",
+                "verification_scope"
+              ]
+            },
+            "assurance_evidence_sha256": {
+              "$ref": "upstream",
+              "step_id": "admit_verification_scope",
+              "path": [
+                "result",
+                "assurance_evidence_sha256"
+              ]
+            },
+            "collaboration_group_id": {
+              "$ref": "run_input",
+              "path": [
+                "collaboration_group_id"
+              ]
+            },
+            "collaboration_peers": {
+              "$ref": "run_input",
+              "path": [
+                "collaboration_peers"
+              ]
+            }
+          }
         }
       }
     },
@@ -32,6 +97,21 @@
         "retry": {
           "max_attempts": 2
         }
+      },
+      "run": {
+        "definition": "mn_sdk.integrations.wit_step",
+        "with": {
+          "agent_id": "run_evaluate_checks",
+          "fields": {
+            "previous": {
+              "$ref": "upstream",
+              "step_id": "capture_subject",
+              "path": [
+                "result"
+              ]
+            }
+          }
+        }
       }
     },
     {
@@ -45,6 +125,21 @@
       "control": {
         "retry": {
           "max_attempts": 2
+        }
+      },
+      "run": {
+        "definition": "mn_sdk.integrations.wit_step",
+        "with": {
+          "agent_id": "run_publish_report",
+          "fields": {
+            "report": {
+              "$ref": "upstream",
+              "step_id": "evaluate_checks",
+              "path": [
+                "result"
+              ]
+            }
+          }
         }
       }
     }

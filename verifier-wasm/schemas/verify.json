@@ -1,0 +1,239 @@
+{
+  "type": "object",
+  "properties": {
+    "decision": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "finish"
+              ]
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "pass",
+                "fail"
+              ]
+            },
+            "confidence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "explanation": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 6000
+            },
+            "recommended_check": {
+              "type": "string",
+              "maxLength": 800
+            },
+            "evidence_ids": {
+              "type": "array",
+              "maxItems": 12,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "assessment": {
+              "type": "object",
+              "properties": {
+                "support": {
+                  "type": "string",
+                  "enum": [
+                    "unresolved",
+                    "supported",
+                    "contradicted"
+                  ]
+                },
+                "scope_matches": {
+                  "type": "boolean"
+                },
+                "conditions_checked": {
+                  "type": "boolean"
+                },
+                "requirement_kind": {
+                  "type": "string",
+                  "enum": [
+                    "behavior",
+                    "configuration",
+                    "source_structure"
+                  ]
+                },
+                "enforcement_evidence_ids": {
+                  "type": "array",
+                  "maxItems": 12,
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "missing_evidence": {
+                  "type": "string",
+                  "maxLength": 2000
+                },
+                "reason_code": {
+                  "type": "string",
+                  "enum": [
+                    "insufficient_evidence",
+                    "parser_gap",
+                    "capture_gap",
+                    "ambiguous_rule",
+                    "runtime_evidence_required"
+                  ]
+                }
+              },
+              "required": [
+                "support",
+                "scope_matches",
+                "conditions_checked",
+                "requirement_kind",
+                "enforcement_evidence_ids",
+                "missing_evidence",
+                "reason_code"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "action",
+            "status",
+            "confidence",
+            "explanation",
+            "recommended_check",
+            "evidence_ids",
+            "assessment"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "search"
+              ]
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "rank"
+              ]
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "symbols"
+              ]
+            },
+            "query": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "action",
+            "query"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "trace"
+              ]
+            },
+            "symbol": {
+              "type": "string",
+              "minLength": 1
+            },
+            "depth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3
+            }
+          },
+          "required": [
+            "action",
+            "symbol",
+            "depth"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "read"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "start_line": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "end_line": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "action",
+            "path",
+            "start_line",
+            "end_line"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  },
+  "required": [
+    "decision"
+  ],
+  "additionalProperties": false
+}

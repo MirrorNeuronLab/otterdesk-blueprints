@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Compare public exports, command entry points and protected customer-facing contracts across revisions.",
+  "summary": "Compare cross-service journeys across captured revisions and identify the first stage that diverged.",
   "inputs": {
     "input_folder": {
       "type": "local_path",
@@ -41,6 +41,12 @@
       "type": "array",
       "required": false,
       "description": "Group members for co-worker collaboration."
+    },
+    "assurance_evidence_sha256": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "SHA-256 of the independent case ledger in the runner evidence folder."
     }
   },
   "outputs": {

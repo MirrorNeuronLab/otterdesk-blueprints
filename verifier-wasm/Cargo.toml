@@ -1,0 +1,15 @@
+[package]
+name = "software-verifier-worker"
+version = "1.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+wit-bindgen = "0.63"
+serde_json = "1"
+sha2 = "0.10"
+
+[profile.release]
+lto = true
+opt-level = "s"
+strip = "debuginfo"

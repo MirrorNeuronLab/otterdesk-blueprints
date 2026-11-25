@@ -5,14 +5,14 @@
     "agent_role": "Security verifier",
     "input": "A local source folder, an optional verification scope, and pinned runner evidence when required.",
     "output": "An evidence-backed verdict with developer findings in Markdown, JSON and a local web report.",
-    "how_it_works": "Review permission changes, credential handling, dependencies and privileged workflows with evidence of source context and remaining exposure.",
+    "how_it_works": "Compare recorded access decisions with approved policy by actor, action and resource. Surface static guard findings separately.",
     "collaboration": {
       "schema": "mn.collaboration.group.v1",
       "topology": "group",
       "protocol": "software-verification.v1",
       "goalId": "software-verification",
       "accepts": [
-        "code_verifier",
+        "software_verifier_suite",
         "functional_verifier",
         "compatibility_verifier",
         "reliability_verifier"
@@ -23,7 +23,7 @@
       "peersKey": "inputs.payload.collaboration_peers",
       "maxMembers": 5,
       "sameRuntime": false,
-      "managerBlueprintId": "code_verifier",
+      "managerBlueprintId": "software_verifier_suite",
       "delivery": "mailbox"
     }
   }

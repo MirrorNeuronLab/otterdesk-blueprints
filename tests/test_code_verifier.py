@@ -4,6 +4,7 @@ from copy import deepcopy
 import importlib
 import json
 import math
+import os
 import shutil
 from mn_blueprint_blocks.context import BlockContext
 from mn_sdk_common.committed_artifacts import CommittedJsonStore
@@ -14,7 +15,7 @@ import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE = ROOT / 'code_verifier'
+PACKAGE = ROOT / 'software_verifier_suite'
 IMPLEMENTATION = 'def save(name, password, store):\n    if not name:\n        raise ValueError("name required")\n    store.write(password)\n'
 
 
@@ -26,7 +27,7 @@ def modules():
 
 
 @pytest.fixture
-def context(tmp_path, monkeypatch):
+def context(tmp_path, monkeypatch, verifier_component_environment):
     source = tmp_path / 'repository'
     source.mkdir()
     (source / 'SPEC.md').write_text('The software must reject an empty name.\nThe software must not save plaintext passwords.\n')
@@ -37,6 +38,8 @@ def context(tmp_path, monkeypatch):
     config = json.loads((PACKAGE / 'config/default.json').read_text())
     monkeypatch.setenv("MN_JOB_DATA_DIR", str(job))
     monkeypatch.setenv("MN_JOB_OUTPUT_DIR", str(tmp_path / "outputs"))
+    for key, value in verifier_component_environment("software_verifier_suite").items():
+        monkeypatch.setenv(key, value)
     return BlockContext(store=CommittedJsonStore(tmp_path / "run"),
         invocation_id="code-review", revision="test-v3", config=config,
         job_id="job-1", run_id="run-1", resources={"inputs": {"input_folder": str(source)},
@@ -266,17 +269,23 @@ def test_initial_source_folder_is_required_and_has_no_suggested_path():
     from mn_sdk.blueprints import catalog_record, read_blueprint
 
     package = read_blueprint(PACKAGE)
-    definition = catalog_record(package, 'code_verifier')
+    definition = catalog_record(package, 'software_verifier_suite')
     field = definition['init_config_review']['fields'][0]
     assert field['path'] == 'inputs.payload.input_folder'
-    assert field['required'] is True and field['default'] == ''
+    assert (field['type'], field['path_kind'], field['role'], field['default']) == ('local_path', 'directory', 'input', '')
+    fields = definition['init_config_review']['fields']
+    assert [f['path'] for f in fields if f.get('required', True)] == [field['path']]
+    evidence = next(f for f in fields if f['path'] == 'inputs.payload.evidence_folder')
+    assert evidence['requiredModes'] == []
+    assert next(f['default'] for f in fields if f['path'] == 'review.rules_mode') == 'augment'
     sample = definition['setup_guide']['sample']
-    assert sample['available'] and sample['values'][field['path']] == '@/examples/sample_inputs'
+    assert sample['available'] and sample['values'][field['path']] == '@/examples/dispatch_review/comparison'
     assert sample['values']['review.rules_mode'] == 'augment'
     checks = json.loads(sample['values']['inputs.payload.verification_scope'])['checks']
-    assert {c['kind'] for c in checks} == {'schema_cases', 'json_contract', 'schema_workload'}
-    assert (PACKAGE / sample['values'][field['path']][2:] / 'SPEC.md').is_file()
+    assert {c['kind'] for c in checks} == {'schema_cases', 'json_contract', 'schema_workload', 'execution_record'}
+    assert (PACKAGE / sample['values'][field['path']][2:] / 'head' / 'SPEC.md').is_file()
     assert definition['setup_guide']['real']['values'][field['path']] == ''
+    assert definition['setup_guide']['real']['values']['inputs.payload.verification_scope'] == ''
     assert package.document('config')['inputs']['payload']['input_folder'] == ''
     spec_field = next(item for item in definition['init_config_review']['fields'] if item['path'] == 'review.spec_paths')
     assert spec_field['type'] == 'textarea' and not spec_field['required']
@@ -1115,7 +1124,7 @@ def test_catalog_compiles_and_boundary_contracts():
     assert definition['mcp']['profile'] == 'mn.mcp.supervision.v1'
     assert definition['metadata']['web_ui']['adapter'] == 'static_html'
     compiled = compile_blueprint(package).manifest
-    assert len(compiled['workflow']['steps']) == 6
+    assert len(compiled['workflow']['steps']) == 7
     steps = {s['id']: s for s in definition['workflow']['steps']}
     assert steps['review_software_rules']['needs'] == ['extract_software_rules']
     assert steps['verify_software_rules']['needs'] == ['review_software_rules']
@@ -1124,6 +1133,9 @@ def test_catalog_compiles_and_boundary_contracts():
     registry = definition['agents']['registry']
     assert set(registry).isdisjoint(s['id'] for s in definition['workflow']['steps'])
     for ident in registry:
+        if registry[ident].get('handler') == 'mn_sdk.integrations.wit_step':
+            assert (PACKAGE / 'payloads/wasm/verifier.wasm').read_bytes().startswith(b'\0asm\x0d\0\x01\0')
+            continue
         assert (PACKAGE / f'payloads/agents/{ident}.py').is_file()
     for path in (PACKAGE / 'payloads').rglob('*.py'):
         tree = ast.parse(path.read_text())
@@ -1207,9 +1219,9 @@ def test_activity_compilation_has_no_hidden_phase_block_or_runner_deadlines():
     compiled = compile_blueprint(read_blueprint(PACKAGE)).manifest
     assert compiled['workflow']['execution']['supervision'] == 'activity'
     assert all('timeout_seconds' not in step['control'] for step in compiled['workflow']['steps'])
-    assert all('timeout_seconds' not in block['limits'] for block in compiled['metadata']['mn_blocks_lock']['steps'].values())
+    assert all('command' not in n['config'] for n in compiled['agents']['nodes'] if n.get('agent_type') == 'executor')
     workers = [node for node in compiled['agents']['nodes'] if node.get('agent_type') == 'executor']
-    assert len(workers) == 6 + len(compiled['workflow']['child_workflows']['coordinate_verification']['templates'])
+    assert len(workers) == 7 + len(compiled['workflow']['child_workflows']['coordinate_verification']['templates'])
     assert all('timeout_seconds' not in node['config'] for node in workers)
     assert all(node['config']['agent_beacon_required'] for node in workers)
 
@@ -1229,9 +1241,13 @@ def test_report_rejects_missing_rule_and_changed_capture(modules, context):
 
 
 def test_registry_handlers_resolve_to_callables(modules):
+    from mn_sdk.blueprints import compile_blueprint, read_blueprint
     execution = json.loads((PACKAGE / 'execution.json').read_text())
     for spec in execution['agents']['registry'].values():
-        assert callable(importlib.import_module(spec['handler']).run)
+        if "wit" in spec:
+            assert spec["wit"] in {n["config"]["wasm_config"]["operation"] for n in compile_blueprint(read_blueprint(PACKAGE)).manifest["agents"]["nodes"] if "wasm_config" in n.get("config", {})}
+        else:
+            assert callable(importlib.import_module(spec['handler']).run)
 
 
 def prepare_rules(modules, context):
@@ -1556,6 +1572,52 @@ def workflow_comparison(source, tmp_path, rule_id, scenario):
     return folder
 
 
+def retained_block_manifest(package):
+    # These cases exercise the retained Python skills and their replay hooks.
+    # test_verifier_wit exercises the current Wasmtime workflow.
+    from mn_sdk.blueprints import blueprint_definition
+    from mn_sdk.workflows.manifests import expand_manifest_source
+    from dataclasses import replace
+    from hashlib import sha256
+    from mn_sdk_shared.blueprints.models import BlueprintDocument
+    from mn_sdk_shared.blueprints.runner_bindings import lower_execution_bindings
+
+    path = "extensions/blocks.json"
+    blocks = BlueprintDocument("mn.blocks", path, (PACKAGE / path).read_text())
+    package = replace(package, documents=(*package.documents, blocks),
+                      fingerprint=sha256((package.fingerprint + blocks.json).encode()).hexdigest())
+    source = blueprint_definition(package)
+    declaration = package.extension("mn.blocks")
+    source["packages"].append({
+        "type": "pip", "source": "gar", "name": "mn-blueprint-blocks", "version": ">=1.0,<2",
+    })
+    source["agents"]["registry"] = {"admit_scope": source["agents"]["registry"]["admit_scope"]}
+    source["defaults"]["worker"] = {"uses": "mn-agents.worker.python_host@1", "with": {"stereotype": ["blueprint_host_worker"]}}
+    source["workers"] = {"by_step": {"admit_verification_scope": {
+        "uses": "mn-agents.worker.wasmtime@1", "with": {"stereotype": ["component_worker"], "wasm_component": "wasm/verifier.wasm"},
+    }}}
+    for step in source["workflow"]["steps"]:
+        if step["id"] in declaration["steps"]:
+            step.pop("run", None)
+    child = source["workflow"]["child_workflows"]["coordinate_verification"]
+    # The retained block runner schedules individual checks per round.
+    child["max_steps_per_round"] = 64
+    child["templates"][child["planner"]].pop("run", None)
+    for name, template in child["templates"].items():
+        if name == child["planner"]:
+            continue
+        inputs = {"type": "object", "required": ["packet", "assignment"]}
+        template["input_schema"] = inputs
+        template["run"] = {"block": {
+            "uses": "mn.blocks.domain_operation@1",
+            "hooks": {"operation": "domain.specialist_workflow:" + name},
+            "input_schema": inputs, "limits": {"max_calls": 1},
+        }}
+    # Only the reconstructed templates need their authored bindings lowered.
+    lower_execution_bindings({}, {"child_workflows": {"coordinate_verification": child}}, package.manifest)
+    return package, expand_manifest_source(source, root_dir=PACKAGE)
+
+
 @pytest.mark.parametrize("scenario", ["narrow", "all-pass", "product-failure", "missing-receipt", "lost-report", "ci-conflict", "weakened-test"])
 def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, context, authority, monkeypatch, tmp_path, scenario):
     from mn_sdk.blueprints import compile_blueprint, read_blueprint
@@ -1573,6 +1635,8 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
     if scenario != "narrow":
         values = package.extension('mn.ui')['setup_guide']['sample']['values']
         scope = json.loads(values['inputs.payload.verification_scope'])
+        # These scenarios use a different source revision from the dispatch fixture's pinned receipts.
+        scope['checks'] = [c for c in scope['checks'] if c['kind'] != 'execution_record']
         name_check = next(c for c in scope['checks'] if c['id'] == 'names')
         name_check['cases'].append({'id': 'empty-name', 'input': {'name': ''}, 'accept': False})
         name_check['rule_ids'] = [name_rule]
@@ -1586,7 +1650,7 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
             'cases': ['resume']})
     context.config['inputs']['payload']['verification_scope'] = json.dumps(scope)
     context.resources['inputs']['verification_scope'] = json.dumps(scope)
-    compiled = compile_blueprint(package).manifest
+    package, compiled = retained_block_manifest(package)
     descriptor = tmp_path / 'block-worker.json'
     descriptor.write_text(json.dumps(resolved_worker_descriptor(package, compiled)))
     for key, value in {'MN_JOB_ID': context.job_id, 'MN_JOB_DATA_DIR': context.resources['job_data_dir'],
@@ -1622,8 +1686,16 @@ def test_all_compiled_block_phases_preserve_approval_and_evidence(modules, conte
 
     for step in compiled['workflow']['steps']:
         ident = step['id']
+        if ident == 'admit_verification_scope':
+            from mn_sdk.blueprint.wasm import invoke_component
+            fields = {k: context.resources['inputs'].get(k) for k in ('verification_scope', 'assurance_evidence_sha256', 'assurance_basis_sha256')}
+            outputs[ident] = invoke_component('admit', fields)
+            continue
         model = models.get(ident)
-        inputs = {'previous': outputs[step['needs'][0]]} if step['needs'] else context.resources['inputs']
+        if ident == 'capture_software_sources':
+            inputs = {**context.resources['inputs'], **outputs['admit_verification_scope']}
+        else:
+            inputs = {'previous': outputs[step['needs'][0]]} if step['needs'] else context.resources['inputs']
         if ident == 'publish_rules_report':
             inputs['specialists'] = outputs['coordinate_verification']
         options = {'block_step_id': ident, 'revision': compiled['metadata']['mn_blocks_lock']['revision'],

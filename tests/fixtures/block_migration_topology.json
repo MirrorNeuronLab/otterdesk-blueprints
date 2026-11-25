@@ -109,7 +109,7 @@
     "collaboration": {},
     "native": {}
   },
-  "code_verifier": {
+  "software_verifier_suite": {
     "steps": [
       {
         "id": "capture_software_sources",

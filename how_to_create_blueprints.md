@@ -69,6 +69,15 @@ For a long-running Compose service, declare the Job as a service. A pause can re
 
 Declare required ports, storage, GPU and placement in the appropriate execution resources and policies. Compose and model work in the same admitted Run reuse its Job allocation. An auxiliary service should declare its own readiness and stop behavior only when it is required for the product.
 
+Declare the model a co-worker needs in its own `manifest.json`. Use
+`"model_requirement": {"model": "default"}` for the runtime's configured model.
+Co-workers using the same local default share its GPU memory. A co-worker that
+loads a specialized model declares its model ID and required memory per GPU in
+MiB. For example, the CCTV co-worker uses
+`"model_requirement": {"model": "nvidia/Cosmos3-Edge", "gpu_memory_mb": 49152}`.
+This deployment requires 48 GiB of GPU memory. Keep accelerator vendor and driver
+constraints in `execution.json`. A CPU-only co-worker can omit the model declaration.
+
 ## Implement domain hooks
 
 Keep implementation under `payloads/domain/` in small modules named for the work. A stock block supplies its context when it calls the hook. Use named imports from `mn_sdk.blueprint` capability modules. Compilation checks authored SDK imports against the v1 export list before loading step code.

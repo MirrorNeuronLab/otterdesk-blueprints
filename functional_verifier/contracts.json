@@ -1,6 +1,6 @@
 {
   "$schema": "https://mirrorneuron.io/schemas/blueprint/v1/contracts.schema.json",
-  "summary": "Trace requirements from analysis documents to generated tests, check behavior on both revisions, and identify weakened or missing assertions.",
+  "summary": "Trace approved requirements to observable outcomes and report which user workflows met their promises.",
   "inputs": {
     "input_folder": {
       "type": "local_path",
@@ -41,6 +41,12 @@
       "type": "array",
       "required": false,
       "description": "Group members for co-worker collaboration."
+    },
+    "assurance_evidence_sha256": {
+      "type": "string",
+      "required": false,
+      "privacy": "confidential",
+      "description": "SHA-256 of the independent case ledger in the runner evidence folder."
     }
   },
   "outputs": {

@@ -166,9 +166,13 @@ def test_review_binds_current_authored_and_payload_sources():
         for row in subjects:
             folder = package_root(row)
             for path in folder.rglob("*"):
+                relative_path = path.relative_to(root).as_posix()
                 if (
                     path.is_file()
-                    and path.suffix in {".py", ".md", ".json", ".js", ".css", ".html"}
+                    and (
+                        path.suffix in {".py", ".md", ".json", ".js", ".css", ".html", ".wasm"}
+                        or relative_path in expected
+                    )
                     and not {
                         "__pycache__",
                         ".venv",
@@ -178,7 +182,7 @@ def test_review_binds_current_authored_and_payload_sources():
                         "tests",
                     }.intersection(path.relative_to(folder).parts)
                 ):
-                    actual[str(path.relative_to(root))] = hashlib.sha256(
+                    actual[relative_path] = hashlib.sha256(
                         path.read_bytes()
                     ).hexdigest()
         assert actual == expected, f"{repository}: reviewed source coverage/hash drift"
