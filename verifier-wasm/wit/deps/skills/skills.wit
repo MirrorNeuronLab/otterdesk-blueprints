@@ -1,0 +1,58 @@
+package mirror-neuron:skills@1.0.0;
+
+interface folder-files {
+  record source { path: string, text: string }
+  record snapshot { files: list<source>, omitted: list<string> }
+  capture: async func(root: string, extensions: list<string>) -> result<snapshot, string>;
+}
+
+world folder-files-skill { export folder-files; }
+
+interface code-search {
+  record source { path: string, text: string }
+  record hit { path: string, line: u32, text: string }
+  identity: func(files: list<source>) -> result<string, string>;
+  search: func(files: list<source>, literal: string, limit: u32) -> result<list<hit>, string>;
+}
+
+world code-search-skill { export code-search; }
+
+interface static-code-analysis {
+  record diagnostic { line: u32, message: string }
+  record declaration { symbol: string, line: u32, first-line: u32, last-line: u32 }
+  python-declarations: func(source: string) -> result<list<declaration>, string>;
+  assertion-at: func(source: string, line: u32) -> result<bool, string>;
+  python-syntax: func(source: string) -> result<list<diagnostic>, string>;
+  python-check: func(kind: string, source: string) -> result<list<diagnostic>, string>;
+  python-callables: func(source: string) -> result<list<string>, string>;
+  compare-python: func(kind: string, baseline: string, candidate: string) -> result<list<diagnostic>, string>;
+  python-imports: func(source: string) -> result<list<string>, string>;
+}
+
+world static-code-analysis-skill { export static-code-analysis; }
+
+interface comparison-evidence {
+  assess: func(selected: string) -> result<string, string>;
+  verify-file: func(bytes: list<u8>, expected-sha256: string) -> result<_, string>;
+  compare: func(expected: string, baseline: option<string>, candidate: option<string>) -> result<string, string>;
+}
+
+world comparison-evidence-skill { export comparison-evidence; }
+
+interface web-report {
+  record rendered { markdown: string, html: string }
+  render: func(document: string) -> result<rendered, string>;
+}
+
+world web-report-skill { export web-report; }
+
+interface verification-checks {
+  inspect-metadata: func(path: string, source: string) -> result<string, string>;
+  strict-json: func(source: string) -> result<string, string>;
+  reconcile: func(signed-plan: string, records: string) -> result<string, string>;
+  json-contract: func(source: string, keys: string) -> result<bool, string>;
+  schema-cases: func(schema: string, cases: string) -> result<string, string>;
+  exercise-schema: func(schema: string, cases: string, acceptance: option<string>, controls: bool) -> result<string, string>;
+}
+
+world verification-checks-skill { export verification-checks; }
